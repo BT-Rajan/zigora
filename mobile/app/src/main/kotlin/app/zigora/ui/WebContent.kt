@@ -23,6 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -155,17 +157,30 @@ private fun goneQuietly(v: WebView): Boolean { (v.parent as? ViewGroup)?.removeV
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun DiagramScreen(url: String, close: () -> Unit) {
-    val ctx = LocalContext.current; val base = api().base
+    val ctx = LocalContext.current; val a = api(); val base = a.base
+    val key = "diagram:" + (Regex("""/topics/(\d+)/diagram""").find(url)?.groupValues?.get(1) ?: url)  // one kept copy per topic, for offline
+    var offline by remember { mutableStateOf(false) }
     val view = remember {
         WebView(ctx).apply {
             settings.javaScriptEnabled = true; settings.domStorageEnabled = false; settings.allowFileAccess = false; settings.allowContentAccess = false
             setBackgroundColor(android.graphics.Color.WHITE)
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = true  // the diagram never goes anywhere else
+                override fun shouldInterceptRequest(v: WebView, r: WebResourceRequest): android.webkit.WebResourceResponse? =  // a kept copy loads nothing from anywhere
+                    if (offline && !r.url.toString().startsWith("data:")) android.webkit.WebResourceResponse("text/plain", "utf-8", java.io.ByteArrayInputStream(ByteArray(0))) else null
                 override fun onRenderProcessGone(v: WebView, d: RenderProcessGoneDetail) = goneQuietly(v)
             }
-            loadUrl(base + url)
         }
+    }
+    LaunchedEffect(url) {
+        val html = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching { a.http.newCall(okhttp3.Request.Builder().url(base + url).build()).execute().use { r -> if (r.isSuccessful) r.body.string() else null } }.getOrNull() }
+        if (html != null) { a.keepText(key, html); view.loadUrl(base + url) }  // online: the server's page, with its own sandbox rules
+        else a.keptText(key)?.let { k ->
+            offline = true
+            val csp = "<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:\">"
+            view.loadDataWithBaseURL(null, k.replaceFirst(Regex("(?i)<head[^>]*>"), "$0$csp").let { if (it.contains(csp)) it else csp + it }, "text/html", "utf-8", null)
+        } ?: view.loadUrl(base + url)
     }
     DisposableEffect(Unit) { onDispose { view.destroy() } }
     androidx.compose.material3.Scaffold(topBar = {

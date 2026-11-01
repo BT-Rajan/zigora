@@ -20,8 +20,17 @@ class ApiError(message: String, val code: Int) : Exception(message)
 
 val json = Json { ignoreUnknownKeys = true; explicitNulls = false; coerceInputValues = true }
 
-/** The same API the web app uses. Every call carries the sign-in; a 401 signs the person out. */
-class Api(private val store: Store, private val onSignedOut: () -> Unit) {
+/** The same API the web app uses. Every call carries the sign-in; a 401 signs the person out.
+ *  What a student has read (a topic, its AI steps, translation, highlights, diagram, class questions, the course list, their questions) is kept
+ *  in [keep] and shown from there when the phone is offline, so nothing is asked of the server, or the AI, again. Signing out forgets it. */
+class Api(private val store: Store, private val keep: java.io.File? = null, private val onSignedOut: () -> Unit) {
+    constructor(store: Store, onSignedOut: () -> Unit) : this(store, null, onSignedOut)
+    /** true while screens show kept copies because the server can't be reached */
+    val offline = androidx.compose.runtime.mutableStateOf(false)
+    private fun keptFile(name: String) = keep?.let { java.io.File(it, java.security.MessageDigest.getInstance("SHA-1").digest(name.toByteArray()).joinToString("") { b -> "%02x".format(b) }) }
+    fun keepText(name: String, text: String) { runCatching { keptFile(name)?.let { it.parentFile?.mkdirs(); it.writeText(text) } } }
+    fun keptText(name: String): String? = runCatching { keptFile(name)?.takeIf { it.exists() }?.readText() }.getOrNull()
+    fun forget() { runCatching { keep?.deleteRecursively() }; offline.value = false }
     val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS).readTimeout(150, TimeUnit.SECONDS) // AI answers can take a while
         .build()
@@ -46,17 +55,21 @@ class Api(private val store: Store, private val onSignedOut: () -> Unit) {
         }
         val req = Request.Builder().url("$base/api$path").method(method, rb).header("Accept", "application/json")
             .apply { store.token?.let { header("Authorization", "Bearer $it") } }.build()
+        val readable = method == "GET" && KEEP.matches(path)
         val res = try { http.newCall(req).execute() } catch (e: IOException) {
+            if (readable) keptText(path)?.let { k -> runCatching { json.parseToJsonElement(k) }.getOrNull() }?.let { offline.value = true; return@withContext it }
             throw ApiError(I18n.str(app.zigora.R.string.err_offline), 0)
         }
         res.use {
             val text = it.body.string()
             val parsed = runCatching { json.parseToJsonElement(text) }.getOrNull()
             if (!it.isSuccessful) {
-                if (it.code == 401 && store.token != null && path != "/login") { store.signOut(); onSignedOut() }
+                if (it.code == 401 && store.token != null && path != "/login") { store.signOut(); forget(); onSignedOut() }
                 throw ApiError(I18n.srv(detail(parsed)).ifEmpty { I18n.t("Something went wrong") + " (${it.code})" }, it.code)
             }
-            parsed ?: throw ApiError(I18n.str(app.zigora.R.string.err_unexpected), it.code)
+            val out = parsed ?: throw ApiError(I18n.str(app.zigora.R.string.err_unexpected), it.code)
+            if (readable) { keepText(path, text); offline.value = false }
+            out
         }
     }
 
@@ -67,5 +80,8 @@ class Api(private val store: Store, private val onSignedOut: () -> Unit) {
         ((e as JsonObject)["detail"] as kotlinx.serialization.json.JsonArray)[0].jsonObject["msg"]!!.jsonPrimitive.content
     }.getOrNull()
 
-    private companion object { val JSON = "application/json".toMediaType() }
+    private companion object {
+        val JSON = "application/json".toMediaType()
+        val KEEP = Regex("""/(tree|ai/status|me/questions|questions/\d+|topics/\d+(/(ai/\w+|translation|highlights|diagram|class-questions))?)""")
+    }
 }

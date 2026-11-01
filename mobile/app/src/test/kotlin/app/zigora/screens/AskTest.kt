@@ -28,6 +28,9 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Test
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
@@ -56,10 +59,13 @@ class AskTest {
     }
 
     @Test fun aStudentAsksTheTeacherAndReadsTheAnswer() {
+        org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)  // so sending doesn't stop to ask
         signIn("stu@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
         tap("Hardness of Water"); see("The gist")
+        see("Questions from your class"); tap("Show the answer"); see("Heat splits the bicarbonate")
+        rule.onAllNodesWithText("Heat splits the bicarbonate", substring = true).onFirst().performScrollTo(); shot("0-class-questions")
         tap("Ask my teacher"); see("Your teacher sees your name")
         rule.onNode(hasSetTextAction()).performTextInput("How do we measure hardness in ppm?"); shot("1-ask")
         rule.onAllNodesWithText("Send to my teacher").onLast().performScrollTo().performClick(); rule.waitUntil(20_000) { rule.onAllNodesWithText("Your teacher sees your name", substring = true).fetchSemanticsNodes().isEmpty() }
@@ -68,6 +74,21 @@ class AskTest {
         see("Saved"); rule.onNode(hasText("Saved") and hasClickAction()).performClick(); tap("Questions")
         see("How do we measure hardness"); see("Waiting for your teacher"); shot("2-my-questions")
         tap("Heat splits the bicarbonate"); see("Why does only the bicarbonate"); see("Priya Raman"); shot("3-thread")
+    }
+
+    /** a topic read once opens again with the phone offline, AI steps and all, from what the app kept; nothing is asked again */
+    @Test fun aTopicReadOnceOpensOffline() {
+        signIn("stu@mail.com"); app.api = Api(app.store, java.io.File(app.filesDir, "read")) { app.signedOut.value++ }; var online by mutableStateOf(true)
+        rule.setContent { if (online) ZigoraRoot(null) {} }
+        see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
+        see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
+        tap("Hardness of Water"); see("The gist"); see("Hard water carries dissolved calcium")
+        online = false; rule.waitForIdle()
+        app.store.server = "http://127.0.0.1:9"  // nothing listens there: every request fails as it does with no network
+        online = true
+        rule.waitUntilAtLeastOneExists(hasText("Courses") and hasClickAction(), 20_000); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
+        see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
+        tap("Hardness of Water"); see("Offline. Showing what you read before."); see("Hard water carries dissolved calcium"); shot("5-offline-topic")
     }
 
     @Test fun aLiteStudentSeesTheProOffers() {

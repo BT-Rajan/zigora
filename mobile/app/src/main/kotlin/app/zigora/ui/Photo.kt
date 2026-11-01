@@ -69,7 +69,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 /** the photo as a JPEG of at most 1568 px, re-encoded so it carries no location or camera details */
-private suspend fun shrink(ctx: Context, uri: Uri): Pair<Bitmap, String> = withContext(Dispatchers.IO) {
+internal suspend fun shrink(ctx: Context, uri: Uri): Pair<Bitmap, String> = withContext(Dispatchers.IO) {
     val bmp = ImageDecoder.decodeBitmap(ImageDecoder.createSource(ctx.contentResolver, uri)) { d, info, _ ->
         val k = minOf(1f, 1568f / maxOf(info.size.width, info.size.height)); d.setTargetSize((info.size.width * k).toInt(), (info.size.height * k).toInt())
         d.allocator = ImageDecoder.ALLOCATOR_SOFTWARE

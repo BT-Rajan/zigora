@@ -144,6 +144,7 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
                 if (aiOn) Steps(id, student, t.diagram, openDiagram)
                 Body(t, me, aiOn, aiOff, known, openReader = { openReader(id) }, openMaterial = { openMaterial(t.course_id, t.course) })
                 if (student) OutlinedButton(onClick = { openMcq(id) }, modifier = Modifier.fillMaxWidth()) { Text(tl("MCQ practice on this topic")) }
+                ClassQuestionsList(id)
                 if (student && !asking) OutlinedButton(onClick = { asking = true }, modifier = Modifier.fillMaxWidth()) { Text(tl("Ask my teacher")) }
                 if (asking) AskTeacherBox(id) { sent -> asking = false; if (sent) scope.launch { snack.showSnackbar(tl("Sent. Your teacher's answer will be in My questions.")) } }  // the Per topic way in; the bank needs no AI
                 if (student && aiOn) {
