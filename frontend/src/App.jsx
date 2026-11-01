@@ -21,12 +21,16 @@ import {t as tl,L,LANGS,locale,applyLang,firstLang,loadLang,srv,getLang} from '.
 // their questions are kept in the browser (Cache Storage, cleared on sign-out) and shown from there when the network is gone. Nothing goes to the AI again.
 const READ_CACHE='zg-read',KEEP=/^\/(me|config|tree|ai\/status|me\/questions|questions\/\d+|topics\/\d+(\/(ai\/\w+|translation|highlights|diagram|class-questions))?)$/
 const offlineNote=on=>dispatchEvent(new CustomEvent('zg-offline',{detail:on}))
+let waiting=0;const slowNote=on=>{waiting=Math.max(0,waiting+(on?1:-1));dispatchEvent(new CustomEvent('zg-slow',{detail:waiting>0}))}
 const keep=(p,j)=>{try{caches.open(READ_CACHE).then(c=>c.put(new Request(ROOT+'/api'+p),new Response(JSON.stringify(j),{headers:{'Content-Type':'application/json'}}))).catch(()=>{})}catch{/* no Cache Storage (private mode): nothing kept */}}
 const kept=async p=>{try{const r=await caches.match(new Request(ROOT+'/api'+p),{cacheName:READ_CACHE});return r?await r.json():null}catch{return null}}
 const forgetKept=()=>{try{caches.delete(READ_CACHE);caches.delete('zg-frames')}catch{/* nothing kept */}}
 const api=async(p,o={})=>{const t=localStorage.t,read=!o.method&&KEEP.test(p.split('?')[0])
+  const slow=setTimeout(()=>slowNote(true),12000)  // a request still waiting after 12 s: say the connection may be slow
   let r;try{r=await fetch(ROOT+'/api'+p,{...o,headers:{'Content-Type':'application/json',...(t&&{Authorization:'Bearer '+t})},body:o.body&&JSON.stringify(o.body)})}
-  catch(e){const j=read&&await kept(p);if(j){offlineNote(true);return j}const x=new Error(navigator.onLine===false?tl("You're offline. Topics you have opened before still work."):e.message);x.offline=true;throw x}
+  catch{clearTimeout(slow);slowNote(false);const j=read&&await kept(p);if(j){offlineNote(true);return j}
+    const x=new Error(navigator.onLine===false?tl("You're offline. Topics you have opened before still work."):tl("Can't reach the server. Check your internet connection and try again."));x.offline=true;offlineNote('fail');throw x}
+  clearTimeout(slow);slowNote(false)
   const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(typeof j.detail==='string'?srv(j.detail):tl('Something went wrong'))
   if(read){keep(p,j);offlineNote(false)}return j}  // the server's messages are looked up like any other text
 const TEMPLATE=`program,semester,course,unit,topic,content,question_pattern,sample_content,guideline
@@ -121,9 +125,14 @@ export default function App(){
 
 // a thin line under the header while pages are being shown from what this browser kept
 function OfflineBar(){
-  const [on,setOn]=useState(false)
-  useEffect(()=>{const f=e=>setOn(!!e.detail),b=()=>setOn(false);addEventListener('zg-offline',f);addEventListener('online',b);return()=>{removeEventListener('zg-offline',f);removeEventListener('online',b)}},[])
-  return on?<div className="offbar" role="status">{tl("Offline. Showing what you read before.")}</div>:null}
+  const [on,setOn]=useState(false),[slow,setSlow]=useState(false),[gone,setGone]=useState(()=>navigator.onLine===false)
+  useEffect(()=>{const f=e=>{if(e.detail==='fail')setGone(true);else setOn(!!e.detail)},w=e=>setSlow(!!e.detail),b=()=>{setOn(false);setGone(false)},d=()=>setGone(true)
+    addEventListener('zg-offline',f);addEventListener('zg-slow',w);addEventListener('online',b);addEventListener('offline',d)
+    return()=>{removeEventListener('zg-offline',f);removeEventListener('zg-slow',w);removeEventListener('online',b);removeEventListener('offline',d)}},[])
+  useEffect(()=>{if(!gone||navigator.onLine===false)return;const h=setTimeout(()=>setGone(false),8000);return()=>clearTimeout(h)},[gone])  // a failed request: the note fades unless the device says it is offline
+  return on?<div className="offbar" role="status">{tl("Offline. Showing what you read before.")}</div>
+    :gone?<div className="offbar" role="alert">{tl("No connection. Practice, quizzes and new AI answers need the internet; topics you have opened before still work.")}</div>
+    :slow?<div className="offbar" role="status">{tl("Taking longer than usual. Your connection may be slow; please wait.")}</div>:null}
 // Sign in with Google: Google's own button (its script loads only when an admin has set the client ID); it hands back an ID token the server checks
 let gsiLoad=null
 function GoogleButton({clientId,onCredential,text='signin_with'}){
@@ -775,12 +784,18 @@ function PhotoPick({photo,setPhoto,toast}){
     :<label className="btn ghost photopick"><Camera size={16}/> {tl("Add a photo")}<input type="file" accept="image/*" onChange={pick} hidden/></label>}
 const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}</>
 function AskTeacher({tid,excerpt,close,toast}){
-  const [text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false)
+  const [text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[sim,setSim]=useState([]),[open,setOpen]=useState({})
+  useEffect(()=>{const q=[excerpt,text].filter(Boolean).join(' ').trim();if(q.split(/\s+/).length<2){setSim([]);return}  // answers the teacher already shared that look like this one
+    const h=setTimeout(()=>api(`/topics/${tid}/similar?q=${encodeURIComponent(q.slice(0,500))}`).then(r=>setSim(r.items)).catch(()=>{}),500);return()=>clearTimeout(h)},[text,tid,excerpt])
   const send=async()=>{setBusy(true);try{await api(`/topics/${tid}/questions`,{method:'POST',body:{text,excerpt:excerpt||'',photo:photo||''}});toast(tl("Sent. Your teacher's answer will be in My questions."));close()}catch(e){toast(srv(e.message))}setBusy(false)}
   return <Sheet close={close}><h3>{tl("Ask my teacher")}</h3>
     {excerpt&&<p className="hltext" style={{marginBottom:10}}>“{excerpt}”</p>}
     <label htmlFor="tqtext">{tl("Your question")}</label><textarea id="tqtext" rows={4} maxLength={1000} value={text} onChange={e=>setText(e.target.value)} placeholder={tl("What would you like your teacher to explain?")}/>
     <small className="known">{tl("For maths, write it between dollar signs, like $x^2 + y^2$.")}</small>
+    {sim.length>0&&<div className="simq"><b>{tl("Already answered for your class")}</b><small className="known" style={{display:'block'}}>{tl("Check these first. If one answers it, there's no need to send.")}</small>
+      {sim.map(x=>{const [first,...rest]=x.messages;return <div key={x.id} className="qbox classq">{x.topic&&x.topic_id!==tid&&<small className="steplab">{x.topic}</small>}{first&&<MsgBody m={first}/>}
+        {open[x.id]?<div className="thread">{rest.map(m=><div key={m.id} className={'msg'+(m.teacher?' teach':'')}><small>{m.teacher?m.who:tl("A student")}</small><MsgBody m={m}/></div>)}</div>
+          :<button className="link" onClick={()=>setOpen(o=>({...o,[x.id]:true}))}>{tl(rest.length===1?"Show the answer":"Show the {n} replies",{n:rest.length})}</button>}</div>})}</div>}
     <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
     <p className="known">{tl("Your teacher sees your name and the topic you ask about.")}</p>
     <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):tl("Send to my teacher")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
@@ -1689,7 +1704,7 @@ function Topic({id:first,back,toast,role}){
       {t.status==='completed'?<button className="link" onClick={()=>setDone(false)}>{tl("Undo")}</button>:<button className="link" onClick={()=>setDone(true)}>{tl("I've learned this")}</button>}
       {t.status!=='not_started'&&<button className="link" onClick={redo}>{tl("Start over")}</button>}</div>}
     {t.published!==false&&<ClassQuestions tid={t.id}/>}
-    {role==='student'&&t.published!==false&&<button className="btn ghost" onClick={()=>setAskT(true)}><MessageCircle size={16}/>{" "}{tl("Ask my teacher")}</button>}
+    {t.ask&&t.published!==false&&<button className={'btn ghost'+(t.ask==='pro'?' locked':'')} onClick={()=>t.ask==='pro'?toast(tl("Asking your teacher comes with Pro. See AI help on your profile.")):setAskT(true)}>{t.ask==='pro'?<Lock size={16}/>:<MessageCircle size={16}/>}{" "}{tl("Ask my teacher")}{t.ask==='pro'&&<span className="pill sm">{tl("Pro")}</span>}</button>}
     {askT&&<AskTeacher tid={t.id} close={()=>setAskT(false)} toast={toast}/>}
     {t.nav&&t.nav.total>1&&<nav className="pager" aria-label={tl("Topics in this unit")}><button className="btn ghost" disabled={!t.nav.prev} onClick={()=>jump(t.nav.prev.id)} aria-label={t.nav.prev?tl("Previous topic: {title}",{title:t.nav.prev.title}):tl("No previous topic")}><ChevronLeft size={18}/><span>{t.nav.prev?t.nav.prev.title:tl("Previous")}</span></button>
       <small>{t.nav.position}{" "}{tl("of")}{" "}{t.nav.total}</small>
@@ -1870,7 +1885,7 @@ function HlItem({h,where,onGo,onSaved,onDrop,onExplain,focus,toast}){
     <button className="ic sm" aria-label={tl("Remove highlight")} title={tl("Remove")} onClick={onDrop}><Trash2 size={15}/></button></div>}
 // "Not clear?" on a marked phrase. Step one stays on the server: where the phrase sits in the topic and in the student's own notes, and a kept AI answer if there is one.
 // Step two, only if the student asks for it, sends the AI the names of the program, semester, course and topic and the phrase. Never the notes.
-function DoubtBox({tid,phrase,close,toast}){
+function DoubtBox({tid,askState,phrase,close,toast}){
   const {aiOff,role}=useContext(Ctx)
   const [askT,setAskT]=useState(false),[d,setD]=useState(null),[ans,setAns]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState('')
   useEffect(()=>{setD(null);setAns(null);setErr('');api(`/topics/${tid}/doubt`,{method:'POST',body:{phrase}}).then(setD).catch(e=>{toast(e.message);close()})},[tid,phrase])
@@ -1887,7 +1902,7 @@ function DoubtBox({tid,phrase,close,toast}){
         :aiOff?<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>:<><button className="btn" disabled={busy} onClick={ask}><Sparkles size={16}/> {busy?tl("Thinking…"):tl("Still not clear? Ask AI")}</button>
           <p className="known">{tl("Only the names of your program, semester, course and topic and this phrase are sent. Your notes never are.")}{d.ai_left!=null&&d.ai_left<=10?' '+tl("{n} left today.",{n:d.ai_left}):''}</p>
           {err&&<p className="known">{err}</p>}</>}
-      {role==='student'&&<button className="link" style={{marginTop:12}} onClick={()=>setAskT(true)}><MessageCircle size={14}/> {tl("Still not clear? Ask my teacher")}</button>}
+      {role==='student'&&askState==='on'&&<button className="link" style={{marginTop:12}} onClick={()=>setAskT(true)}><MessageCircle size={14}/> {tl("Still not clear? Ask my teacher")}</button>}
       {askT&&<AskTeacher tid={tid} excerpt={phrase} close={()=>setAskT(false)} toast={toast}/>}</>}</>}
 function Reader({t,auto,toast,onList,close}){
   const [list,setList]=useState(null),[panel,setPanel]=useState(false),[doubt,setDoubt]=useState(null),[noteFor,setNoteFor]=useState(null),[fs,setFs]=useState(!!document.fullscreenElement),box=useRef(null),frame=useRef(null),hl=useRef(null),now=useRef([])
@@ -1936,7 +1951,7 @@ function Reader({t,auto,toast,onList,close}){
     <div className="rmain">
       {inter?(ready&&<iframe ref={frame} className="rframe" title={t.title} src={at(t.frame_url)} sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-modals allow-forms allow-downloads"/>)
         :<div className="rscroll"><div className="prose rtext" ref={box}>{ready?<Content text={t.content} format={t.content_format}/>:<Skeleton/>}</div></div>}
-      {doubt&&<aside className="rpanel" aria-label={tl("Not clear?")}><DoubtBox tid={t.id} phrase={doubt} close={()=>setDoubt(null)} toast={toast}/></aside>}
+      {doubt&&<aside className="rpanel" aria-label={tl("Not clear?")}><DoubtBox tid={t.id} askState={t.ask} phrase={doubt} close={()=>setDoubt(null)} toast={toast}/></aside>}
       {!doubt&&panel&&<aside className="rpanel" aria-label={tl("Your highlights")}><b>{tl("Your highlights")}</b><p className="known">{tl("Select text and pick a colour. Tap a highlight to change its colour, add a note or remove it.")}</p>
         {list?.length?<Paged rows={list} render={h=><HlItem key={h.id} h={{...h,tid:t.id}} toast={toast} focus={noteFor===h.id} onExplain={aiOn?()=>explain(h.id):null} onGo={()=>goTo(h.id)} onSaved={r=>{setList(l=>l.map(x=>x.id===r.id?r:x));setNoteFor(null)}} onDrop={()=>drop(h.id)}/>}/>:<p className="known">{tl("None yet.")}</p>}</aside>}</div>
     {exp&&<div className="rexp" role="status"><div className="rexph"><small>{tl("What this means")}</small><button className="ic sm" aria-label={tl("Close")} onClick={()=>setExp(null)}><X size={15}/></button></div>

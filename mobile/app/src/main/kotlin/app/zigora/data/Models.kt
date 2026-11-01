@@ -29,7 +29,7 @@ import kotlinx.serialization.json.JsonObject
 
 @Serializable data class Nav(val prev: NavTopic? = null, val next: NavTopic? = null, val position: Int? = null, val total: Int = 0)
 @Serializable data class NavTopic(val id: Int, val title: String)
-@Serializable data class TopicFull(val id: Int, val title: String, val course: String = "", val course_id: Int = 0, val unit: String = "", val semester: String = "", val program: String = "",
+@Serializable data class TopicFull(val id: Int, val ask: String? = null, val title: String, val course: String = "", val course_id: Int = 0, val unit: String = "", val semester: String = "", val program: String = "",
                                    val content: String? = null, val content_format: String = "markdown", val question_pattern: String? = null, val guideline: String? = null,
                                    val my_notes: String? = null, val frame_url: String? = null, val status: String = "not_started", val learning_due_at: String? = null,
                                    val bookmarked: Boolean = false, val nav: Nav? = null,

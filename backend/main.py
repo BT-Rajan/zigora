@@ -3273,7 +3273,7 @@ def topic(tid: int, u: User = Depends(me), s: Session = Depends(db)):
     p = s.query(Progress).filter_by(user_id=u.id, topic_id=tid).first()
     edit = can_edit(u, topic_course_id(t, s), s)
     frame = {"frame_url": f"/api/topics/{tid}/frame?t={frame_pass(u, tid)}"} if fmt_of(t) == "interactive" else {}
-    return {**full(t, s), **frame, "diagram": diagram_state(u, t, s), **learning_state(t.learning_due_at, p, dt.datetime.utcnow()), "my_notes": my_notes(s, u.id, tid), "can_edit": edit, "nav": topic_neighbours(t, edit, s), "bookmarked": s.query(Bookmark).filter_by(user_id=u.id, topic_id=tid).first() is not None}
+    return {**full(t, s), **frame, "diagram": diagram_state(u, t, s), "ask": ask_state(u), **learning_state(t.learning_due_at, p, dt.datetime.utcnow()), "my_notes": my_notes(s, u.id, tid), "can_edit": edit, "nav": topic_neighbours(t, edit, s), "bookmarked": s.query(Bookmark).filter_by(user_id=u.id, topic_id=tid).first() is not None}
 # ---- interactive topics run in a sandboxed frame; highlights are saved per person ----
 # The page gets an opaque origin (CSP sandbox without allow-same-origin), so its scripts can't read the app's sign-in, call the API as the reader or
 # touch the app's page. It talks to the app only through postMessage, and the app accepts just the highlight messages below.
@@ -4134,10 +4134,30 @@ def question_photo(name: str):  # the link is the key (128 random bits), so the 
     path = os.path.join(UPLOADS, "questions", name)
     if not os.path.exists(path): raise HTTPException(404, "Not found")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=31536000, immutable"})
+TQ_PRO = "Asking your teacher comes with Pro. See AI help on your profile."
+def ask_state(u): return None if u.role != "student" else "pro" if ai_plan(u) == "lite" else "on"  # students on Lite see the button with a lock
+TQ_STOP = set("the and for are was were what why how when which who does did this that these those with from into about there their then than have has had will would could should can you your our not but also its it's is of in on at to a an be by or as if so do i we me my".split())
+def tq_words(t): return {w[:-1] if len(w) > 4 and w.endswith("s") and not w.endswith("ss") else w for w in re.findall(r"\w{3,}", (t or "").lower()) if w not in TQ_STOP and not w.isdigit()}
+@app.get("/api/topics/{tid}/similar")
+def similar_questions(tid: int, q: str = "", u: User = Depends(me), s: Session = Depends(db)):
+    """While a student writes a question: answers the teachers already shared with the class that look like it, on this topic first, then the
+    rest of its course. Words in common decide; nothing goes to the AI."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s); want = tq_words(q[:1000])
+    if len(want) < 2: return {"items": []}
+    cid = topic_course_id(t, s); scored = []
+    for x in s.query(TeacherQuestion).filter(TeacherQuestion.course_id == cid, TeacherQuestion.shared == True).order_by(TeacherQuestion.updated.desc()).limit(300):  # noqa: E712
+        first = s.query(TeacherReply.text).filter_by(question_id=x.id).order_by(TeacherReply.id).first()
+        n = len(want & tq_words((first[0] if first else "") + " " + (x.excerpt or "")))
+        if n >= (1 if x.topic_id == tid and len(want) <= 3 else 2): scored.append((n + (1 if x.topic_id == tid else 0), x))
+    scored.sort(key=lambda p: -p[0]); tops = {k.id: k.title for k in s.query(Topic).filter(Topic.id.in_([x.topic_id for _, x in scored[:3]] or [0]))}
+    return {"items": [{"id": x.id, "topic_id": x.topic_id, "topic": tops.get(x.topic_id, ""), "excerpt": x.excerpt, "mine": x.user_id == u.id, "messages": tq_msgs(s, x, u, None)} for _, x in scored[:3]]}
 class AskTeacherIn(BaseModel): text: str = ""; excerpt: str = ""; photo: str = ""
 @app.post("/api/topics/{tid}/questions")
 def ask_teacher(tid: int, b: AskTeacherIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
     if u.role != "student": raise HTTPException(403, "Students ask their teacher")
+    if ask_state(u) == "pro": raise HTTPException(403, TQ_PRO)
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
     check_topic_access(u, t, s); text_ = tq_text(b.text, bool(b.photo))

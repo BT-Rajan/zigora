@@ -137,7 +137,15 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             else -> open(x.id)
         } }
         androidx.compose.foundation.layout.Column {
-            if (app().api.offline.value) Text(tl("Offline. Showing what you read before."), style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            val net = app().api
+            LaunchedEffect(net.unreachable.value) { if (net.unreachable.value) { kotlinx.coroutines.delay(8_000); net.unreachable.value = false } }  // a failed request: the note fades
+            val note = when {
+                net.offline.value -> tl("Offline. Showing what you read before.")
+                net.unreachable.value -> tl("No connection. Practice, quizzes and new AI answers need the internet; topics you have opened before still work.")
+                net.slow.value -> tl("Taking longer than usual. Your connection may be slow; please wait.")
+                else -> null
+            }
+            if (note != null) Text(note, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiaryContainer).statusBarsPadding().padding(vertical = 6.dp, horizontal = 16.dp))
         NavHost(nav, startDestination = HomeR, modifier = Modifier.weight(1f)) {
             composable<HomeR> { HomeScreen(me, openTopic = open, openCourse = { nav.navigate(CourseR(it)) }, openQuiz = { nav.navigate(QuizR(it)) },

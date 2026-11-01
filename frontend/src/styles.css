@@ -551,3 +551,4 @@ html:has(.zgr) #root{min-height:0!important}html:has(.zgr) body *{font-family:in
 .classq{margin-bottom:10px}.classq .thread{margin:10px 0 0}
 .offbar{background:var(--warnbg);color:var(--tx);text-align:center;font-size:13px;padding:6px 16px}
 .msg .prose,.classq .prose{background:none;border:0;padding:0;margin:0;box-shadow:none;border-radius:0}
+.simq{margin:12px 0}.simq .qbox{margin-top:8px}

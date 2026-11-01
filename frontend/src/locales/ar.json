@@ -2534,5 +2534,11 @@
 "Your teacher shared this with your class, without your name.": "شارك معلّمك هذا مع صفّك، دون اسمك.",
 "That's plenty of photos for today. Describe it in words, or add it tomorrow.": "هذا يكفي من الصور اليوم. صِفها بالكلمات، أو أضفها غدًا.",
 "Only the teacher can share a question with the class": "المعلّم وحده يستطيع مشاركة سؤال مع الصف",
-"Answer it first, then share it": "أجب عنه أولًا، ثم شاركه"
+"Answer it first, then share it": "أجب عنه أولًا، ثم شاركه",
+"Asking your teacher comes with Pro. See AI help on your profile.": "سؤال معلّمك متاح مع Pro. انظر «مساعدة الذكاء الاصطناعي» في ملفك الشخصي.",
+"Already answered for your class": "أُجيب عنه لصفّك من قبل",
+"Check these first. If one answers it, there's no need to send.": "اطّلع على هذه أولًا. إن أجاب أحدها عن سؤالك فلا حاجة للإرسال.",
+"Can't reach the server. Check your internet connection and try again.": "تعذّر الوصول إلى الخادم. تحقّق من اتصالك بالإنترنت وحاول مجددًا.",
+"No connection. Practice, quizzes and new AI answers need the internet; topics you have opened before still work.": "لا يوجد اتصال. التدريب والاختبارات وإجابات الذكاء الاصطناعي الجديدة تحتاج إلى الإنترنت؛ المواضيع التي فتحتها من قبل ما زالت تعمل.",
+"Taking longer than usual. Your connection may be slow; please wait.": "يستغرق الأمر وقتًا أطول من المعتاد. قد يكون اتصالك بطيئًا؛ يُرجى الانتظار."
 }

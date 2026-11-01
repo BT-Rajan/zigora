@@ -31,6 +31,8 @@ import app.zigora.data.QuestionList
 import app.zigora.data.QuestionThread
 import app.zigora.data.QuestionMsg
 import app.zigora.data.ClassQuestions
+import app.zigora.data.ClassQuestion
+import androidx.compose.runtime.LaunchedEffect
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -84,6 +86,13 @@ fun AskTeacherBox(tid: Int, excerpt: String = "", close: (sent: Boolean) -> Unit
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
     val allow = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { close(true) }  // so the answer can show up as a notification
+    var similar by remember { mutableStateOf<List<ClassQuestion>>(emptyList()) }
+    LaunchedEffect(text) {  // answers the teacher already shared that look like this question
+        val q = listOf(excerpt, text).filter { it.isNotBlank() }.joinToString(" ").trim()
+        if (q.split(Regex("\\s+")).size < 2) { similar = emptyList(); return@LaunchedEffect }
+        kotlinx.coroutines.delay(500)
+        similar = runCatching { a.get("/topics/$tid/similar?q=" + java.net.URLEncoder.encode(q.take(500), "UTF-8"), ClassQuestions.serializer()).items }.getOrDefault(similar)
+    }
     Panel {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(tl("Ask my teacher"), style = MaterialTheme.typography.titleMedium)
@@ -91,6 +100,11 @@ fun AskTeacherBox(tid: Int, excerpt: String = "", close: (sent: Boolean) -> Unit
             OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text(tl("Your question")) },
                               placeholder = { Text(tl("What would you like your teacher to explain?")) })
             Quiet(tl("For maths, write it between dollar signs, like \$x^2 + y^2\$."))
+            if (similar.isNotEmpty()) {
+                Text(tl("Already answered for your class"), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                Quiet(tl("Check these first. If one answers it, there's no need to send."))
+                similar.forEach { x -> SharedQuestion(x) }
+            }
             PhotoPick(photo) { photo = it }
             Quiet(tl("Your teacher sees your name and the topic you ask about."))
             if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
@@ -110,6 +124,23 @@ fun AskTeacherBox(tid: Int, excerpt: String = "", close: (sent: Boolean) -> Unit
     }
 }
 
+/** one shared question: what was asked, and its answers a tap away; who asked is never shown */
+@Composable
+fun SharedQuestion(x: ClassQuestion) {
+    var open by remember(x.id) { mutableStateOf(false) }
+    Panel(Modifier.padding(bottom = 8.dp)) {
+        Text(if (x.mine) tl("Your question") else tl("A student asked"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        x.excerpt?.takeIf { it.isNotEmpty() }?.let { Quiet("“$it”") }
+        x.messages.firstOrNull()?.let { MsgBody(it) }
+        val rest = x.messages.drop(1)
+        if (!open) TextButton(onClick = { open = true }) { Text(if (rest.size == 1) tl("Show the answer") else tl("Show the {n} replies", "n" to rest.size)) }
+        else rest.forEach { m ->
+            Text(if (m.teacher) m.who.orEmpty() else tl("A student"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+            MsgBody(m)
+        }
+    }
+}
+
 /** under a topic: questions the teacher shared with the class, each with its answers; who asked is never shown */
 @Composable
 fun ClassQuestionsList(tid: Int) {
@@ -117,20 +148,7 @@ fun ClassQuestionsList(tid: Int) {
     val d = (l.state as? Load.Ok)?.value ?: return
     if (d.items.isEmpty()) return
     SectionTitle(tl("Questions from your class"))
-    d.items.forEach { x ->
-        var open by remember(x.id) { mutableStateOf(false) }
-        Panel(Modifier.padding(bottom = 8.dp)) {
-            Text(if (x.mine) tl("Your question") else tl("A student asked"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-            x.excerpt?.takeIf { it.isNotEmpty() }?.let { Quiet("“$it”") }
-            x.messages.firstOrNull()?.let { MsgBody(it) }
-            val rest = x.messages.drop(1)
-            if (!open) TextButton(onClick = { open = true }) { Text(if (rest.size == 1) tl("Show the answer") else tl("Show the {n} replies", "n" to rest.size)) }
-            else rest.forEach { m ->
-                Text(if (m.teacher) m.who.orEmpty() else tl("A student"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
-                MsgBody(m)
-            }
-        }
-    }
+    d.items.forEach { x -> SharedQuestion(x) }
 }
 
 private fun stateLabel(s: String) = when (s) { "answered" -> tl("Answered"); "closed" -> tl("Closed"); else -> tl("Waiting for your teacher") }
