@@ -50,6 +50,7 @@ import kotlinx.serialization.json.put
 @Serializable object NotesR
 @Serializable data class ReaderR(val id: Int)
 @Serializable data class DiagramR(val url: String)
+@Serializable data class QuestionR(val id: Int)
 @Serializable data class StudyQuizR(val id: Int, val topic: Int = 0, val own: Int = 0)  // topic: a college topic's practice; own: a topic of the student's own course
 @Serializable object StudyR
 @Serializable data class StudyCourseR(val id: Int)
@@ -142,7 +143,8 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             composable<StudyTopicR> { e -> val id = e.toRoute<StudyTopicR>().id
                 StudyTopicScreen(id, back = { nav.popBackStack() }, go = { t -> nav.navigate(StudyTopicR(t)) { popUpTo<StudyTopicR> { inclusive = true } } },
                                  quiz = { q -> nav.navigate(StudyQuizR(q.id, own = id)) }) }
-            composable<SavedR> { SavedScreen(open) }
+            composable<SavedR> { SavedScreen(open) { nav.navigate(QuestionR(it)) } }
+            composable<QuestionR> { QuestionScreen(it.toRoute<QuestionR>().id, back = { nav.popBackStack() }, openTopic = open) }
             composable<ProgressR> { ProgressScreen(open, openRoutine = { nav.navigate(RoutineR) }, openScores = { nav.navigate(ScoreCourseR(it)) }) }
             composable<RoutineR> { RoutineScreen { nav.popBackStack() } }
             composable<CalendarR> { CalendarScreen { nav.popBackStack() } }
@@ -177,7 +179,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             composable<McqR> { McqHomeScreen(it.toRoute<McqR>().topic, back = { nav.popBackStack() }) { id -> nav.navigate(McqSetR(id)) } }
             composable<McqSetR> { McqSetScreen(it.toRoute<McqSetR>().id, back = { nav.popBackStack() }, openTopic = open) }
             composable<PhotoR> { PhotoScreen(it.toRoute<PhotoR>().uri) { nav.popBackStack() } }
-            composable<NotesR> { NotificationsScreen(back = { nav.popBackStack() }, openTopic = open) }
+            composable<NotesR> { NotificationsScreen(back = { nav.popBackStack() }, openTopic = open, openQuestion = { nav.navigate(QuestionR(it)) }) }
         }
     }
     }

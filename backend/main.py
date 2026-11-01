@@ -232,6 +232,24 @@ class AIFlag(Base):  # a student's private "this looks wrong" on an AI reply; th
     topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)
     source = Column(String(8)); kind = Column(String(10)); ref = Column(Integer, nullable=True)  # "topic" (an ai_cache row) or "search" (a search_answers row), and which
     excerpt = Column(Text); reason = Column(String(300), nullable=True); status = Column(String(10), default="open", index=True); at = Column(DateTime, default=dt.datetime.utcnow)
+class TeacherQuestion(Base):  # a student's question to the teacher of a topic's course: a short thread the student and the course's owner (or an admin) write in
+    __tablename__ = "teacher_questions"
+    id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), index=True); course_id = Column(Integer, nullable=True, index=True)
+    excerpt = Column(Text, nullable=True)  # the passage they asked about, when they asked from a highlight
+    status = Column(String(10), default="waiting", index=True)  # waiting (for the teacher), answered, closed
+    at = Column(DateTime, default=dt.datetime.utcnow); updated = Column(DateTime, default=dt.datetime.utcnow); seen = Column(DateTime, nullable=True)  # seen: when the student last read it
+class TeacherReply(Base):  # one message in a question's thread, the student's first question included
+    __tablename__ = "teacher_replies"
+    id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); text = Column(Text); at = Column(DateTime, default=dt.datetime.utcnow)
+class Payment(Base):  # a student buying Pro online through a Razorpay payment link; kept after the account goes, without who paid
+    __tablename__ = "payments"
+    id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    ref = Column(String(40), unique=True); link_id = Column(String(60), nullable=True, index=True); payment_id = Column(String(60), nullable=True)
+    days = Column(Integer); amount = Column(Integer); currency = Column(String(3))  # amount in the currency's smallest unit (paise for rupees)
+    status = Column(String(10), default="created", index=True)  # created, paid, failed
+    at = Column(DateTime, default=dt.datetime.utcnow); paid_at = Column(DateTime, nullable=True); until = Column(DateTime, nullable=True)  # until: the Pro it bought ends then
 class StepLog(Base):  # what a student does with a topic's short steps (a step opened, or "I had it" / "Not quite" on a quick check); private to them, used only to adapt the steps
     __tablename__ = "step_log"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -863,7 +881,9 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0032_ai_providers", lambda c: [_addcol("users", "ai_provider", "VARCHAR(20) NULL")(c), _addcol("ai_egress", "provider", "VARCHAR(20) NULL")(c)]),
               ("0033_progress_history", lambda c: Base.metadata.create_all(c, tables=[ProgressHistory.__table__])),
               ("0034_assignments", lambda c: [Base.metadata.create_all(c, tables=[Assignment.__table__, AssignmentStudent.__table__]), _addcol("mcq_attempts", "assignment_id", "INTEGER NULL")(c)]),
-              ("0035_topic_diagram", lambda c: [_addcol("topics", "diagram", "BOOLEAN NULL")(c), _addcol("topics", "diagram_note", "TEXT NULL")(c)])]
+              ("0035_topic_diagram", lambda c: [_addcol("topics", "diagram", "BOOLEAN NULL")(c), _addcol("topics", "diagram_note", "TEXT NULL")(c)]),
+              ("0036_ask_teacher", lambda c: Base.metadata.create_all(c, tables=[TeacherQuestion.__table__, TeacherReply.__table__])),
+              ("0037_payments", lambda c: Base.metadata.create_all(c, tables=[Payment.__table__]))]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -1975,6 +1995,8 @@ def overview(u: User = Depends(staff), s: Session = Depends(db)):  # what needs 
     out = {"role": u.role, "courses": len(cids), "topics": topics.filter(Topic.published.isnot(False)).count(), "drafts": drafts, "attention": []}  # topics are the published ones, as in the course rows; drafts have their own count
     add = lambda kind, n, text: n and out["attention"].append({"kind": kind, "count": n, "text": text})
     add("drafts", drafts, f"{drafts} draft topic{'s' if drafts != 1 else ''} not yet visible to students")
+    waiting = tq_for(u, s).filter(TeacherQuestion.status == "waiting").count()
+    add("questions", waiting, f"{waiting} student question{'s' if waiting != 1 else ''} waiting for your answer")
     empty = [c for c in mine if not live_units(s, [c.id]).first()]
     add("empty_courses", len(empty), f"{len(empty)} course{'s have' if len(empty) != 1 else ' has'} no units yet: " + ", ".join(c.name for c in empty[:5]))
     if u.role == "admin":
@@ -2038,6 +2060,10 @@ def admin_dashboard(u: User = Depends(admin), s: Session = Depends(db)):
         oldest = flags.order_by(AIFlag.at).first().at; days = (now - oldest).days
         add(nf, "content", "now" if days >= FLAG_OLD_DAYS else "soon", "flags", "Flagged AI answers to check: {n}, the oldest from {days} days ago" if days else "Flagged AI answers to check: {n}",
             "flags", {"days": days})
+    waiting = tq_for(u, s).filter(TeacherQuestion.status == "waiting"); nq = waiting.count()
+    if nq:
+        days = (now - waiting.order_by(TeacherQuestion.updated).first().updated).days
+        add(nq, "content", "now" if days >= 2 else "soon", "questions", "Student questions waiting for an answer: {n}", "questions")
     cids = [c.id for c in live_courses(u, s)]; units = live_units(s, cids)
     draft = s.query(Topic).filter(Topic.unit_id.in_(units), Topic.archived_at.is_(None), Topic.published == False)  # noqa: E712
     add(draft.filter(Topic.learning_due_at.isnot(None), Topic.learning_due_at <= now + dt.timedelta(days=7)).count(), "content", "now", "drafts_due",
@@ -4068,6 +4094,243 @@ def resolve_flag(fid: int, b: FlagDo, u: User = Depends(staff), s: Session = Dep
         else: s.query(SearchAnswer).filter(SearchAnswer.id == f.ref).delete(synchronize_session=False)
     n = same.update({"status": "fixed" if b.action == "rewrite" else "kept"}, synchronize_session=False); s.commit()
     return {"ok": True, "closed": n}
+# ---- ask the teacher: a student asks the teacher of a topic's course a question (from the topic, or from a passage they highlighted). The course's
+# ---- owner, or an admin when it has none, answers in a short thread. Unlike a flag it is not anonymous: a teacher answers a person.
+TQ_DAILY, TQ_TEXT, TQ_REPLIES = 10, 1000, 30
+TQ_CLOSED = "This question is closed. Ask a new one from the topic."
+def tq_text(v):
+    t = (v or "").strip()
+    if len(t) < 3: raise HTTPException(400, "Write your question first")
+    if len(t) > TQ_TEXT: raise HTTPException(400, "Keep it under 1000 characters")
+    return t
+def tq_teachers(s, cid):  # who answers: the course's owner, else every admin
+    co = s.get(Course, cid) if cid else None
+    owner = s.get(User, co.faculty_owner_id) if co and co.faculty_owner_id else None
+    return [owner] if owner and owner.active else s.query(User).filter(User.role == "admin", User.active == True).all()  # noqa: E712
+def tq_for(u, s):  # the questions this person answers: their own courses' (admins: every course)
+    q = s.query(TeacherQuestion)
+    if u.role != "admin": q = q.join(Course, Course.id == TeacherQuestion.course_id).filter(Course.faculty_owner_id == u.id)
+    return q
+def tq_mine(qid, u, s):  # (question, as the teacher?) when this person may read and write in it
+    q = s.get(TeacherQuestion, qid)
+    if q and q.user_id == u.id: return q, False
+    if q and is_staff(u) and can_edit(u, q.course_id, s): return q, True
+    raise HTTPException(404, "Question not found")
+class AskTeacherIn(BaseModel): text: str; excerpt: str = ""
+@app.post("/api/topics/{tid}/questions")
+def ask_teacher(tid: int, b: AskTeacherIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
+    if u.role != "student": raise HTTPException(403, "Students ask their teacher")
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s); text_ = tq_text(b.text)
+    if s.query(func.count(TeacherQuestion.id)).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= TQ_DAILY:
+        raise HTTPException(429, "You have asked 10 questions today. Ask more tomorrow.")
+    cid = topic_course_id(t, s); excerpt = " ".join((b.excerpt or "").split())[:600] or None
+    q = TeacherQuestion(user_id=u.id, topic_id=t.id, course_id=cid, excerpt=excerpt); s.add(q); s.flush()
+    s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_)); s.commit()
+    for x in tq_teachers(s, cid):
+        notify(s, x, "question", "A question from {name} on {app}", "{name} asked a question about {topic}. Open {app} to answer it.", run=bg.add_task, name=u.name, topic=t.title)
+    return tq_json(q, u, s)
+def tq_row(q, t, c, last, who=None):
+    return {"id": q.id, "topic_id": q.topic_id, "topic": t.title if t else "", "course": c.name if c else "", "status": q.status, "updated": utc_iso(q.updated),
+            "last": (last or "")[:160], **({"student": who} if who is not None else {})}
+def tq_last(s, ids):
+    out = {}
+    for r in s.query(TeacherReply).filter(TeacherReply.question_id.in_(ids or [0])).order_by(TeacherReply.id): out[r.question_id] = r.text
+    return out
+@app.get("/api/me/questions")
+def my_questions(u: User = Depends(me), s: Session = Depends(db)):
+    rows = s.query(TeacherQuestion, Topic, Course).join(Topic, Topic.id == TeacherQuestion.topic_id).outerjoin(Course, Course.id == TeacherQuestion.course_id) \
+        .filter(TeacherQuestion.user_id == u.id).order_by(TeacherQuestion.updated.desc()).limit(100).all()
+    last = tq_last(s, [q.id for q, _, _ in rows])
+    return {"items": [{**tq_row(q, t, c, last.get(q.id)), "unread": q.status == "answered" and (q.seen is None or q.seen < q.updated)} for q, t, c in rows]}
+@app.get("/api/questions")
+def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0, u: User = Depends(staff), s: Session = Depends(db)):
+    """Students' questions to this teacher (every course's for admins): waiting for an answer first, oldest first; or all of them, newest first."""
+    q = tq_for(u, s)
+    if status == "waiting": q = q.filter(TeacherQuestion.status == "waiting").order_by(TeacherQuestion.updated)
+    else: q = q.order_by(TeacherQuestion.updated.desc())
+    total = q.count(); page = q.offset(max(offset, 0)).limit(min(max(limit, 1), 50)).all()
+    tops = {t.id: t for t in s.query(Topic).filter(Topic.id.in_([x.topic_id for x in page] or [0]))}
+    cos = {c.id: c for c in s.query(Course).filter(Course.id.in_([x.course_id for x in page if x.course_id] or [0]))}
+    names = {x.id: x.name for x in s.query(User).filter(User.id.in_([x.user_id for x in page] or [0]))}
+    last = tq_last(s, [x.id for x in page])
+    return {"total": total, "items": [tq_row(x, tops.get(x.topic_id), cos.get(x.course_id), last.get(x.id), names.get(x.user_id, "")) for x in page]}
+def tq_json(q, u, s):
+    t, c = s.get(Topic, q.topic_id), s.get(Course, q.course_id) if q.course_id else None
+    asker = s.get(User, q.user_id); teach = q.user_id != u.id
+    msgs = [{"id": r.id, "mine": r.user_id == u.id, "teacher": r.user_id != q.user_id, "who": (w.name if w else "") if r.user_id != q.user_id else (asker.name if asker else ""), "text": r.text, "at": utc_iso(r.at)}
+            for r, w in s.query(TeacherReply, User).outerjoin(User, User.id == TeacherReply.user_id).filter(TeacherReply.question_id == q.id).order_by(TeacherReply.id)]
+    return {**tq_row(q, t, c, msgs[-1]["text"] if msgs else "", asker.name if teach and asker else None), "excerpt": q.excerpt, "messages": msgs, "teacher": teach}
+@app.get("/api/questions/{qid}")
+def read_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
+    q, teach = tq_mine(qid, u, s)
+    if not teach: q.seen = dt.datetime.utcnow(); s.commit()
+    return tq_json(q, u, s)
+class ReplyIn(BaseModel): text: str
+@app.post("/api/questions/{qid}/replies")
+def reply_question(qid: int, b: ReplyIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
+    q, teach = tq_mine(qid, u, s); text_ = tq_text(b.text)
+    if q.status == "closed": raise HTTPException(400, TQ_CLOSED)
+    if s.query(func.count(TeacherReply.id)).filter(TeacherReply.question_id == q.id).scalar() >= TQ_REPLIES: raise HTTPException(400, "This thread is long enough. Ask a new question from the topic.")
+    now = dt.datetime.utcnow(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, at=now))
+    q.status, q.updated = ("answered" if teach else "waiting"), now
+    if not teach: q.seen = now
+    s.commit()
+    t = s.get(Topic, q.topic_id); asker = s.get(User, q.user_id)
+    if teach and asker:
+        notify(s, asker, "answer", "Your teacher answered on {app}", "{teacher} answered your question about {topic}. Open {app} to read it.", run=bg.add_task, teacher=u.name, topic=t.title if t else "")
+    return tq_json(q, u, s)
+@app.post("/api/questions/{qid}/close")
+def close_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
+    q, _ = tq_mine(qid, u, s); q.status = "closed"; q.updated = dt.datetime.utcnow(); s.commit(); return tq_json(q, u, s)
+def tq_answered(u, s):  # a student's questions answered since they last looked, for the bell
+    return [{"key": f"answer:{q.id}:{int(q.updated.timestamp())}", "text": "Your teacher answered your question", "sub": t.title}
+            for q, t in s.query(TeacherQuestion, Topic).join(Topic, Topic.id == TeacherQuestion.topic_id).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status == "answered",
+                                                                                                         or_(TeacherQuestion.seen.is_(None), TeacherQuestion.seen < TeacherQuestion.updated)).limit(20)]
+# ---- buying Pro online: the admin sets the Razorpay keys and a few offers (days for a price). A student picks one and pays on Razorpay's own page
+# ---- (a payment link: cards, UPI, netbanking and wallets, on the web and from the Android app alike). Pro starts when Razorpay confirms the payment:
+# ---- on the way back (its signature checked), by its webhook, or when the app asks Razorpay directly. Each payment adds its days once.
+RAZORPAY = "https://api.razorpay.com/v1"
+PAY_DIGITS = {"JPY": 0, "KRW": 0, "VND": 0, "KWD": 3, "BHD": 3, "OMR": 3, "JOD": 3, "TND": 3}  # decimal places of the smallest unit; 2 for the rest
+PAY_DAILY = 10
+PAY_DEFAULT = [{"days": 30, "price": 149}, {"days": 365, "price": 999}]
+def pay_digits(cur): return PAY_DIGITS.get(cur, 2)
+def pay_cur(s): return setting(s, "pay_currency") or "INR"
+def pay_secret(s, k): v = setting(s, k); return unseal(v) if v else ""
+def pay_on(s): return bool(setting(s, "pay_key_id") and pay_secret(s, "pay_key_secret") and pay_offers(s))
+def pay_offers(s):
+    try: v = json.loads(setting(s, "pay_offers") or "null")
+    except ValueError: v = None
+    return [o for o in (PAY_DEFAULT if v is None else v) if isinstance(o, dict) and isinstance(o.get("days"), int) and isinstance(o.get("price"), (int, float)) and o["price"] > 0]
+def pay_minor(price, cur): return int(round(price * 10 ** pay_digits(cur)))
+def can_buy(u): return u.role == "student" and bool(u.self_registered) and bool(u.email) and ai_plan(u) in ("lite", "pro")  # Pro is a plan for people who signed up; school students on a family key don't need it
+async def razorpay(s, method, path, body=None):  # one call to Razorpay with the college's keys; the tests replace it
+    async with httpx.AsyncClient(timeout=20, auth=(setting(s, "pay_key_id"), pay_secret(s, "pay_key_secret"))) as c:
+        r = await c.request(method, RAZORPAY + path, json=body); r.raise_for_status(); return r.json()
+def pay_sig(secret, msg): return hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+def pay_base(s, request): return site_url(s) or f"{request.url.scheme}://{request.url.netloc}{BASE_PATH}"
+@app.get("/api/me/pro/offers")
+def pro_offers(u: User = Depends(me), s: Session = Depends(db)):
+    cur = pay_cur(s); on = pay_on(s) and can_buy(u)
+    return {"on": on, "currency": cur, "digits": pay_digits(cur), "offers": [{"id": i, "days": o["days"], "price": o["price"]} for i, o in enumerate(pay_offers(s))] if on else [],
+            "plan": ai_plan(u), "pro_until": utc_iso(u.pro_until) if pro_active(u) else None}
+class BuyIn(BaseModel): offer: int
+@app.post("/api/me/pro/buy")
+async def buy_pro(b: BuyIn, request: Request, u: User = Depends(me), s: Session = Depends(db)):
+    if not pay_on(s): raise HTTPException(400, "Buying Pro online is not set up. Ask your admin for Pro.")
+    if not can_buy(u): raise HTTPException(403, "Your plan does not need Pro")
+    offers = pay_offers(s)
+    if not 0 <= b.offer < len(offers): raise HTTPException(400, "Choose one of the offers")
+    if s.query(func.count(Payment.id)).filter(Payment.user_id == u.id, Payment.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= PAY_DAILY:
+        raise HTTPException(429, "You have started a few payments today. Try again tomorrow, or ask your admin.")
+    o, cur = offers[b.offer], pay_cur(s)
+    p = Payment(user_id=u.id, ref="zg" + secrets.token_hex(10), days=o["days"], amount=pay_minor(o["price"], cur), currency=cur); s.add(p); s.commit()
+    body = {"amount": p.amount, "currency": cur, "accept_partial": False, "reference_id": p.ref, "description": f"{APP_NAME} Pro, {p.days} days"[:2048],
+            "customer": {"name": u.name[:100], "email": u.email}, "notify": {"sms": False, "email": False}, "reminder_enable": False,
+            "expire_by": int(time.time()) + 3600, "callback_url": pay_base(s, request) + "/api/pay/return", "callback_method": "get", "notes": {"user": str(u.id), "days": str(p.days)}}
+    try: link = await razorpay(s, "POST", "/payment_links", body)
+    except Exception as e:
+        p.status = "failed"; s.commit(); log.warning("Razorpay payment link failed: %s", type(e).__name__)
+        raise HTTPException(502, "The payment page could not be opened. Try again in a moment.")
+    p.link_id = str(link.get("id") or "")[:60]; s.commit()
+    return {"id": p.id, "url": link.get("short_url")}
+def credit_pro(s, p, payment_id, bg=None):  # marks a payment paid and adds its days to the person's Pro, once however often Razorpay confirms it
+    now = dt.datetime.utcnow()
+    if not s.query(Payment).filter(Payment.id == p.id, Payment.status != "paid").update({"status": "paid", "payment_id": (payment_id or "")[:60] or None, "paid_at": now}, synchronize_session=False):
+        s.rollback(); return False
+    u = s.get(User, p.user_id) if p.user_id else None
+    if u:
+        until = max(u.pro_until, now) if pro_active(u) else now
+        u.pro_until = until + dt.timedelta(days=p.days); close_requests(s, u.id)
+        s.query(Payment).filter(Payment.id == p.id).update({"until": u.pro_until}, synchronize_session=False)
+    s.commit()
+    if u and u.email and mail_on(s):
+        last = local_day(u.pro_until - dt.timedelta(seconds=1)); paid = f"{p.currency} {p.amount / 10 ** pay_digits(p.currency):.{pay_digits(p.currency)}f}"; lang = mail_lang(u)
+        (bg or spawn)(account_mail, u.email, u.name, "pro", mt(lang, "Your {app} Pro receipt", app=APP_NAME),
+                      " ".join([mt(lang, "Thank you. We received {amount} for {days} days of Pro on {app}.", amount=paid, days=p.days, app=APP_NAME),
+                                mt(lang, "You have no daily AI limit until {date}.", date=mail_day(lang, last)), mt(lang, "Payment reference: {ref}", ref=payment_id or p.ref)]), site_url(s) + "/app/", lang)
+    return True
+@app.get("/api/pay/return")
+def pay_return(request: Request, bg: BackgroundTasks, s: Session = Depends(db)):
+    """Where Razorpay sends the student back after paying: its signature over the link, the reference, the status and the payment proves the result."""
+    g = request.query_params.get; base = pay_base(s, request) + "/app/#paid="
+    link, ref, st, pid, sig = (g("razorpay_payment_link_id") or ""), (g("razorpay_payment_link_reference_id") or ""), (g("razorpay_payment_link_status") or ""), (g("razorpay_payment_id") or ""), (g("razorpay_signature") or "")
+    p = s.query(Payment).filter_by(link_id=link, ref=ref).first() if link and ref else None
+    secret = pay_secret(s, "pay_key_secret")
+    if not p or not secret or not sig or not hmac.compare_digest(pay_sig(secret, f"{link}|{ref}|{st}|{pid}"), sig): return RedirectResponse(base + "check", 303)
+    if st == "paid": credit_pro(s, p, pid, bg.add_task); return RedirectResponse(base + "ok", 303)
+    return RedirectResponse(base + "no", 303)
+@app.post("/api/pay/webhook")
+async def pay_webhook(request: Request, s: Session = Depends(db)):
+    """Razorpay's webhook (event payment_link.paid), signed with the webhook secret the admin saved: Pro starts even if the student never came back."""
+    raw = await request.body(); secret = pay_secret(s, "pay_webhook_secret"); sig = request.headers.get("x-razorpay-signature") or ""
+    if not secret or not sig or not hmac.compare_digest(pay_sig(secret, raw.decode("utf-8", "replace")), sig): raise HTTPException(400, "Bad signature")
+    try: ev = json.loads(raw)
+    except ValueError: raise HTTPException(400, "Bad body")
+    if ev.get("event") != "payment_link.paid": return {"ok": True}
+    pl = ((ev.get("payload") or {}).get("payment_link") or {}).get("entity") or {}; pay = ((ev.get("payload") or {}).get("payment") or {}).get("entity") or {}
+    p = s.query(Payment).filter_by(link_id=str(pl.get("id") or ""), ref=str(pl.get("reference_id") or "")).first()
+    if p and int(pl.get("amount_paid") or pay.get("amount") or 0) >= p.amount: credit_pro(s, p, str(pay.get("id") or ""))
+    return {"ok": True}
+@app.post("/api/me/pro/check")
+async def pro_check(u: User = Depends(me), s: Session = Depends(db)):
+    """Asks Razorpay about this person's payments of the last day that are not confirmed yet (for the app, after paying in the browser)."""
+    paid = 0
+    if pay_on(s):
+        for p in s.query(Payment).filter(Payment.user_id == u.id, Payment.status == "created", Payment.link_id.isnot(None), Payment.at >= dt.datetime.utcnow() - dt.timedelta(days=1)).order_by(Payment.id.desc()).limit(3).all():
+            try: link = await razorpay(s, "GET", f"/payment_links/{p.link_id}")
+            except Exception: continue
+            if link.get("status") == "paid" and int(link.get("amount_paid") or 0) >= p.amount:
+                pays = link.get("payments") or []; paid += credit_pro(s, p, str((pays[-1] if pays else {}).get("payment_id") or ""))
+    s.refresh(u); return {"paid": paid, **plan_json(u, s)}
+class PayCfg(BaseModel): key_id: str | None = None; key_secret: str | None = None; webhook_secret: str | None = None; currency: str | None = None; offers: list[dict] | None = None; remove: bool = False
+def pay_state(s, request):
+    kid = setting(s, "pay_key_id"); paid = s.query(Payment).filter(Payment.status == "paid")
+    month = paid.filter(Payment.paid_at >= month_start())
+    return {"on": pay_on(s), "key_id": kid, "secret_set": bool(pay_secret(s, "pay_key_secret")), "webhook_set": bool(pay_secret(s, "pay_webhook_secret")), "currency": pay_cur(s),
+            "offers": pay_offers(s), "webhook_url": pay_base(s, request) + "/api/pay/webhook", "site_set": bool(site_url(s)),
+            "month": {"count": month.count(), "amount": sum(x.amount for x in month) / 10 ** pay_digits(pay_cur(s))}}
+@app.get("/api/admin/payments/settings")
+def get_pay_cfg(request: Request, _: User = Depends(admin), s: Session = Depends(db)): return pay_state(s, request)
+@app.put("/api/admin/payments/settings")
+def put_pay_cfg(b: PayCfg, request: Request, _: User = Depends(admin), s: Session = Depends(db)):
+    if b.remove:
+        s.query(Setting).filter(Setting.k.in_(("pay_key_id", "pay_key_secret", "pay_webhook_secret"))).delete(synchronize_session=False); s.commit(); return pay_state(s, request)
+    if b.key_id is not None:
+        k = b.key_id.strip()
+        if k and not re.fullmatch(r"rzp_(test|live)_[A-Za-z0-9]{6,40}", k): raise HTTPException(400, "A Razorpay key ID looks like rzp_live_ followed by letters and numbers")
+        if k: s.merge(Setting(k="pay_key_id", v=k))
+    for name, v in (("pay_key_secret", b.key_secret), ("pay_webhook_secret", b.webhook_secret)):
+        if v and v.strip():
+            if len(v.strip()) > 200 or any(ch.isspace() for ch in v.strip()): raise HTTPException(400, "That does not look like a secret. Copy the whole of it.")
+            s.merge(Setting(k=name, v=seal(v.strip())))
+    if b.currency is not None:
+        c = b.currency.strip().upper()
+        if not re.fullmatch(r"[A-Z]{3}", c): raise HTTPException(400, "Use a three-letter currency code, such as INR")
+        s.merge(Setting(k="pay_currency", v=c))
+    if b.offers is not None:
+        out = []
+        for o in b.offers[:6]:
+            try: days, price = int(o.get("days")), float(o.get("price"))
+            except (TypeError, ValueError): raise HTTPException(400, "Give each offer a number of days and a price")
+            if not 1 <= days <= 3660 or not 0 < price <= 10**7: raise HTTPException(400, "Each offer is 1 day to 10 years, for a price above 0")
+            out.append({"days": days, "price": int(price) if price == int(price) else round(price, 3)})
+        s.merge(Setting(k="pay_offers", v=json.dumps(out)))
+    s.commit(); return pay_state(s, request)
+@app.post("/api/admin/payments/test")
+async def test_pay(_: User = Depends(admin), s: Session = Depends(db)):
+    if not setting(s, "pay_key_id") or not pay_secret(s, "pay_key_secret"): return {"ok": False, "message": "Save the Razorpay key ID and key secret first."}
+    try: await razorpay(s, "GET", "/payment_links?count=1")
+    except httpx.HTTPStatusError as e: return {"ok": False, "message": "Razorpay rejected the keys. Check them and save them again." if e.response.status_code in (401, 403) else f"Razorpay answered with an error ({e.response.status_code})."}
+    except Exception: return {"ok": False, "message": "No answer from Razorpay. Check the server's internet access and try again."}
+    return {"ok": True, "message": "The keys work. Students can buy Pro now."}
+@app.get("/api/admin/payments")
+def list_payments(limit: int = 10, offset: int = 0, _: User = Depends(admin), s: Session = Depends(db)):
+    q = s.query(Payment, User).outerjoin(User, User.id == Payment.user_id).filter(Payment.status == "paid").order_by(Payment.paid_at.desc())
+    total = q.count(); rows = q.offset(max(offset, 0)).limit(min(max(limit, 1), 50)).all()
+    return {"total": total, "items": [{"id": p.id, "name": u.name if u else "", "who": (u.email or u.username) if u else "", "days": p.days, "amount": p.amount / 10 ** pay_digits(p.currency),
+                                        "currency": p.currency, "paid_at": utc_iso(p.paid_at), "until": utc_iso(p.until), "payment_id": p.payment_id} for p, u in rows]}
 # ---- a unit's revision sheet: every topic's gist (saved ones only; the page asks for the rest one by one) and the student's own highlights ----
 @app.get("/api/units/{uid}/revision")
 def revision(uid: int, u: User = Depends(me), s: Session = Depends(db)):
@@ -5436,7 +5699,7 @@ def notes_for(u, s):  # [{key, text, sub}]: staff get what needs attention, stud
     if u.role == "guardian": return cal_notes(u, s)
     if u.role == "student":
         asks = [{"key": f"invite:{l.id}", "text": f"{g.name} wants to follow your progress", "sub": "Accept or decline on Home"} for l, g in invitations(s, u.id)]
-        return asks + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
+        return asks + tq_answered(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
                 for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + cal_notes(u, s)
     return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]]
 @app.get("/api/me/notifications")

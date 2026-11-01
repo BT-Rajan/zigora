@@ -230,6 +230,9 @@ fun DoubtBox(tid: Int, phrase: String, close: () -> Unit) {
     var ans by remember(phrase) { mutableStateOf<Answer?>(null) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
+    var asking by remember { mutableStateOf(false) }
+    var sent by remember(phrase) { mutableStateOf(false) }
+    val student = LocalMe.current?.role == "student"
     Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.not_clear), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -254,6 +257,11 @@ fun DoubtBox(tid: Int, phrase: String, close: () -> Unit) {
                 } }) { Text(stringResource(if (busy) R.string.thinking else R.string.still_not_clear)) }
                 Quiet(stringResource(R.string.doubt_privacy) + (x.ai_left?.takeIf { it <= 10 }?.let { " " + stringResource(R.string.n_left_today, it) } ?: ""))
                 if (err.isNotEmpty()) Quiet(err)
+            }
+            if (student) {
+                if (sent) Quiet(tl("Sent. Your teacher's answer will be in My questions."), Modifier.padding(top = 12.dp))
+                else if (asking) Column(Modifier.padding(top = 8.dp)) { AskTeacherBox(tid, phrase) { ok -> asking = false; if (ok) sent = true } }
+                else TextButton(onClick = { asking = true }, modifier = Modifier.padding(top = 8.dp)) { Text(tl("Still not clear? Ask my teacher")) }
             }
         }
     }

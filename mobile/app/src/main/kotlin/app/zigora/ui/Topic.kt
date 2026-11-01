@@ -116,6 +116,7 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
     var known by remember(id) { mutableStateOf(emptyList<String>()) }
     var upNext by remember(id) { mutableStateOf<List<SessionItem>?>(null) }
     var practising by remember { mutableStateOf("") }
+    var asking by remember { mutableStateOf(false) }
     LaunchedEffect(id) { runCatching { known = a.send("POST", "/topics/$id/read", null, ReadOut.serializer()).known } } // opening a topic starts it; it never completes it
     LearnClock()
     val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -142,7 +143,9 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
                 val aiOff = (ai.state as? Load.Ok)?.value?.off == true  // no parent's or teacher's key: the notes only
                 if (aiOn) Steps(id, student, t.diagram, openDiagram)
                 Body(t, me, aiOn, aiOff, known, openReader = { openReader(id) }, openMaterial = { openMaterial(t.course_id, t.course) })
-                if (student) OutlinedButton(onClick = { openMcq(id) }, modifier = Modifier.fillMaxWidth()) { Text(tl("MCQ practice on this topic")) }  // the Per topic way in; the bank needs no AI
+                if (student) OutlinedButton(onClick = { openMcq(id) }, modifier = Modifier.fillMaxWidth()) { Text(tl("MCQ practice on this topic")) }
+                if (student && !asking) OutlinedButton(onClick = { asking = true }, modifier = Modifier.fillMaxWidth()) { Text(tl("Ask my teacher")) }
+                if (asking) AskTeacherBox(id) { sent -> asking = false; if (sent) scope.launch { snack.showSnackbar(tl("Sent. Your teacher's answer will be in My questions.")) } }  // the Per topic way in; the bank needs no AI
                 if (student && aiOn) {
                     SectionTitle(stringResource(R.string.test_yourself))
                     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  // buttons go to a new line rather than squeeze their text

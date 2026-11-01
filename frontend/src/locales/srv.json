@@ -194,5 +194,17 @@
 [
 "^You have used all (?<n>\\d+) attempts for this assignment\\.$",
 "You have used all {n} attempts for this assignment."
+],
+[
+"^1 student question waiting for your answer$",
+"1 student question waiting for your answer"
+],
+[
+"^(?<n>\\d+) student questions waiting for your answer$",
+"{n} student questions waiting for your answer"
+],
+[
+"^Razorpay answered with an error \\((?<code>\\d+)\\)\\.$",
+"Razorpay answered with an error ({code})."
 ]
 ]

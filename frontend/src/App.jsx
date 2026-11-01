@@ -2,7 +2,7 @@ import {useState,useEffect,useCallback,useRef,createContext,useContext,Children,
 import {createPortal} from 'react-dom'
 import {Md,Body} from './content.jsx'
 import {ROOT,at} from './base.js'
-import {ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes} from 'lucide-react'
+import {ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard} from 'lucide-react'
 import '@fontsource/bricolage-grotesque/600.css'
 import '@fontsource/bricolage-grotesque/800.css'
 import '@fontsource/instrument-sans/400.css'
@@ -61,6 +61,11 @@ export default function App(){
   useEffect(()=>{if(!user)return  // signed in: a language picked just now goes to the account; otherwise the account's language is used
     if(picked.current&&user.lang!==lang)api('/me/lang',{method:'PUT',body:{lang}}).catch(()=>{})
     else if(!picked.current&&user.lang&&user.lang!==lang)loadLang(user.lang).catch(()=>{}).then(()=>setLangS(applyLang(user.lang)))},[user])
+  useEffect(()=>{const m=/^#paid=(ok|no|check)$/.exec(location.hash);if(!user||!m)return  // back from Razorpay's page
+    history.replaceState(null,'',location.pathname+location.search)
+    api('/me/pro/check',{method:'POST'}).then(r=>{setPage('profile')
+      toast(m[1]==='ok'||r.paid?tl("Payment received. You have Pro until {date}.",{date:new Date(new Date(r.pro_until)-1).toLocaleDateString(locale(),{day:'numeric',month:'short',year:'numeric'})})
+        :m[1]==='no'?tl("The payment was not completed."):tl("No word from Razorpay yet. If you paid, Pro starts within a few minutes."))}).catch(()=>{})},[user])
   useEffect(()=>{Promise.allSettled([loadLang(lang),api('/config').then(c=>{setName(c.name);setLogo(c.logo||null);setCanReset(!!c.email_reset);setCanReg(c.self_registration?(c.email_signup===false?'google':'email'):false);setGoogleId(c.google_client_id||null);document.title=c.name}),localStorage.t?api('/me').then(setUser).catch(()=>localStorage.removeItem('t')):null]).then(()=>setReady(true))},[])
   useEffect(()=>{applyTheme(theme);if(theme!=='system')return;const m=matchMedia('(prefers-color-scheme: dark)'),f=()=>applyTheme('system');m.addEventListener('change',f);return()=>m.removeEventListener('change',f)},[theme])
   const pickTheme=t=>{setTheme(t);try{t==='system'?localStorage.removeItem('theme'):localStorage.theme=t}catch{/* private mode: the choice lasts until the page closes */}}
@@ -74,10 +79,10 @@ export default function App(){
   // the side menu (the logo goes Home; search, change password, theme and sign out are in the header)
   const cal=['calendar',CalendarDays,tl("Calendar")]
   const asg=['assign',ClipboardCheck,tl("Assigned tests")],teacher=guardian&&user.relation==='teacher'
-  const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],cal,['saved',Bookmark,tl("Saved")],['progress',TrendingUp,tl("My progress")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
+  const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],cal,['saved',Bookmark,tl("Saved")],['questions',MessageCircle,tl("My questions")],['progress',TrendingUp,tl("My progress")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
     :guardian?[cal,...(teacher?[asg]:[]),['aikey',Sparkles,tl("My AI key")],['about',Info,tl("About")]]  // a parent or teacher: their students on Home, and the AI key their school students use
-    :admin?[['programs',GraduationCap,tl("Programs")],['courses',BookOpen,tl("Courses")],cal,asg,['users',UsersIcon,tl("Users")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['reports',BarChart3,tl("Reports")],['activity',History,tl("Activity log")],['ai',Sparkles,tl("Settings")],['about',Info,tl("About")]]
-    :[['learn',BookOpen,tl("Courses")],cal,asg,['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['bookmarks',Bookmark,tl("Bookmarks")],['highlights',Highlighter,tl("My highlights")],['reports',BarChart3,tl("Reports")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[]),['about',Info,tl("About")]]
+    :admin?[['programs',GraduationCap,tl("Programs")],['courses',BookOpen,tl("Courses")],cal,asg,['questions',MessageCircle,tl("Student questions")],['users',UsersIcon,tl("Users")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['reports',BarChart3,tl("Reports")],['activity',History,tl("Activity log")],['ai',Sparkles,tl("Settings")],['about',Info,tl("About")]]
+    :[['learn',BookOpen,tl("Courses")],cal,asg,['questions',MessageCircle,tl("Student questions")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['bookmarks',Bookmark,tl("Bookmarks")],['highlights',Highlighter,tl("My highlights")],['reports',BarChart3,tl("Reports")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[]),['about',Info,tl("About")]]
   return <Ctx.Provider value={{menu:()=>setOpen(true),appName:name,confirm,role:user.role,aiOff:!!user.ai_off,level:user.level}}>  {/* aiOff: a school student with no parent's or teacher's key studies without AI */}
     <TopBar user={user} lang={lang} pickLang={pickLang} theme={theme} pickTheme={pickTheme} onMenu={()=>setOpen(true)} onHome={()=>go('home')} onAccount={()=>go('profile')} onOut={signOut} onNote={()=>go('home')} page={page}/>
     {page!=='search'&&!guardian&&<GlobalSearch key={findQ.n} onFind={find} onPhoto={user.ai_off?null:()=>go('photo')}/>}{page==='photo'&&<PhotoAsk toast={toast}/>}
@@ -91,7 +96,7 @@ export default function App(){
     {page==='bookmarks'&&!admin&&<Bookmarks toast={toast} role={user.role}/>}{page==='highlights'&&!admin&&<MyHighlights toast={toast} role={user.role}/>}
     {page==='users'&&admin&&<Users toast={toast} me={user}/>}{page==='courses'&&admin&&<AdminCourses toast={toast} onOpen={openIn}/>}{page==='programs'&&admin&&<Programs toast={toast} onOpen={openIn}/>}
     {page==='ai'&&admin&&<AiConfig toast={toast} onBrand={()=>api('/config').then(c=>{setName(c.name);setLogo(c.logo||null);document.title=c.name})}/>}{page==='reports'&&(admin||user.role==='faculty')&&<Reports role={user.role} toast={toast}/>}{page==='activity'&&admin&&<Activity toast={toast}/>}{page==='aikey'&&user.self_registered&&<MyAiKey toast={toast}/>}{page==='password'&&<ChangePassword toast={toast} done={()=>go('profile')}/>}{page==='profile'&&<Profile toast={toast} onPassword={()=>go('password')} onKey={()=>go('aikey')}/>}{page==='about'&&<About user={user}/>}
-    {page==='mcq'&&!guardian&&<McqHome toast={toast}/>}{page==='calendar'&&<CalendarPage toast={toast}/>}
+    {page==='mcq'&&!guardian&&<McqHome toast={toast}/>}{page==='questions'&&student&&<MyQuestions toast={toast}/>}{page==='questions'&&(admin||user.role==='faculty')&&<TeacherQuestions toast={toast}/>}{page==='calendar'&&<CalendarPage toast={toast}/>}
     {page==='assign'&&(admin||user.role==='faculty'||teacher)&&<AssignPage toast={toast}/>}{page==='assigned'&&student&&<AssignedToMe toast={toast}/>}{page==='mcqbank'&&(admin||user.role==='faculty')&&<McqBank toast={toast}/>}
     <div className={'drawer'+(open?' open':'')}><div className="dscrim" onClick={()=>setOpen(false)}/>
       <nav className="panel" aria-label={tl("Main menu")}>
@@ -689,11 +694,11 @@ function AdminCharts({goUsers,goSettings,setList,setRep}){
     </div></>}
 // the admin's dashboard: only what needs doing, grouped by kind and most urgent first, each with the one action that deals with it
 const DASH_CAT=[['ai','AI and costs'],['people','People and plans'],['content','Content'],['system','System']]
-const DASH_DO={settings:'Open Settings',test_ai:'Test the key',users:'Show them',list:'Show them',flags:'Review them'}
-function AdminDashboard({toast,goUsers,goSettings,setList,setFp}){
+const DASH_DO={settings:'Open Settings',test_ai:'Test the key',users:'Show them',list:'Show them',flags:'Review them',questions:'Answer them'}
+function AdminDashboard({toast,goUsers,goSettings,setList,setFp,setQp}){
   const [d,setD]=useState(null),[busy,setBusy]=useState(false)
   useEffect(()=>{api('/admin/dashboard').then(setD).catch(e=>toast(e.message))},[toast])
-  const run=async x=>{if(x.action==='settings')return goSettings(x.target.tab);if(x.action==='users')return goUsers(x.target.plan);if(x.action==='list')return setList(x.target.kind);if(x.action==='flags')return setFp(true)
+  const run=async x=>{if(x.action==='settings')return goSettings(x.target.tab);if(x.action==='users')return goUsers(x.target.plan);if(x.action==='list')return setList(x.target.kind);if(x.action==='flags')return setFp(true);if(x.action==='questions')return setQp(true)
     setBusy(true);try{toast(srv((await api('/admin/ai/test',{method:'POST'})).message))}catch(e){toast(e.message)}setBusy(false)}
   if(!d)return <><div className="sk"/><div className="sk"/></>
   const vars=v=>({...v,...(v.date?{date:day(v.date)}:{})}),rank={now:0,soon:1,later:2},first=c=>Math.min(...d.items.filter(x=>x.category===c).map(x=>rank[x.level]))
@@ -702,15 +707,16 @@ function AdminDashboard({toast,goUsers,goSettings,setList,setFp}){
     {d.items.filter(x=>x.category===c).map(x=><div key={x.key} className={'card dash '+x.level}><span className="dot" aria-hidden="true"/><div style={{flex:1}}><b>{tl(x.text,vars(x.vars))}</b>
       {x.level==='now'&&<small className="known">{tl("Needs you now")}</small>}</div><button className="btn ghost" disabled={busy&&x.action==='test_ai'} onClick={()=>run(x)}>{tl(DASH_DO[x.action])}</button></div>)}</div>)}
 function StaffHome({user,toast,open,goUsers,goSettings}){
-  const [o,setO]=useState(null),[list,setList]=useState(null),[rep,setRep]=useState(null),[flags,setFlags]=useState(0),[fp,setFp]=useState(false),[reports,setReports]=useState(false)
-  useEffect(()=>{if(!list&&!rep&&!fp){api('/overview').then(setO).catch(e=>toast(e.message));if(user.role!=='admin')api('/flags?limit=1').then(r=>setFlags(r.total)).catch(()=>{})}},[toast,list,rep,fp,user.role])
+  const [o,setO]=useState(null),[list,setList]=useState(null),[rep,setRep]=useState(null),[flags,setFlags]=useState(0),[fp,setFp]=useState(false),[qp,setQp]=useState(false),[reports,setReports]=useState(false)
+  useEffect(()=>{if(!list&&!rep&&!fp&&!qp){api('/overview').then(setO).catch(e=>toast(e.message));if(user.role!=='admin')api('/flags?limit=1').then(r=>setFlags(r.total)).catch(()=>{})}},[toast,list,rep,fp,qp,user.role])
   if(fp)return <FlagsPage toast={toast} back={()=>setFp(false)}/>
+  if(qp)return <TeacherQuestions toast={toast} back={()=>setQp(false)}/>
   if(rep)return <StudentReport c={rep} back={()=>setRep(null)} toast={toast}/>
   if(list)return <ResultSet kind={list} user={user} back={()=>setList(null)} toast={toast} open={open}/>
   const admin=user.role==='admin',hour=new Date().getHours(),hi=hour<12?'Good morning, {name}':hour<17?'Good afternoon, {name}':'Good evening, {name}'
   const stats=o?(admin?[[o.people.students,'Active students','students'],[o.people.active_week,'Studied this week','active_week'],[o.people.faculty,'Faculty','faculty'],[o.courses,'Courses','courses']]:[[o.courses,'Your courses','courses'],[o.topics,'Topics','topics'],[o.drafts,'Drafts','drafts']]):[]
   if(admin)return <><Bar title={tl(hi,{name:firstName(user.name)})} sub={tl("What needs doing across the college")}/><div className="main">
-    <AdminDashboard toast={toast} goUsers={goUsers} goSettings={goSettings} setList={setList} setFp={setFp}/>
+    <AdminDashboard toast={toast} goUsers={goUsers} goSettings={goSettings} setList={setList} setFp={setFp} setQp={setQp}/>
     <AdminCharts goUsers={goUsers} goSettings={goSettings} setList={setList} setRep={setRep}/>
     <h3 className="sec">{tl("Reports")}</h3>
     <div className="two"><button className="btn ghost" aria-expanded={reports} onClick={()=>setReports(!reports)}>{reports?tl("Hide course reports"):tl("Course reports")}</button><button className="btn ghost" onClick={()=>setList('students')}>{tl("Students")}</button></div>
@@ -721,7 +727,7 @@ function StaffHome({user,toast,open,goUsers,goSettings}){
     {o&&<div className="stats">{stats.map(([n,l0,k])=>{const l=tl(l0);return <button className="stat" key={l0} style={{textAlign:'start',width:'100%'}} onClick={()=>setList(k)} aria-label={tl("{v} {l}. Show the list",{v:(n??0).toLocaleString(),l:l})}><b>{(n??0).toLocaleString()}</b>{l}</button>})}</div>}
     {flags>0&&<button className="card flagcard" style={{textAlign:'start',width:'100%'}} onClick={()=>setFp(true)}><span className="dot" style={{background:'var(--coral)'}}><Flag size={18}/></span><div style={{flex:1}}><b>{tl(flags===1?'1 AI answer flagged by students':'{n} AI answers flagged by students',{n:flags})}</b><span>{tl("Check it, then have it written again or let it stand")}</span></div><ChevronRight size={18}/></button>}
     {o&&<><h3 className="sec">{tl("Needs attention")}</h3>
-      {o.attention.length?<Paged rows={o.attention} render={x=><button key={x.kind} className="card" style={{textAlign:'start'}} onClick={()=>x.kind==='more_ai'&&goUsers?goUsers('asked'):setList(ATTN_GO[x.kind]||'drafts')}><div style={{flex:1}}><b>{srv(x.text)}</b></div><ChevronRight size={18}/></button>}/>
+      {o.attention.length?<Paged rows={o.attention} render={x=><button key={x.kind} className="card" style={{textAlign:'start'}} onClick={()=>x.kind==='questions'?setQp(true):x.kind==='more_ai'&&goUsers?goUsers('asked'):setList(ATTN_GO[x.kind]||'drafts')}><div style={{flex:1}}><b>{srv(x.text)}</b></div><ChevronRight size={18}/></button>}/>
         :<p className="known">{tl("Nothing needs your attention right now.")}</p>}</>}
     {o&&!o.courses&&!admin&&<p className="known">{tl("No course is assigned to you yet. An admin makes you the owner of a course.")}</p>}
     {o?.courses>0&&<><h3 className="sec">{admin?tl("Courses"):tl("Your courses")}</h3><CourseReports toast={toast} onOpen={setRep}/></>}
@@ -742,6 +748,53 @@ function FlagsPage({toast,back}){
       <p className="known" style={{margin:'6px 0'}}>{tl(f.count===1?'Flagged by 1 student':'Flagged by {n} students',{n:f.count})}{f.reasons.length>0&&':'}</p>
       {f.reasons.length>0&&<ul className="flagwhy">{f.reasons.map((r,i)=><li key={i}>“{r}”</li>)}</ul>}
       <div className="tools">{f.source==='topic'&&f.topic_id&&<button onClick={()=>setT(f.topic_id)}>{tl("Open the topic")}</button>}<button onClick={()=>act(f,'rewrite')}>{tl("Write it again")}</button><button onClick={()=>act(f,'keep')}>{tl("It's fine")}</button></div></div>)}
+    <Pager page={page} total={total} onPage={setPage}/></div></>}
+// ---- ask the teacher: a student's question about a topic goes to the teacher of its course (an admin when it has none), who answers in a
+// ---- short thread. Unlike "This looks wrong?" it is not anonymous: the teacher sees who asked
+const Q_STATE={waiting:['Waiting for your teacher','var(--warn)'],answered:['Answered','var(--ok)'],closed:['Closed','var(--mut)']}
+const QChip=({s,teacher})=>{const [l,c]=Q_STATE[s]||Q_STATE.waiting;return <span className="chip" style={{color:c}}>{tl(s==='waiting'&&teacher?'Waiting for your answer':l)}</span>}
+function AskTeacher({tid,excerpt,close,toast}){
+  const [text,setText]=useState(''),[busy,setBusy]=useState(false)
+  const send=async()=>{setBusy(true);try{await api(`/topics/${tid}/questions`,{method:'POST',body:{text,excerpt:excerpt||''}});toast(tl("Sent. Your teacher's answer will be in My questions."));close()}catch(e){toast(srv(e.message))}setBusy(false)}
+  return <Sheet close={close}><h3>{tl("Ask my teacher")}</h3>
+    {excerpt&&<p className="hltext" style={{marginBottom:10}}>“{excerpt}”</p>}
+    <label htmlFor="tqtext">{tl("Your question")}</label><textarea id="tqtext" rows={4} maxLength={1000} value={text} onChange={e=>setText(e.target.value)} placeholder={tl("What would you like your teacher to explain?")}/>
+    <p className="known">{tl("Your teacher sees your name and the topic you ask about.")}</p>
+    <button className="btn" disabled={busy||text.trim().length<3} onClick={send}>{busy?tl("Sending…"):tl("Send to my teacher")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
+function QuestionThread({id,back,toast}){
+  const confirm=useConfirm(),[q,setQ]=useState(null),[text,setText]=useState(''),[busy,setBusy]=useState(false),[topic,setTopic]=useState(false),{role}=useContext(Ctx)
+  useEffect(()=>{api('/questions/'+id).then(setQ).catch(e=>{toast(srv(e.message));back()})},[id])
+  const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text}}));setText('')}catch(e){toast(srv(e.message))}setBusy(false)}
+  const end=async()=>{if(!await confirm({title:tl("Close this question?"),body:tl("Nobody can reply after this. A new question can be asked from the topic."),ok:tl("Close it")}))return
+    try{setQ(await api(`/questions/${id}/close`,{method:'POST'}))}catch(e){toast(srv(e.message))}}
+  if(topic)return <Topic id={q.topic_id} back={()=>setTopic(false)} toast={toast} role={role}/>
+  return <><Bar title={q?q.topic:tl("Question")} sub={q?[q.course,q.student].filter(Boolean).join(' · '):''} back={back}/><div className="main">
+    {!q?<Skeleton/>:<><div className="tools" style={{justifyContent:'space-between',alignItems:'center'}}><QChip s={q.status} teacher={q.teacher}/><button className="link" onClick={()=>setTopic(true)}>{tl("Open the topic")}</button></div>
+      {q.excerpt&&<p className="hltext" style={{margin:'8px 0 12px'}}>“{q.excerpt}”</p>}
+      <div className="thread">{q.messages.map(m=><div key={m.id} className={'msg'+(m.mine?' mine':'')+(m.teacher?' teach':'')}><small>{m.mine?tl("You"):m.who}{' · '}{when(m.at)}</small><p>{m.text}</p></div>)}</div>
+      {q.status==='closed'?<p className="known">{tl("This question is closed.")}</p>:<><label htmlFor="tqr">{q.teacher?tl("Your answer"):tl("Reply")}</label>
+        <textarea id="tqr" rows={3} maxLength={1000} value={text} onChange={e=>setText(e.target.value)}/>
+        <button className="btn" disabled={busy||text.trim().length<3} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):tl("Send")}</button>
+        <button className="btn ghost" onClick={end}>{tl("Close the question")}</button></>}</>}</div></>}
+// a student's questions to their teachers, newest first; answered ones they haven't read are marked
+function MyQuestions({toast}){
+  const [d,setD]=useState(null),[open,setOpen]=useState(null)
+  useEffect(()=>{if(!open)api('/me/questions').then(setD).catch(e=>toast(e.message))},[open])
+  if(open)return <QuestionThread id={open} back={()=>setOpen(null)} toast={toast}/>
+  return <><Bar title={tl("My questions")} sub={d?pl(d.items.length,'question'):''}/><div className="main">
+    {!d?<Skeleton/>:!d.items.length?<p className="known">{tl("No questions yet. On any topic, tap Ask my teacher, or choose it under Not clear? on a phrase you highlighted.")}</p>
+      :<Paged rows={d.items} render={x=><QRow key={x.id} x={x} onOpen={()=>setOpen(x.id)}/>}/>}</div></>}
+const QRow=({x,onOpen,teacher})=><button className="card ward" onClick={onOpen}><span className="wtop"><b>{x.topic}</b>{x.unread?<span className="chip">{tl("New answer")}</span>:<QChip s={x.status} teacher={teacher}/>}</span>
+  <span className="known">{[x.course,x.student].filter(Boolean).join(' · ')}</span><span style={{display:'block',marginTop:4,overflowWrap:'anywhere'}}>{x.last}</span></button>
+// a teacher's inbox: questions waiting for their answer first (oldest first), or every question on their courses
+function TeacherQuestions({toast,back}){
+  const [view,setView]=useState('waiting'),[open,setOpen]=useState(null)
+  const {items,total,page,setPage,ready,reload}=usePaged(o=>`/questions?status=${view}&limit=${PAGE}&offset=${o}`,[view],toast)
+  if(open)return <QuestionThread id={open} back={()=>{setOpen(null);reload()}} toast={toast}/>
+  return <><Bar title={tl("Student questions")} sub={ready?pl(total,'question'):''} back={back}/><div className="main">
+    <Tabs label={tl("Which questions")} items={[['waiting',tl("Waiting for you")],['all',tl("All")]]} value={view} onChange={setView}/>
+    {!ready?<Skeleton/>:!items.length?<p className="known">{view==='waiting'?tl("No question is waiting for you."):tl("No questions yet.")}</p>
+      :items.map(x=><QRow key={x.id} x={x} teacher onOpen={()=>setOpen(x.id)}/>)}
     <Pager page={page} total={total} onPage={setPage}/></div></>}
 // ---- assigned tests: a teacher gives one student or a group a course quiz or an MCQ set, due by a date and time, with 1, 2, 3 or unlimited
 // ---- attempts; the best attempt before the due time counts. Due times are the students' clock, written "2026-11-05T17:00".
@@ -1546,7 +1599,7 @@ function Topic({id:first,back,toast,role}){
   const [mcq,setMcq]=useState(false),[practice,setPractice]=useState(null),[checking,setChecking]=useState(''),[reading,setReading]=useState(false),[hls,setHls]=useState([]),[tr,setTr]=useState(null)
   useEffect(()=>{setTr(null)},[first])
   const [id,setId]=useState(first),[editing,setEditing]=useState(false),[v,setV]=useState(0),[t,setT]=useState(null),[tab,setTab]=useState('notes'),[known,setKnown]=useState([]),[ai,setAi]=useState({}),[aiOk,setAiOk]=useState(null),[ownKey,setOwnKey]=useState(false),[aiMsg,setAiMsg]=useState(''),[busy,setBusy]=useState(false),[bm,setBm]=useState(false),[pv,setPv]=useState(false),[hist,setHist]=useState(false),[cp,setCp]=useState(false),[gone,setGone]=useState('')
-  const [mat,setMat]=useState(false),[upNext,setUpNext]=useState(null),opened=useRef(false),jump=nid=>{opened.current=false;setUpNext(null);setGone('');setT(null);setTab('notes');setAi({});setAiMsg('');setKnown([]);setEditing(false);setId(nid);window.scrollTo(0,0)},learn=r=>setT(p=>({...p,status:r.status,overdue:r.overdue,late:r.late,completed_at:r.completed_at}))
+  const [mat,setMat]=useState(false),[askT,setAskT]=useState(false),[upNext,setUpNext]=useState(null),opened=useRef(false),jump=nid=>{opened.current=false;setUpNext(null);setGone('');setT(null);setTab('notes');setAi({});setAiMsg('');setKnown([]);setEditing(false);setId(nid);window.scrollTo(0,0)},learn=r=>setT(p=>({...p,status:r.status,overdue:r.overdue,late:r.late,completed_at:r.completed_at}))
   useEffect(()=>{api('/topics/'+id).then(x=>{setT(x);setBm(!!x.bookmarked)
     if(!opened.current){opened.current=true;api(`/topics/${id}/read`,{method:'POST'}).then(r=>{setKnown(r.known);learn(r)}).catch(()=>{})}}).catch(e=>{toast(e.message);if(/unavailable right now/.test(e.message))setGone(e.message)})},[id,v])  // opening starts it, after the page has loaded
   const redo=async()=>{if(!await confirm({title:tl("Start this topic over?"),body:tl("It goes back to not started, so you can study it again. Your quiz scores and your streak stay."),ok:tl("Start over")}))return
@@ -1598,6 +1651,8 @@ function Topic({id:first,back,toast,role}){
     {role==='student'&&<div className="mine"><span>{t.learning_due_at&&<>{tl("Your teacher's date")}: {day(t.learning_due_at)} · </>}{t.status==='completed'?tl("You marked this as learned"):tl("Not marked as learned yet")}</span>
       {t.status==='completed'?<button className="link" onClick={()=>setDone(false)}>{tl("Undo")}</button>:<button className="link" onClick={()=>setDone(true)}>{tl("I've learned this")}</button>}
       {t.status!=='not_started'&&<button className="link" onClick={redo}>{tl("Start over")}</button>}</div>}
+    {role==='student'&&t.published!==false&&<button className="btn ghost" onClick={()=>setAskT(true)}><MessageCircle size={16}/>{" "}{tl("Ask my teacher")}</button>}
+    {askT&&<AskTeacher tid={t.id} close={()=>setAskT(false)} toast={toast}/>}
     {t.nav&&t.nav.total>1&&<nav className="pager" aria-label={tl("Topics in this unit")}><button className="btn ghost" disabled={!t.nav.prev} onClick={()=>jump(t.nav.prev.id)} aria-label={t.nav.prev?tl("Previous topic: {title}",{title:t.nav.prev.title}):tl("No previous topic")}><ChevronLeft size={18}/><span>{t.nav.prev?t.nav.prev.title:tl("Previous")}</span></button>
       <small>{t.nav.position}{" "}{tl("of")}{" "}{t.nav.total}</small>
       <button className={'btn'+(t.nav.next?'':' ghost')} disabled={!t.nav.next} onClick={()=>jump(t.nav.next.id)} aria-label={t.nav.next?tl("Next topic: {title}",{title:t.nav.next.title}):tl("No next topic")}><span>{t.nav.next?t.nav.next.title:tl("Next")}</span><ChevronRight size={18}/></button></nav>}</div></>}
@@ -1773,8 +1828,8 @@ function HlItem({h,where,onGo,onSaved,onDrop,onExplain,focus,toast}){
 // "Not clear?" on a marked phrase. Step one stays on the server: where the phrase sits in the topic and in the student's own notes, and a kept AI answer if there is one.
 // Step two, only if the student asks for it, sends the AI the names of the program, semester, course and topic and the phrase. Never the notes.
 function DoubtBox({tid,phrase,close,toast}){
-  const {aiOff}=useContext(Ctx)
-  const [d,setD]=useState(null),[ans,setAns]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState('')
+  const {aiOff,role}=useContext(Ctx)
+  const [askT,setAskT]=useState(false),[d,setD]=useState(null),[ans,setAns]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState('')
   useEffect(()=>{setD(null);setAns(null);setErr('');api(`/topics/${tid}/doubt`,{method:'POST',body:{phrase}}).then(setD).catch(e=>{toast(e.message);close()})},[tid,phrase])
   const ask=async()=>{setBusy(true);setErr('');try{setAns(await api(`/topics/${tid}/doubt/ask`,{method:'POST',body:{phrase}}))}catch(e){setErr(e.message)}setBusy(false)}
   const shown=ans||(d?.saved?{text:d.saved,cached:true}:null)
@@ -1788,7 +1843,9 @@ function DoubtBox({tid,phrase,close,toast}){
       {shown?<><h4 style={{margin:'14px 0 4px'}}>{tl("Explained")}</h4>{shown.cached&&<span className="chip">{tl("Saved answer · nothing was sent")}</span>}{shown.support?<p>{shown.text}</p>:<div className="prose"><Md>{shown.text}</Md></div>}</>
         :aiOff?<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>:<><button className="btn" disabled={busy} onClick={ask}><Sparkles size={16}/> {busy?tl("Thinking…"):tl("Still not clear? Ask AI")}</button>
           <p className="known">{tl("Only the names of your program, semester, course and topic and this phrase are sent. Your notes never are.")}{d.ai_left!=null&&d.ai_left<=10?' '+tl("{n} left today.",{n:d.ai_left}):''}</p>
-          {err&&<p className="known">{err}</p>}</>}</>}</>}
+          {err&&<p className="known">{err}</p>}</>}
+      {role==='student'&&<button className="link" style={{marginTop:12}} onClick={()=>setAskT(true)}><MessageCircle size={14}/> {tl("Still not clear? Ask my teacher")}</button>}
+      {askT&&<AskTeacher tid={tid} excerpt={phrase} close={()=>setAskT(false)} toast={toast}/>}</>}</>}
 function Reader({t,auto,toast,onList,close}){
   const [list,setList]=useState(null),[panel,setPanel]=useState(false),[doubt,setDoubt]=useState(null),[noteFor,setNoteFor]=useState(null),[fs,setFs]=useState(!!document.fullscreenElement),box=useRef(null),frame=useRef(null),hl=useRef(null),now=useRef([])
   const inter=t.content_format==='interactive',ready=list!==null
@@ -2192,10 +2249,13 @@ function useLearnClock(){
     const start=()=>{t=setInterval(()=>{if(document.visibilityState==='visible')api('/me/plan/tick',{method:'POST'}).catch(()=>{})},60000)}
     if(litePlan===null)api('/ai/status').then(r=>{litePlan=r.plan==='lite';if(litePlan&&!off)start()}).catch(()=>{});else if(litePlan)start()
     return()=>{off=true;if(t)clearInterval(t)}},[])}
-// a self-registered student's plan, with today's free allowance and the two ways to more
+const money=(v,cur)=>{try{return new Intl.NumberFormat(locale(),{style:'currency',currency:cur,maximumFractionDigits:3,minimumFractionDigits:v%1?2:0}).format(v)}catch{return cur+' '+v}}
+const spanOf=d=>d%365===0?tl(d===365?'1 year':'{n} years',{n:d/365}):d%30===0?tl(d===30?'1 month':'{n} months',{n:d/30}):tl(d===1?'1 day':'{n} days',{n:d})
+// a self-registered student's plan, with today's free allowance and the ways to more: their own key, asking the admin, or buying Pro
 function PlanCard({toast,onKey}){
-  const [p,setP]=useState(null),[note,setNote]=useState(''),[asking,setAsking]=useState(false),[busy,setBusy]=useState(false)
-  const load=()=>api('/me/plan').then(r=>{setP(r);litePlan=r.plan==='lite'}).catch(()=>{});useEffect(()=>{load()},[])
+  const [p,setP]=useState(null),[note,setNote]=useState(''),[asking,setAsking]=useState(false),[busy,setBusy]=useState(false),[o,setO]=useState(null)
+  const load=()=>api('/me/plan').then(r=>{setP(r);litePlan=r.plan==='lite'}).catch(()=>{});useEffect(()=>{load();api('/me/pro/offers').then(setO).catch(()=>{})},[])
+  const buy=async i=>{setBusy(true);try{location.href=(await api('/me/pro/buy',{method:'POST',body:{offer:i}})).url}catch(e){toast(srv(e.message));setBusy(false)}}  // Razorpay's page, then back to #paid=
   if(!p||p.plan==='college')return null
   const send=async()=>{setBusy(true);try{toast(srv((await api('/me/plan/request',{method:'POST',body:{note}})).message));setAsking(false);setNote('');load()}catch(e){toast(srv(e.message))}setBusy(false)}
   const meter=(used,max,label)=><div style={{marginTop:8}}><small className="known">{label}</small><div className="meter" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={used}><i style={{width:Math.min(100,Math.round(100*used/Math.max(1,max)))+'%'}}/></div></div>
@@ -2209,7 +2269,10 @@ function PlanCard({toast,onKey}){
       {meter(p.searches_used,p.searches_limit,tl("Searches today: {n} of {max}",{n:p.searches_used,max:p.searches_limit}))}
       {meter(p.minutes_used,p.minutes_limit,tl("Minutes today: {n} of {max}",{n:p.minutes_used,max:p.minutes_limit}))}
       <div className="two" style={{marginTop:10}}>{p.own_key&&<button className="btn ghost" onClick={onKey}>{tl("Use my own AI key")}</button>}
-        {p.asked?<button className="btn ghost" disabled>{tl("Asked your admin")}</button>:<button className="btn ghost" onClick={()=>setAsking(true)}>{tl("Ask my admin for more")}</button>}</div></>}</div>
+        {p.asked?<button className="btn ghost" disabled>{tl("Asked your admin")}</button>:<button className="btn ghost" onClick={()=>setAsking(true)}>{tl("Ask my admin for more")}</button>}</div></>}
+    {o?.on&&o.offers.length>0&&(p.plan==='lite'||p.plan==='pro')&&<><p className="known" style={{margin:'12px 0 0'}}>{p.plan==='pro'?tl("Add more Pro time:"):tl("Or get Pro now: no daily limit, and diagrams where your teacher turns them on.")}</p>
+      <div className="offers">{o.offers.map(x=><button key={x.id} className="btn" disabled={busy} onClick={()=>buy(x.id)}><CreditCard size={16}/> {tl("Pro for {time}",{time:spanOf(x.days)})}{" · "}{money(x.price,o.currency)}</button>)}</div>
+      <small className="known">{tl("You pay on Razorpay's secure page, by card, UPI, netbanking or wallet. Pro starts as soon as the payment is confirmed.")}</small></>}</div>
     {asking&&<Sheet close={()=>setAsking(false)}><h3>{tl("Ask for more AI")}</h3><p className="known">{tl("Your admin can give you more for a while. Say why if you like.")}</p>
       <label htmlFor="mnote">{tl("Note (optional)")}</label><input id="mnote" value={note} maxLength={300} onChange={e=>setNote(e.target.value)} placeholder={tl("Exams next week")}/>
       <button className="btn" disabled={busy} onClick={send}>{tl("Send request")}</button><button className="btn ghost" onClick={()=>setAsking(false)}>{tl("Cancel")}</button></Sheet>}</>}
@@ -2408,7 +2471,7 @@ function AiConfig({toast,onBrand}){
   const load=()=>{api('/admin/settings').then(c=>{setCfg(c);setProv(p=>p||c.provider);setVmodel(c.vision_model);setLim(Object.fromEntries(Object.entries(c.budget||{}).map(([p,b])=>[p,String(b.limit||'')])))});api('/admin/stats').then(setSt)};useEffect(load,[])
   const run=useRun(toast,load),provs=cfg.providers||[],pv=provs.find(x=>x.id===prov),active=prov===cfg.provider
   useEffect(()=>{setModel(pv?.model_saved||'');setKey('')},[prov,pv?.model_saved])
-  return <><Bar title={tl("Settings")} sub={cfg.key_set?tl("AI is on · {name} key {key_hint}",{name:cfg.provider_name,key_hint:cfg.key_hint}):tl("AI is off · no key yet")}/><div className="main"><Tabs label={tl("Settings sections")} scroll items={[['ai','AI'],['prompts',tl("AI prompts")],['school',tl("Institution")],['access',tl("Sign-in")],['mail',tl("Email")],['costs',tl("AI costs")]]} value={tab} onChange={setTab}/>
+  return <><Bar title={tl("Settings")} sub={cfg.key_set?tl("AI is on · {name} key {key_hint}",{name:cfg.provider_name,key_hint:cfg.key_hint}):tl("AI is off · no key yet")}/><div className="main"><Tabs label={tl("Settings sections")} scroll items={[['ai','AI'],['prompts',tl("AI prompts")],['school',tl("Institution")],['access',tl("Sign-in")],['mail',tl("Email")],['pay',tl("Payments")],['costs',tl("AI costs")]]} value={tab} onChange={setTab}/>
     {tab==='school'&&<Branding toast={toast} onSaved={onBrand}/>}{tab==='ai'&&<>
     <label htmlFor="aip">{tl("AI provider")}</label><select id="aip" value={prov} onChange={e=>setProv(e.target.value)}>{provs.map(x=><option key={x.id} value={x.id}>{x.name}{x.id===cfg.provider?' · '+tl("in use"):x.key_set?' · '+tl("key saved"):''}</option>)}</select>
     <p className="known" style={{marginTop:4}}>{tl("The college answers with one provider at a time. Keys saved for the others are kept, so you can switch back. Saved answers keep working after a switch.")}{pv?' '+tl("Create a key at {site}.",{site:pv.console}):''}</p>
@@ -2436,7 +2499,7 @@ function AiConfig({toast,onBrand}){
     {tab==='access'&&<><h3 className="sec first">{tl("Self-registration")}</h3><SelfReg cfg={cfg} run={run}/><GoogleSetting cfg={cfg} run={run}/>
     <h3 className="sec">{tl("Password reset email")}</h3><p className="known">{cfg.mail_on?tl("On. People can reset their own password from the sign-in page."):tl("Off. The sign-in page tells people to ask an admin. Set up a sender under Email to turn it on.")}</p>
     {!cfg.mail_on&&<button className="btn ghost" onClick={()=>setTab('mail')}>{tl("Set up email")}</button>}</>}
-    {tab==='mail'&&<MailSettings toast={toast} onSaved={load}/>}{tab==='costs'&&<AiCosts toast={toast}/>}</div></>}
+    {tab==='mail'&&<MailSettings toast={toast} onSaved={load}/>}{tab==='pay'&&<PaySettings toast={toast}/>}{tab==='costs'&&<AiCosts toast={toast}/>}</div></>}
 // Settings > AI costs: what the college's keys cost, from the tokens the providers billed, at the prices the admin enters (per million tokens).
 // By plan with the spread per person, by kind of request, and the people who used the most. Own keys cost the college nothing and are shown apart.
 const KIND_NAME={...FLAG_KIND,mcq:'MCQ sets',vision:'Photos of diagrams (Claude)',translate:'Translations',doubt:'Doubts',review:'Review',other:'Other'}
@@ -2472,6 +2535,39 @@ function AiCosts({toast}){
     {r.top.length>0&&<button className="btn ghost" onClick={()=>fetchFile(`/admin/costs?days=${days}&format=csv`,`ai-costs-${days}-days.csv`,toast)}>{tl("Download everyone as CSV")}</button>}</>}
 // Settings > Email: the Gmail account that sends password resets, registration codes and daily summaries (its App Password is stored sealed
 // and never shown again), the site address used in links, how sending is going, and a log of what was sent (who and when, never the text)
+// Settings > Payments: Razorpay keys (the secrets are stored sealed and never shown again), the currency, the Pro offers students can buy,
+// the webhook address to paste into Razorpay, and the payments received
+function PaySettings({toast}){
+  const confirm=useConfirm(),[c,setC]=useState(null),[f,setF]=useState({key_id:'',key_secret:'',webhook_secret:'',currency:'INR'}),[offers,setOffers]=useState([]),[busy,setBusy]=useState(false),[copied,setCopied]=useState(false)
+  const take=r=>{setC(r);setF({key_id:r.key_id||'',key_secret:'',webhook_secret:'',currency:r.currency});setOffers(r.offers.map(o=>({days:String(o.days),price:String(o.price)})))}
+  useEffect(()=>{api('/admin/payments/settings').then(take).catch(e=>toast(e.message))},[])
+  const {items,total,page,setPage,ready}=usePaged(o=>`/admin/payments?limit=${PAGE}&offset=${o}`,[],toast)
+  const save=async()=>{setBusy(true);try{take(await api('/admin/payments/settings',{method:'PUT',body:{...f,offers:offers.filter(o=>o.days||o.price).map(o=>({days:Number(o.days),price:Number(o.price)}))}}));toast(tl("Saved"))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const test=async()=>{setBusy(true);try{toast(srv((await api('/admin/payments/test',{method:'POST'})).message))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const off=async()=>{if(!await confirm({title:tl("Remove the Razorpay keys?"),body:tl("Students can no longer buy Pro online. Pro they already bought stays until its last day."),ok:tl("Remove"),danger:true}))return
+    try{take(await api('/admin/payments/settings',{method:'PUT',body:{remove:true}}))}catch(e){toast(srv(e.message))}}
+  const set=(i,k,v)=>setOffers(l=>l.map((o,j)=>j===i?{...o,[k]:v}:o))
+  if(!c)return <Skeleton/>
+  return <><h3 className="sec first">{tl("Buying Pro online")}</h3>
+    <p className="known">{c.on?tl("On. Students who signed up themselves can buy Pro from their profile."):tl("Off. Add your Razorpay keys to let students who signed up themselves buy Pro.")}{c.month.count>0&&' '+tl("This month: {n} payments, {amount}.",{n:c.month.count,amount:money(c.month.amount,c.currency)})}</p>
+    {!c.site_set&&<p className="known" role="alert">{tl("Set the site address under Email first, so Razorpay can send students back here after paying.")}</p>}
+    <label htmlFor="pkid">{tl("Razorpay key ID")}</label><input id="pkid" value={f.key_id} onChange={e=>setF({...f,key_id:e.target.value})} placeholder="rzp_live_…" autoComplete="off" spellCheck={false}/>
+    <label htmlFor="pksec">{tl("Key secret")}</label><input id="pksec" type="password" value={f.key_secret} onChange={e=>setF({...f,key_secret:e.target.value})} placeholder={c.secret_set?tl("Saved. Enter a new one to replace it."):''} autoComplete="new-password"/>
+    <label htmlFor="pwh">{tl("Webhook secret")}</label><input id="pwh" type="password" value={f.webhook_secret} onChange={e=>setF({...f,webhook_secret:e.target.value})} placeholder={c.webhook_set?tl("Saved. Enter a new one to replace it."):''} autoComplete="new-password"/>
+    <p className="known">{tl("In Razorpay, under Webhooks, add this address for the event payment_link.paid, with the same secret:")}</p>
+    <div className="tools"><code style={{overflowWrap:'anywhere'}}>{c.webhook_url}</code><button className="tool" aria-label={tl("Copy")} onClick={()=>{navigator.clipboard?.writeText(c.webhook_url);setCopied(true);setTimeout(()=>setCopied(false),1500)}}>{copied?<Check size={16}/>:<Copy size={16}/>}</button></div>
+    <label htmlFor="pcur">{tl("Currency")}</label><input id="pcur" value={f.currency} maxLength={3} onChange={e=>setF({...f,currency:e.target.value.toUpperCase()})} style={{maxWidth:120}}/>
+    <h3 className="sec">{tl("Pro offers")}</h3>
+    {offers.map((o,i)=><div key={i} className="offrow"><div><label htmlFor={'od'+i}>{tl("Days")}</label><input id={'od'+i} type="number" min={1} max={3660} value={o.days} onChange={e=>set(i,'days',e.target.value)}/></div>
+      <div><label htmlFor={'op'+i}>{tl("Price ({cur})",{cur:f.currency})}</label><input id={'op'+i} type="number" min={0} step="any" value={o.price} onChange={e=>set(i,'price',e.target.value)}/></div>
+      <button className="tool" aria-label={tl("Remove this offer")} onClick={()=>setOffers(l=>l.filter((_,j)=>j!==i))}><Trash2 size={16}/></button></div>)}
+    {offers.length<6&&<button className="btn ghost" onClick={()=>setOffers(l=>[...l,{days:'',price:''}])}><Plus size={16}/>{" "}{tl("Add an offer")}</button>}
+    <button className="btn" disabled={busy} onClick={save}>{tl("Save")}</button>
+    <div className="two"><button className="btn ghost" disabled={busy} onClick={test}>{tl("Test the keys")}</button>{c.secret_set&&<button className="btn ghost" onClick={off}>{tl("Remove the keys")}</button>}</div>
+    <h3 className="sec">{tl("Payments received")}</h3>
+    {!ready?<Skeleton rows={2}/>:!items.length?<p className="known">{tl("No payments yet.")}</p>:items.map(x=><div key={x.id} className="row"><div style={{flex:1}}><b>{x.name||tl("Deleted account")}</b><small className="known" style={{display:'block'}}>{[x.who,when(x.paid_at),x.payment_id].filter(Boolean).join(' · ')}</small></div>
+      <span style={{textAlign:'end'}}><b>{money(x.amount,x.currency)}</b><small className="known" style={{display:'block'}}>{spanOf(x.days)}</small></span></div>)}
+    <Pager page={page} total={total} onPage={setPage}/></>}
 function MailSettings({toast,onSaved}){
   const [m,setM]=useState(null),[gmail,setGmail]=useState(''),[pw,setPw]=useState(''),[url,setUrl]=useState(''),[busy,setBusy]=useState(false),[failed,setFailed]=useState(false)
   const confirm=useConfirm()

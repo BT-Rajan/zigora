@@ -1,6 +1,10 @@
 package app.zigora.ui
 
 import android.Manifest
+import app.zigora.data.I18n
+import app.zigora.data.BuyOut
+import app.zigora.data.ProCheck
+import app.zigora.data.ProOffers
 import android.app.LocaleManager
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -154,7 +158,7 @@ fun ProfileScreen(me: Me, wallpaper: (Boolean) -> Unit, themeOf: (String) -> Uni
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotificationsScreen(back: () -> Unit, openTopic: (Int) -> Unit) {
+fun NotificationsScreen(back: () -> Unit, openTopic: (Int) -> Unit, openQuestion: (Int) -> Unit = {}) {
     val n = rememberLoad("notes") {
         get("/me/notifications", Notes.serializer()).also { r ->
             val keys = r.items.filter { it.unread }.map { it.key }
@@ -169,7 +173,8 @@ fun NotificationsScreen(back: () -> Unit, openTopic: (Int) -> Unit) {
                 if (r.items.isEmpty()) Quiet(stringResource(R.string.no_notifications))
                 Paged(r.items) { x ->
                     val tid = x.key.substringAfter(":").toIntOrNull().takeIf { !x.key.startsWith("quiz") }
-                    ListItem(modifier = if (tid != null) Modifier.clickableRounded { openTopic(tid) } else Modifier,
+                    val qid = x.key.takeIf { it.startsWith("answer:") }?.split(":")?.getOrNull(1)?.toIntOrNull()  // the teacher answered a question
+                    ListItem(modifier = if (qid != null) Modifier.clickableRounded { openQuestion(qid) } else if (tid != null) Modifier.clickableRounded { openTopic(tid) } else Modifier,
                              headlineContent = { Text(x.text) }, supportingContent = { if (x.sub.isNotEmpty()) Text(app.zigora.data.I18n.srv(x.sub)) },
                              overlineContent = { if (x.unread) Text(stringResource(R.string.new_label), color = MaterialTheme.colorScheme.primary) })
                 }
@@ -186,6 +191,21 @@ private fun PlanCard(ai: AiPlan, openKey: () -> Unit, changed: () -> Unit) {  //
     var text by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    val offers = rememberLoad("pro-offers") { runCatching { get("/me/pro/offers", ProOffers.serializer()) }.getOrDefault(ProOffers()) }
+    var paying by remember { mutableStateOf(false) }  // Razorpay's page is open in the browser: on coming back, ask the server whether the payment went through
+    var payMsg by remember { mutableStateOf("") }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME && paying) scope.launch {
+                val r = runCatching { app.api.send("POST", "/me/pro/check", null, ProCheck.serializer()) }.getOrNull()
+                if (r != null && r.paid > 0) { paying = false; payMsg = tl("Payment received. You have Pro until {date}.", "date" to r.pro_until?.let { day(it) }.orEmpty()); changed() }
+                else payMsg = tl("No word from Razorpay yet. If you paid, Pro starts within a few minutes.")
+            }
+        }
+        owner.lifecycle.addObserver(obs); onDispose { owner.lifecycle.removeObserver(obs) }
+    }
     SectionTitle(stringResource(R.string.ai_help))
     Panel {
         Text(when (ai.plan) { "pro" -> stringResource(R.string.plan_pro); "own" -> stringResource(R.string.plan_own); "family" -> tl("Family key"); "off" -> tl("No AI"); else -> stringResource(R.string.plan_lite) },
@@ -205,6 +225,22 @@ private fun PlanCard(ai: AiPlan, openKey: () -> Unit, changed: () -> Unit) {  //
                 }
             }
         }
+        val o = (offers.state as? Load.Ok)?.value
+        if (o != null && o.on && o.offers.isNotEmpty() && (ai.plan == "lite" || ai.plan == "pro")) {
+            Quiet(if (ai.plan == "pro") tl("Add more Pro time:") else tl("Or get Pro now: no daily limit, and diagrams where your teacher turns them on."), Modifier.padding(top = 12.dp))
+            o.offers.forEach { x ->
+                androidx.compose.material3.Button(enabled = !busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), onClick = { scope.launch {
+                    busy = true; payMsg = ""
+                    try {
+                        val url = app.api.send("POST", "/me/pro/buy", buildJsonObject { put("offer", x.id) }, BuyOut.serializer()).url
+                        if (url != null) { paying = true; ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                    } catch (e: Exception) { payMsg = I18n.srv(e.message) }
+                    busy = false
+                } }) { Text(tl("Pro for {time}", "time" to spanOf(x.days)) + " · " + money(x.price, o.currency)) }
+            }
+            Quiet(tl("You pay on Razorpay's secure page, by card, UPI, netbanking or wallet. Pro starts as soon as the payment is confirmed."), Modifier.padding(top = 6.dp))
+        }
+        if (payMsg.isNotEmpty()) Text(payMsg, Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.primary)
     }
     if (dialog.isNotEmpty()) AlertDialog(onDismissRequest = { dialog = "" },
         title = { Text(stringResource(R.string.ask_admin_more)) },
@@ -223,6 +259,15 @@ private fun PlanCard(ai: AiPlan, openKey: () -> Unit, changed: () -> Unit) {  //
         }) { Text(stringResource(if (busy) R.string.thinking else R.string.send_request)) } },
         dismissButton = { TextButton(onClick = { dialog = "" }) { Text(stringResource(R.string.cancel)) } })
 }
+
+private fun spanOf(d: Int) = when {
+    d % 365 == 0 -> if (d == 365) tl("1 year") else tl("{n} years", "n" to d / 365)
+    d % 30 == 0 -> if (d == 30) tl("1 month") else tl("{n} months", "n" to d / 30)
+    else -> if (d == 1) tl("1 day") else tl("{n} days", "n" to d)
+}
+private fun money(v: Double, cur: String): String = runCatching {
+    java.text.NumberFormat.getCurrencyInstance().apply { currency = java.util.Currency.getInstance(cur); if (v % 1.0 == 0.0) maximumFractionDigits = 0 }.format(v)
+}.getOrDefault("$cur $v")
 
 @Composable
 private fun Meter(label: String, used: Int, max: Int) = Column(Modifier.padding(top = 8.dp)) {
