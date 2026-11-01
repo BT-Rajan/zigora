@@ -53,5 +53,7 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+        <!-- a class's reminder, 10 minutes before it starts (set by ClassAlarms; nothing outside the app can send it) -->
+        <receiver android:name=".ClassReminder" android:exported="false" />
     </application>
 </manifest>

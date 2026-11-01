@@ -256,6 +256,12 @@ class Announcement(Base):  # a note to a course's class, or a class at a time wi
     author_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); kind = Column(String(8), default="note")
     title = Column(String(200)); body = Column(Text, nullable=True); starts_at = Column(DateTime, nullable=True); minutes = Column(Integer, nullable=True)
     link = Column(String(300), nullable=True); event_id = Column(Integer, nullable=True); created_at = Column(DateTime, default=dt.datetime.utcnow, index=True); cancelled_at = Column(DateTime, nullable=True)
+    series = Column(String(16), nullable=True, index=True)  # a weekly class: every session shares it (each its own row and calendar event)
+class AnnJoin(Base):  # someone tapped Join for a class (Zigora opens the video link; it can't see who stays in the call)
+    __tablename__ = "ann_joins"
+    id = Column(Integer, primary_key=True); ann_id = Column(Integer, ForeignKey("announcements.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); at = Column(DateTime, default=dt.datetime.utcnow)
+    __table_args__ = (UniqueConstraint("ann_id", "user_id"),)
 class Payment(Base):  # a student buying Pro online through a Razorpay payment link; kept after the account goes, without who paid
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -898,7 +904,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0036_ask_teacher", lambda c: Base.metadata.create_all(c, tables=[TeacherQuestion.__table__, TeacherReply.__table__])),
               ("0037_payments", lambda c: Base.metadata.create_all(c, tables=[Payment.__table__])),
               ("0038_question_photos_shared", lambda c: [_addcol("teacher_questions", "shared", "BOOLEAN NULL")(c), _addcol("teacher_replies", "image", "VARCHAR(40) NULL")(c)]),
-              ("0039_classes_model_answers", lambda c: [Base.metadata.create_all(c, tables=[ModelAnswer.__table__, Announcement.__table__]), _addcol("calendar_events", "link", "VARCHAR(300) NULL")(c)])]
+              ("0039_classes_model_answers", lambda c: [Base.metadata.create_all(c, tables=[ModelAnswer.__table__, Announcement.__table__]), _addcol("calendar_events", "link", "VARCHAR(300) NULL")(c)]),
+              ("0040_weekly_classes_joins", lambda c: [_addcol("announcements", "series", "VARCHAR(16) NULL")(c), Base.metadata.create_all(c, tables=[AnnJoin.__table__])])]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -4320,7 +4327,8 @@ def struggles(days: int = 30, course_id: int = 0, u: User = Depends(staff), s: S
 # ---- Zoom or any https link). A class goes into the calendar of the course's students, their parents and the teacher; the students are told by
 # ---- email, in the bell and on the phone, and so are their parents; admins see it in their bell. Cancelling tells them too.
 ANN_KINDS = ("note", "class")
-class AnnounceIn(BaseModel): course_id: int; kind: str = "note"; title: str; body: str = ""; day: str = ""; at: str = ""; minutes: int = 60; link: str = ""
+class AnnounceIn(BaseModel): course_id: int; kind: str = "note"; title: str; body: str = ""; day: str = ""; at: str = ""; minutes: int = 60; link: str = ""; weeks: int = 1  # weeks: a class every week, this many times
+ANN_WEEKS = 26
 def ann_students(s, c):
     sems = {x.id: x for x in s.query(Semester)}; links = defaultdict(list)
     for l in s.query(CourseLink).filter_by(course_id=c.id): links[l.course_id].append(l.semester_id)
@@ -4332,23 +4340,34 @@ def ann_json(a, c, s, u=None):
         end = a.starts_at + dt.timedelta(minutes=a.minutes or 60)
         st = "cancelled" if a.cancelled_at else "ended" if now >= end else "live" if now >= a.starts_at - dt.timedelta(minutes=10) else "upcoming"
     elif a.cancelled_at: st = "cancelled"
-    return {"id": a.id, "kind": a.kind, "course_id": a.course_id, "course": c.name if c else "", "title": a.title, "body": a.body or "", "by": by.name if by else "",
-            "at": utc_iso(a.created_at), "starts_at": utc_iso(a.starts_at), "minutes": a.minutes, "link": a.link if a.kind == "class" and not a.cancelled_at else None, "status": st,
-            "can_edit": bool(u and is_staff(u) and can_edit(u, a.course_id, s))}
-def ann_tell(s, a, c, author, bg, cancelled=False):
+    teach = bool(u and is_staff(u) and can_edit(u, a.course_id, s))
+    out = {"id": a.id, "kind": a.kind, "course_id": a.course_id, "course": c.name if c else "", "title": a.title, "body": a.body or "", "by": by.name if by else "",
+           "at": utc_iso(a.created_at), "starts_at": utc_iso(a.starts_at), "minutes": a.minutes, "link": a.link if a.kind == "class" and not a.cancelled_at else None, "status": st,
+           "can_edit": teach, "series": a.series, "joined": bool(u and s.query(AnnJoin.id).filter_by(ann_id=a.id, user_id=u.id).first())}
+    if a.series:
+        rows = s.query(Announcement.starts_at, Announcement.cancelled_at).filter(Announcement.series == a.series).order_by(Announcement.starts_at).all()
+        out["week"] = {"n": [r[0] for r in rows].index(a.starts_at) + 1 if a.starts_at in [r[0] for r in rows] else 0, "of": len(rows),
+                       "more": sum(1 for st0, cx in rows if st0 and st0 > (a.starts_at or now) and not cx)}
+    if teach and a.kind == "class":  # who tapped Join: the teacher's rough attendance
+        js = s.query(User.name, AnnJoin.at).join(AnnJoin, AnnJoin.user_id == User.id).filter(AnnJoin.ann_id == a.id).order_by(User.name).all()
+        out["joins"] = [{"name": n, "at": utc_iso(t)} for n, t in js]; out["class_size"] = len(ann_students(s, c)) if c else 0
+    return out
+def ann_tell(s, a, c, author, bg, cancelled=False, weeks=1):
     """Email the course's students (or, for a username account, its parents) and every parent of a student who has an email of their own."""
     when = ""
     if a.kind == "class" and a.starts_at: when = f"{local_day(a.starts_at).isoformat()} {local_hhmm(a.starts_at)}"
-    if cancelled: subj, mine, theirs = "Class cancelled: {title}", "{teacher} cancelled the class {title} on {when} for {course}.", "{teacher} cancelled the class {title} on {when} for {course}, which {name} takes."
+    if cancelled and weeks > 1: subj, mine, theirs = "Weekly class cancelled: {title}", "{teacher} cancelled the weekly class {title} for {course}, from {when} on ({weeks} sessions).", "{teacher} cancelled the weekly class {title} for {course}, which {name} takes, from {when} on ({weeks} sessions)."
+    elif cancelled: subj, mine, theirs = "Class cancelled: {title}", "{teacher} cancelled the class {title} on {when} for {course}.", "{teacher} cancelled the class {title} on {when} for {course}, which {name} takes."
+    elif a.kind == "class" and weeks > 1: subj, mine, theirs = "New weekly class: {title}", "{teacher} scheduled a weekly class for {course}: {title}, every week from {when}, {weeks} times. Join from {app} when it starts; every session is in your calendar.", "{teacher} scheduled a weekly class for {course}, which {name} takes: {title}, every week from {when}, {weeks} times. Every session is in {name}'s calendar."
     elif a.kind == "class": subj, mine, theirs = "New class: {title}", "{teacher} scheduled a class for {course}: {title}, on {when}. Join from {app} when it starts; it is in your calendar.", "{teacher} scheduled a class for {course}, which {name} takes: {title}, on {when}. It is in {name}'s calendar."
     else: subj, mine, theirs = "{course}: {title}", "{teacher} posted to {course}: {title}. Read it in {app}.", "{teacher} posted to {course}, which {name} takes: {title}."
     told = set()
     for st in ann_students(s, c):
-        notify(s, st, "class", subj, mine, theirs, run=bg.add_task, title=a.title, teacher=author.name, course=c.name, when=when, name=st.name)
+        notify(s, st, "class", subj, mine, theirs, run=bg.add_task, title=a.title, teacher=author.name, course=c.name, when=when, name=st.name, weeks=weeks)
         if st.email:
             for g in guardians_of(s, st.id):
                 if g.email and g.active and g.id not in told:
-                    told.add(g.id); notify(s, g, "class", subj, theirs, run=bg.add_task, title=a.title, teacher=author.name, course=c.name, when=when, name=st.name)
+                    told.add(g.id); notify(s, g, "class", subj, theirs, run=bg.add_task, title=a.title, teacher=author.name, course=c.name, when=when, name=st.name, weeks=weeks)
 @app.post("/api/announcements")
 def announce(b: AnnounceIn, bg: BackgroundTasks, u: User = Depends(staff), s: Session = Depends(db)):
     c = s.get(Course, b.course_id)
@@ -4367,20 +4386,42 @@ def announce(b: AnnounceIn, bg: BackgroundTasks, u: User = Depends(staff), s: Se
         if not re.fullmatch(r"https://[^\s<>\"']{4,290}", link): raise HTTPException(400, "Paste the class's video link, starting with https:// (for example a Google Meet link)")
         start = dt.datetime.combine(d, dt.time.fromisoformat(at)) - dt.timedelta(minutes=DAY_OFFSET)
         if start + dt.timedelta(minutes=b.minutes) < dt.datetime.utcnow(): raise HTTPException(400, "Choose a time that has not passed")
-        e = CalendarEvent(title=title, notes=body[:1000] or None, kind="class", day=d, at=at, scope="course", course_id=c.id, created_by=u.id, link=link); s.add(e); s.flush()
-        a.starts_at, a.minutes, a.link, a.event_id = start, b.minutes, link, e.id
+        if not 1 <= b.weeks <= ANN_WEEKS: raise HTTPException(400, "A weekly class runs for 2 to 26 weeks")
+        series = secrets.token_hex(8) if b.weeks > 1 else None
+        for w in range(b.weeks):  # each session is its own class and calendar event, so it shows in every calendar and can be cancelled on its own
+            dw = d + dt.timedelta(weeks=w)
+            e = CalendarEvent(title=title, notes=body[:1000] or None, kind="class", day=dw, at=at, scope="course", course_id=c.id, created_by=u.id, link=link); s.add(e); s.flush()
+            x = a if w == 0 else Announcement(course_id=c.id, author_id=u.id, kind="class", title=title, body=body or None)
+            x.starts_at, x.minutes, x.link, x.event_id, x.series = start + dt.timedelta(weeks=w), b.minutes, link, e.id, series
+            s.add(x)
+        s.commit(); ann_tell(s, a, c, u, bg, weeks=b.weeks)
+        return ann_json(a, c, s, u)
     s.add(a); s.commit(); ann_tell(s, a, c, u, bg)
     return ann_json(a, c, s, u)
 @app.post("/api/announcements/{aid}/cancel")
-def cancel_announcement(aid: int, bg: BackgroundTasks, u: User = Depends(staff), s: Session = Depends(db)):
+def cancel_announcement(aid: int, bg: BackgroundTasks, all: bool = False, u: User = Depends(staff), s: Session = Depends(db)):
+    """Cancels a class (or withdraws a note); with all, this weekly class's session and every one after it."""
     a = s.get(Announcement, aid)
     if not a or a.cancelled_at: raise HTTPException(404, "Not found")
-    need_edit(u, a.course_id, s); c = s.get(Course, a.course_id)
-    a.cancelled_at = dt.datetime.utcnow()
-    if a.event_id: s.query(CalendarEvent).filter_by(id=a.event_id).delete()
+    need_edit(u, a.course_id, s); c = s.get(Course, a.course_id); now = dt.datetime.utcnow()
+    rows = [a] if not (all and a.series) else s.query(Announcement).filter(Announcement.series == a.series, Announcement.starts_at >= a.starts_at, Announcement.cancelled_at.is_(None)).all()
+    for x in rows:
+        x.cancelled_at = now
+        if x.event_id: s.query(CalendarEvent).filter_by(id=x.event_id).delete()
     s.commit()
-    if a.kind == "class" and a.starts_at and a.starts_at + dt.timedelta(minutes=a.minutes or 60) > dt.datetime.utcnow(): ann_tell(s, a, c, u, bg, cancelled=True)
+    if a.kind == "class" and a.starts_at and a.starts_at + dt.timedelta(minutes=a.minutes or 60) > now: ann_tell(s, a, c, u, bg, cancelled=True, weeks=len(rows))
     return ann_json(a, c, s, u)
+@app.post("/api/announcements/{aid}/join")
+def join_class(aid: int, u: User = Depends(me), s: Session = Depends(db)):
+    """Notes that this person tapped Join (the app then opens the video link). The teacher sees who did."""
+    a = s.get(Announcement, aid)
+    if not a or a.kind != "class" or a.cancelled_at or a.course_id not in ann_courses(u, s): raise HTTPException(404, "Not found")  # their courses (a teacher's own, any for admins)
+    if not s.query(AnnJoin.id).filter_by(ann_id=a.id, user_id=u.id).first():
+        try:
+            with s.begin_nested(): s.add(AnnJoin(ann_id=a.id, user_id=u.id))
+        except IntegrityError: pass
+        s.commit()
+    return {"link": a.link}
 def ann_courses(u, s):  # whose announcements this person reads: a student's courses, a parent's children's, a teacher's own, every course for admins
     if u.role == "student": return student_course_ids(u, s)
     if u.role == "guardian": return set().union(*[student_course_ids(x, s) for x in linked_students(s, u)]) if linked_students(s, u) else set()
@@ -4389,8 +4430,20 @@ def ann_courses(u, s):  # whose announcements this person reads: a student's cou
 def announcements(course_id: int = 0, limit: int = 30, u: User = Depends(me), s: Session = Depends(db)):
     cids = ann_courses(u, s)
     if course_id: cids = cids & {course_id}
-    q = s.query(Announcement).filter(Announcement.course_id.in_(cids or {0}), Announcement.created_at >= dt.datetime.utcnow() - dt.timedelta(days=120))
-    rows = q.order_by(Announcement.created_at.desc()).limit(min(max(limit, 1), 100)).all(); cs = {c.id: c for c in s.query(Course).filter(Course.id.in_({a.course_id for a in rows} or {0}))}
+    now = dt.datetime.utcnow()
+    q = s.query(Announcement).filter(Announcement.course_id.in_(cids or {0}), Announcement.created_at >= now - dt.timedelta(days=120))
+    rows, seen = [], {}
+    for a in q.order_by(Announcement.created_at.desc(), Announcement.starts_at).limit(400):  # a weekly class shows once: its next session (or its last one, once it is over)
+        if a.series:
+            live = a.cancelled_at is None and a.starts_at and a.starts_at + dt.timedelta(minutes=a.minutes or 60) > now
+            k = seen.get(a.series)
+            if k is not None:
+                b = rows[k]; b_live = b.cancelled_at is None and b.starts_at and b.starts_at + dt.timedelta(minutes=b.minutes or 60) > now
+                if (live and (not b_live or a.starts_at < b.starts_at)) or (not live and not b_live and a.starts_at > b.starts_at): rows[k] = a
+                continue
+            seen[a.series] = len(rows)
+        rows.append(a)
+    rows = rows[:min(max(limit, 1), 100)]; cs = {c.id: c for c in s.query(Course).filter(Course.id.in_({a.course_id for a in rows} or {0}))}
     items = [ann_json(a, cs.get(a.course_id), s, u) for a in rows]
     upcoming = sorted([x for x in items if x["status"] in ("upcoming", "live")], key=lambda x: x["starts_at"])
     return {"items": items, "upcoming": upcoming, "can_post": is_staff(u) and bool(my_courses(u, s)),
@@ -4399,9 +4452,12 @@ def ann_notes(u, s):  # the bell: what was posted in the last week, and a class 
     cids = ann_courses(u, s) if u.role != "admin" else None; now = dt.datetime.utcnow()
     q = s.query(Announcement, Course).join(Course, Course.id == Announcement.course_id).filter(Announcement.created_at >= now - dt.timedelta(days=7), Announcement.cancelled_at.is_(None))
     if cids is not None: q = q.filter(Announcement.course_id.in_(cids or {0}))
-    out = []
-    for a, c in q.order_by(Announcement.created_at.desc()).limit(10):
-        out.append({"key": f"ann:{a.id}", "text": f"{c.name}: {a.title}", "sub": "New class" if a.kind == "class" else "New announcement"})
+    out, series = [], set()
+    for a, c in q.order_by(Announcement.created_at.desc(), Announcement.starts_at).limit(60):
+        if a.series in series: continue
+        if a.series: series.add(a.series)
+        out.append({"key": f"ann:{a.id}", "text": f"{c.name}: {a.title}", "sub": "New weekly class" if a.series else "New class" if a.kind == "class" else "New announcement"})
+        if len(out) >= 10: break
     return out
 # ---- buying Pro online: the admin sets the Razorpay keys and a few offers (days for a price). A student picks one and pays on Razorpay's own page
 # ---- (a payment link: cards, UPI, netbanking and wallets, on the web and from the Android app alike). Pro starts when Razorpay confirms the payment:
@@ -6548,9 +6604,11 @@ def scope_label(e, s):
         p = s.get(Program, e.program_id); n = p.name if p else "A program"
         return f"{n} · {term_label(p) if p else 'Semester'} {e.semester}" if e.scope == "semester" else n
     o = s.get(User, e.user_id); return o.name if o else ""
+def class_of(e, s):  # the class a calendar event belongs to, so Join can be counted
+    x = s.query(Announcement.id).filter(Announcement.event_id == e.id).first(); return x[0] if x else None
 def event_item(e, u, s):
     return {"id": f"ev:{e.id}", "kind": e.kind, "date": e.day.isoformat(), "end": e.end_day.isoformat() if e.end_day else None, "at": e.at, "title": e.title, "sub": scope_label(e, s),
-            "state": None, "link": {"join": e.link} if e.link else None, "event": {"id": e.id, "notes": e.notes or "", "scope": e.scope, "program_id": e.program_id, "semester": e.semester, "course_id": e.course_id,
+            "state": None, "link": {"join": e.link, "class": class_of(e, s)} if e.link else None, "event": {"id": e.id, "notes": e.notes or "", "scope": e.scope, "program_id": e.program_id, "semester": e.semester, "course_id": e.course_id,
                                      "user_id": e.user_id, "can_edit": (e.created_by == u.id or u.role == "admin") and e.kind != "class"}}  # a class is changed from Announcements
 def local_hhmm(t): return (t + dt.timedelta(minutes=DAY_OFFSET)).strftime("%H:%M")
 def student_items(st, s, d0, d1, now):

@@ -51,7 +51,10 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class ModelAnswer(val question: String = "", val parts: List<MAPart> = emptyList(), val total: Double = 0.0, val by: String = "")
 /** announcements and classes */
 @Serializable data class Ann(val id: Int, val kind: String = "note", val course_id: Int = 0, val course: String = "", val title: String = "", val body: String = "", val by: String = "",
-                             val at: String? = null, val starts_at: String? = null, val minutes: Int? = null, val link: String? = null, val status: String? = null, val can_edit: Boolean = false)
+                             val at: String? = null, val starts_at: String? = null, val minutes: Int? = null, val link: String? = null, val status: String? = null, val can_edit: Boolean = false,
+                             val series: String? = null, val week: AnnWeek? = null, val joined: Boolean = false, val joins: List<AnnJoin>? = null, val class_size: Int = 0)
+@Serializable data class AnnWeek(val n: Int = 0, val of: Int = 0, val more: Int = 0)
+@Serializable data class AnnJoin(val name: String = "", val at: String? = null)
 @Serializable data class CourseRef(val id: Int, val name: String)
 @Serializable data class AnnList(val items: List<Ann> = emptyList(), val upcoming: List<Ann> = emptyList(), val can_post: Boolean = false, val courses: List<CourseRef> = emptyList())
 /** where students struggle */
@@ -230,6 +233,7 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class CalItem(val id: String, val kind: String, val date: String, val end: String? = null, val at: String? = null, val title: String = "", val sub: String = "",
                                  val state: String? = null, val event: CalEvent? = null, val link: JsonObject? = null) {
     val join: String? get() = (link?.get("join") as? kotlinx.serialization.json.JsonPrimitive)?.content  // a class's video link
+    val classId: Int? get() = (link?.get("class") as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull()  // its class, so Join is counted
 }
 @Serializable data class CalWho(val id: Int, val name: String)
 @Serializable data class CalResp(val items: List<CalItem> = emptyList(), val today: String = "", val student: CalWho? = null, val students: List<CalWho> = emptyList())

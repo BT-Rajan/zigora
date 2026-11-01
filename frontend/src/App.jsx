@@ -356,7 +356,7 @@ function CalItem({x,onEdit}){
   return <div className={'card calitem k-'+x.kind}><span className={'calbar k-'+x.kind} aria-hidden="true"/>
     <div className="hit" style={{cursor:'default'}}><div style={{flex:1}}><b>{calTitle(x)}{x.state&&STATE[x.state]&&<span className={'pill sm '+(x.state==='done'?'okp':'off')}>{tl(STATE[x.state])}</span>}</b>
       <span>{[tl(KIND_TAG[x.kind]||''),calWhen(x),x.sub?srv(x.sub):''].filter(Boolean).join(' · ')}</span>{x.event?.notes&&<span className="calnote">{x.event.notes}</span>}</div></div>
-    {x.link?.join&&<a className="tool" href={x.link.join} target="_blank" rel="noreferrer"><Play size={16}/>{" "}{tl("Join")}</a>}
+    {x.link?.join&&<a className="tool" href={x.link.join} target="_blank" rel="noreferrer" onClick={()=>x.link.class&&joinClass(x.link.class)}><Play size={16}/>{" "}{tl("Join")}</a>}
     {x.event?.can_edit&&<button className="tool" onClick={()=>onEdit(x)} aria-label={tl("Edit {title}",{title:x.title})}><Pencil size={16}/></button>}</div>}
 function CalendarPage({toast}){
   const confirm=useConfirm(),role=useContext(Ctx).role
@@ -853,20 +853,26 @@ function TeacherQuestions({toast,back}){
 // ---- parents read them here and join a class from here; a class is also in their calendars, and they are told by email, in the bell and on the phone
 const classWhen=x=>x.starts_at?new Date(x.starts_at).toLocaleString(locale(),{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+' · '+tl("{n} min",{n:x.minutes}):''
 const ANN_STATE={live:['Starting now','var(--ok)'],upcoming:['Coming up','var(--acct)'],ended:['Ended','var(--mut)'],cancelled:['Cancelled','var(--bad)']}
+const joinClass=x=>api(`/announcements/${x}/join`,{method:'POST'}).catch(()=>{})  // counted for the teacher; the link opens as usual
 function AnnCard({x,onCancel}){
-  const [l,c]=ANN_STATE[x.status]||[]
+  const [l,c]=ANN_STATE[x.status]||[],[who,setWho]=useState(false)
   return <div className={'qbox ann'+(x.kind==='class'?' cls':'')}><div className="wtop" style={{display:'flex',justifyContent:'space-between',gap:8}}><small className="steplab">{x.kind==='class'?tl("Class"):tl("Announcement")}{' · '}{x.course}</small>{l&&<span className="chip" style={{color:c,margin:0}}>{tl(l)}</span>}</div>
-    <b style={{display:'block',margin:'4px 0'}}>{x.title}</b>{x.kind==='class'&&<p className="known" style={{margin:'0 0 6px'}}>{classWhen(x)}</p>}
+    <b style={{display:'block',margin:'4px 0'}}>{x.title}</b>{x.kind==='class'&&<p className="known" style={{margin:'0 0 6px'}}>{classWhen(x)}{x.week&&<>{' · '}{tl("Weekly, session {n} of {of}",{n:x.week.n,of:x.week.of})}</>}</p>}
     {x.body&&<div className="prose flat"><Md>{x.body}</Md></div>}<small className="known">{x.by}{x.by?' · ':''}{when(x.at)}</small>
-    <div className="tools" style={{marginTop:8}}>{x.link&&x.status!=='ended'&&<a className={'btn'+(x.status==='live'?'':' ghost')} href={x.link} target="_blank" rel="noreferrer" style={{width:'auto'}}><Play size={16}/>{" "}{tl("Join the class")}</a>}
-      {x.can_edit&&x.status!=='cancelled'&&x.status!=='ended'&&<button className="btn ghost" style={{width:'auto'}} onClick={()=>onCancel(x)}>{x.kind==='class'?tl("Cancel the class"):tl("Withdraw")}</button>}</div></div>}
+    <div className="tools" style={{marginTop:8}}>{x.link&&x.status!=='ended'&&<a className={'btn'+(x.status==='live'?'':' ghost')} href={x.link} target="_blank" rel="noreferrer" style={{width:'auto'}} onClick={()=>joinClass(x.id)}><Play size={16}/>{" "}{tl("Join the class")}</a>}
+      {x.can_edit&&x.status!=='cancelled'&&x.status!=='ended'&&<button className="btn ghost" style={{width:'auto'}} onClick={()=>onCancel(x)}>{x.kind==='class'?tl("Cancel the class"):tl("Withdraw")}</button>}</div>
+    {x.joins&&x.status!=='upcoming'&&<div style={{marginTop:6}}><button className="link" onClick={()=>setWho(!who)}>{tl("Tapped Join: {n} of {of}",{n:x.joins.length,of:x.class_size})}</button>
+      {who&&<p className="known" style={{margin:'4px 0 0'}}>{x.joins.length?x.joins.map(j=>j.name).join(', '):tl("Nobody yet.")}{" "}{tl("Zigora counts who tapped Join; it can't see who stayed in the call.")}</p>}</div>}</div>}
 function ClassesPage({toast}){
   const confirm=useConfirm(),[d,setD]=useState(null),[form,setForm]=useState(null),[busy,setBusy]=useState(false)
   const load=()=>api('/announcements').then(setD).catch(e=>toast(e.message));useEffect(()=>{load()},[])
-  const blank=()=>({kind:'class',course_id:d?.courses[0]?.id||'',title:'',body:'',day:ymd(new Date()),at:'18:00',minutes:60,link:''})
-  const save=async()=>{setBusy(true);try{await api('/announcements',{method:'POST',body:{...form,course_id:Number(form.course_id),minutes:Number(form.minutes)}});toast(form.kind==='class'?tl("Class scheduled. Students and parents are told."):tl("Posted. Students and parents are told."));setForm(null);load()}catch(e){toast(srv(e.message))}setBusy(false)}
-  const cancel=async x=>{if(!await confirm({title:x.kind==='class'?tl("Cancel this class?"):tl("Withdraw this announcement?"),body:x.kind==='class'?tl("It comes out of everyone's calendar, and students and parents are told."):'',ok:x.kind==='class'?tl("Cancel the class"):tl("Withdraw"),danger:true}))return
-    try{await api(`/announcements/${x.id}/cancel`,{method:'POST'});load()}catch(e){toast(srv(e.message))}}
+  const blank=()=>({kind:'class',course_id:d?.courses[0]?.id||'',title:'',body:'',day:ymd(new Date()),at:'18:00',minutes:60,link:'',repeat:false,weeks:8})
+  const save=async()=>{setBusy(true);try{await api('/announcements',{method:'POST',body:{...form,course_id:Number(form.course_id),minutes:Number(form.minutes),weeks:form.kind==='class'&&form.repeat?Number(form.weeks):1}});toast(form.kind==='class'?tl("Class scheduled. Students and parents are told."):tl("Posted. Students and parents are told."));setForm(null);load()}catch(e){toast(srv(e.message))}setBusy(false)}
+  const [series,setSeries]=useState(null)
+  const stop=async(x,all)=>{setSeries(null);try{await api(`/announcements/${x.id}/cancel${all?'?all=true':''}`,{method:'POST'});load()}catch(e){toast(srv(e.message))}}
+  const cancel=async x=>{if(x.week&&x.week.more>0)return setSeries(x)  // a weekly class: this session, or this and the rest
+    if(!await confirm({title:x.kind==='class'?tl("Cancel this class?"):tl("Withdraw this announcement?"),body:x.kind==='class'?tl("It comes out of everyone's calendar, and students and parents are told."):'',ok:x.kind==='class'?tl("Cancel the class"):tl("Withdraw"),danger:true}))return
+    stop(x,false)}
   const f=form,set=(k,v)=>setForm({...f,[k]:v})
   return <><Bar title={tl("Classes and announcements")} sub={d?tl(d.upcoming.length===1?"1 class coming up":"{n} classes coming up",{n:d.upcoming.length}):''}/><div className="main">
     {d?.can_post&&!f&&<button className="btn" onClick={()=>setForm(blank())}><Plus size={16}/>{" "}{tl("Schedule a class or post an announcement")}</button>}
@@ -876,10 +882,16 @@ function ClassesPage({toast}){
       {f.kind==='class'&&<><div className="two"><div><label htmlFor="and">{tl("Date")}</label><input id="and" type="date" value={f.day} onChange={e=>set('day',e.target.value)}/></div>
         <div><label htmlFor="ana">{tl("Time")}</label><input id="ana" type="time" value={f.at} onChange={e=>set('at',e.target.value)}/></div></div>
         <label htmlFor="anm">{tl("Length (minutes)")}</label><input id="anm" type="number" min={10} max={600} value={f.minutes} onChange={e=>set('minutes',e.target.value)} style={{maxWidth:140}}/>
+        <label className="chk"><input type="checkbox" checked={f.repeat} onChange={e=>set('repeat',e.target.checked)}/>{" "}{tl("Repeat every week")}</label>
+        {f.repeat&&<><label htmlFor="anw">{tl("How many weeks")}</label><input id="anw" type="number" min={2} max={26} value={f.weeks} onChange={e=>set('weeks',e.target.value)} style={{maxWidth:140}}/>
+          <p className="known">{tl("Every session goes into the calendar. Students are told once, for the whole series.")}</p></>}
         <label htmlFor="anl">{tl("Video link")}</label><input id="anl" value={f.link} onChange={e=>set('link',e.target.value)} placeholder="https://meet.google.com/…" spellCheck={false}/>
         <p className="known">{tl("Make a Google Meet (or Zoom) link, then paste it here. Students join from Zigora when the class starts.")}{" "}<a href="https://meet.google.com/new" target="_blank" rel="noreferrer">{tl("Make a Google Meet link")}</a></p></>}
       <label htmlFor="anb">{f.kind==='class'?tl("What to bring or prepare (optional)"):tl("Message")}</label><textarea id="anb" rows={4} maxLength={4000} value={f.body} onChange={e=>set('body',e.target.value)}/>
       <button className="btn" disabled={busy||f.title.trim().length<3||(f.kind==='class'&&!f.link.trim())} onClick={save}>{f.kind==='class'?tl("Schedule the class"):tl("Post")}</button><button className="btn ghost" onClick={()=>setForm(null)}>{tl("Cancel")}</button></div>}
+    {series&&<Sheet close={()=>setSeries(null)}><h3>{tl("Cancel the weekly class?")}</h3><p className="known">{tl("It comes out of everyone's calendar, and students and parents are told.")}</p>
+      <button className="btn danger" onClick={()=>stop(series,false)}>{tl("Only this session")}</button><button className="btn danger" onClick={()=>stop(series,true)}>{tl("This and every later session ({n})",{n:series.week.more+1})}</button>
+      <button className="btn ghost" onClick={()=>setSeries(null)}>{tl("Keep it")}</button></Sheet>}
     {!d?<Skeleton/>:<>{d.upcoming.length>0&&<><h3 className="sec">{tl("Coming up")}</h3>{d.upcoming.map(x=><AnnCard key={x.id} x={x} onCancel={cancel}/>)}</>}
       <h3 className="sec">{tl("Recent")}</h3>{d.items.filter(x=>!d.upcoming.some(y=>y.id===x.id)).length?d.items.filter(x=>!d.upcoming.some(y=>y.id===x.id)).map(x=><AnnCard key={x.id} x={x} onCancel={cancel}/>):<p className="known">{tl("Nothing posted yet.")}</p>}</>}</div></>}
 // ---- where students struggle: per topic, what students did when stuck over the last weeks, most first; the questions they asked are a tap away
