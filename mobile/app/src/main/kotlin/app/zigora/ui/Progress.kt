@@ -114,14 +114,14 @@ const val LET = "ABCDEF"
 // ---- Saved
 
 @Composable
-fun SavedScreen(openTopic: (Int) -> Unit) {
+fun SavedScreen(openTopic: (Int) -> Unit, openQuestion: (Int) -> Unit = {}) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var sub by remember { mutableStateOf("") }
     Page(tl("Saved"), sub) {
         PrimaryTabRow(selectedTabIndex = tab) {
-            listOf(tl("Bookmarks"), tl("Highlights")).forEachIndexed { i, l -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(l) }) }
+            listOf(tl("Bookmarks"), tl("Highlights"), tl("Questions")).forEachIndexed { i, l -> Tab(selected = tab == i, onClick = { tab = i }, text = { Text(l) }) }
         }
-        if (tab == 0) Bookmarks(openTopic) { sub = it } else MyHighlights(openTopic) { sub = it }
+        when (tab) { 0 -> Bookmarks(openTopic) { sub = it }; 1 -> MyHighlights(openTopic) { sub = it }; else -> MyQuestions(openQuestion) { sub = it } }
     }
 }
 

@@ -37,6 +37,18 @@ import kotlinx.serialization.json.JsonObject
 /** a topic's diagram: the sandboxed page to open full screen */
 @Serializable data class DiagramOut(val frame_url: String, val cached: Boolean = false)
 @Serializable data class Learning(val status: String = "not_started")
+/** ask the teacher: a student's question about a topic, and its thread with the course's teacher */
+@Serializable data class QuestionRow(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val updated: String? = null,
+                                     val last: String = "", val unread: Boolean = false)
+@Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
+@Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String = "", val text: String = "", val at: String? = null)
+@Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
+                                        val messages: List<QuestionMsg> = emptyList())
+/** buying Pro online: the offers the admin set, and the Razorpay page to pay on */
+@Serializable data class ProOffer(val id: Int, val days: Int, val price: Double)
+@Serializable data class ProOffers(val on: Boolean = false, val currency: String = "INR", val offers: List<ProOffer> = emptyList())
+@Serializable data class BuyOut(val id: Int = 0, val url: String? = null)
+@Serializable data class ProCheck(val paid: Int = 0, val plan: String = "lite", val pro_until: String? = null)
 @Serializable data class AiStatus(val available: Boolean = false, val own_key: Boolean = false, val vision: Boolean = false, val ocr: Boolean = false, val plan: String = "college", val off: Boolean = false)
 @Serializable data class You(val order: List<String> = emptyList(), val question_first: Boolean = false, val level: String? = null)
 /** a topic step: the gist, why, example, exam angle, quick check or "more simply". data holds the step's own JSON */
