@@ -15,6 +15,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.zigora.ZigoraApp
+import app.zigora.ClassReminder
+import app.zigora.data.AnnList
 import app.zigora.data.Api
 import app.zigora.data.LoginOut
 import app.zigora.data.Me
@@ -69,9 +71,36 @@ class TeachTest {
         tab("Struggles"); see("Where students struggle"); see("Hardness of Water"); see("questions to you"); shot("5-struggles")
     }
 
+    /** a weekly class from the app: every session is scheduled, and the list shows the next one with its place in the series */
+    @Test fun aTeacherSchedulesAWeeklyClass() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        tab("Classes"); tap("Schedule a class or post an announcement"); see("Video link")
+        rule.onAllNodes(hasSetTextAction())[0].performTextInput("Weekly tutorial")
+        rule.onAllNodes(hasSetTextAction())[4].performTextInput("https://meet.google.com/wkl-abcd-efg")
+        tap("Repeat every week"); see("How many weeks"); shot("8-weekly-form")
+        rule.onAllNodesWithText("Schedule the class").onLast().performScrollTo().performClick()
+        rule.waitUntil(20_000) { rule.onAllNodesWithText("Video link").fetchSemanticsNodes().isEmpty() }
+        see("Weekly tutorial"); see("Weekly, session 1 of 8"); rule.onAllNodesWithText("Weekly tutorial", substring = true).onFirst().performScrollTo(); shot("9-weekly")
+    }
+
+    /** the phone sets a reminder 10 minutes before each class it sees coming up, and the reminder offers Join */
+    @Test fun aStudentGetsAReminderTenMinutesBeforeAClass() {
+        org.robolectric.Shadows.shadowOf(app).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        signIn("stu@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        see("Join the class")
+        val am = org.robolectric.Shadows.shadowOf(app.getSystemService(android.app.AlarmManager::class.java))
+        val start = runBlocking { app.api.get("/announcements", AnnList.serializer()).upcoming.first { it.title == "Revision: water technology" }.starts_at!! }
+        rule.waitUntil(20_000) { am.scheduledAlarms.any { it.triggerAtTime == java.time.Instant.parse(start).toEpochMilli() - 10 * 60_000L } }
+        val alarm = am.scheduledAlarms.single { it.triggerAtTime == java.time.Instant.parse(start).toEpochMilli() - 10 * 60_000L }  // 10 minutes before this class
+        ClassReminder().onReceive(app, org.robolectric.Shadows.shadowOf(alarm.operation).savedIntent)
+        val n = org.robolectric.Shadows.shadowOf(app.getSystemService(android.app.NotificationManager::class.java)).allNotifications.last()
+        org.junit.Assert.assertTrue(n.extras.getString("android.title")!!.startsWith("Class in 10 minutes"))
+        org.junit.Assert.assertEquals("Join", n.actions.single().title.toString())
+    }
+
     @Test fun aStudentSeesTheNextClassAndTheMarkedModelAnswer() {
         signIn("stu@mail.com"); rule.setContent { ZigoraRoot(null) {} }
-        see("Revision: water technology"); see("Join the class"); rule.onAllNodesWithText("Join the class").onFirst().performScrollTo(); shot("6-home-class")
+        see("Join the class"); see("Classes and announcements"); rule.onAllNodesWithText("Join the class").onFirst().performScrollTo(); shot("6-home-class")  // the next class, whichever it is
         rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
         tap("Hardness of Water"); see("The gist"); tap("Sample answer"); see("Model answer from your teacher"); see("Total")

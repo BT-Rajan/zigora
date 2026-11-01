@@ -57,3 +57,36 @@ def test_a_class_with_a_meet_link_reaches_students_parents_calendars_and_bells(e
     sent.clear(); assert env.c.post(f"/api/announcements/{a['id']}/cancel", headers=env.fac).json()["status"] == "cancelled"
     assert any("cancelled" in x[1].lower() for x in sent) and not [x for x in env.c.get("/api/calendar", headers=env.stu, params={"start": day, "end": day}).json()["items"] if x["kind"] == "class"]
     n = env.c.post("/api/announcements", headers=env.fac, json={"course_id": cid, "title": "Unit test on Friday", "body": "Units 1 and 2"}).json(); assert n["kind"] == "note" and n["link"] is None
+
+def test_a_weekly_class_fills_the_calendar_and_shows_once(env, monkeypatch):
+    i = setup(env); cid = i["course"]["Chem"]
+    sent = []; monkeypatch.setattr(main, "mail_on", lambda s=None: True); monkeypatch.setattr(main, "account_mail", lambda to, name, kind, subj, body, link, lang="en": sent.append((to, subj, body)))
+    d0 = dt.date.today() + dt.timedelta(days=1)
+    assert env.c.post("/api/announcements", headers=env.fac, json={"course_id": cid, "kind": "class", "title": "Tutorial", "day": d0.isoformat(), "at": "17:00",
+                                                                   "link": "https://meet.google.com/aaa-bbbb-ccc", "weeks": 27}).status_code == 400
+    r = env.c.post("/api/announcements", headers=env.fac, json={"course_id": cid, "kind": "class", "title": "Tutorial", "day": d0.isoformat(), "at": "17:00", "minutes": 50,
+                                                               "link": "https://meet.google.com/aaa-bbbb-ccc", "weeks": 4}); assert r.status_code == 200, r.text
+    a = r.json(); assert a["series"] and a["week"] == {"n": 1, "of": 4, "more": 3}
+    assert len(sent) == 1 and "weekly" in sent[0][1].lower() and "4 times" in sent[0][2]  # one email for the whole series
+    cal = env.c.get("/api/calendar", headers=env.stu, params={"start": d0.isoformat(), "end": (d0 + dt.timedelta(days=30)).isoformat()}).json()["items"]
+    assert [x["date"] for x in cal if x["kind"] == "class"] == [(d0 + dt.timedelta(weeks=w)).isoformat() for w in range(4)]
+    lst = env.c.get("/api/announcements", headers=env.stu).json(); assert len(lst["items"]) == 1 and len(lst["upcoming"]) == 1 and lst["items"][0]["id"] == a["id"]
+    assert sum(1 for n in env.c.get("/api/me/notifications", headers=env.stu).json()["items"] if n["key"].startswith("ann:")) == 1
+    # cancel just the first session: the list moves on to the second
+    env.c.post(f"/api/announcements/{a['id']}/cancel", headers=env.fac)
+    nxt = env.c.get("/api/announcements", headers=env.stu).json()["upcoming"][0]; assert nxt["week"]["n"] == 2 and nxt["starts_at"] > a["starts_at"]
+    # cancel the rest of the series from the second on
+    sent.clear(); env.c.post(f"/api/announcements/{nxt['id']}/cancel?all=true", headers=env.fac)
+    assert env.c.get("/api/announcements", headers=env.stu).json()["upcoming"] == [] and len(sent) == 1 and "3 sessions" in sent[0][2]
+    assert not [x for x in env.c.get("/api/calendar", headers=env.stu, params={"start": d0.isoformat(), "end": (d0 + dt.timedelta(days=30)).isoformat()}).json()["items"] if x["kind"] == "class"]
+
+def test_the_teacher_sees_who_tapped_join(env):
+    i = setup(env); cid = i["course"]["Chem"]; d0 = dt.date.today() + dt.timedelta(days=1)
+    a = env.c.post("/api/announcements", headers=env.fac, json={"course_id": cid, "kind": "class", "title": "Lab briefing", "day": d0.isoformat(), "at": "10:00", "link": "https://zoom.us/j/123"}).json()
+    assert a["joins"] == [] and a["class_size"] == 1
+    r = env.c.post(f"/api/announcements/{a['id']}/join", headers=env.stu); assert r.json()["link"] == "https://zoom.us/j/123"
+    env.c.post(f"/api/announcements/{a['id']}/join", headers=env.stu)  # twice counts once
+    t = env.c.get("/api/announcements", headers=env.fac).json()["items"][0]; assert [j["name"] for j in t["joins"]] == ["stu@x.com"]
+    s = env.c.get("/api/announcements", headers=env.stu).json()["items"][0]; assert s["joined"] is True and "joins" not in s  # students never see the list
+    env.add_user("other@x.com"); enrol("other@x.com", i["prog"]["Civil"], 1)
+    assert env.c.post(f"/api/announcements/{a['id']}/join", headers=env.login("other@x.com")).status_code == 404

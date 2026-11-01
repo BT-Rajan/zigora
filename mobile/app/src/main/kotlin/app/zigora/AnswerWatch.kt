@@ -57,7 +57,8 @@ class AnswerWatch(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
     }
     /** a student's or parent's new classes and announcements, each mentioned once */
     private suspend fun classes(app: ZigoraApp) {
-        val items = app.api.get("/announcements?limit=10", AnnList.serializer()).items.filter { it.status != "cancelled" && it.status != "ended" }
+        val list = app.api.get("/announcements?limit=30", AnnList.serializer()); ClassAlarms.sync(app, list.upcoming)  // the 10-minute reminders
+        val items = list.items.filter { it.status != "cancelled" && it.status != "ended" }
         val fresh = items.filter { "ann:${it.id}" !in app.store.notified }
         if (fresh.isEmpty()) return
         app.store.notified = (app.store.notified + fresh.map { "ann:${it.id}" }).toList().takeLast(200).toSet()
@@ -66,6 +67,7 @@ class AnswerWatch(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
     }
     /** a teacher's new questions from students, each mentioned once */
     private suspend fun teacher(app: ZigoraApp): Result {
+        runCatching { ClassAlarms.sync(app, app.api.get("/announcements?limit=30", AnnList.serializer()).upcoming) }  // their own classes too
         val items = try { app.api.get("/questions?status=waiting&limit=20", QuestionPage.serializer()).items } catch (e: Exception) { return Result.success() }
         val fresh = items.filter { "q:${it.id}:${it.updated}" !in app.store.notified }
         if (fresh.isEmpty()) return Result.success()

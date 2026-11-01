@@ -95,20 +95,20 @@ export default function App(){
   const asg=['assign',ClipboardCheck,tl("Assigned tests")],teacher=guardian&&user.relation==='teacher'
   const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],cal,['saved',Bookmark,tl("Saved")],['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("My questions")],['progress',TrendingUp,tl("My progress")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
     :guardian?[cal,['classes',Megaphone,tl("Classes and announcements")],...(teacher?[asg]:[]),['aikey',Sparkles,tl("My AI key")],['about',Info,tl("About")]]  // a parent or teacher: their students on Home, and the AI key their school students use
-    :admin?[['programs',GraduationCap,tl("Programs")],['courses',BookOpen,tl("Courses")],cal,asg,['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],['users',UsersIcon,tl("Users")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['reports',BarChart3,tl("Reports")],['activity',History,tl("Activity log")],['ai',Sparkles,tl("Settings")],['about',Info,tl("About")]]
+    :admin?ADMIN_SECTIONS.map(([k,I,l,pages])=>[pages[0][0],I,tl(l),k])
     :[['learn',BookOpen,tl("Courses")],cal,asg,['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['bookmarks',Bookmark,tl("Bookmarks")],['highlights',Highlighter,tl("My highlights")],['reports',BarChart3,tl("Reports")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[]),['about',Info,tl("About")]]
   return <Ctx.Provider value={{menu:()=>setOpen(true),appName:name,confirm,role:user.role,aiOff:!!user.ai_off,level:user.level}}>  {/* aiOff: a school student with no parent's or teacher's key studies without AI */}
     <TopBar user={user} lang={lang} pickLang={pickLang} theme={theme} pickTheme={pickTheme} onMenu={()=>setOpen(true)} onHome={()=>go('home')} onAccount={()=>go('profile')} onOut={signOut} onNote={()=>go('home')} page={page}/>
     {page!=='search'&&!guardian&&<GlobalSearch key={findQ.n} onFind={find} onPhoto={user.ai_off?null:()=>go('photo')}/>}{page==='photo'&&<PhotoAsk toast={toast}/>}
-    <OfflineBar/><div id="pageslot"/>
+    <OfflineBar/>{admin&&<SectionTabs page={page} go={go}/>}<div id="pageslot"/>
     {page==='home'&&student&&<Dashboard user={user} toast={toast} onOpen={openIn} onStudy={openStudy} onRoutine={()=>go('routine')} onCalendar={()=>go('calendar')} onGo={go}/>}
     {page==='routine'&&student&&<RoutinePage toast={toast} done={()=>go('home')}/>}
-    {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go('users')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
+    {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go('students')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
     {page==='search'&&<SearchPage key={findQ.n} initial={findQ.q} user={user} toast={toast}/>}{page==='learn'&&<Learn key={String(start)} start={start} user={user} toast={toast} appName={name}/>}
     {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}
     {page==='build'&&user.role==='student'&&<StudyHome key={JSON.stringify(studyStart)} start={studyStart} toast={toast}/>}
     {page==='bookmarks'&&!admin&&<Bookmarks toast={toast} role={user.role}/>}{page==='highlights'&&!admin&&<MyHighlights toast={toast} role={user.role}/>}
-    {page==='users'&&admin&&<Users toast={toast} me={user}/>}{page==='courses'&&admin&&<AdminCourses toast={toast} onOpen={openIn}/>}{page==='programs'&&admin&&<Programs toast={toast} onOpen={openIn}/>}
+    {page==='users'&&admin&&<Users key="all" toast={toast} me={user}/>}{page==='teachers'&&admin&&<Users key="faculty" role="faculty" toast={toast} me={user}/>}{page==='students'&&admin&&<Users key="student" role="student" toast={toast} me={user}/>}{page==='parents'&&admin&&<Users key="guardian" role="guardian" toast={toast} me={user}/>}{page==='courses'&&admin&&<AdminCourses toast={toast} onOpen={openIn}/>}{page==='programs'&&admin&&<Programs toast={toast} onOpen={openIn}/>}
     {page==='ai'&&admin&&<AiConfig toast={toast} onBrand={()=>api('/config').then(c=>{setName(c.name);setLogo(c.logo||null);document.title=c.name})}/>}{page==='reports'&&(admin||user.role==='faculty')&&<Reports role={user.role} toast={toast}/>}{page==='activity'&&admin&&<Activity toast={toast}/>}{page==='aikey'&&user.self_registered&&<MyAiKey toast={toast}/>}{page==='password'&&<ChangePassword toast={toast} done={()=>go('profile')}/>}{page==='profile'&&<Profile toast={toast} onPassword={()=>go('password')} onKey={()=>go('aikey')}/>}{page==='about'&&<About user={user}/>}
     {page==='mcq'&&!guardian&&<McqHome toast={toast}/>}{page==='questions'&&student&&<MyQuestions toast={toast}/>}{page==='classes'&&<ClassesPage toast={toast}/>}{page==='struggles'&&(admin||user.role==='faculty')&&<StrugglesPage toast={toast}/>}{page==='questions'&&(admin||user.role==='faculty')&&<TeacherQuestions toast={toast}/>}{page==='calendar'&&<CalendarPage toast={toast}/>}
     {page==='assign'&&(admin||user.role==='faculty'||teacher)&&<AssignPage toast={toast}/>}{page==='assigned'&&student&&<AssignedToMe toast={toast}/>}{page==='mcqbank'&&(admin||user.role==='faculty')&&<McqBank toast={toast}/>}
@@ -116,7 +116,7 @@ export default function App(){
       <nav className="panel" aria-label={tl("Main menu")}>
         <div className="dhead"><button className={'homebtn'+(page==='home'?' on':'')} aria-label={tl("{name}, home",{name:name})} aria-current={page==='home'?'page':undefined} onClick={()=>go('home')}><Logo src={logo} size={36}/><span><b>{name}</b><small>{user.name}, {tl(cap(user.role)).toLowerCase()}</small></span></button><button className="ic" aria-label={tl("Close menu")} onClick={()=>setOpen(false)}><X/></button></div>
         <div className="panlang"><LangSwitch lang={lang} pick={pickLang}/></div>
-        {links.map(([k,I,l])=><button key={k} className={'dlink'+(page===k?' on':'')} onClick={()=>{if(k==='learn')setStart(null);go(k)}}><I size={20}/>{tl(l)}</button>)}
+        {links.map(([k,I,l,sec])=>{const on=sec?sectionOf(page)?.[0]===sec:page===k;return <button key={sec||k} className={'dlink'+(on?' on':'')} aria-current={on?'page':undefined} onClick={()=>{if(k==='learn')setStart(null);go(k)}}><I size={20}/>{tl(l)}</button>})}
       </nav></div>
     <footer className="foot"><span>{tl("© {v} {name}. All rights reserved.",{v:new Date().getFullYear(),name:name})}</span>{student&&<>{" · "}<button className="link footl" onClick={()=>go('about')}>{tl("About")}</button></>}</footer>
     <Toast msg={msg}/>
@@ -356,7 +356,7 @@ function CalItem({x,onEdit}){
   return <div className={'card calitem k-'+x.kind}><span className={'calbar k-'+x.kind} aria-hidden="true"/>
     <div className="hit" style={{cursor:'default'}}><div style={{flex:1}}><b>{calTitle(x)}{x.state&&STATE[x.state]&&<span className={'pill sm '+(x.state==='done'?'okp':'off')}>{tl(STATE[x.state])}</span>}</b>
       <span>{[tl(KIND_TAG[x.kind]||''),calWhen(x),x.sub?srv(x.sub):''].filter(Boolean).join(' · ')}</span>{x.event?.notes&&<span className="calnote">{x.event.notes}</span>}</div></div>
-    {x.link?.join&&<a className="tool" href={x.link.join} target="_blank" rel="noreferrer"><Play size={16}/>{" "}{tl("Join")}</a>}
+    {x.link?.join&&<a className="tool" href={x.link.join} target="_blank" rel="noreferrer" onClick={()=>x.link.class&&joinClass(x.link.class)}><Play size={16}/>{" "}{tl("Join")}</a>}
     {x.event?.can_edit&&<button className="tool" onClick={()=>onEdit(x)} aria-label={tl("Edit {title}",{title:x.title})}><Pencil size={16}/></button>}</div>}
 function CalendarPage({toast}){
   const confirm=useConfirm(),role=useContext(Ctx).role
@@ -647,6 +647,18 @@ function AreaList({areas,onStudy,staff}){
       {<Paged rows={L} render={a=><div className="arow" key={a.topic_id||'u'+a.unit_id}><div><span>{a.title}</span><small>{a.correct}{" "}{tl("of {total} right · {percent}%",{total:a.total,percent:a.percent})}{a.study&&!staff?' · '+STUDY[a.study]:''}{a.course?' · '+a.course:''}</small><Bar2 v={a.percent}/></div>
         {a.topic_id&&onStudy&&<button className="tool" onClick={()=>onStudy(a.topic_id)}>{k==='strong'?tl("Review"):tl("Study again")}</button>}</div>}/>}</div>})}</>}
 let usersPlan='',settingsTab=''  // a filter for the Users page and a Settings tab, set when the Home page sends the admin there
+const USER_LISTS={faculty:"Teachers",student:"Students",guardian:"Parents and school teachers"}
+// the admin's menu has seven sections; each opens on its first page, and the section's other pages are tabs along the top, so every page stays one tap away
+const ADMIN_SECTIONS=[['courses',BookOpen,"Courses",[['courses',"Courses"],['programs',"Programs"],['reports',"Reports"],['struggles',"Where students struggle"]]],
+  ['teachers',UsersIcon,"Teachers",[['teachers',"Teachers"],['classes',"Classes and announcements"],['questions',"Student questions"]]],
+  ['students',GraduationCap,"Students",[['students',"Students"],['parents',"Parents and school teachers"]]],
+  ['tests',ClipboardCheck,"Tests",[['assign',"Assigned tests"],['mcqbank',"MCQ bank"],['mcq',"MCQ practice"]]],
+  ['calendar',CalendarDays,"Calendar",[['calendar',"Calendar"]]],
+  ['settings',Sparkles,"Settings",[['ai',"Settings"],['users',"All users"],['activity',"Activity log"]]],
+  ['about',Info,"About",[['about',"About"]]]]
+const sectionOf=page=>ADMIN_SECTIONS.find(x=>x[3].some(([k])=>k===page))
+const SectionTabs=({page,go})=>{const sec=sectionOf(page);if(!sec||sec[3].length<2)return null
+  return <div className="sectabs"><Tabs label={tl(sec[2])} scroll items={sec[3].map(([k,l])=>[k,tl(l)])} value={page} onChange={go}/></div>}
 const ATTN_GO={drafts:'drafts',empty_courses:'empty_courses',unowned:'unowned',unenrolled:'unenrolled',semester_numbers:'semester_numbers',never_opened:'never_opened'}
 const RS_PAGE=PAGE
 function ResultSet({kind:kind0,user,back,toast,open}){
@@ -853,20 +865,26 @@ function TeacherQuestions({toast,back}){
 // ---- parents read them here and join a class from here; a class is also in their calendars, and they are told by email, in the bell and on the phone
 const classWhen=x=>x.starts_at?new Date(x.starts_at).toLocaleString(locale(),{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+' · '+tl("{n} min",{n:x.minutes}):''
 const ANN_STATE={live:['Starting now','var(--ok)'],upcoming:['Coming up','var(--acct)'],ended:['Ended','var(--mut)'],cancelled:['Cancelled','var(--bad)']}
+const joinClass=x=>api(`/announcements/${x}/join`,{method:'POST'}).catch(()=>{})  // counted for the teacher; the link opens as usual
 function AnnCard({x,onCancel}){
-  const [l,c]=ANN_STATE[x.status]||[]
+  const [l,c]=ANN_STATE[x.status]||[],[who,setWho]=useState(false)
   return <div className={'qbox ann'+(x.kind==='class'?' cls':'')}><div className="wtop" style={{display:'flex',justifyContent:'space-between',gap:8}}><small className="steplab">{x.kind==='class'?tl("Class"):tl("Announcement")}{' · '}{x.course}</small>{l&&<span className="chip" style={{color:c,margin:0}}>{tl(l)}</span>}</div>
-    <b style={{display:'block',margin:'4px 0'}}>{x.title}</b>{x.kind==='class'&&<p className="known" style={{margin:'0 0 6px'}}>{classWhen(x)}</p>}
+    <b style={{display:'block',margin:'4px 0'}}>{x.title}</b>{x.kind==='class'&&<p className="known" style={{margin:'0 0 6px'}}>{classWhen(x)}{x.week&&<>{' · '}{tl("Weekly, session {n} of {of}",{n:x.week.n,of:x.week.of})}</>}</p>}
     {x.body&&<div className="prose flat"><Md>{x.body}</Md></div>}<small className="known">{x.by}{x.by?' · ':''}{when(x.at)}</small>
-    <div className="tools" style={{marginTop:8}}>{x.link&&x.status!=='ended'&&<a className={'btn'+(x.status==='live'?'':' ghost')} href={x.link} target="_blank" rel="noreferrer" style={{width:'auto'}}><Play size={16}/>{" "}{tl("Join the class")}</a>}
-      {x.can_edit&&x.status!=='cancelled'&&x.status!=='ended'&&<button className="btn ghost" style={{width:'auto'}} onClick={()=>onCancel(x)}>{x.kind==='class'?tl("Cancel the class"):tl("Withdraw")}</button>}</div></div>}
+    <div className="tools" style={{marginTop:8}}>{x.link&&x.status!=='ended'&&<a className={'btn'+(x.status==='live'?'':' ghost')} href={x.link} target="_blank" rel="noreferrer" style={{width:'auto'}} onClick={()=>joinClass(x.id)}><Play size={16}/>{" "}{tl("Join the class")}</a>}
+      {x.can_edit&&x.status!=='cancelled'&&x.status!=='ended'&&<button className="btn ghost" style={{width:'auto'}} onClick={()=>onCancel(x)}>{x.kind==='class'?tl("Cancel the class"):tl("Withdraw")}</button>}</div>
+    {x.joins&&x.status!=='upcoming'&&<div style={{marginTop:6}}><button className="link" onClick={()=>setWho(!who)}>{tl("Tapped Join: {n} of {of}",{n:x.joins.length,of:x.class_size})}</button>
+      {who&&<p className="known" style={{margin:'4px 0 0'}}>{x.joins.length?x.joins.map(j=>j.name).join(', '):tl("Nobody yet.")}{" "}{tl("Zigora counts who tapped Join; it can't see who stayed in the call.")}</p>}</div>}</div>}
 function ClassesPage({toast}){
   const confirm=useConfirm(),[d,setD]=useState(null),[form,setForm]=useState(null),[busy,setBusy]=useState(false)
   const load=()=>api('/announcements').then(setD).catch(e=>toast(e.message));useEffect(()=>{load()},[])
-  const blank=()=>({kind:'class',course_id:d?.courses[0]?.id||'',title:'',body:'',day:ymd(new Date()),at:'18:00',minutes:60,link:''})
-  const save=async()=>{setBusy(true);try{await api('/announcements',{method:'POST',body:{...form,course_id:Number(form.course_id),minutes:Number(form.minutes)}});toast(form.kind==='class'?tl("Class scheduled. Students and parents are told."):tl("Posted. Students and parents are told."));setForm(null);load()}catch(e){toast(srv(e.message))}setBusy(false)}
-  const cancel=async x=>{if(!await confirm({title:x.kind==='class'?tl("Cancel this class?"):tl("Withdraw this announcement?"),body:x.kind==='class'?tl("It comes out of everyone's calendar, and students and parents are told."):'',ok:x.kind==='class'?tl("Cancel the class"):tl("Withdraw"),danger:true}))return
-    try{await api(`/announcements/${x.id}/cancel`,{method:'POST'});load()}catch(e){toast(srv(e.message))}}
+  const blank=()=>({kind:'class',course_id:d?.courses[0]?.id||'',title:'',body:'',day:ymd(new Date()),at:'18:00',minutes:60,link:'',repeat:false,weeks:8})
+  const save=async()=>{setBusy(true);try{await api('/announcements',{method:'POST',body:{...form,course_id:Number(form.course_id),minutes:Number(form.minutes),weeks:form.kind==='class'&&form.repeat?Number(form.weeks):1}});toast(form.kind==='class'?tl("Class scheduled. Students and parents are told."):tl("Posted. Students and parents are told."));setForm(null);load()}catch(e){toast(srv(e.message))}setBusy(false)}
+  const [series,setSeries]=useState(null)
+  const stop=async(x,all)=>{setSeries(null);try{await api(`/announcements/${x.id}/cancel${all?'?all=true':''}`,{method:'POST'});load()}catch(e){toast(srv(e.message))}}
+  const cancel=async x=>{if(x.week&&x.week.more>0)return setSeries(x)  // a weekly class: this session, or this and the rest
+    if(!await confirm({title:x.kind==='class'?tl("Cancel this class?"):tl("Withdraw this announcement?"),body:x.kind==='class'?tl("It comes out of everyone's calendar, and students and parents are told."):'',ok:x.kind==='class'?tl("Cancel the class"):tl("Withdraw"),danger:true}))return
+    stop(x,false)}
   const f=form,set=(k,v)=>setForm({...f,[k]:v})
   return <><Bar title={tl("Classes and announcements")} sub={d?tl(d.upcoming.length===1?"1 class coming up":"{n} classes coming up",{n:d.upcoming.length}):''}/><div className="main">
     {d?.can_post&&!f&&<button className="btn" onClick={()=>setForm(blank())}><Plus size={16}/>{" "}{tl("Schedule a class or post an announcement")}</button>}
@@ -876,10 +894,16 @@ function ClassesPage({toast}){
       {f.kind==='class'&&<><div className="two"><div><label htmlFor="and">{tl("Date")}</label><input id="and" type="date" value={f.day} onChange={e=>set('day',e.target.value)}/></div>
         <div><label htmlFor="ana">{tl("Time")}</label><input id="ana" type="time" value={f.at} onChange={e=>set('at',e.target.value)}/></div></div>
         <label htmlFor="anm">{tl("Length (minutes)")}</label><input id="anm" type="number" min={10} max={600} value={f.minutes} onChange={e=>set('minutes',e.target.value)} style={{maxWidth:140}}/>
+        <label className="chk"><input type="checkbox" checked={f.repeat} onChange={e=>set('repeat',e.target.checked)}/>{" "}{tl("Repeat every week")}</label>
+        {f.repeat&&<><label htmlFor="anw">{tl("How many weeks")}</label><input id="anw" type="number" min={2} max={26} value={f.weeks} onChange={e=>set('weeks',e.target.value)} style={{maxWidth:140}}/>
+          <p className="known">{tl("Every session goes into the calendar. Students are told once, for the whole series.")}</p></>}
         <label htmlFor="anl">{tl("Video link")}</label><input id="anl" value={f.link} onChange={e=>set('link',e.target.value)} placeholder="https://meet.google.com/…" spellCheck={false}/>
         <p className="known">{tl("Make a Google Meet (or Zoom) link, then paste it here. Students join from Zigora when the class starts.")}{" "}<a href="https://meet.google.com/new" target="_blank" rel="noreferrer">{tl("Make a Google Meet link")}</a></p></>}
       <label htmlFor="anb">{f.kind==='class'?tl("What to bring or prepare (optional)"):tl("Message")}</label><textarea id="anb" rows={4} maxLength={4000} value={f.body} onChange={e=>set('body',e.target.value)}/>
       <button className="btn" disabled={busy||f.title.trim().length<3||(f.kind==='class'&&!f.link.trim())} onClick={save}>{f.kind==='class'?tl("Schedule the class"):tl("Post")}</button><button className="btn ghost" onClick={()=>setForm(null)}>{tl("Cancel")}</button></div>}
+    {series&&<Sheet close={()=>setSeries(null)}><h3>{tl("Cancel the weekly class?")}</h3><p className="known">{tl("It comes out of everyone's calendar, and students and parents are told.")}</p>
+      <button className="btn danger" onClick={()=>stop(series,false)}>{tl("Only this session")}</button><button className="btn danger" onClick={()=>stop(series,true)}>{tl("This and every later session ({n})",{n:series.week.more+1})}</button>
+      <button className="btn ghost" onClick={()=>setSeries(null)}>{tl("Keep it")}</button></Sheet>}
     {!d?<Skeleton/>:<>{d.upcoming.length>0&&<><h3 className="sec">{tl("Coming up")}</h3>{d.upcoming.map(x=><AnnCard key={x.id} x={x} onCancel={cancel}/>)}</>}
       <h3 className="sec">{tl("Recent")}</h3>{d.items.filter(x=>!d.upcoming.some(y=>y.id===x.id)).length?d.items.filter(x=>!d.upcoming.some(y=>y.id===x.id)).map(x=><AnnCard key={x.id} x={x} onCancel={cancel}/>):<p className="known">{tl("Nothing posted yet.")}</p>}</>}</div></>}
 // ---- where students struggle: per topic, what students did when stuck over the last weeks, most first; the questions they asked are a tap away
@@ -2294,16 +2318,16 @@ function BulkSheet({act,ids,progs,toast,close,done}){
   const [t,d,l]=BULK_TEXT[act.kind]
   return <Sheet close={close}><h3>{t.replace('these',ids.length===1?'this':'these')}</h3><p className="known">{pl(ids.length,'account')}{" "}{tl("selected.")}{" "}{d}</p>
     <button className={'btn'+(act.kind==='disable'?' danger':'')} disabled={busy} onClick={run}>{busy?tl("Working…"):l}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
-function Users({toast,me}){
+function Users({toast,me,role=''}){  // role: the Teachers (faculty), Students or Parents list; empty for everyone
   const [q,setQ]=useState(''),[prog,setProg]=useState(''),[sem,setSem]=useState(''),[order,setOrder]=useState('role'),[progs,setProgs]=useState([]),[plan,setPlan]=useState(()=>{const p=usersPlan;usersPlan='';return p})
   const [view,setView]=useState(null),[ed,setEd]=useState(null),[bulk,setBulk]=useState(null),fileRef=useRef(),[selMode,setSelMode]=useState(false),[sel,setSel]=useState([]),[act,setAct]=useState(null),[proCsv,setProCsv]=useState(false)
-  const {items,total,page,setPage,reload:load}=usePaged(offset=>`/admin/users?q=${encodeURIComponent(q)}&order=${order}&limit=${PAGE}&offset=${offset}`+(prog?'&program_id='+prog:'')+(sem?'&semester='+sem:'')+(plan?'&plan='+plan:''),[q,prog,sem,order,plan],toast)
+  const {items,total,page,setPage,reload:load}=usePaged(offset=>`/admin/users?q=${encodeURIComponent(q)}&order=${order}&limit=${PAGE}&offset=${offset}`+(role?'&role='+role:'')+(prog?'&program_id='+prog:'')+(sem?'&semester='+sem:'')+(plan?'&plan='+plan:''),[q,prog,sem,order,plan],toast)
   useEffect(()=>{api('/tree').then(t=>setProgs(t.map(p=>({id:p.id,name:p.name,term:p.term})))).catch(()=>{})},[])
   const pick=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const text=await f.text();setBulk({stage:'preview',text,res:await api('/admin/users/import',{method:'POST',body:{csv:text,dry_run:true}})})}catch(err){toast(err.message)}}
   const commit=async()=>{try{setBulk({...bulk,stage:'done',res:await api('/admin/users/import',{method:'POST',body:{csv:bulk.text,dry_run:false}})});load()}catch(e){toast(e.message)}}
   const cell=v=>'"'+String(v).replace(/"/g,'""')+'"',r=bulk?.res,filtered=q||prog||sem||plan,lab=prog?termOf(progs,prog):progs.every(x=>x.term==='Semester')?'Semester':progs.length&&progs.every(x=>x.term==='Grade')?'Grade':'Term'
   if(view)return <UserDetail id={view} me={me} progs={progs} toast={toast} back={()=>{setView(null);load()}}/>
-  return <><Bar title={tl("Users")} sub={filtered?matches(total):pl(total,'account')}/><div className="main">
+  return <><Bar title={tl(USER_LISTS[role]||"All users")} sub={filtered?matches(total):pl(total,'account')}/><div className="main">
     <div className="search"><Search size={18}/><input type="search" aria-label={tl("Search users")} placeholder={tl("Search name, email, ID, program, semester, year or grade")} value={q} onChange={e=>setQ(e.target.value)}/></div>
     <div className="filters">
       <select aria-label={tl("Filter by program")} value={prog} onChange={e=>{const id=e.target.value;setProg(id);if(+sem>semsOf(progs,id).length)setSem('')}}><option value="">{tl("All programs")}</option>{progs.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>

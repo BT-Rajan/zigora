@@ -87,8 +87,10 @@ private fun CalRow(x: CalItem, edit: ((CalItem) -> Unit)?) {
         .filter { it.isNotEmpty() }.joinToString(" · ")
     ListRow(title + (STATE[x.state]?.let { " · " + tl(it) } ?: ""), meta, onClick = if (x.event?.can_edit == true && edit != null) ({ edit(x) }) else null,
             leading = { Box(Modifier.size(12.dp).background(c, CircleShape)) },
-            trailing = x.join?.let { url -> { val ctx = androidx.compose.ui.platform.LocalContext.current
-                androidx.compose.material3.TextButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) } }) { Text(tl("Join")) } } },
+            trailing = x.join?.let { url -> { val ctx = androidx.compose.ui.platform.LocalContext.current; val a = api(); val scope = androidx.compose.runtime.rememberCoroutineScope()
+                androidx.compose.material3.TextButton(onClick = {
+                    x.classId?.let { id -> scope.launch { runCatching { a.raw("POST", "/announcements/$id/join") } } }  // counted for the teacher
+                    runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) } }) { Text(tl("Join")) } } },
             extra = { x.event?.notes?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } })
 }
 

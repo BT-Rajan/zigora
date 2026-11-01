@@ -37,6 +37,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import app.zigora.Incoming
 import app.zigora.AnswerWatch
+import app.zigora.ClassAlarms
 import app.zigora.R
 import app.zigora.data.Me
 import app.zigora.data.json
@@ -87,10 +88,10 @@ fun ZigoraRoot(incoming: Incoming?, handled: () -> Unit) {
         when {
             user == null -> SignIn { m -> app.store.userJson = json.encodeToString(Me.serializer(), m); me = m }
             user.role == "guardian" -> GuardianHome(user) { app.store.signOut(); me = null }  // a parent or teacher who signed up: their children or students
-            user.role != "student" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); me = null }  // teachers: questions, classes, struggles
+            user.role != "student" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }  // teachers: questions, classes, struggles
             user.must_change -> ChangePassword(forced = true) { me = user.copy(must_change = false).also { app.store.userJson = json.encodeToString(Me.serializer(), it) } }
             else -> Main(user, incoming, handled, wallpaper = { wallpaper = it; app.store.wallpaper = it }, theme = { theme = it; app.store.theme = it }) {
-                app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); me = null }
+                app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }
         }
         CrashNote()
     }

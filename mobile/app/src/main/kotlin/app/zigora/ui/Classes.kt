@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -41,20 +42,27 @@ private fun stateOf(s: String?) = when (s) { "live" -> tl("Starting now"); "upco
 
 @Composable
 fun AnnCard(a: Ann, cancel: ((Ann) -> Unit)? = null) {
-    val ctx = LocalContext.current
+    val ctx = LocalContext.current; val api = api(); val scope = rememberCoroutineScope()
+    var who by remember(a.id) { mutableStateOf(false) }
     Panel {
         Text((if (a.kind == "class") tl("Class") else tl("Announcement")) + " · " + a.course + stateOf(a.status).takeIf { it.isNotEmpty() }?.let { " · $it" }.orEmpty(),
              style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
         Text(a.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 2.dp))
-        if (a.kind == "class") Quiet(whenOf(a))
+        if (a.kind == "class") Quiet(whenOf(a) + (a.week?.let { " · " + tl("Weekly, session {n} of {of}", "n" to it.n, "of" to it.of) } ?: ""))
         if (a.body.isNotEmpty()) MathMd(a.body)
         Quiet(listOf(a.by, a.at?.let { stamp(it) }.orEmpty()).filter { it.isNotEmpty() }.joinToString(" · "), Modifier.padding(top = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
             if (a.link != null && a.status != "ended") {
-                val open = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, a.link.toUri())) }; Unit }
+                val open = { scope.launch { runCatching { api.raw("POST", "/announcements/${a.id}/join") } }  // counted for the teacher
+                             runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, a.link.toUri())) }; Unit }
                 if (a.status == "live") Button(onClick = open) { Text(tl("Join the class")) } else OutlinedButton(onClick = open) { Text(tl("Join the class")) }
             }
             if (cancel != null && a.can_edit && a.status != "cancelled" && a.status != "ended") TextButton(onClick = { cancel(a) }) { Text(if (a.kind == "class") tl("Cancel the class") else tl("Withdraw")) }
+        }
+        val joins = a.joins
+        if (joins != null && a.status != "upcoming") {
+            TextButton(onClick = { who = !who }) { Text(tl("Tapped Join: {n} of {of}", "n" to joins.size, "of" to a.class_size)) }
+            if (who) Quiet((if (joins.isEmpty()) tl("Nobody yet.") else joins.joinToString(", ") { it.name }) + " " + tl("Zigora counts who tapped Join; it can't see who stayed in the call."))
         }
     }
 }
@@ -64,6 +72,7 @@ fun AnnCard(a: Ann, cancel: ((Ann) -> Unit)? = null) {
 fun NextClassCard(openClasses: () -> Unit) {
     val l = rememberLoad("next-class") { runCatching { get("/announcements?limit=10", AnnList.serializer()) }.getOrDefault(AnnList()) }
     val d = (l.state as? Load.Ok)?.value ?: return
+    val ctx = LocalContext.current; androidx.compose.runtime.LaunchedEffect(d) { app.zigora.ClassAlarms.sync(ctx, d.upcoming) }
     if (d.items.isEmpty()) return
     d.upcoming.firstOrNull()?.let { AnnCard(it) }
     RowLink(tl("Classes and announcements"), d.items.firstOrNull { it.kind == "note" }?.let { it.course + ": " + it.title }.orEmpty(), onClick = openClasses)
@@ -79,8 +88,9 @@ fun ClassesScreen(back: (() -> Unit)?) {
     var cancelling by remember { mutableStateOf<Ann?>(null) }
     Page(tl("Classes and announcements"), back = back) {
         Loaded(l) { d ->
+            androidx.compose.runtime.LaunchedEffect(d) { app.zigora.ClassAlarms.sync(ctx, d.upcoming) }  // the 10-minute reminders
             if (d.can_post && form == null) Button(onClick = { msg = ""; form = mapOf("kind" to "class", "course" to (d.courses.firstOrNull()?.id?.toString() ?: ""), "title" to "", "body" to "",
-                "day" to java.time.LocalDate.now().toString(), "at" to "18:00", "minutes" to "60", "link" to "") }, modifier = Modifier.fillMaxWidth()) { Text(tl("Schedule a class or post an announcement")) }
+                "day" to java.time.LocalDate.now().toString(), "at" to "18:00", "minutes" to "60", "link" to "", "repeat" to "", "weeks" to "8") }, modifier = Modifier.fillMaxWidth()) { Text(tl("Schedule a class or post an announcement")) }
             form?.let { f ->
                 val set = { k: String, v: String -> form = f + (k to v) }
                 Panel {
@@ -100,6 +110,14 @@ fun ClassesScreen(back: (() -> Unit)?) {
                                 OutlinedTextField(f["at"]!!, { set("at", it) }, Modifier.weight(1f), label = { Text(tl("Time")) }, placeholder = { Text("18:00") }, singleLine = true)
                             }
                             OutlinedTextField(f["minutes"]!!, { set("minutes", it.filter(Char::isDigit).take(3)) }, Modifier.fillMaxWidth(), label = { Text(tl("Length (minutes)")) }, singleLine = true)
+                            Row(Modifier.fillMaxWidth().toggleable(f["repeat"] == "1", role = androidx.compose.ui.semantics.Role.Checkbox) { set("repeat", if (it) "1" else "") },
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {  // the whole row ticks the box
+                                androidx.compose.material3.Checkbox(f["repeat"] == "1", null); Text(tl("Repeat every week"))
+                            }
+                            if (f["repeat"] == "1") {
+                                OutlinedTextField(f["weeks"]!!, { set("weeks", it.filter(Char::isDigit).take(2)) }, Modifier.fillMaxWidth(), label = { Text(tl("How many weeks")) }, singleLine = true)
+                                Quiet(tl("Every session goes into the calendar. Students are told once, for the whole series."))
+                            }
                             OutlinedTextField(f["link"]!!, { set("link", it.trim()) }, Modifier.fillMaxWidth(), label = { Text(tl("Video link")) }, placeholder = { Text("https://meet.google.com/…") }, singleLine = true)
                             Quiet(tl("Make a Google Meet (or Zoom) link, then paste it here. Students join from Zigora when the class starts."))
                             TextButton(onClick = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, "https://meet.google.com/new".toUri())) } }) { Text(tl("Make a Google Meet link")) }
@@ -112,7 +130,8 @@ fun ClassesScreen(back: (() -> Unit)?) {
                                 busy = true; msg = ""
                                 try {
                                     a.raw("POST", "/announcements", buildJsonObject { put("course_id", f["course"]!!.toIntOrNull() ?: 0); put("kind", f["kind"]!!); put("title", f["title"]!!); put("body", f["body"]!!)
-                                        put("day", f["day"]!!); put("at", f["at"]!!); put("minutes", f["minutes"]!!.toIntOrNull() ?: 60); put("link", f["link"]!!) })
+                                        put("day", f["day"]!!); put("at", f["at"]!!); put("minutes", f["minutes"]!!.toIntOrNull() ?: 60); put("link", f["link"]!!)
+                                        put("weeks", if (f["kind"] == "class" && f["repeat"] == "1") f["weeks"]!!.toIntOrNull() ?: 1 else 1) })
                                     form = null; l.reload()
                                 } catch (e: Exception) { msg = I18n.srv(e.message) }
                                 busy = false
@@ -130,10 +149,14 @@ fun ClassesScreen(back: (() -> Unit)?) {
         }
     }
     cancelling?.let { x ->
-        AlertDialog(onDismissRequest = { cancelling = null }, title = { Text(if (x.kind == "class") tl("Cancel this class?") else tl("Withdraw this announcement?")) },
+        val stop = { all: Boolean -> cancelling = null; scope.launch { runCatching { a.raw("POST", "/announcements/${x.id}/cancel" + if (all) "?all=true" else "") }; l.reload() }; Unit }
+        val more = x.week?.more ?: 0
+        AlertDialog(onDismissRequest = { cancelling = null }, title = { Text(if (more > 0) tl("Cancel the weekly class?") else if (x.kind == "class") tl("Cancel this class?") else tl("Withdraw this announcement?")) },
             text = { if (x.kind == "class") Text(tl("It comes out of everyone's calendar, and students and parents are told.")) },
-            confirmButton = { TextButton(onClick = { cancelling = null; scope.launch { runCatching { a.raw("POST", "/announcements/${x.id}/cancel") }; l.reload() } }) {
-                Text(if (x.kind == "class") tl("Cancel the class") else tl("Withdraw")) } },
-            dismissButton = { TextButton(onClick = { cancelling = null }) { Text(stringResource(R.string.cancel)) } })
+            confirmButton = { Column {
+                TextButton(onClick = { stop(false) }) { Text(if (more > 0) tl("Only this session") else if (x.kind == "class") tl("Cancel the class") else tl("Withdraw")) }
+                if (more > 0) TextButton(onClick = { stop(true) }) { Text(tl("This and every later session ({n})", "n" to more + 1)) }
+            } },
+            dismissButton = { TextButton(onClick = { cancelling = null }) { Text(if (more > 0) tl("Keep it") else stringResource(R.string.cancel)) } })
     }
 }
