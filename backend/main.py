@@ -239,10 +239,12 @@ class TeacherQuestion(Base):  # a student's question to the teacher of a topic's
     excerpt = Column(Text, nullable=True)  # the passage they asked about, when they asked from a highlight
     status = Column(String(10), default="waiting", index=True)  # waiting (for the teacher), answered, closed
     at = Column(DateTime, default=dt.datetime.utcnow); updated = Column(DateTime, default=dt.datetime.utcnow); seen = Column(DateTime, nullable=True)  # seen: when the student last read it
+    shared = Column(Boolean, default=False)  # the teacher shared it with the class: everyone on the topic reads it, without who asked
 class TeacherReply(Base):  # one message in a question's thread, the student's first question included
     __tablename__ = "teacher_replies"
     id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); text = Column(Text); at = Column(DateTime, default=dt.datetime.utcnow)
+    image = Column(String(40), nullable=True)  # a photo with the message (working on paper, a diagram): its file name under uploads/questions
 class Payment(Base):  # a student buying Pro online through a Razorpay payment link; kept after the account goes, without who paid
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -883,7 +885,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0034_assignments", lambda c: [Base.metadata.create_all(c, tables=[Assignment.__table__, AssignmentStudent.__table__]), _addcol("mcq_attempts", "assignment_id", "INTEGER NULL")(c)]),
               ("0035_topic_diagram", lambda c: [_addcol("topics", "diagram", "BOOLEAN NULL")(c), _addcol("topics", "diagram_note", "TEXT NULL")(c)]),
               ("0036_ask_teacher", lambda c: Base.metadata.create_all(c, tables=[TeacherQuestion.__table__, TeacherReply.__table__])),
-              ("0037_payments", lambda c: Base.metadata.create_all(c, tables=[Payment.__table__]))]
+              ("0037_payments", lambda c: Base.metadata.create_all(c, tables=[Payment.__table__])),
+              ("0038_question_photos_shared", lambda c: [_addcol("teacher_questions", "shared", "BOOLEAN NULL")(c), _addcol("teacher_replies", "image", "VARCHAR(40) NULL")(c)])]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -4098,9 +4101,9 @@ def resolve_flag(fid: int, b: FlagDo, u: User = Depends(staff), s: Session = Dep
 # ---- owner, or an admin when it has none, answers in a short thread. Unlike a flag it is not anonymous: a teacher answers a person.
 TQ_DAILY, TQ_TEXT, TQ_REPLIES = 10, 1000, 30
 TQ_CLOSED = "This question is closed. Ask a new one from the topic."
-def tq_text(v):
+def tq_text(v, photo=False):
     t = (v or "").strip()
-    if len(t) < 3: raise HTTPException(400, "Write your question first")
+    if len(t) < 3 and not (photo and not t): raise HTTPException(400, "Write your question first")
     if len(t) > TQ_TEXT: raise HTTPException(400, "Keep it under 1000 characters")
     return t
 def tq_teachers(s, cid):  # who answers: the course's owner, else every admin
@@ -4116,18 +4119,34 @@ def tq_mine(qid, u, s):  # (question, as the teacher?) when this person may read
     if q and q.user_id == u.id: return q, False
     if q and is_staff(u) and can_edit(u, q.course_id, s): return q, True
     raise HTTPException(404, "Question not found")
-class AskTeacherIn(BaseModel): text: str; excerpt: str = ""
+TQ_PHOTOS = 20  # photos a person can add to questions and answers a day
+def tq_photo(s, u, b64):  # a photo with a message: checked, shrunk, its metadata (like GPS) dropped, saved under an unguessable name; None without one
+    if not b64: return None
+    if s.query(func.count(TeacherReply.id)).filter(TeacherReply.user_id == u.id, TeacherReply.image.isnot(None), TeacherReply.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= TQ_PHOTOS:
+        raise HTTPException(429, "That's plenty of photos for today. Describe it in words, or add it tomorrow.")
+    jpeg, _ = photo_jpeg(b64); name = os.urandom(16).hex() + ".jpg"; d = os.path.join(UPLOADS, "questions")
+    os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, name), "wb") as f: f.write(jpeg)
+    return name
+@app.get("/api/qimg/{name}")
+def question_photo(name: str):  # the link is the key (128 random bits), so the apps can show it like any picture; never listed anywhere
+    if not re.fullmatch(r"[0-9a-f]{32}\.jpg", name): raise HTTPException(404, "Not found")
+    path = os.path.join(UPLOADS, "questions", name)
+    if not os.path.exists(path): raise HTTPException(404, "Not found")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=31536000, immutable"})
+class AskTeacherIn(BaseModel): text: str = ""; excerpt: str = ""; photo: str = ""
 @app.post("/api/topics/{tid}/questions")
 def ask_teacher(tid: int, b: AskTeacherIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
     if u.role != "student": raise HTTPException(403, "Students ask their teacher")
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
-    check_topic_access(u, t, s); text_ = tq_text(b.text)
+    check_topic_access(u, t, s); text_ = tq_text(b.text, bool(b.photo))
     if s.query(func.count(TeacherQuestion.id)).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= TQ_DAILY:
         raise HTTPException(429, "You have asked 10 questions today. Ask more tomorrow.")
     cid = topic_course_id(t, s); excerpt = " ".join((b.excerpt or "").split())[:600] or None
+    img = tq_photo(s, u, b.photo)
     q = TeacherQuestion(user_id=u.id, topic_id=t.id, course_id=cid, excerpt=excerpt); s.add(q); s.flush()
-    s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_)); s.commit()
+    s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, image=img)); s.commit()
     for x in tq_teachers(s, cid):
         notify(s, x, "question", "A question from {name} on {app}", "{name} asked a question about {topic}. Open {app} to answer it.", run=bg.add_task, name=u.name, topic=t.title)
     return tq_json(q, u, s)
@@ -4159,21 +4178,41 @@ def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0,
 def tq_json(q, u, s):
     t, c = s.get(Topic, q.topic_id), s.get(Course, q.course_id) if q.course_id else None
     asker = s.get(User, q.user_id); teach = q.user_id != u.id
-    msgs = [{"id": r.id, "mine": r.user_id == u.id, "teacher": r.user_id != q.user_id, "who": (w.name if w else "") if r.user_id != q.user_id else (asker.name if asker else ""), "text": r.text, "at": utc_iso(r.at)}
+    msgs = tq_msgs(s, q, u, (asker.name if asker else ""))
+    return {**tq_row(q, t, c, msgs[-1]["text"] if msgs else "", asker.name if teach and asker else None), "excerpt": q.excerpt, "messages": msgs, "teacher": teach, "shared": bool(q.shared),
+            "can_share": teach and any(m["teacher"] for m in msgs)}
+def tq_msgs(s, q, u, asker_name):  # asker_name None: the class's view, where the student who asked is not named
+    return [{"id": r.id, "mine": r.user_id == u.id, "teacher": r.user_id != q.user_id, "who": (w.name if w else "") if r.user_id != q.user_id else asker_name,
+             "text": r.text, "image": f"/api/qimg/{r.image}" if r.image else None, "at": utc_iso(r.at)}
             for r, w in s.query(TeacherReply, User).outerjoin(User, User.id == TeacherReply.user_id).filter(TeacherReply.question_id == q.id).order_by(TeacherReply.id)]
-    return {**tq_row(q, t, c, msgs[-1]["text"] if msgs else "", asker.name if teach and asker else None), "excerpt": q.excerpt, "messages": msgs, "teacher": teach}
+class ShareIn(BaseModel): shared: bool
+@app.post("/api/questions/{qid}/share")
+def share_question(qid: int, b: ShareIn, u: User = Depends(me), s: Session = Depends(db)):
+    """The teacher shares a question and its answers with everyone on the topic (or takes it back). The student who asked is never named."""
+    q, teach = tq_mine(qid, u, s)
+    if not teach: raise HTTPException(403, "Only the teacher can share a question with the class")
+    if b.shared and not s.query(TeacherReply.id).filter(TeacherReply.question_id == q.id, TeacherReply.user_id != q.user_id).first(): raise HTTPException(400, "Answer it first, then share it")
+    q.shared = b.shared; s.commit(); return tq_json(q, u, s)
+@app.get("/api/topics/{tid}/class-questions")
+def class_questions(tid: int, u: User = Depends(me), s: Session = Depends(db)):
+    """Questions on this topic the teacher shared with the class, newest first, each with its answers; who asked is never shown."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s)
+    qs = s.query(TeacherQuestion).filter(TeacherQuestion.topic_id == tid, TeacherQuestion.shared == True).order_by(TeacherQuestion.updated.desc()).limit(30).all()  # noqa: E712
+    return {"items": [{"id": q.id, "excerpt": q.excerpt, "mine": q.user_id == u.id, "messages": tq_msgs(s, q, u, None)} for q in qs]}
 @app.get("/api/questions/{qid}")
 def read_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
     q, teach = tq_mine(qid, u, s)
     if not teach: q.seen = dt.datetime.utcnow(); s.commit()
     return tq_json(q, u, s)
-class ReplyIn(BaseModel): text: str
+class ReplyIn(BaseModel): text: str = ""; photo: str = ""
 @app.post("/api/questions/{qid}/replies")
 def reply_question(qid: int, b: ReplyIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
-    q, teach = tq_mine(qid, u, s); text_ = tq_text(b.text)
+    q, teach = tq_mine(qid, u, s); text_ = tq_text(b.text, bool(b.photo))
     if q.status == "closed": raise HTTPException(400, TQ_CLOSED)
     if s.query(func.count(TeacherReply.id)).filter(TeacherReply.question_id == q.id).scalar() >= TQ_REPLIES: raise HTTPException(400, "This thread is long enough. Ask a new question from the topic.")
-    now = dt.datetime.utcnow(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, at=now))
+    img = tq_photo(s, u, b.photo); now = dt.datetime.utcnow(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, at=now, image=img))
     q.status, q.updated = ("answered" if teach else "waiting"), now
     if not teach: q.seen = now
     s.commit()

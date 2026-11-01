@@ -41,9 +41,11 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class QuestionRow(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val updated: String? = null,
                                      val last: String = "", val unread: Boolean = false)
 @Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
-@Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String = "", val text: String = "", val at: String? = null)
+@Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String? = null, val text: String = "", val image: String? = null, val at: String? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
-                                        val messages: List<QuestionMsg> = emptyList())
+                                        val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false)
+@Serializable data class ClassQuestion(val id: Int, val excerpt: String? = null, val mine: Boolean = false, val messages: List<QuestionMsg> = emptyList())
+@Serializable data class ClassQuestions(val items: List<ClassQuestion> = emptyList())
 /** buying Pro online: the offers the admin set, and the Razorpay page to pay on */
 @Serializable data class ProOffer(val id: Int, val days: Int, val price: Double)
 @Serializable data class ProOffers(val on: Boolean = false, val currency: String = "INR", val offers: List<ProOffer> = emptyList())

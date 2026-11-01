@@ -45,3 +45,33 @@ def test_only_students_ask_within_limits_and_only_where_they_study(env):
     for _ in range(10): assert ask(env, t).status_code == 200
     assert ask(env, t).status_code == 429
     with Session_() as s: assert s.query(TeacherQuestion).count() == 10
+
+def photo():
+    import base64, io
+    from PIL import Image
+    buf = io.BytesIO(); Image.new("RGB", (40, 30), "white").save(buf, "PNG"); return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+def test_a_photo_goes_with_a_question_or_an_answer(env):
+    t = setup(env)
+    q = env.c.post(f"/api/topics/{t}/questions", headers=env.stu, json={"text": "", "photo": photo()}).json()
+    img = q["messages"][0]["image"]; assert img.startswith("/api/qimg/") and img.endswith(".jpg")
+    r = env.c.get(img); assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
+    assert env.c.get("/api/qimg/../../main.py").status_code == 404 and env.c.get("/api/qimg/" + "0" * 32 + ".jpg").status_code == 404
+    assert env.c.post(f"/api/topics/{t}/questions", headers=env.stu, json={"text": "", "photo": "data:image/png;base64,bm90IGFuIGltYWdl"}).status_code == 400
+    a = env.c.post(f"/api/questions/{q['id']}/replies", headers=env.fac, json={"text": "See the marked line", "photo": photo()}).json()
+    assert a["messages"][-1]["image"] and a["messages"][-1]["teacher"] is True
+
+def test_the_teacher_shares_an_answer_with_the_class_without_naming_the_student(env):
+    t = setup(env); env.add_user("stu2@x.com"); i = ids(); enrol("stu2@x.com", i["prog"]["Mech"], 1); other = env.login("stu2@x.com")
+    q = ask(env, t, "Why does scale form in boilers?").json()
+    assert env.c.post(f"/api/questions/{q['id']}/share", headers=env.fac, json={"shared": True}).status_code == 400  # not answered yet
+    env.c.post(f"/api/questions/{q['id']}/replies", headers=env.fac, json={"text": "Calcium carbonate settles out on hot surfaces."})
+    assert env.c.post(f"/api/questions/{q['id']}/share", headers=env.stu, json={"shared": True}).status_code == 403  # only the teacher
+    assert env.c.get(f"/api/topics/{t}/class-questions", headers=other).json()["items"] == []
+    r = env.c.post(f"/api/questions/{q['id']}/share", headers=env.fac, json={"shared": True}).json(); assert r["shared"] is True
+    items = env.c.get(f"/api/topics/{t}/class-questions", headers=other).json()["items"]
+    assert len(items) == 1 and items[0]["mine"] is False and [m["who"] for m in items[0]["messages"]] == [None, "fac@x.com"] and "stu@x.com" not in str(items)
+    assert env.c.get(f"/api/topics/{t}/class-questions", headers=env.stu).json()["items"][0]["mine"] is True
+    assert env.c.get(f"/api/topics/{i['topic']['Limits']}/class-questions", headers=other).status_code == 403
+    env.c.post(f"/api/questions/{q['id']}/share", headers=env.fac, json={"shared": False})
+    assert env.c.get(f"/api/topics/{t}/class-questions", headers=other).json()["items"] == []

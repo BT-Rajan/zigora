@@ -1,6 +1,10 @@
 package app.zigora.ui
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
@@ -32,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import app.zigora.Incoming
+import app.zigora.AnswerWatch
 import app.zigora.R
 import app.zigora.data.Me
 import app.zigora.data.json
@@ -84,7 +89,8 @@ fun ZigoraRoot(incoming: Incoming?, handled: () -> Unit) {
             user.role == "guardian" -> GuardianHome(user) { app.store.signOut(); me = null }  // a parent or teacher who signed up: their children or students
             user.role != "student" -> StaffNote(user) { app.store.signOut(); me = null }  // college staff and admins stay on the web
             user.must_change -> ChangePassword(forced = true) { me = user.copy(must_change = false).also { app.store.userJson = json.encodeToString(Me.serializer(), it) } }
-            else -> Main(user, incoming, handled, wallpaper = { wallpaper = it; app.store.wallpaper = it }, theme = { theme = it; app.store.theme = it }) { app.store.signOut(); me = null }
+            else -> Main(user, incoming, handled, wallpaper = { wallpaper = it; app.store.wallpaper = it }, theme = { theme = it; app.store.theme = it }) {
+                app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); me = null }
         }
         CrashNote()
     }
@@ -101,10 +107,13 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
                       Tab(SavedR, stringResource(R.string.tab_saved), Icons.Outlined.BookmarkBorder), Tab(ProgressR, stringResource(R.string.tab_progress), Icons.AutoMirrored.Outlined.TrendingUp),
                       Tab(MeR, stringResource(R.string.tab_me), Icons.Outlined.AccountCircle))
     val entry by nav.currentBackStackEntryAsState(); val dest = entry?.destination
+    val ctx0 = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(me.id) { AnswerWatch.schedule(ctx0, true) }  // a note when a teacher answers
     LaunchedEffect(incoming) {
         when (incoming) {
             is Incoming.Lookup -> nav.navigate(SearchR(incoming.text))
             is Incoming.Photo -> nav.navigate(PhotoR(incoming.uri?.toString().orEmpty()))
+            is Incoming.Question -> nav.navigate(QuestionR(incoming.id))
             null -> return@LaunchedEffect
         }
         handled()
@@ -127,7 +136,10 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             x.src == "study" -> x.course_id?.let { ownTopic(it, x.id) } ?: nav.navigate(StudyTopicR(x.id))
             else -> open(x.id)
         } }
-        NavHost(nav, startDestination = HomeR) {
+        androidx.compose.foundation.layout.Column {
+            if (app().api.offline.value) Text(tl("Offline. Showing what you read before."), style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiaryContainer).statusBarsPadding().padding(vertical = 6.dp, horizontal = 16.dp))
+        NavHost(nav, startDestination = HomeR, modifier = Modifier.weight(1f)) {
             composable<HomeR> { HomeScreen(me, openTopic = open, openCourse = { nav.navigate(CourseR(it)) }, openQuiz = { nav.navigate(QuizR(it)) },
                                            openNotes = { nav.navigate(NotesR) }, openPhoto = { nav.navigate(PhotoR()) }, openSearch = search,
                                            openRoutine = { nav.navigate(RoutineR) }, openSession = session, openStudy = { nav.navigate(StudyR) }, openMcq = { nav.navigate(McqR()) }, openCalendar = { nav.navigate(CalendarR) }, openProgress = { nav.navigate(ProgressR) }, openPlan = { nav.navigate(MeR) },
@@ -180,6 +192,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             composable<McqSetR> { McqSetScreen(it.toRoute<McqSetR>().id, back = { nav.popBackStack() }, openTopic = open) }
             composable<PhotoR> { PhotoScreen(it.toRoute<PhotoR>().uri) { nav.popBackStack() } }
             composable<NotesR> { NotificationsScreen(back = { nav.popBackStack() }, openTopic = open, openQuestion = { nav.navigate(QuestionR(it)) }) }
+        }
         }
     }
     }

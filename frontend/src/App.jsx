@@ -17,9 +17,18 @@ import './styles.css'
 import './highlighter.js'
 import {t as tl,L,LANGS,locale,applyLang,firstLang,loadLang,srv,getLang} from './i18n.js'
 
-const api=async(p,o={})=>{const t=localStorage.t
-  const r=await fetch(ROOT+'/api'+p,{...o,headers:{'Content-Type':'application/json',...(t&&{Authorization:'Bearer '+t})},body:o.body&&JSON.stringify(o.body)})
-  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(typeof j.detail==='string'?srv(j.detail):tl('Something went wrong'));return j}  // the server's messages are looked up like any other text
+// What a student has read stays readable offline: a topic, its AI steps, translation, highlights, diagram and class questions, the course list and
+// their questions are kept in the browser (Cache Storage, cleared on sign-out) and shown from there when the network is gone. Nothing goes to the AI again.
+const READ_CACHE='zg-read',KEEP=/^\/(me|config|tree|ai\/status|me\/questions|questions\/\d+|topics\/\d+(\/(ai\/\w+|translation|highlights|diagram|class-questions))?)$/
+const offlineNote=on=>dispatchEvent(new CustomEvent('zg-offline',{detail:on}))
+const keep=(p,j)=>{try{caches.open(READ_CACHE).then(c=>c.put(new Request(ROOT+'/api'+p),new Response(JSON.stringify(j),{headers:{'Content-Type':'application/json'}}))).catch(()=>{})}catch{/* no Cache Storage (private mode): nothing kept */}}
+const kept=async p=>{try{const r=await caches.match(new Request(ROOT+'/api'+p),{cacheName:READ_CACHE});return r?await r.json():null}catch{return null}}
+const forgetKept=()=>{try{caches.delete(READ_CACHE);caches.delete('zg-frames')}catch{/* nothing kept */}}
+const api=async(p,o={})=>{const t=localStorage.t,read=!o.method&&KEEP.test(p.split('?')[0])
+  let r;try{r=await fetch(ROOT+'/api'+p,{...o,headers:{'Content-Type':'application/json',...(t&&{Authorization:'Bearer '+t})},body:o.body&&JSON.stringify(o.body)})}
+  catch(e){const j=read&&await kept(p);if(j){offlineNote(true);return j}const x=new Error(navigator.onLine===false?tl("You're offline. Topics you have opened before still work."):e.message);x.offline=true;throw x}
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(typeof j.detail==='string'?srv(j.detail):tl('Something went wrong'))
+  if(read){keep(p,j);offlineNote(false)}return j}  // the server's messages are looked up like any other text
 const TEMPLATE=`program,semester,course,unit,topic,content,question_pattern,sample_content,guideline
 B.E. Mechanical Engineering,Semester 3,Thermodynamics,Unit 1: Basic concepts,First law of thermodynamics,"Energy can change form but is never created or destroyed.","2 marks: define. 13 marks: derive and solve a numerical.","Q: State the first law for a closed system.","Introduction, labelled diagram, steps, units, conclusion"
 ,,,,Zeroth law of thermodynamics,"If A and B are each in equilibrium with C, they are in equilibrium with each other.","2 marks: state the law.","Q: State the zeroth law.","Definition, one example, significance"
@@ -58,6 +67,7 @@ export default function App(){
   const confirm=useCallback(o=>new Promise(res=>setAsk({o,res})),[])  // in-app replacement for window.confirm: await confirm({title,body,ok,danger})
   const toast=useCallback(m=>{setMsg(m);setTimeout(()=>setMsg(''),2800)},[])
   const pickLang=useCallback(async l=>{picked.current=true;await loadLang(l).catch(()=>{});setLangS(applyLang(l));api('/me/lang',{method:'PUT',body:{lang:l}}).catch(()=>{/* signed out: kept on this device until sign-in */})},[])
+  useEffect(()=>{if(user)keep('/me',user)},[user])  // so a signed-in student can open the app offline
   useEffect(()=>{if(!user)return  // signed in: a language picked just now goes to the account; otherwise the account's language is used
     if(picked.current&&user.lang!==lang)api('/me/lang',{method:'PUT',body:{lang}}).catch(()=>{})
     else if(!picked.current&&user.lang&&user.lang!==lang)loadLang(user.lang).catch(()=>{}).then(()=>setLangS(applyLang(user.lang)))},[user])
@@ -66,7 +76,7 @@ export default function App(){
     api('/me/pro/check',{method:'POST'}).then(r=>{setPage('profile')
       toast(m[1]==='ok'||r.paid?tl("Payment received. You have Pro until {date}.",{date:new Date(new Date(r.pro_until)-1).toLocaleDateString(locale(),{day:'numeric',month:'short',year:'numeric'})})
         :m[1]==='no'?tl("The payment was not completed."):tl("No word from Razorpay yet. If you paid, Pro starts within a few minutes."))}).catch(()=>{})},[user])
-  useEffect(()=>{Promise.allSettled([loadLang(lang),api('/config').then(c=>{setName(c.name);setLogo(c.logo||null);setCanReset(!!c.email_reset);setCanReg(c.self_registration?(c.email_signup===false?'google':'email'):false);setGoogleId(c.google_client_id||null);document.title=c.name}),localStorage.t?api('/me').then(setUser).catch(()=>localStorage.removeItem('t')):null]).then(()=>setReady(true))},[])
+  useEffect(()=>{Promise.allSettled([loadLang(lang),api('/config').then(c=>{setName(c.name);setLogo(c.logo||null);setCanReset(!!c.email_reset);setCanReg(c.self_registration?(c.email_signup===false?'google':'email'):false);setGoogleId(c.google_client_id||null);document.title=c.name}),localStorage.t?api('/me').then(setUser).catch(e=>{if(!e.offline)localStorage.removeItem('t')}):null]).then(()=>setReady(true))},[])
   useEffect(()=>{applyTheme(theme);if(theme!=='system')return;const m=matchMedia('(prefers-color-scheme: dark)'),f=()=>applyTheme('system');m.addEventListener('change',f);return()=>m.removeEventListener('change',f)},[theme])
   const pickTheme=t=>{setTheme(t);try{t==='system'?localStorage.removeItem('theme'):localStorage.theme=t}catch{/* private mode: the choice lasts until the page closes */}}
   useEffect(()=>{const k=e=>e.key==='Escape'&&setOpen(false);addEventListener('keydown',k);return()=>removeEventListener('keydown',k)},[])
@@ -75,7 +85,7 @@ export default function App(){
   if(resetTok)return <AuthFrame logo={logo} name={name} lang={lang} pick={pickLang}><ResetPassword token={resetTok} toast={toast} msg={msg} canReset={canReset} appName={name} logo={logo} done={u=>{history.replaceState(null,'',location.pathname);setResetTok(null);setUser(u);toast(tl("Password changed. You are signed in."))}} leave={()=>{history.replaceState(null,'',location.pathname);setResetTok(null)}}/></AuthFrame>
   if(!user)return <AuthFrame logo={logo} name={name} lang={lang} pick={pickLang}><Login onIn={setUser} toast={toast} msg={msg} appName={name} logo={logo} canReset={canReset} canReg={canReg} googleId={googleId}/></AuthFrame>
   if(user.must_change)return <AuthFrame logo={logo} name={name} lang={lang} pick={pickLang}><ChangePassword forced appName={name} logo={logo} toast={toast} msg={msg} done={()=>setUser({...user,must_change:false})} out={()=>{localStorage.removeItem('t');setUser(null)}}/></AuthFrame>
-  const student=user.role==='student',guardian=user.role==='guardian',page=pageSel||'home',admin=user.role==='admin',go=k=>{if(k==='build')setStudyStart(null);setPage(k);setOpen(false)},openIn=nav=>{setStart(nav);go('learn')},openStudy=t=>{setPage('build');setOpen(false);setStudyStart(t)},find=q=>{setFindQ(f=>({q,n:f.n+1}));go('search')},signOut=()=>{localStorage.removeItem('t');setOpen(false);setPage(null);setUser(null)}
+  const student=user.role==='student',guardian=user.role==='guardian',page=pageSel||'home',admin=user.role==='admin',go=k=>{if(k==='build')setStudyStart(null);setPage(k);setOpen(false)},openIn=nav=>{setStart(nav);go('learn')},openStudy=t=>{setPage('build');setOpen(false);setStudyStart(t)},find=q=>{setFindQ(f=>({q,n:f.n+1}));go('search')},signOut=()=>{localStorage.removeItem('t');forgetKept();setOpen(false);setPage(null);setUser(null)}
   // the side menu (the logo goes Home; search, change password, theme and sign out are in the header)
   const cal=['calendar',CalendarDays,tl("Calendar")]
   const asg=['assign',ClipboardCheck,tl("Assigned tests")],teacher=guardian&&user.relation==='teacher'
@@ -86,7 +96,7 @@ export default function App(){
   return <Ctx.Provider value={{menu:()=>setOpen(true),appName:name,confirm,role:user.role,aiOff:!!user.ai_off,level:user.level}}>  {/* aiOff: a school student with no parent's or teacher's key studies without AI */}
     <TopBar user={user} lang={lang} pickLang={pickLang} theme={theme} pickTheme={pickTheme} onMenu={()=>setOpen(true)} onHome={()=>go('home')} onAccount={()=>go('profile')} onOut={signOut} onNote={()=>go('home')} page={page}/>
     {page!=='search'&&!guardian&&<GlobalSearch key={findQ.n} onFind={find} onPhoto={user.ai_off?null:()=>go('photo')}/>}{page==='photo'&&<PhotoAsk toast={toast}/>}
-    <div id="pageslot"/>
+    <OfflineBar/><div id="pageslot"/>
     {page==='home'&&student&&<Dashboard user={user} toast={toast} onOpen={openIn} onStudy={openStudy} onRoutine={()=>go('routine')} onCalendar={()=>go('calendar')} onGo={go}/>}
     {page==='routine'&&student&&<RoutinePage toast={toast} done={()=>go('home')}/>}
     {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go('users')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
@@ -109,6 +119,11 @@ export default function App(){
     {ask&&<Confirm o={ask.o} answer={ok=>{ask.res(ok);setAsk(null)}}/>}
   </Ctx.Provider>}
 
+// a thin line under the header while pages are being shown from what this browser kept
+function OfflineBar(){
+  const [on,setOn]=useState(false)
+  useEffect(()=>{const f=e=>setOn(!!e.detail),b=()=>setOn(false);addEventListener('zg-offline',f);addEventListener('online',b);return()=>{removeEventListener('zg-offline',f);removeEventListener('online',b)}},[])
+  return on?<div className="offbar" role="status">{tl("Offline. Showing what you read before.")}</div>:null}
 // Sign in with Google: Google's own button (its script loads only when an admin has set the client ID); it hands back an ID token the server checks
 let gsiLoad=null
 function GoogleButton({clientId,onCredential,text='signin_with'}){
@@ -753,29 +768,51 @@ function FlagsPage({toast,back}){
 // ---- short thread. Unlike "This looks wrong?" it is not anonymous: the teacher sees who asked
 const Q_STATE={waiting:['Waiting for your teacher','var(--warn)'],answered:['Answered','var(--ok)'],closed:['Closed','var(--mut)']}
 const QChip=({s,teacher})=>{const [l,c]=Q_STATE[s]||Q_STATE.waiting;return <span className="chip" style={{color:c}}>{tl(s==='waiting'&&teacher?'Waiting for your answer':l)}</span>}
+// a photo with a question or an answer (working on paper, a diagram): picked or taken, shrunk in the browser, shown before sending
+function PhotoPick({photo,setPhoto,toast}){
+  const pick=async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;try{setPhoto(await shrink(f))}catch(x){toast(x.message)}}
+  return photo?<div className="qphoto"><img src={photo} alt={tl("Your photo")}/><button className="ic sm" aria-label={tl("Remove the photo")} onClick={()=>setPhoto(null)}><X size={16}/></button></div>
+    :<label className="btn ghost photopick"><Camera size={16}/> {tl("Add a photo")}<input type="file" accept="image/*" onChange={pick} hidden/></label>}
+const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}</>
 function AskTeacher({tid,excerpt,close,toast}){
-  const [text,setText]=useState(''),[busy,setBusy]=useState(false)
-  const send=async()=>{setBusy(true);try{await api(`/topics/${tid}/questions`,{method:'POST',body:{text,excerpt:excerpt||''}});toast(tl("Sent. Your teacher's answer will be in My questions."));close()}catch(e){toast(srv(e.message))}setBusy(false)}
+  const [text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false)
+  const send=async()=>{setBusy(true);try{await api(`/topics/${tid}/questions`,{method:'POST',body:{text,excerpt:excerpt||'',photo:photo||''}});toast(tl("Sent. Your teacher's answer will be in My questions."));close()}catch(e){toast(srv(e.message))}setBusy(false)}
   return <Sheet close={close}><h3>{tl("Ask my teacher")}</h3>
     {excerpt&&<p className="hltext" style={{marginBottom:10}}>“{excerpt}”</p>}
     <label htmlFor="tqtext">{tl("Your question")}</label><textarea id="tqtext" rows={4} maxLength={1000} value={text} onChange={e=>setText(e.target.value)} placeholder={tl("What would you like your teacher to explain?")}/>
+    <small className="known">{tl("For maths, write it between dollar signs, like $x^2 + y^2$.")}</small>
+    <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
     <p className="known">{tl("Your teacher sees your name and the topic you ask about.")}</p>
-    <button className="btn" disabled={busy||text.trim().length<3} onClick={send}>{busy?tl("Sending…"):tl("Send to my teacher")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
+    <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):tl("Send to my teacher")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
 function QuestionThread({id,back,toast}){
-  const confirm=useConfirm(),[q,setQ]=useState(null),[text,setText]=useState(''),[busy,setBusy]=useState(false),[topic,setTopic]=useState(false),{role}=useContext(Ctx)
+  const confirm=useConfirm(),[q,setQ]=useState(null),[text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(false),{role}=useContext(Ctx)
   useEffect(()=>{api('/questions/'+id).then(setQ).catch(e=>{toast(srv(e.message));back()})},[id])
-  const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text}}));setText('')}catch(e){toast(srv(e.message))}setBusy(false)}
+  const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text,photo:photo||''}}));setText('');setPhoto(null)}catch(e){toast(srv(e.message))}setBusy(false)}
   const end=async()=>{if(!await confirm({title:tl("Close this question?"),body:tl("Nobody can reply after this. A new question can be asked from the topic."),ok:tl("Close it")}))return
     try{setQ(await api(`/questions/${id}/close`,{method:'POST'}))}catch(e){toast(srv(e.message))}}
+  const share=async on=>{if(on&&!await confirm({title:tl("Share with the class?"),body:tl("Everyone studying this topic will see the question and the answers under the topic. The student who asked is not named."),ok:tl("Share")}))return
+    try{setQ(await api(`/questions/${id}/share`,{method:'POST',body:{shared:on}}));toast(on?tl("Shared with the class"):tl("No longer shared"))}catch(e){toast(srv(e.message))}}
   if(topic)return <Topic id={q.topic_id} back={()=>setTopic(false)} toast={toast} role={role}/>
   return <><Bar title={q?q.topic:tl("Question")} sub={q?[q.course,q.student].filter(Boolean).join(' · '):''} back={back}/><div className="main">
-    {!q?<Skeleton/>:<><div className="tools" style={{justifyContent:'space-between',alignItems:'center'}}><QChip s={q.status} teacher={q.teacher}/><button className="link" onClick={()=>setTopic(true)}>{tl("Open the topic")}</button></div>
+    {!q?<Skeleton/>:<><div className="tools" style={{justifyContent:'space-between',alignItems:'center'}}><span><QChip s={q.status} teacher={q.teacher}/>{q.shared&&<>{" "}<span className="chip">{tl("Shared with the class")}</span></>}</span><button className="link" onClick={()=>setTopic(true)}>{tl("Open the topic")}</button></div>
       {q.excerpt&&<p className="hltext" style={{margin:'8px 0 12px'}}>“{q.excerpt}”</p>}
-      <div className="thread">{q.messages.map(m=><div key={m.id} className={'msg'+(m.mine?' mine':'')+(m.teacher?' teach':'')}><small>{m.mine?tl("You"):m.who}{' · '}{when(m.at)}</small><p>{m.text}</p></div>)}</div>
+      <div className="thread">{q.messages.map(m=><div key={m.id} className={'msg'+(m.mine?' mine':'')+(m.teacher?' teach':'')}><small>{m.mine?tl("You"):m.who}{' · '}{when(m.at)}</small><MsgBody m={m}/></div>)}</div>
+      {q.teacher&&(q.can_share||q.shared)&&<button className="btn ghost" onClick={()=>share(!q.shared)}>{q.shared?tl("Stop sharing with the class"):tl("Share with the class")}</button>}
       {q.status==='closed'?<p className="known">{tl("This question is closed.")}</p>:<><label htmlFor="tqr">{q.teacher?tl("Your answer"):tl("Reply")}</label>
         <textarea id="tqr" rows={3} maxLength={1000} value={text} onChange={e=>setText(e.target.value)}/>
-        <button className="btn" disabled={busy||text.trim().length<3} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):tl("Send")}</button>
+        <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
+        <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):tl("Send")}</button>
         <button className="btn ghost" onClick={end}>{tl("Close the question")}</button></>}</>}</div></>}
+// under a topic: questions the teacher shared with the class, each with its answers; who asked is never shown
+function ClassQuestions({tid}){
+  const [d,setD]=useState(null),[open,setOpen]=useState({})
+  useEffect(()=>{api(`/topics/${tid}/class-questions`).then(setD).catch(()=>setD({items:[]}))},[tid])
+  if(!d?.items.length)return null
+  return <><h3 className="sec">{tl("Questions from your class")}</h3>{d.items.map(x=>{const [first,...rest]=x.messages,on=open[x.id]
+    return <div key={x.id} className="qbox classq"><small className="steplab">{x.mine?tl("Your question"):tl("A student asked")}</small>
+      {x.excerpt&&<p className="hltext" style={{margin:'4px 0 8px'}}>“{x.excerpt}”</p>}{first&&<MsgBody m={first}/>}
+      {on?<div className="thread">{rest.map(m=><div key={m.id} className={'msg'+(m.teacher?' teach':'')}><small>{m.teacher?m.who:tl("A student")}</small><MsgBody m={m}/></div>)}</div>
+        :<button className="link" onClick={()=>setOpen(o=>({...o,[x.id]:true}))}>{tl(rest.length===1?"Show the answer":"Show the {n} replies",{n:rest.length})}</button>}</div>})}</>}
 // a student's questions to their teachers, newest first; answered ones they haven't read are marked
 function MyQuestions({toast}){
   const [d,setD]=useState(null),[open,setOpen]=useState(null)
@@ -1651,6 +1688,7 @@ function Topic({id:first,back,toast,role}){
     {role==='student'&&<div className="mine"><span>{t.learning_due_at&&<>{tl("Your teacher's date")}: {day(t.learning_due_at)} · </>}{t.status==='completed'?tl("You marked this as learned"):tl("Not marked as learned yet")}</span>
       {t.status==='completed'?<button className="link" onClick={()=>setDone(false)}>{tl("Undo")}</button>:<button className="link" onClick={()=>setDone(true)}>{tl("I've learned this")}</button>}
       {t.status!=='not_started'&&<button className="link" onClick={redo}>{tl("Start over")}</button>}</div>}
+    {t.published!==false&&<ClassQuestions tid={t.id}/>}
     {role==='student'&&t.published!==false&&<button className="btn ghost" onClick={()=>setAskT(true)}><MessageCircle size={16}/>{" "}{tl("Ask my teacher")}</button>}
     {askT&&<AskTeacher tid={t.id} close={()=>setAskT(false)} toast={toast}/>}
     {t.nav&&t.nav.total>1&&<nav className="pager" aria-label={tl("Topics in this unit")}><button className="btn ghost" disabled={!t.nav.prev} onClick={()=>jump(t.nav.prev.id)} aria-label={t.nav.prev?tl("Previous topic: {title}",{title:t.nav.prev.title}):tl("No previous topic")}><ChevronLeft size={18}/><span>{t.nav.prev?t.nav.prev.title:tl("Previous")}</span></button>
@@ -1681,7 +1719,12 @@ function TopicSteps({id,student,diagram}){
   const [g,setG]=useState(null),[you,setYou]=useState(null),[err,setErr]=useState(''),[trail,setTrail]=useState([]),[busy,setBusy]=useState(''),[open,setOpen]=useState(false)
   const [gid,setGid]=useState(null),[dia,setDia]=useState({busy:false,url:'',msg:''})
   // the topic's diagram, when its teacher turned one on: drawn by the AI once, then shared; on Lite the server says it comes with Pro
-  const diagramOpen=async()=>{setDia({busy:true,url:'',msg:''});try{setDia({busy:false,url:(await api(`/topics/${id}/diagram`)).frame_url,msg:''})}catch(e){setDia({busy:false,url:'',msg:e.message})}}
+  const diagramOpen=async()=>{setDia({busy:true,url:'',msg:''});try{const u=(await api(`/topics/${id}/diagram`)).frame_url,off=`./diagram-offline/${id}`
+    try{const r=await fetch(at(u));if(!r.ok)throw 0;const h=await r.text()  // kept for offline, with the frame's own sandbox rules
+      caches.open('zg-frames').then(c=>c.put(new URL(off,location.href).href,new Response(h,{headers:{'Content-Type':'text/html','Content-Security-Policy':r.headers.get('content-security-policy')||"sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'"}}))).catch(()=>{})
+      setDia({busy:false,url:at(u),msg:''})}
+    catch{const k=await caches.match(new URL(off,location.href).href,{cacheName:'zg-frames'}).catch(()=>null);setDia(k?{busy:false,url:off,msg:''}:{busy:false,url:'',msg:tl("You're offline. Topics you have opened before still work.")})}}
+    catch(e){setDia({busy:false,url:'',msg:e.message})}}
   useEffect(()=>{setG(null);setYou(null);setOpen(false);setErr('');setTrail([]);api(`/topics/${id}/ai/gist`).then(r=>{setG(r.data);setGid(r.id);setYou(r.you||null)}).catch(e=>setErr(e.message))},[id])
   const step=async k=>{setBusy(k);setErr('');try{const r=await api(`/topics/${id}/ai/${k}`);setTrail(x=>[...x.filter(y=>y.k!==k),{k,d:r.data,rid:r.id,raw:r.text}])}catch(e){setErr(e.message)}setBusy('')}
   if(err&&!g)return null  // without AI the page is the notes, as before
@@ -1699,7 +1742,7 @@ function TopicSteps({id,student,diagram}){
         {diagram&&<button className={'stepchip diag'+(diagram==='pro'?' locked':'')} disabled={dia.busy} onClick={diagramOpen}>{diagram==='pro'?<Lock size={14}/>:<Shapes size={14}/>}{" "}{dia.busy?tl("Drawing…"):tl("Diagram")}{diagram==='pro'&&<span className="pill sm">{tl("Pro")}</span>}</button>}</div>}
       {dia.msg&&<p className="known" role="status">{dia.msg}</p>}
       {dia.url&&<div className="diagview" role="dialog" aria-modal="true" aria-label={tl("Diagram")}><div className="diagbar"><b>{tl("Diagram")}</b><button className="ic" aria-label={tl("Close")} onClick={()=>setDia({busy:false,url:'',msg:''})}><X size={18}/></button></div>
-        <iframe title={tl("Diagram")} src={at(dia.url)} sandbox="allow-scripts"/></div>}
+        <iframe title={tl("Diagram")} src={dia.url} sandbox="allow-scripts"/></div>}
       {busy==='simpler'&&<p className="known">{tl("Thinking…")}</p>}</>}
   </section>}
 // Ask from a photo: snap a question, a paragraph or a diagram in a book. The photo is shrunk in the browser, the server reads its text (nothing leaves),

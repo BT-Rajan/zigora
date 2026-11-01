@@ -22,10 +22,13 @@ class ZigoraApp : Application() {
         I18n.init(this)
         store = Store(this)
         if (store.server.isEmpty() && BuildConfig.DEFAULT_SERVER.isNotEmpty()) store.server = BuildConfig.DEFAULT_SERVER
-        api = Api(store) { signedOut.value++ }
+        api = Api(store, java.io.File(filesDir, "read")) { signedOut.value++ }  // what was read stays readable offline
+        AnswerWatch.schedule(this, store.token != null)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(Reminders.CHANNEL, getString(R.string.channel_reminders), NotificationManager.IMPORTANCE_LOW)
                 .apply { description = getString(R.string.channel_reminders_about) })
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(AnswerWatch.CHANNEL, I18n.t("Answers from your teacher"), NotificationManager.IMPORTANCE_DEFAULT))
     }
 
     /** where the last crash's report waits, so the app can offer to share it on the next start (nothing leaves the phone unless the person shares it) */

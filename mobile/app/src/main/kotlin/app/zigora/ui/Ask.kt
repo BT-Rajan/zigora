@@ -29,6 +29,24 @@ import app.zigora.R
 import app.zigora.data.I18n
 import app.zigora.data.QuestionList
 import app.zigora.data.QuestionThread
+import app.zigora.data.QuestionMsg
+import app.zigora.data.ClassQuestions
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material3.Icon
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import coil3.compose.AsyncImage
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -36,29 +54,80 @@ import kotlinx.serialization.json.put
 // Ask the teacher, as on the web: a student's question about a topic (or a phrase in it) goes to the teacher of its course, who answers
 // on the web. Not anonymous: the teacher sees who asked. The student's questions are under Saved, each one a short thread.
 
-/** the question box, opened in place: what to ask, and the phrase it is about when it came from "Not clear?" */
+/** a photo to send with a question or reply: Android's photo picker (no storage permission), shrunk on the phone, shown before sending */
+@Composable
+fun PhotoPick(photo: String?, set: (String?) -> Unit) {
+    val ctx = LocalContext.current; val scope = rememberCoroutineScope()
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { scope.launch { runCatching { shrink(ctx, it) }.getOrNull()?.let { (_, d) -> set(d) } } } }
+    if (photo == null) TextButton(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) {
+        Icon(Icons.Outlined.PhotoCamera, null, Modifier.size(18.dp)); Text(" " + tl("Add a photo")) }
+    else Row(verticalAlignment = Alignment.CenterVertically) {
+        val bmp = remember(photo) { runCatching { android.util.Base64.decode(photo.substringAfter(","), 0).let { b -> android.graphics.BitmapFactory.decodeByteArray(b, 0, b.size)?.asImageBitmap() } }.getOrNull() }
+        bmp?.let { Image(it, tl("Your photo"), Modifier.size(96.dp).clip(RoundedCornerShape(10.dp))) }
+        TextButton(onClick = { set(null) }) { Text(tl("Remove the photo")) }
+    }
+}
+
+/** one message: its text (maths shown as the web shows it) and its photo */
+@Composable
+fun MsgBody(m: QuestionMsg) {
+    if (m.text.isNotEmpty()) MathMd(m.text)
+    m.image?.let { AsyncImage(api().base + it, tl("Photo"), Modifier.fillMaxWidth().heightIn(max = 320.dp).padding(top = 6.dp).clip(RoundedCornerShape(10.dp))) }
+}
+
+/** the question box, opened in place: what to ask, a photo if it helps, and the phrase it is about when it came from "Not clear?" */
 @Composable
 fun AskTeacherBox(tid: Int, excerpt: String = "", close: (sent: Boolean) -> Unit) {
-    val a = api(); val scope = rememberCoroutineScope()
+    val a = api(); val scope = rememberCoroutineScope(); val ctx = LocalContext.current
     var text by remember { mutableStateOf("") }
+    var photo by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
+    val allow = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { close(true) }  // so the answer can show up as a notification
     Panel {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(tl("Ask my teacher"), style = MaterialTheme.typography.titleMedium)
             if (excerpt.isNotEmpty()) Quiet("“$excerpt”")
             OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text(tl("Your question")) },
                               placeholder = { Text(tl("What would you like your teacher to explain?")) })
+            Quiet(tl("For maths, write it between dollar signs, like \$x^2 + y^2\$."))
+            PhotoPick(photo) { photo = it }
             Quiet(tl("Your teacher sees your name and the topic you ask about."))
             if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(enabled = !busy && text.trim().length >= 3, onClick = { scope.launch {
+                Button(enabled = !busy && (text.trim().length >= 3 || (photo != null && text.isBlank())), onClick = { scope.launch {
                     busy = true; err = ""
-                    try { a.raw("POST", "/topics/$tid/questions", buildJsonObject { put("text", text.trim()); put("excerpt", excerpt) }); close(true) }
-                    catch (e: Exception) { err = I18n.srv(e.message) }
+                    try {
+                        a.raw("POST", "/topics/$tid/questions", buildJsonObject { put("text", text.trim()); put("excerpt", excerpt); put("photo", photo.orEmpty()) })
+                        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) allow.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        else close(true)
+                    } catch (e: Exception) { err = I18n.srv(e.message) }
                     busy = false
                 } }) { Text(if (busy) tl("Sending…") else tl("Send to my teacher")) }
                 TextButton(onClick = { close(false) }) { Text(stringResource(R.string.cancel)) }
+            }
+        }
+    }
+}
+
+/** under a topic: questions the teacher shared with the class, each with its answers; who asked is never shown */
+@Composable
+fun ClassQuestionsList(tid: Int) {
+    val l = rememberLoad("class-q", tid) { runCatching { get("/topics/$tid/class-questions", ClassQuestions.serializer()) }.getOrDefault(ClassQuestions()) }
+    val d = (l.state as? Load.Ok)?.value ?: return
+    if (d.items.isEmpty()) return
+    SectionTitle(tl("Questions from your class"))
+    d.items.forEach { x ->
+        var open by remember(x.id) { mutableStateOf(false) }
+        Panel(Modifier.padding(bottom = 8.dp)) {
+            Text(if (x.mine) tl("Your question") else tl("A student asked"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            x.excerpt?.takeIf { it.isNotEmpty() }?.let { Quiet("“$it”") }
+            x.messages.firstOrNull()?.let { MsgBody(it) }
+            val rest = x.messages.drop(1)
+            if (!open) TextButton(onClick = { open = true }) { Text(if (rest.size == 1) tl("Show the answer") else tl("Show the {n} replies", "n" to rest.size)) }
+            else rest.forEach { m ->
+                Text(if (m.teacher) m.who.orEmpty() else tl("A student"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+                MsgBody(m)
             }
         }
     }
@@ -88,6 +157,7 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
     val l = rememberLoad("question", id) { get("/questions/$id", QuestionThread.serializer()) }
     var q by remember(id) { mutableStateOf<QuestionThread?>(null) }
     var text by remember { mutableStateOf("") }
+    var photo by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
     var closing by remember { mutableStateOf(false) }
@@ -96,14 +166,15 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
         Page(t.topic, listOf(t.course, stateLabel(t.status)).filter { it.isNotEmpty() }.joinToString(" · "), back = back) {
             TextButton(onClick = { openTopic(t.topic_id) }) { Text(tl("Open the topic")) }
             t.excerpt?.takeIf { it.isNotEmpty() }?.let { Quiet("“$it”") }
+            if (t.shared) Quiet(tl("Your teacher shared this with your class, without your name."))
             t.messages.forEach { m ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start) {
                     Surface(shape = RoundedCornerShape(16.dp), color = if (m.mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                             modifier = Modifier.widthIn(max = 320.dp)) {
                         Column(Modifier.padding(12.dp)) {
-                            Text((if (m.mine) tl("You") else m.who) + (m.at?.let { " · " + stamp(it) } ?: ""), style = MaterialTheme.typography.labelSmall,
+                            Text((if (m.mine) tl("You") else m.who.orEmpty()) + (m.at?.let { " · " + stamp(it) } ?: ""), style = MaterialTheme.typography.labelSmall,
                                  color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(m.text, style = MaterialTheme.typography.bodyLarge)
+                            MsgBody(m)
                         }
                     }
                 }
@@ -111,11 +182,12 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
             if (t.status == "closed") Quiet(tl("This question is closed."), Modifier.padding(top = 8.dp))
             else {
                 OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, label = { Text(tl("Reply")) })
+                PhotoPick(photo) { photo = it }
                 if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Button(enabled = !busy && text.trim().length >= 3, onClick = { scope.launch {
+                    Button(enabled = !busy && (text.trim().length >= 3 || (photo != null && text.isBlank())), onClick = { scope.launch {
                         busy = true; err = ""
-                        try { q = a.send("POST", "/questions/$id/replies", buildJsonObject { put("text", text.trim()) }, QuestionThread.serializer()); text = "" }
+                        try { q = a.send("POST", "/questions/$id/replies", buildJsonObject { put("text", text.trim()); put("photo", photo.orEmpty()) }, QuestionThread.serializer()); text = ""; photo = null }
                         catch (e: Exception) { err = I18n.srv(e.message) }
                         busy = false
                     } }) { Text(if (busy) tl("Sending…") else tl("Send")) }

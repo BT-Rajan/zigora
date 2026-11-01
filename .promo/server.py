@@ -69,7 +69,7 @@ with Session_() as s:
     meena = s.query(User).filter_by(email="stu@mail.com").one()
     priya = s.query(User).filter_by(email="teacher@mail.com").one()
     s.query(Course).filter_by(name="Engineering Chemistry").update({"faculty_owner_id": priya.id})  # Priya teaches it, so she answers its questions
-    q = main.TeacherQuestion(user_id=meena.id, topic_id=hw.id, course_id=hw.course_id, excerpt="calcium bicarbonate breaks down", status="answered"); s.add(q); s.flush()
+    q = main.TeacherQuestion(user_id=meena.id, topic_id=hw.id, course_id=hw.course_id, excerpt="calcium bicarbonate breaks down", status="answered", shared=True); s.add(q); s.flush()  # shared with the class
     s.add(main.TeacherReply(question_id=q.id, user_id=meena.id, text="Why does only the bicarbonate break down when we boil the water?"))
     s.add(main.TeacherReply(question_id=q.id, user_id=priya.id, text="Heat splits the bicarbonate ion into carbonate and CO2. Calcium carbonate hardly dissolves, so it settles. Chlorides and sulphates have nothing heat can break off."))
     # buying Pro online: test keys and two offers, so a Lite student sees them (no payment is ever made here)
