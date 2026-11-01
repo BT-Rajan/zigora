@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import NamedTuple
+from types import SimpleNamespace
 import anthropic, asyncio, base64, csv, functools, html as htmllib, io, json, logging, os, re, smtplib, subprocess, hashlib, hmac, secrets, threading, time, datetime as dt, httpx, jwt, nh3
 from dotenv import load_dotenv
 from email.message import EmailMessage
@@ -102,6 +103,11 @@ class Course(Base):
     semester_id = Column(Integer, ForeignKey("semesters.id", ondelete="CASCADE"), nullable=True)
     faculty_owner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)  # the one faculty member who runs the course; null = not assigned yet
     archived_at = Column(DateTime, nullable=True)  # set while this item is archived (hidden from students, nothing deleted); everything under it is archived with it
+    # a course a teacher offers (not in a program): who may join, and when it runs. "program" is the classic course its program's students see
+    access = Column(String(8), nullable=True)  # program (or null), enroll (invites and approved applications), open (anyone joins)
+    applications = Column(Boolean, nullable=True)  # an enroll course: students may ask to join
+    about = Column(Text, nullable=True); starts_on = Column(Date, nullable=True); ends_on = Column(Date, nullable=True); cancelled_at = Column(DateTime, nullable=True)
+    repeat_of = Column(Integer, nullable=True)  # the course this one repeats
 class CourseLink(Base):  # a common course shown in other programs' semesters as well; it is edited only at its home
     __tablename__ = "course_links"
     id = Column(Integer, primary_key=True)
@@ -232,6 +238,14 @@ class AIFlag(Base):  # a student's private "this looks wrong" on an AI reply; th
     topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)
     source = Column(String(8)); kind = Column(String(10)); ref = Column(Integer, nullable=True)  # "topic" (an ai_cache row) or "search" (a search_answers row), and which
     excerpt = Column(Text); reason = Column(String(300), nullable=True); status = Column(String(10), default="open", index=True); at = Column(DateTime, default=dt.datetime.utcnow)
+class Enrolment(Base):  # one student's place in an offered course
+    __tablename__ = "enrolments"
+    id = Column(Integer, primary_key=True); course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status = Column(String(10), index=True)  # invited, applied, active, suspended, completed, released, declined, expired, cancelled
+    by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # who invited, or decided
+    at = Column(DateTime, default=dt.datetime.utcnow); expires_at = Column(DateTime, nullable=True); decided_at = Column(DateTime, nullable=True)
+    __table_args__ = (UniqueConstraint("course_id", "user_id"),)
 class TeacherQuestion(Base):  # a student's question to the teacher of a topic's course: a short thread the student and the course's owner (or an admin) write in
     __tablename__ = "teacher_questions"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -240,6 +254,7 @@ class TeacherQuestion(Base):  # a student's question to the teacher of a topic's
     status = Column(String(10), default="waiting", index=True)  # waiting (for the teacher), answered, closed
     at = Column(DateTime, default=dt.datetime.utcnow); updated = Column(DateTime, default=dt.datetime.utcnow); seen = Column(DateTime, nullable=True)  # seen: when the student last read it
     shared = Column(Boolean, default=False)  # the teacher shared it with the class: everyone on the topic reads it, without who asked
+    subject = Column(String(200), nullable=True); started_by = Column(Integer, nullable=True)  # a message the teacher started (no topic): its subject and who wrote it
 class TeacherReply(Base):  # one message in a question's thread, the student's first question included
     __tablename__ = "teacher_replies"
     id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
@@ -347,10 +362,15 @@ def is_staff(u): return u.role in ("admin", "faculty")  # everyone else (student
 def staff(u: User = Depends(me)):
     if u.role not in ("admin", "faculty"): raise HTTPException(403, "Admins and faculty only")
     return u
-def can_edit(u, course_id, s):  # admins edit everything; faculty only the courses they own. me() has already refused disabled accounts
+def is_author(u): return u.role in ("admin", "faculty") or (u.role == "guardian" and u.relation == "teacher")  # staff, and school teachers who offer their own courses
+def author(u: User = Depends(me)):  # endpoints that then check the course is theirs (need_edit): faculty, admins and school teachers
+    if not is_author(u): raise HTTPException(403, "Teachers only")
+    return u
+def can_edit(u, course_id, s):  # admins edit everything; faculty and school teachers only the courses they own. me() has already refused disabled accounts
     if u.role == "admin": return True
     co = s.get(Course, course_id) if course_id else None
-    return u.role == "faculty" and co is not None and co.faculty_owner_id == u.id
+    return is_author(u) and co is not None and co.faculty_owner_id == u.id
+def offered(co): return co is not None and (co.access or "program") != "program"  # a course a teacher offers: its students are its enrolment list
 def need_edit(u, course_id, s):
     if not can_edit(u, course_id, s): raise HTTPException(403, "You are not the owner of this course")
 def owner_problem(owner):  # why a course's owner can't run it, or "" when they can
@@ -905,7 +925,10 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0037_payments", lambda c: Base.metadata.create_all(c, tables=[Payment.__table__])),
               ("0038_question_photos_shared", lambda c: [_addcol("teacher_questions", "shared", "BOOLEAN NULL")(c), _addcol("teacher_replies", "image", "VARCHAR(40) NULL")(c)]),
               ("0039_classes_model_answers", lambda c: [Base.metadata.create_all(c, tables=[ModelAnswer.__table__, Announcement.__table__]), _addcol("calendar_events", "link", "VARCHAR(300) NULL")(c)]),
-              ("0040_weekly_classes_joins", lambda c: [_addcol("announcements", "series", "VARCHAR(16) NULL")(c), Base.metadata.create_all(c, tables=[AnnJoin.__table__])])]
+              ("0040_weekly_classes_joins", lambda c: [_addcol("announcements", "series", "VARCHAR(16) NULL")(c), Base.metadata.create_all(c, tables=[AnnJoin.__table__])]),
+              ("0041_offered_courses", lambda c: [Base.metadata.create_all(c, tables=[Enrolment.__table__])] + [_addcol("subjects", col, typ)(c) for col, typ in (("access", "VARCHAR(8) NULL"), ("applications", "BOOLEAN NULL"),
+                  ("about", "TEXT NULL"), ("starts_on", "DATE NULL"), ("ends_on", "DATE NULL"), ("cancelled_at", "DATETIME NULL"), ("repeat_of", "INTEGER NULL"))]
+                  + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))])]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -1263,8 +1286,17 @@ def course_off(s, co):  # archived itself, or every place it is shown in is arch
     if co.archived_at: return True
     places = course_places(s, co)
     return bool(places) and all(sem_off(s, x) for x in places)
+ENROL_SEES = ("active", "completed")  # an offered course's students who may open it (completed: to look back)
+def enrolment(s, cid, uid): return s.query(Enrolment).filter_by(course_id=cid, user_id=uid).first()
 def check_course_access(u, course_id, s):
     co = s.get(Course, course_id) if course_id else None
+    if offered(co):  # a course a teacher offers: its teacher, admins, and the students on its list
+        if can_edit(u, co.id, s): return
+        if co.archived_at or co.cancelled_at: raise HTTPException(403, UNAVAILABLE)
+        e = enrolment(s, co.id, u.id)
+        if e and e.status == "suspended": raise HTTPException(403, "Your place in this course is on hold. Ask your teacher.")
+        if not e or e.status not in ENROL_SEES: raise HTTPException(403, "You are not enrolled in this course")
+        return
     if co is not None and not can_edit(u, course_id, s) and course_off(s, co): raise HTTPException(403, UNAVAILABLE)  # admins and the course's owner can still open it, to restore it
     if not scoped(u): return
     sem = s.get(Semester, co.semester_id) if co and co.semester_id else None
@@ -1907,6 +1939,9 @@ def csv_response(name, header, rows):
     out = io.StringIO(); w = csv.writer(out); w.writerow(header); [w.writerow([csv_cell(c) for c in r]) for r in rows]
     return Response("\ufeff" + out.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{name}"'})
 def course_audience(c, students, sems, links):  # students who can see this course in their own list
+    if offered(c):  # its active students
+        on = {i for (i,) in object_session(c).query(Enrolment.user_id).filter(Enrolment.course_id == c.id, Enrolment.status == "active")}
+        return [u for u in students if u.id in on]
     places = [sems.get(i) for i in [c.semester_id] + links.get(c.id, []) if sems.get(i)]
     def sees(u):
         if u.program_id is None: return False
@@ -1925,7 +1960,7 @@ def course_stats(c, aud, s):
     return tids, reads, done, last, qids, bests
 def my_courses(u, s):
     q = s.query(Course)
-    if u.role == "faculty": q = q.filter(Course.faculty_owner_id == u.id)
+    if u.role != "admin": q = q.filter(Course.faculty_owner_id == u.id)  # faculty and school teachers: the courses they own
     return q.order_by(Course.id).all()
 def live_courses(u, s): return [c for c in my_courses(u, s) if not course_off(s, c)]  # what the dashboard and reports count: archived courses are left out
 def live_units(s, cids): return s.query(Unit.id).filter(Unit.course_id.in_(cids or [0]), Unit.archived_at.is_(None))
@@ -1948,7 +1983,7 @@ def report_courses(program_id: int = 0, semester: int = 0, format: str = "json",
                                            [[r["program"], r["semester"], r["course"], r["students"], r["topics"], r["avg_completion"], r["avg_opened"], r["quizzes"], r["quiz_attempts"], r["avg_quiz_percent"]] for r in out])
     return out
 @app.get("/api/reports/courses/{cid}/students")
-def report_students(cid: int, format: str = "json", u: User = Depends(staff), s: Session = Depends(db)):
+def report_students(cid: int, format: str = "json", u: User = Depends(author), s: Session = Depends(db)):
     c = s.get(Course, cid)
     if not c: raise HTTPException(404, "Course not found")
     need_edit(u, cid, s)
@@ -2213,7 +2248,14 @@ def tree(u: User = Depends(me), s: Session = Depends(db)):
                          **learning_state(t.learning_due_at, mine_p.get(t.id), now)} for t in tp[n.id] if (t.published is not False or ed) and (ed or not t.archived_at)]} for n in un[c.id] if ed or not n.archived_at]}
         if u.role == "admin": d["link_ids"] = linked_to[c.id]; d["owner_id"] = c.faculty_owner_id; d["owner_problem"] = owner_problem(owners.get(c.faculty_owner_id))
         return d
-    return [{"id": p.id, "name": p.name, "pattern": p.pattern or "semester", "term": term_label(p), "archived": p.id in pa, "archived_self": p.id in pa, "semesters": [{"id": sm.id, "name": sm.name, "number": sm.semester_no, "archived": semoff.get(sm.id, False), "archived_self": bool(sm.archived_at), "current": scoped(u) and u.semester is not None and sm.semester_no == u.semester,
+    seen = {e.course_id for e in s.query(Enrolment).filter(Enrolment.user_id == u.id, Enrolment.status.in_(ENROL_SEES))}
+    offer = [c for c in cbyid.values() if offered(c) and not c.cancelled_at and (u.role == "admin" or c.faculty_owner_id == u.id or (c.id in seen and not c.archived_at))]
+    if is_author(u) and u.role != "admin": mine |= {c.id for c in offer if c.faculty_owner_id == u.id}
+    node = SimpleNamespace(id=None)  # offered courses sit in no program: one group of their own
+    extra = [{"id": -1, "name": "Offered courses", "pattern": "semester", "term": "", "offered": True, "archived": False, "archived_self": False,
+              "semesters": [{"id": -1, "name": "Courses", "number": None, "archived": False, "archived_self": False, "current": False,
+                             "courses": [{**cj(c, node), "offered": True} for c in sorted(offer, key=lambda c: c.name.lower())]}]}] if offer else []
+    return extra + [{"id": p.id, "name": p.name, "pattern": p.pattern or "semester", "term": term_label(p), "archived": p.id in pa, "archived_self": p.id in pa, "semesters": [{"id": sm.id, "name": sm.name, "number": sm.semester_no, "archived": semoff.get(sm.id, False), "archived_self": bool(sm.archived_at), "current": scoped(u) and u.semester is not None and sm.semester_no == u.semester,
         "courses": [cj(c, sm) for c in co[sm.id] + links[sm.id]]} for sm in se[p.id] if sem_visible(u, sm)]} for p in progs]
 class ArchiveIn(BaseModel): archived: bool
 def archived_ancestor(s, kind, r):
@@ -2231,7 +2273,7 @@ def archived_ancestor(s, kind, r):
         if x is not None and x.archived_at: return label, x.name
     return None
 @app.put("/api/{kind}/{rid}/archive")
-def archive_item(kind: str, rid: int, b: ArchiveIn, u: User = Depends(staff), s: Session = Depends(db)):
+def archive_item(kind: str, rid: int, b: ArchiveIn, u: User = Depends(author), s: Session = Depends(db)):
     """Archive or restore one item. Archiving hides it and everything under it from students and counts; nothing is deleted. Restoring brings back what was archived with it."""
     if kind not in M: raise HTTPException(404, "Unknown item")
     r = s.get(M[kind], rid)
@@ -2249,12 +2291,12 @@ def archive_item(kind: str, rid: int, b: ArchiveIn, u: User = Depends(staff), s:
     s.commit(); return {"ok": True, "archived": bool(r.archived_at)}
 class PublishIn(BaseModel): published: bool
 @app.put("/api/topics/{rid}/publish")
-def publish_topic(rid: int, b: PublishIn, u: User = Depends(staff), s: Session = Depends(db)):
+def publish_topic(rid: int, b: PublishIn, u: User = Depends(author), s: Session = Depends(db)):
     t = s.get(Topic, rid)
     if not t: raise HTTPException(404, "Not found")
     need_edit(u, topic_course_id(t, s), s); t.published = b.published; s.commit(); return {"ok": True, "changed": 1}
 @app.put("/api/units/{rid}/publish")
-def publish_unit(rid: int, b: PublishIn, u: User = Depends(staff), s: Session = Depends(db)):
+def publish_unit(rid: int, b: PublishIn, u: User = Depends(author), s: Session = Depends(db)):
     un = s.get(Unit, rid)
     if not un: raise HTTPException(404, "Not found")
     need_edit(u, un.course_id, s)
@@ -2368,12 +2410,12 @@ def new_course(b: CourseIn, u: User = Depends(admin), s: Session = Depends(db)):
     if not sem: raise HTTPException(400, "Choose a semester for this course")
     return semester_course(sem.program_id, sem.id, NewCourseIn(name=b.name, faculty_owner_id=b.faculty_owner_id), u, s)
 @app.post("/api/units")
-def new_unit(b: UnitIn, u: User = Depends(staff), s: Session = Depends(db)):
+def new_unit(b: UnitIn, u: User = Depends(author), s: Session = Depends(db)):
     if not s.get(Course, b.course_id): raise HTTPException(400, "Choose a course for this unit")
     need_edit(u, b.course_id, s)
     return save_row(Unit(name=item_name(b.name, "unit"), course_id=b.course_id, position=next_pos(s, Unit, course_id=b.course_id)), u, s)
 @app.post("/api/topics")
-def new_topic(b: TopicIn, u: User = Depends(staff), s: Session = Depends(db)):
+def new_topic(b: TopicIn, u: User = Depends(author), s: Session = Depends(db)):
     f = topic_fields(b, s); need_edit(u, f["course_id"], s)
     t = Topic(**{**f, "published": b.published, "position": next_pos(s, Topic, unit_id=b.unit_id)}); t.created_by = u.id; s.add(t); s.flush()
     record_version(s, t, None, u.id, "Created"); s.commit(); return {"id": t.id}
@@ -2414,7 +2456,7 @@ def edit_course(rid: int, b: CourseIn, _: User = Depends(admin), s: Session = De
     s.query(CourseLink).filter_by(course_id=rid, semester_id=f["semester_id"]).delete()  # its new home can't also be a shared copy
     return update(co, f, s)
 @app.put("/api/units/{rid}")
-def edit_unit(rid: int, b: UnitIn, u: User = Depends(staff), s: Session = Depends(db)):
+def edit_unit(rid: int, b: UnitIn, u: User = Depends(author), s: Session = Depends(db)):
     x = s.get(Unit, rid)
     if not x: raise HTTPException(404, "Not found")
     need_edit(u, x.course_id, s); vals = {"name": item_name(b.name, "unit")}
@@ -2425,7 +2467,7 @@ def edit_unit(rid: int, b: UnitIn, u: User = Depends(staff), s: Session = Depend
         vals.update(course_id=b.course_id, position=next_pos(s, Unit, course_id=b.course_id))
     return update(x, vals, s)
 @app.put("/api/topics/{rid}")
-def edit_topic(rid: int, b: TopicIn, u: User = Depends(staff), s: Session = Depends(db)):
+def edit_topic(rid: int, b: TopicIn, u: User = Depends(author), s: Session = Depends(db)):
     x = s.get(Topic, rid)
     if not x: raise HTTPException(404, "Not found")
     old = topic_course_id(x, s); need_edit(u, old, s)
@@ -2448,7 +2490,7 @@ def where_is(t, s):
     un = s.get(Unit, t.unit_id) if t.unit_id else None; co = s.get(Course, un.course_id) if un else None
     return f"{co.name if co else '?'} › {un.name if un else '?'}"
 @app.post("/api/topics/{tid}/copy")
-def copy_topic(tid: int, b: CopyIn, u: User = Depends(staff), s: Session = Depends(db)):
+def copy_topic(tid: int, b: CopyIn, u: User = Depends(author), s: Session = Depends(db)):
     """A copy of a topic's text in a unit you can edit, as a draft at the end of that unit. Reading progress, bookmarks, deadlines and saved AI answers are not copied."""
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
@@ -2462,7 +2504,7 @@ def copy_topic(tid: int, b: CopyIn, u: User = Depends(staff), s: Session = Depen
     record_version(s, n, None, u.id, f"Copied from {where_is(t, s)} › {t.title}"[:200]); s.commit()
     return {"id": n.id, "title": n.title, "unit_id": un.id}
 @app.post("/api/units/{uid}/copy")
-def copy_unit(uid: int, b: CopyIn, u: User = Depends(staff), s: Session = Depends(db)):
+def copy_unit(uid: int, b: CopyIn, u: User = Depends(author), s: Session = Depends(db)):
     """A copy of a unit with its topics (and, if you can edit the original course, its quizzes) in a course you can edit. Everything arrives as a draft."""
     src = s.get(Unit, uid)
     if not src: raise HTTPException(404, "Unit not found")
@@ -2491,11 +2533,11 @@ def reorder(rows, ids):
     pos = {i: n for n, i in enumerate(ids, 1)}
     for r in rows: r.position = pos[r.id]
 @app.put("/api/courses/{cid}/units/order")
-def order_units(cid: int, b: OrderIn, u: User = Depends(staff), s: Session = Depends(db)):
+def order_units(cid: int, b: OrderIn, u: User = Depends(author), s: Session = Depends(db)):
     if not s.get(Course, cid): raise HTTPException(404, "Course not found")
     need_edit(u, cid, s); reorder(s.query(Unit).filter_by(course_id=cid).all(), b.ids); s.commit(); return {"ok": True}
 @app.put("/api/units/{uid}/topics/order")
-def order_topics(uid: int, b: OrderIn, u: User = Depends(staff), s: Session = Depends(db)):
+def order_topics(uid: int, b: OrderIn, u: User = Depends(author), s: Session = Depends(db)):
     un = s.get(Unit, uid)
     if not un: raise HTTPException(404, "Unit not found")
     need_edit(u, un.course_id, s); reorder(s.query(Topic).filter_by(unit_id=uid).all(), b.ids); s.commit(); return {"ok": True}
@@ -2613,7 +2655,7 @@ def course_users(c, s):
     for l in s.query(CourseLink).filter_by(course_id=c.id): links[c.id].append(l.semester_id)
     return course_audience(c, s.query(User).filter_by(role="student").all(), sems, links)
 @app.get("/api/reports/courses/{cid}/weak-areas")
-def class_weak_areas(cid: int, u: User = Depends(staff), s: Session = Depends(db)):
+def class_weak_areas(cid: int, u: User = Depends(author), s: Session = Depends(db)):
     c = s.get(Course, cid)
     if not c: raise HTTPException(404, "Course not found")
     need_edit(u, cid, s)
@@ -2631,7 +2673,7 @@ def class_areas(batches, s):  # every student's areas added up: (students with r
     rows = sorted(agg.values(), key=lambda g: (round(100 * g["correct"] / g["total"]), g["title"]))
     return len(per), [{**g, "percent": round(100 * g["correct"] / g["total"])} for g in rows]
 @app.post("/api/quizzes")
-def new_quiz(b: QuizIn, u: User = Depends(staff), s: Session = Depends(db)):
+def new_quiz(b: QuizIn, u: User = Depends(author), s: Session = Depends(db)):
     if b.unit_id:
         un = s.get(Unit, b.unit_id)
         if not un: raise HTTPException(400, "Choose a unit for this quiz")
@@ -2641,15 +2683,15 @@ def new_quiz(b: QuizIn, u: User = Depends(staff), s: Session = Depends(db)):
         need_edit(u, b.course_id, s); q = Quiz(unit_id=None, course_id=b.course_id, **quiz_fields(b))
     s.add(q); s.commit(); return {"id": q.id}
 @app.put("/api/quizzes/{qid}")
-def edit_quiz(qid: int, b: QuizIn, u: User = Depends(staff), s: Session = Depends(db)):
+def edit_quiz(qid: int, b: QuizIn, u: User = Depends(author), s: Session = Depends(db)):
     q = quiz_or_404(qid, s); need_edit(u, quiz_course_id(q, s), s)
     for k, v in quiz_fields(b).items(): setattr(q, k, v)
     s.commit(); return {"ok": True}
 @app.delete("/api/quizzes/{qid}")
-def delete_quiz(qid: int, u: User = Depends(staff), s: Session = Depends(db)):
+def delete_quiz(qid: int, u: User = Depends(author), s: Session = Depends(db)):
     q = quiz_or_404(qid, s); need_edit(u, quiz_course_id(q, s), s); drop_quizzes(s, Quiz.id == qid); s.commit(); return {"ok": True}
 @app.put("/api/quizzes/{qid}/questions")
-def set_questions(qid: int, b: QuestionsIn, u: User = Depends(staff), s: Session = Depends(db)):
+def set_questions(qid: int, b: QuestionsIn, u: User = Depends(author), s: Session = Depends(db)):
     q = quiz_or_404(qid, s); need_edit(u, quiz_course_id(q, s), s)
     if len(b.questions) > max_questions(q): raise HTTPException(400, f"A quiz can have up to {max_questions(q)} questions")
     rows = [clean_question(q, x, i, s) for i, x in enumerate(b.questions, 1)]
@@ -2749,7 +2791,7 @@ def quiz_topics(q, s):  # the topics a question of this quiz may be tied to
     if q.unit_id: return [{"id": t.id, "title": t.title} for t in s.query(Topic).filter_by(unit_id=q.unit_id).order_by(*ORDER[Topic])]
     return course_topics(q.course_id, s)
 @app.get("/api/courses/{cid}/topics")
-def course_topic_list(cid: int, u: User = Depends(staff), s: Session = Depends(db)):  # for tying a new course test's questions to topics
+def course_topic_list(cid: int, u: User = Depends(author), s: Session = Depends(db)):  # for tying a new course test's questions to topics
     if not s.get(Course, cid): raise HTTPException(404, "Course not found")
     need_edit(u, cid, s); return course_topics(cid, s)
 def course_topics(cid, s):
@@ -2797,7 +2839,7 @@ def read_csv_rows(text):
     except csv.Error: dialect = csv.excel
     return [r for r in csv.reader(io.StringIO(text), dialect) if any((c or "").strip() for c in r)]
 @app.post("/api/quizzes/parse-csv")
-def parse_quiz_csv(b: QuizCsvIn, u: User = Depends(staff), s: Session = Depends(db)):
+def parse_quiz_csv(b: QuizCsvIn, u: User = Depends(author), s: Session = Depends(db)):
     """Reads an MCQ CSV and returns the questions for a preview. Nothing is saved. Image cells name files that are uploaded in the preview."""
     if b.unit_id:
         un = s.get(Unit, b.unit_id)
@@ -2864,7 +2906,7 @@ def stats(vals):
     v = sorted(vals); m = len(v) // 2
     return {"average": round(sum(v) / len(v)), "median": v[m] if len(v) % 2 else round((v[m - 1] + v[m]) / 2), "highest": v[-1], "lowest": v[0]}
 @app.get("/api/quizzes/{qid}/results")
-def quiz_results(qid: int, format: str = "json", u: User = Depends(staff), s: Session = Depends(db)):
+def quiz_results(qid: int, format: str = "json", u: User = Depends(author), s: Session = Depends(db)):
     """One test for the class: summary, every student's best and latest score with strengths, each question's answers, and the class's areas.
     The final score is a student's best attempt; strengths and question analysis use each student's latest attempt, so a retake replaces the earlier result."""
     q, cid = quiz_for_staff(qid, u, s)
@@ -2944,7 +2986,7 @@ def course_tests(cid, s, published_only=True):  # course tests first, then unit 
     if published_only: qs = qs.filter(Quiz.published == True)  # noqa: E712
     return sorted([(q, un.get(q.unit_id)) for q in qs], key=lambda x: (x[1] is not None, rank.get(x[0].unit_id, 0), x[0].id))
 @app.get("/api/courses/{cid}/gradebook")
-def gradebook(cid: int, format: str = "json", u: User = Depends(staff), s: Session = Depends(db)):
+def gradebook(cid: int, format: str = "json", u: User = Depends(author), s: Session = Depends(db)):
     """Every student's final (best) score in every published test and quiz of a course. The final course score is the average over the tests a student took."""
     c = s.get(Course, cid)
     if not c: raise HTTPException(404, "Course not found")
@@ -3006,7 +3048,7 @@ def assigner(u: User = Depends(me)):  # faculty and admins for the courses they 
 def delete_assignment(aid: int, u: User = Depends(assigner), s: Session = Depends(db)):
     a = assignment_mine(aid, u, s); s.query(AssignmentStudent).filter_by(assignment_id=a.id).delete(); s.delete(a); s.commit(); return {"ok": True}
 @app.delete("/api/{kind}/{rid}")
-def remove(kind: str, rid: int, u: User = Depends(staff), s: Session = Depends(db)):
+def remove(kind: str, rid: int, u: User = Depends(author), s: Session = Depends(db)):
     if kind not in M: raise HTTPException(404, "Unknown item")
     r = s.get(M[kind], rid)
     if not r: raise HTTPException(404, "Not found")
@@ -3119,7 +3161,7 @@ def full(t, s):
 def version_row(v, names, cur): return {"id": v.id, "saved_at": (v.saved_at.isoformat() + "Z") if v.saved_at else None, "by": names.get(v.saved_by) if v.saved_by else None, "note": v.note or "",
                                           "current": all((getattr(v, k) or "") == cur[k] for k in VFIELDS)}
 @app.get("/api/topics/{tid}/versions")
-def topic_versions(tid: int, u: User = Depends(staff), s: Session = Depends(db)):
+def topic_versions(tid: int, u: User = Depends(author), s: Session = Depends(db)):
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
     need_edit(u, topic_course_id(t, s), s)
@@ -3212,11 +3254,11 @@ def html_images(raw, given):
     return raw, saved, missing
 class HtmlIn(BaseModel): html: str
 @app.post("/api/topics/clean-html")
-def clean_html_preview(b: HtmlIn, _: User = Depends(staff)):  # the editor previews HTML only after this cleaning, so a pasted file can't run code in the browser
+def clean_html_preview(b: HtmlIn, _: User = Depends(author)):  # the editor previews HTML only after this cleaning, so a pasted file can't run code in the browser
     if len(b.html) > 5_000_000: raise HTTPException(413, "The HTML is too large to preview")
     return {"html": clean_html(b.html)}
 @app.post("/api/topics/from-files")
-def topic_from_files(b: TopicFilesIn, u: User = Depends(staff), s: Session = Depends(db)):
+def topic_from_files(b: TopicFilesIn, u: User = Depends(author), s: Session = Depends(db)):
     un = s.get(Unit, b.unit_id)
     if not un: raise HTTPException(400, "Choose a unit for this topic")
     need_edit(u, un.course_id, s)
@@ -3249,7 +3291,7 @@ class BulkFile(BaseModel): name: str; text: str
 class BulkTopicsIn(BaseModel): files: list[BulkFile]; images: dict[str, str] = {}; scripts: bool = False; published: bool = False; dry_run: bool = True
 def natural(name): return [int(x) if x.isdigit() else x.lower() for x in re.split(r"(\d+)", re.split(r"[\\/]", name)[-1])]  # "2 Intro" before "10 Summary"
 @app.post("/api/units/{uid}/topics/bulk")
-def bulk_topics(uid: int, b: BulkTopicsIn, u: User = Depends(staff), s: Session = Depends(db)):
+def bulk_topics(uid: int, b: BulkTopicsIn, u: User = Depends(author), s: Session = Depends(db)):
     """Many topic files at once: one topic per .html/.htm or .md file, added to the unit in file-name order. A dry run shows what would be
     made. HTML is cleaned unless scripts is set (then each page is kept whole as HTML + JavaScript); a .md file is the content, or a config
     file with sections (title, question pattern, sample, guideline, published, deadline). Images are matched by file name, as for one topic."""
@@ -3410,7 +3452,7 @@ def diagram_frame(tid: int, t: str = "", s: Session = Depends(db)):
 PREVIEWS = {}  # id -> (expires, html): an unsaved interactive page the editor is previewing, kept a few minutes in memory
 class PreviewIn(BaseModel): html: str
 @app.post("/api/topics/frame-preview")
-def frame_preview(b: PreviewIn, _: User = Depends(staff)):
+def frame_preview(b: PreviewIn, _: User = Depends(author)):
     if len(b.html) > INTERACTIVE_MAX: raise HTTPException(413, "The page is over 2 MB")
     now = time_now(); [PREVIEWS.pop(k) for k, v in list(PREVIEWS.items()) if v[0] < now]
     while len(PREVIEWS) >= 50: PREVIEWS.pop(next(iter(PREVIEWS)))
@@ -3691,7 +3733,7 @@ def reopen_topic(tid: int, u: User = Depends(me), s: Session = Depends(db)):  # 
     s.query(Progress).filter_by(id=p.id).update({"completed_at": None}, synchronize_session=False); s.commit(); s.refresh(p)
     return learning_state(t.learning_due_at, p, dt.datetime.utcnow())
 @app.get("/api/courses/{cid}/progress")
-def course_progress(cid: int, u: User = Depends(staff), s: Session = Depends(db)):  # per topic: how many of the course's students completed it, and how many are overdue
+def course_progress(cid: int, u: User = Depends(author), s: Session = Depends(db)):  # per topic: how many of the course's students completed it, and how many are overdue
     c = s.get(Course, cid)
     if not c: raise HTTPException(404, "Course not found")
     need_edit(u, cid, s)
@@ -4152,7 +4194,7 @@ def tq_for(u, s):  # the questions this person answers: their own courses' (admi
 def tq_mine(qid, u, s):  # (question, as the teacher?) when this person may read and write in it
     q = s.get(TeacherQuestion, qid)
     if q and q.user_id == u.id: return q, False
-    if q and is_staff(u) and can_edit(u, q.course_id, s): return q, True
+    if q and can_edit(u, q.course_id, s): return q, True
     raise HTTPException(404, "Question not found")
 TQ_PHOTOS = 20  # photos a person can add to questions and answers a day
 def tq_photo(s, u, b64):  # a photo with a message: checked, shrunk, its metadata (like GPS) dropped, saved under an unguessable name; None without one
@@ -4206,7 +4248,7 @@ def ask_teacher(tid: int, b: AskTeacherIn, bg: BackgroundTasks, u: User = Depend
         notify(s, x, "question", "A question from {name} on {app}", "{name} asked a question about {topic}. Open {app} to answer it.", run=bg.add_task, name=u.name, topic=t.title)
     return tq_json(q, u, s)
 def tq_row(q, t, c, last, who=None):
-    return {"id": q.id, "topic_id": q.topic_id, "topic": t.title if t else "", "course": c.name if c else "", "status": q.status, "updated": utc_iso(q.updated),
+    return {"id": q.id, "topic_id": q.topic_id, "topic": t.title if t else (q.subject or ""), "message": bool(q.started_by), "course": c.name if c else "", "status": q.status, "updated": utc_iso(q.updated),
             "last": (last or "")[:160], **({"student": who} if who is not None else {})}
 def tq_last(s, ids):
     out = {}
@@ -4214,12 +4256,12 @@ def tq_last(s, ids):
     return out
 @app.get("/api/me/questions")
 def my_questions(u: User = Depends(me), s: Session = Depends(db)):
-    rows = s.query(TeacherQuestion, Topic, Course).join(Topic, Topic.id == TeacherQuestion.topic_id).outerjoin(Course, Course.id == TeacherQuestion.course_id) \
+    rows = s.query(TeacherQuestion, Topic, Course).outerjoin(Topic, Topic.id == TeacherQuestion.topic_id).outerjoin(Course, Course.id == TeacherQuestion.course_id) \
         .filter(TeacherQuestion.user_id == u.id).order_by(TeacherQuestion.updated.desc()).limit(100).all()
     last = tq_last(s, [q.id for q, _, _ in rows])
     return {"items": [{**tq_row(q, t, c, last.get(q.id)), "unread": q.status == "answered" and (q.seen is None or q.seen < q.updated)} for q, t, c in rows]}
 @app.get("/api/questions")
-def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0, u: User = Depends(staff), s: Session = Depends(db)):
+def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0, u: User = Depends(author), s: Session = Depends(db)):
     """Students' questions to this teacher (every course's for admins): waiting for an answer first, oldest first; or all of them, newest first."""
     q = tq_for(u, s)
     if status == "waiting": q = q.filter(TeacherQuestion.status == "waiting").order_by(TeacherQuestion.updated)
@@ -4231,7 +4273,7 @@ def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0,
     last = tq_last(s, [x.id for x in page])
     return {"total": total, "items": [tq_row(x, tops.get(x.topic_id), cos.get(x.course_id), last.get(x.id), names.get(x.user_id, "")) for x in page]}
 def tq_json(q, u, s):
-    t, c = s.get(Topic, q.topic_id), s.get(Course, q.course_id) if q.course_id else None
+    t, c = s.get(Topic, q.topic_id) if q.topic_id else None, s.get(Course, q.course_id) if q.course_id else None
     asker = s.get(User, q.user_id); teach = q.user_id != u.id
     msgs = tq_msgs(s, q, u, (asker.name if asker else ""))
     return {**tq_row(q, t, c, msgs[-1]["text"] if msgs else "", asker.name if teach and asker else None), "excerpt": q.excerpt, "messages": msgs, "teacher": teach, "shared": bool(q.shared),
@@ -4279,8 +4321,8 @@ def reply_question(qid: int, b: ReplyIn, bg: BackgroundTasks, u: User = Depends(
 def close_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
     q, _ = tq_mine(qid, u, s); q.status = "closed"; q.updated = dt.datetime.utcnow(); s.commit(); return tq_json(q, u, s)
 def tq_answered(u, s):  # a student's questions answered since they last looked, for the bell
-    return [{"key": f"answer:{q.id}:{int(q.updated.timestamp())}", "text": "Your teacher answered your question", "sub": t.title}
-            for q, t in s.query(TeacherQuestion, Topic).join(Topic, Topic.id == TeacherQuestion.topic_id).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status == "answered",
+    return [{"key": f"answer:{q.id}:{int(q.updated.timestamp())}", "text": "A message from your teacher" if q.started_by else "Your teacher answered your question", "sub": t.title if t else (q.subject or "")}
+            for q, t in s.query(TeacherQuestion, Topic).outerjoin(Topic, Topic.id == TeacherQuestion.topic_id).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status == "answered",
                                                                                                          or_(TeacherQuestion.seen.is_(None), TeacherQuestion.seen < TeacherQuestion.updated)).limit(20)]
 # ---- a teacher's marked model answer for a topic: the exam question, the answer in parts, and how many marks each part earns. Students see it
 # ---- under Sample answer, above the AI's, and it is saved with the topic for reading offline.
@@ -4293,7 +4335,7 @@ def model_answer_json(s, tid):
     parts = json.loads(m.parts or "[]"); a = s.get(User, m.author_id) if m.author_id else None
     return {"question": m.question, "parts": parts, "total": sum(p["marks"] for p in parts), "by": a.name if a else "", "updated": utc_iso(m.updated)}
 @app.put("/api/topics/{tid}/model-answer")
-def put_model_answer(tid: int, b: ModelAnswerIn, u: User = Depends(staff), s: Session = Depends(db)):
+def put_model_answer(tid: int, b: ModelAnswerIn, u: User = Depends(author), s: Session = Depends(db)):
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
     need_edit(u, topic_course_id(t, s), s)
@@ -4306,14 +4348,14 @@ def put_model_answer(tid: int, b: ModelAnswerIn, u: User = Depends(staff), s: Se
     m.question, m.parts, m.author_id, m.updated = q, json.dumps(parts), u.id, dt.datetime.utcnow(); s.add(m); s.commit()
     return model_answer_json(s, tid)
 @app.delete("/api/topics/{tid}/model-answer")
-def drop_model_answer(tid: int, u: User = Depends(staff), s: Session = Depends(db)):
+def drop_model_answer(tid: int, u: User = Depends(author), s: Session = Depends(db)):
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
     need_edit(u, topic_course_id(t, s), s); s.query(ModelAnswer).filter_by(topic_id=tid).delete(); s.commit(); return {"ok": True}
 # ---- where students struggle: per topic of this teacher's courses (every course for admins), over the last days, what students did when stuck:
 # ---- questions to the teacher, "Not clear?" on a phrase, "Not quite" after a quick check, "More simply", and "This looks wrong?". Counts only, no names.
 @app.get("/api/reports/struggles")
-def struggles(days: int = 30, course_id: int = 0, u: User = Depends(staff), s: Session = Depends(db)):
+def struggles(days: int = 30, course_id: int = 0, u: User = Depends(author), s: Session = Depends(db)):
     days = min(max(days, 7), 180); since = dt.datetime.utcnow() - dt.timedelta(days=days)
     cids = [c.id for c in live_courses(u, s) if not course_id or c.id == course_id]
     topics = {t.id: t for t in s.query(Topic).filter(Topic.unit_id.in_(live_units(s, cids)), Topic.archived_at.is_(None))}
@@ -4356,7 +4398,7 @@ def ann_json(a, c, s, u=None):
         end = a.starts_at + dt.timedelta(minutes=a.minutes or 60)
         st = "cancelled" if a.cancelled_at else "ended" if now >= end else "live" if now >= a.starts_at - dt.timedelta(minutes=10) else "upcoming"
     elif a.cancelled_at: st = "cancelled"
-    teach = bool(u and is_staff(u) and can_edit(u, a.course_id, s))
+    teach = bool(u and can_edit(u, a.course_id, s))
     out = {"id": a.id, "kind": a.kind, "course_id": a.course_id, "course": c.name if c else "", "title": a.title, "body": a.body or "", "by": by.name if by else "",
            "at": utc_iso(a.created_at), "starts_at": utc_iso(a.starts_at), "minutes": a.minutes, "link": a.link if a.kind == "class" and not a.cancelled_at else None, "status": st,
            "can_edit": teach, "series": a.series, "joined": bool(u and s.query(AnnJoin.id).filter_by(ann_id=a.id, user_id=u.id).first())}
@@ -4385,7 +4427,7 @@ def ann_tell(s, a, c, author, bg, cancelled=False, weeks=1):
                 if g.email and g.active and g.id not in told:
                     told.add(g.id); notify(s, g, "class", subj, theirs, run=bg.add_task, title=a.title, teacher=author.name, course=c.name, when=when, name=st.name, weeks=weeks)
 @app.post("/api/announcements")
-def announce(b: AnnounceIn, bg: BackgroundTasks, u: User = Depends(staff), s: Session = Depends(db)):
+def announce(b: AnnounceIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
     c = s.get(Course, b.course_id)
     if not c: raise HTTPException(404, "Course not found")
     need_edit(u, c.id, s)
@@ -4415,7 +4457,7 @@ def announce(b: AnnounceIn, bg: BackgroundTasks, u: User = Depends(staff), s: Se
     s.add(a); s.commit(); ann_tell(s, a, c, u, bg)
     return ann_json(a, c, s, u)
 @app.post("/api/announcements/{aid}/cancel")
-def cancel_announcement(aid: int, bg: BackgroundTasks, all: bool = False, u: User = Depends(staff), s: Session = Depends(db)):
+def cancel_announcement(aid: int, bg: BackgroundTasks, all: bool = False, u: User = Depends(author), s: Session = Depends(db)):
     """Cancels a class (or withdraws a note); with all, this weekly class's session and every one after it."""
     a = s.get(Announcement, aid)
     if not a or a.cancelled_at: raise HTTPException(404, "Not found")
@@ -4440,7 +4482,9 @@ def join_class(aid: int, u: User = Depends(me), s: Session = Depends(db)):
     return {"link": a.link}
 def ann_courses(u, s):  # whose announcements this person reads: a student's courses, a parent's children's, a teacher's own, every course for admins
     if u.role == "student": return student_course_ids(u, s)
-    if u.role == "guardian": return set().union(*[student_course_ids(x, s) for x in linked_students(s, u)]) if linked_students(s, u) else set()
+    if u.role == "guardian":
+        kids = set().union(*[student_course_ids(x, s) for x in linked_students(s, u)]) if linked_students(s, u) else set()
+        return kids | ({c.id for c in my_courses(u, s)} if is_author(u) else set())  # a school teacher's own offered courses too
     return {c.id for c in my_courses(u, s)}
 @app.get("/api/announcements")
 def announcements(course_id: int = 0, limit: int = 30, u: User = Depends(me), s: Session = Depends(db)):
@@ -4462,8 +4506,8 @@ def announcements(course_id: int = 0, limit: int = 30, u: User = Depends(me), s:
     rows = rows[:min(max(limit, 1), 100)]; cs = {c.id: c for c in s.query(Course).filter(Course.id.in_({a.course_id for a in rows} or {0}))}
     items = [ann_json(a, cs.get(a.course_id), s, u) for a in rows]
     upcoming = sorted([x for x in items if x["status"] in ("upcoming", "live")], key=lambda x: x["starts_at"])
-    return {"items": items, "upcoming": upcoming, "can_post": is_staff(u) and bool(my_courses(u, s)),
-            "courses": [{"id": c.id, "name": c.name} for c in live_courses(u, s)] if is_staff(u) else []}
+    return {"items": items, "upcoming": upcoming, "can_post": is_author(u) and bool(my_courses(u, s)),
+            "courses": [{"id": c.id, "name": c.name} for c in live_courses(u, s) if not c.cancelled_at] if is_author(u) else []}
 def ann_notes(u, s):  # the bell: what was posted in the last week, and a class about to start
     cids = ann_courses(u, s) if u.role != "admin" else None; now = dt.datetime.utcnow()
     q = s.query(Announcement, Course).join(Course, Course.id == Announcement.course_id).filter(Announcement.created_at >= now - dt.timedelta(days=7), Announcement.cancelled_at.is_(None))
@@ -4475,6 +4519,257 @@ def ann_notes(u, s):  # the bell: what was posted in the last week, and a class 
         out.append({"key": f"ann:{a.id}", "text": f"{c.name}: {a.title}", "sub": "New weekly class" if a.series else "New class" if a.kind == "class" else "New announcement"})
         if len(out) >= 10: break
     return out
+# ---- courses a teacher offers: faculty, admins and school teachers make a course of their own (not in any program), with or without start and end
+# ---- dates. Its students are its enrolment list: the teacher invites them (48 hours to accept), or approves those who ask to join (48 hours to decide),
+# ---- or throws it open so anyone joins at once. The teacher keeps, suspends, releases or completes each student, repeats the course with the same or
+# ---- new students, cancels or archives it, and writes to its students. Content, classes, questions and struggles work as for any course.
+ENROL_HOURS, OFFER_INVITES = 48, 200
+ENROL_LABEL = {"invited": "Invited", "applied": "Asked to join", "active": "Enrolled", "suspended": "Suspended", "completed": "Completed", "released": "Released",
+               "declined": "Declined", "expired": "Expired", "cancelled": "Cancelled"}
+class OfferIn(BaseModel): name: str; about: str = ""; starts_on: str | None = None; ends_on: str | None = None; access: str = "enroll"; applications: bool = True
+def offer_dates(b):
+    d0 = day_of(b.starts_on, "start date") if b.starts_on else None; d1 = day_of(b.ends_on, "end date") if b.ends_on else None
+    if d0 and d1 and d1 < d0: raise HTTPException(400, "The course ends after it starts")
+    return d0, d1
+def offer_state(c, today=None):
+    today = today or local_day(dt.datetime.utcnow())
+    if c.cancelled_at: return "cancelled"
+    if c.archived_at: return "archived"
+    if c.starts_on and today < c.starts_on: return "upcoming"
+    if c.ends_on and today > c.ends_on: return "ended"
+    return "running"
+def expire_enrolments(s):  # invitations and requests nobody answered within 48 hours lapse
+    n = s.query(Enrolment).filter(Enrolment.status.in_(("invited", "applied")), Enrolment.expires_at < dt.datetime.utcnow()).update({"status": "expired"}, synchronize_session=False)
+    if n: s.commit()
+def offer_json(c, s, u=None):
+    counts = dict(s.query(Enrolment.status, func.count(Enrolment.id)).filter(Enrolment.course_id == c.id).group_by(Enrolment.status).all())
+    owner = s.get(User, c.faculty_owner_id) if c.faculty_owner_id else None
+    mine = enrolment(s, c.id, u.id) if u is not None else None
+    return {"id": c.id, "name": c.name, "about": c.about or "", "starts_on": c.starts_on.isoformat() if c.starts_on else None, "ends_on": c.ends_on.isoformat() if c.ends_on else None,
+            "access": c.access, "applications": bool(c.applications), "state": offer_state(c), "teacher": owner.name if owner else "", "counts": counts,
+            "topics": live_topic_ids(s, [c.id]).count(), "mine": mine.status if mine else None, "enrolment": mine.id if mine else None, "expires_at": utc_iso(mine.expires_at) if mine and mine.status in ("invited", "applied") else None,
+            "repeat_of": c.repeat_of}
+def need_offer(cid, u, s):
+    c = s.get(Course, cid)
+    if not offered(c): raise HTTPException(404, "Course not found")
+    need_edit(u, c.id, s); return c
+@app.post("/api/offered")
+def offer_course(b: OfferIn, u: User = Depends(author), s: Session = Depends(db)):
+    if b.access not in ("enroll", "open"): raise HTTPException(400, "Choose who may join: by invitation and approval, or anyone")
+    d0, d1 = offer_dates(b)
+    c = Course(name=item_name(b.name, "course"), program_id=None, semester_id=None, faculty_owner_id=u.id, access=b.access, applications=b.applications,
+               about=b.about.strip()[:4000] or None, starts_on=d0, ends_on=d1); c.created_by = u.id; s.add(c); s.commit()
+    return offer_json(c, s)
+@app.get("/api/offered")
+def my_offers(u: User = Depends(author), s: Session = Depends(db)):
+    expire_enrolments(s)
+    cs = s.query(Course).filter(Course.access.in_(("enroll", "open")))
+    if u.role != "admin": cs = cs.filter(Course.faculty_owner_id == u.id)
+    return {"items": [offer_json(c, s) for c in cs.order_by(Course.id.desc())]}
+@app.put("/api/offered/{cid}")
+def edit_offer(cid: int, b: OfferIn, u: User = Depends(author), s: Session = Depends(db)):
+    c = need_offer(cid, u, s)
+    if b.access not in ("enroll", "open"): raise HTTPException(400, "Choose who may join: by invitation and approval, or anyone")
+    c.name, c.about, c.access, c.applications = item_name(b.name, "course"), b.about.strip()[:4000] or None, b.access, b.applications
+    c.starts_on, c.ends_on = offer_dates(b); s.commit(); return offer_json(c, s)
+def offer_students(s, c, statuses=("active",)): return s.query(User).join(Enrolment, Enrolment.user_id == User.id).filter(Enrolment.course_id == c.id, Enrolment.status.in_(statuses)).all()
+@app.post("/api/offered/{cid}/cancel")
+def cancel_offer(cid: int, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
+    """Cancels the course: its students lose it, pending invitations and requests are cancelled, its classes still to come are cancelled; everyone is told."""
+    c = need_offer(cid, u, s)
+    if c.cancelled_at: raise HTTPException(400, "This course is already cancelled")
+    now = dt.datetime.utcnow(); students = offer_students(s, c, ("active", "suspended", "invited", "applied"))
+    c.cancelled_at = now
+    s.query(Enrolment).filter(Enrolment.course_id == c.id, Enrolment.status.in_(("invited", "applied"))).update({"status": "cancelled", "decided_at": now}, synchronize_session=False)
+    for a in s.query(Announcement).filter(Announcement.course_id == c.id, Announcement.kind == "class", Announcement.cancelled_at.is_(None), Announcement.starts_at > now):
+        a.cancelled_at = now
+        if a.event_id: s.query(CalendarEvent).filter_by(id=a.event_id).delete()
+    s.commit()
+    for st in students: notify(s, st, "course", "Course cancelled: {course}", "{teacher} cancelled the course {course}. Its classes still to come are cancelled too.", run=bg.add_task, course=c.name, teacher=u.name)
+    return offer_json(c, s)
+class RepeatIn(BaseModel): name: str = ""; starts_on: str | None = None; ends_on: str | None = None; students: str = "none"  # none, or same: invite this course's students again
+@app.post("/api/offered/{cid}/repeat")
+def repeat_offer(cid: int, b: RepeatIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
+    """A new run of the course: its units, topics (published as they are) and quizzes copied, new dates, and its students invited again or nobody yet."""
+    src = need_offer(cid, u, s); d0, d1 = offer_dates(b)
+    c = Course(name=item_name(b.name or src.name, "course"), program_id=None, semester_id=None, faculty_owner_id=u.id, access=src.access, applications=src.applications,
+               about=src.about, starts_on=d0, ends_on=d1, repeat_of=src.id); c.created_by = u.id; s.add(c); s.flush()
+    for un in s.query(Unit).filter(Unit.course_id == src.id, Unit.archived_at.is_(None)).order_by(*ORDER.get(Unit, (Unit.id,))):
+        copy_unit(un.id, CopyIn(course_id=c.id), u, s)
+        nu = s.query(Unit).filter_by(course_id=c.id).order_by(Unit.id.desc()).first(); nu.name = un.name
+        olds = s.query(Topic).filter_by(unit_id=un.id).order_by(*ORDER.get(Topic, (Topic.id,))).all(); news = s.query(Topic).filter_by(unit_id=nu.id).order_by(*ORDER.get(Topic, (Topic.id,))).all()
+        for o, n in zip(olds, news): n.published = o.published  # a repeat runs as the teacher left it
+    s.commit(); invited = 0
+    if b.students == "same":
+        for st in offer_students(s, src, ("active", "completed", "suspended")): invited += invite_one(s, c, st, u, bg)
+        s.commit()
+    return {**offer_json(c, s), "invited": invited}
+def invite_one(s, c, st, by, bg):  # 1 when an invitation went out
+    e = enrolment(s, c.id, st.id)
+    if e and e.status in ("active", "invited", "suspended", "completed"): return 0
+    now = dt.datetime.utcnow()
+    if e: e.status, e.by_id, e.at, e.expires_at, e.decided_at = "invited", by.id, now, now + dt.timedelta(hours=ENROL_HOURS), None
+    else: s.add(Enrolment(course_id=c.id, user_id=st.id, status="invited", by_id=by.id, at=now, expires_at=now + dt.timedelta(hours=ENROL_HOURS)))
+    notify(s, st, "invite", "{teacher} invited you to {course}", "{teacher} invited you to join the course {course} on {app}. Open {app} within 48 hours to accept.",
+           "{teacher} invited {name} to join the course {course} on {app}. {name} can accept within 48 hours.", run=bg.add_task, teacher=by.name, course=c.name, name=st.name)
+    return 1
+class InviteIn(BaseModel): who: list[str]
+@app.post("/api/offered/{cid}/invite")
+def invite(cid: int, b: InviteIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
+    """Invites students by email or username (one per line); each has 48 hours to accept. Says who could not be invited and why."""
+    c = need_offer(cid, u, s)
+    if c.cancelled_at or c.archived_at: raise HTTPException(400, "This course is not running")
+    keys = [x.strip().lower() for x in b.who if x.strip()][:OFFER_INVITES]; sent, skipped, missing = 0, [], []
+    for k in dict.fromkeys(keys):
+        st = s.query(User).filter(or_(func.lower(User.email) == k, func.lower(User.username) == k)).first()
+        if not st or st.role != "student" or not st.active: missing.append(k); continue
+        if invite_one(s, c, st, u, bg): sent += 1
+        else: skipped.append(st.name)
+    s.commit(); return {"invited": sent, "already": skipped, "not_found": missing}
+def roster_row(e, st, s):
+    return {"id": e.id, "user_id": st.id, "name": st.name, "who": st.email or st.username or "", "status": e.status, "label": ENROL_LABEL.get(e.status, e.status),
+            "at": utc_iso(e.at), "expires_at": utc_iso(e.expires_at) if e.status in ("invited", "applied") else None, "decided_at": utc_iso(e.decided_at)}
+@app.get("/api/offered/{cid}/roster")
+def roster(cid: int, u: User = Depends(author), s: Session = Depends(db)):
+    c = need_offer(cid, u, s); expire_enrolments(s)
+    rows = s.query(Enrolment, User).join(User, User.id == Enrolment.user_id).filter(Enrolment.course_id == c.id).order_by(User.name).all()
+    return {"course": offer_json(c, s), "items": [roster_row(e, st, s) for e, st in rows]}
+TEACHER_ACTS = {"approve": (("applied",), "active"), "decline": (("applied",), "declined"), "suspend": (("active",), "suspended"), "retain": (("suspended",), "active"),
+                "release": (("active", "suspended", "completed"), "released"), "complete": (("active",), "completed"), "revoke": (("invited",), "cancelled")}
+STUDENT_ACTS = {"accept": (("invited",), "active"), "decline": (("invited",), "declined"), "leave": (("active",), "released"), "withdraw": (("applied",), "cancelled")}
+ENROL_TELL = {"approve": ("You're in: {course}", "{teacher} accepted you into the course {course}. It is in your courses on {app}."),
+              "decline": ("About your request to join {course}", "{teacher} could not take you into the course {course} this time."),
+              "suspend": ("Your place in {course} is on hold", "{teacher} put your place in the course {course} on hold. Ask your teacher if you are not sure why."),
+              "retain": ("Your place in {course} is back", "{teacher} restored your place in the course {course}."),
+              "release": ("You have left {course}", "{teacher} released you from the course {course}."),
+              "complete": ("Course completed: {course}", "{teacher} marked the course {course} as completed for you. Well done. You can still look back at it on {app}.")}
+class EnrolDo(BaseModel): action: str
+@app.post("/api/enrolments/{eid}")
+def enrol_action(eid: int, b: EnrolDo, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
+    """The teacher approves or declines a request, suspends, keeps (restores), releases or completes a student, or takes back an invitation;
+    the student accepts or declines an invitation, takes back a request, or leaves. Invitations and requests last 48 hours."""
+    expire_enrolments(s); e = s.get(Enrolment, eid)
+    if not e: raise HTTPException(404, "Not found")
+    c = s.get(Course, e.course_id); teach = can_edit(u, c.id, s) and u.id != e.user_id
+    acts = TEACHER_ACTS if teach else STUDENT_ACTS if e.user_id == u.id else None
+    if acts is None or b.action not in acts: raise HTTPException(403 if acts is None else 400, "You can't do that here")
+    allowed, to = acts[b.action]
+    if e.status == "expired": raise HTTPException(400, "This lapsed after 48 hours. Ask again." if not teach else "This lapsed after 48 hours. Invite the student again.")
+    if e.status not in allowed: raise HTTPException(400, "That no longer applies: " + ENROL_LABEL.get(e.status, e.status).lower())
+    if not teach and b.action == "accept" and (c.cancelled_at or c.archived_at): raise HTTPException(400, "This course is not running")
+    e.status, e.decided_at, e.by_id = to, dt.datetime.utcnow(), u.id if teach else e.by_id; s.commit()
+    st = s.get(User, e.user_id)
+    if teach and b.action in ENROL_TELL:
+        subj, body = ENROL_TELL[b.action]; notify(s, st, "enrol", subj, body, run=bg.add_task, course=c.name, teacher=u.name)
+    elif not teach and b.action == "accept" and c.faculty_owner_id:
+        t = s.get(User, c.faculty_owner_id)
+        if t: notify(s, t, "enrol", "{name} joined {course}", "{name} accepted your invitation to the course {course}.", run=bg.add_task, name=st.name, course=c.name)
+    return roster_row(e, st, s) if teach else {**offer_json(c, s, u)}
+@app.get("/api/offered/catalog")
+def catalog(u: User = Depends(me), s: Session = Depends(db)):
+    """For a student: courses they can join (open to anyone) or ask to join, still to come or running, and every course they are invited to."""
+    expire_enrolments(s); today = local_day(dt.datetime.utcnow())
+    cs = s.query(Course).filter(Course.access.in_(("enroll", "open")), Course.archived_at.is_(None), Course.cancelled_at.is_(None)).order_by(Course.name).all()
+    mine = {e.course_id: e for e in s.query(Enrolment).filter(Enrolment.user_id == u.id)}
+    out = [offer_json(c, s, u) for c in cs if (mine.get(c.id) and mine[c.id].status == "invited") or ((c.access == "open" or c.applications) and not (c.ends_on and today > c.ends_on))]
+    return {"items": out, "invited": [x for x in out if x["mine"] == "invited"]}
+@app.post("/api/offered/{cid}/join")
+def join_offer(cid: int, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
+    """A student joins an open course at once, or asks to join one that takes requests (the teacher has 48 hours to decide)."""
+    if u.role != "student": raise HTTPException(403, "Students join courses")
+    expire_enrolments(s); c = s.get(Course, cid)
+    if not offered(c) or c.cancelled_at or c.archived_at: raise HTTPException(404, "Course not found")
+    if c.ends_on and local_day(dt.datetime.utcnow()) > c.ends_on: raise HTTPException(400, "This course has ended")
+    e = enrolment(s, c.id, u.id); now = dt.datetime.utcnow()
+    if e and e.status in ("active", "completed"): return offer_json(c, s, u)
+    if e and e.status == "suspended": raise HTTPException(400, "Your place in this course is on hold. Ask your teacher.")
+    if e and e.status == "invited": e.status, e.decided_at = "active", now
+    elif c.access == "open":
+        if e: e.status, e.at, e.decided_at, e.expires_at = "active", now, now, None
+        else: s.add(Enrolment(course_id=c.id, user_id=u.id, status="active", at=now, decided_at=now))
+    elif c.applications:
+        if e and e.status == "applied": return offer_json(c, s, u)
+        if e: e.status, e.at, e.decided_at, e.expires_at = "applied", now, None, now + dt.timedelta(hours=ENROL_HOURS)
+        else: s.add(Enrolment(course_id=c.id, user_id=u.id, status="applied", at=now, expires_at=now + dt.timedelta(hours=ENROL_HOURS)))
+        t = s.get(User, c.faculty_owner_id) if c.faculty_owner_id else None
+        if t: notify(s, t, "enrol", "{name} asks to join {course}", "{name} asks to join your course {course} on {app}. Decide within 48 hours: open the course's students to accept or decline.", run=bg.add_task, name=u.name, course=c.name)
+    else: raise HTTPException(403, "This course is by invitation only")
+    s.commit(); return offer_json(c, s, u)
+def enrol_notes(u, s):  # the bell: a student's invitations waiting; a teacher's requests waiting
+    expire_enrolments(s); out = []
+    if u.role == "student":
+        for e, c in s.query(Enrolment, Course).join(Course, Course.id == Enrolment.course_id).filter(Enrolment.user_id == u.id, Enrolment.status == "invited", Course.cancelled_at.is_(None)):
+            out.append({"key": f"inv-course:{e.id}:{int(e.at.timestamp())}", "text": f"You're invited to {c.name}", "sub": "Accept within 48 hours"})
+    elif is_author(u):
+        n = s.query(func.count(Enrolment.id)).join(Course, Course.id == Enrolment.course_id).filter(Enrolment.status == "applied", *( [] if u.role == "admin" else [Course.faculty_owner_id == u.id])).scalar()
+        if n: out.append({"key": f"applied:{n}", "text": f"Requests to join your courses: {n}", "sub": "Decide within 48 hours"})
+    return out
+# ---- writing to students: a teacher starts a message thread with each chosen student of a course (all of them by default); the student reads and
+# ---- answers it like a question to the teacher. "Offer help" writes to the students who were stuck on a topic, without the teacher learning who they are.
+class MessageIn(BaseModel): subject: str; text: str; student_ids: list[int] = []
+def send_messages(s, c, author_u, people, subject, text, bg):
+    now = dt.datetime.utcnow()
+    for st in people:
+        q = TeacherQuestion(user_id=st.id, topic_id=None, course_id=c.id, status="answered", at=now, updated=now, subject=subject, started_by=author_u.id); s.add(q); s.flush()
+        s.add(TeacherReply(question_id=q.id, user_id=author_u.id, text=text, at=now))
+    s.commit()
+    for st in people: notify(s, st, "message", "A message from {teacher}", "{teacher} wrote to you about {course}: {about}. Read it in {app}.", run=bg.add_task, teacher=author_u.name, course=c.name, about=subject)
+def course_students(s, c):  # who a course's messages go to: an offered course's active students, or the program's students who see the course
+    return [x for x in ann_students(s, c) if x.active]
+@app.post("/api/courses/{cid}/message")
+def message_students(cid: int, b: MessageIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, c.id, s); subject, text_ = " ".join(b.subject.split())[:200], tq_text(b.text)
+    if len(subject) < 3: raise HTTPException(400, "Give the message a subject")
+    people = course_students(s, c)
+    if b.student_ids: people = [x for x in people if x.id in set(b.student_ids)]
+    if not people: raise HTTPException(400, "No students to write to")
+    if len(people) > 500: raise HTTPException(400, "Write to at most 500 students at once")
+    send_messages(s, c, u, people, subject, text_, bg); return {"sent": len(people)}
+@app.get("/api/courses/{cid}/students")
+def course_student_list(cid: int, u: User = Depends(author), s: Session = Depends(db)):
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, c.id, s); return {"items": [{"id": x.id, "name": x.name, "who": x.email or x.username or ""} for x in sorted(course_students(s, c), key=lambda x: x.name.lower())]}
+class HelpIn(BaseModel): text: str; days: int = 30
+@app.post("/api/topics/{tid}/offer-help")
+def offer_help(tid: int, b: HelpIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
+    """Writes to every student who was stuck on this topic lately (asked about it, tapped Not clear?, said Not quite, asked for it more simply,
+    or flagged an answer). The teacher learns how many, never who: each student gets their own thread to answer in."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    cid = topic_course_id(t, s); need_edit(u, cid, s); text_ = tq_text(b.text); since = dt.datetime.utcnow() - dt.timedelta(days=min(max(b.days, 7), 180))
+    ids = {i for (i,) in s.query(TeacherQuestion.user_id).filter(TeacherQuestion.topic_id == tid, TeacherQuestion.at >= since)}
+    ids |= {i for i, k, o in s.query(StepLog.user_id, StepLog.kind, StepLog.outcome).filter(StepLog.topic_id == tid, StepLog.at >= since, StepLog.kind.in_(("doubt", "check", "simpler"))) if k != "check" or o == "not_yet"}
+    ids |= {i for (i,) in s.query(AIFlag.user_id).filter(AIFlag.topic_id == tid, AIFlag.at >= since)}
+    people = [x for x in s.query(User).filter(User.id.in_(ids or {0}), User.role == "student", User.active == True)]  # noqa: E712
+    if not people: raise HTTPException(400, "Nobody was stuck on this topic in that time")
+    send_messages(s, s.get(Course, cid), u, people, f"Help with {t.title}", text_, bg); return {"sent": len(people)}
+# ---- moving a class: a new date, time, length or link; it moves in every calendar and the students and parents are told
+class ClassMoveIn(BaseModel): title: str = ""; day: str; at: str; minutes: int = 60; link: str = ""
+@app.put("/api/announcements/{aid}")
+def move_class(aid: int, b: ClassMoveIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
+    a = s.get(Announcement, aid)
+    if not a or a.kind != "class" or a.cancelled_at: raise HTTPException(404, "Not found")
+    need_edit(u, a.course_id, s); c = s.get(Course, a.course_id)
+    d = day_of(b.day); at = (b.at or "").strip()
+    if not HHMM.fullmatch(at): raise HTTPException(400, "Give the time as HH:MM, for example 09:30")
+    if not 10 <= b.minutes <= 600: raise HTTPException(400, "A class lasts 10 minutes to 10 hours")
+    link = (b.link or a.link or "").strip()
+    if not re.fullmatch(r"https://[^\s<>\"']{4,290}", link): raise HTTPException(400, "Paste the class's video link, starting with https:// (for example a Google Meet link)")
+    start = dt.datetime.combine(d, dt.time.fromisoformat(at)) - dt.timedelta(minutes=DAY_OFFSET)
+    if start + dt.timedelta(minutes=b.minutes) < dt.datetime.utcnow(): raise HTTPException(400, "Choose a time that has not passed")
+    title = " ".join((b.title or a.title).split())[:200]
+    a.title, a.starts_at, a.minutes, a.link = title, start, b.minutes, link
+    e = s.get(CalendarEvent, a.event_id) if a.event_id else None
+    if e: e.title, e.day, e.at, e.link = title, d, at, link
+    s.commit()
+    when = f"{d.isoformat()} {at}"
+    for st in ann_students(s, c):
+        notify(s, st, "class", "Class moved: {title}", "{teacher} moved the class {title} for {course} to {when}. It has moved in your calendar.",
+               "{teacher} moved the class {title} for {course}, which {name} takes, to {when}.", run=bg.add_task, title=title, teacher=u.name, course=c.name, when=when, name=st.name)
+    return ann_json(a, c, s, u)
 # ---- buying Pro online: the admin sets the Razorpay keys and a few offers (days for a price). A student picks one and pays on Razorpay's own page
 # ---- (a payment link: cards, UPI, netbanking and wallets, on the web and from the Android app alike). Pro starts when Razorpay confirms the payment:
 # ---- on the way back (its signature checked), by its webhook, or when the app asks Razorpay directly. Each payment adds its days once.
@@ -4954,7 +5249,7 @@ def sniff(b):  # trust the bytes, not the file name or the browser's content typ
     if b[:4] == b"RIFF" and b[8:12] == b"WEBP": return "webp"
 MIME = {"png": "image/png", "jpg": "image/jpeg", "gif": "image/gif", "webp": "image/webp"}
 @app.post("/api/uploads")
-async def upload_image(request: Request, _: User = Depends(staff)):
+async def upload_image(request: Request, _: User = Depends(author)):
     if int(request.headers.get("content-length") or 0) > MAX_IMG: raise HTTPException(413, "Image is too large. Keep it under 3 MB.")
     b = await request.body()
     if len(b) > MAX_IMG: raise HTTPException(413, "Image is too large. Keep it under 3 MB.")
@@ -5984,12 +6279,12 @@ def stop_routine(u: User = Depends(me), s: Session = Depends(db)):  # back to st
 # ---- notifications: worked out from what needs doing now, with each person's seen ones remembered, and an optional daily email ----
 STUDENT_NOTES = ("due_soon", "quiz_new")  # a teacher's date coming up and a new test; no reminders about being late or scoring low
 def notes_for(u, s):  # [{key, text, sub}]: staff get what needs attention, students their deadlines, tests and calendar events. The key changes when the item does
-    if u.role == "guardian": return ann_notes(u, s) + cal_notes(u, s)
+    if u.role == "guardian": return enrol_notes(u, s) + ann_notes(u, s) + cal_notes(u, s)
     if u.role == "student":
         asks = [{"key": f"invite:{l.id}", "text": f"{g.name} wants to follow your progress", "sub": "Accept or decline on Home"} for l, g in invitations(s, u.id)]
-        return asks + tq_answered(u, s) + ann_notes(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
+        return asks + enrol_notes(u, s) + tq_answered(u, s) + ann_notes(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
                 for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + cal_notes(u, s)
-    return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + (ann_notes(u, s) if u.role == "admin" else [])
+    return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + enrol_notes(u, s) + (ann_notes(u, s) if u.role == "admin" else [])
 @app.get("/api/me/notifications")
 def my_notifications(u: User = Depends(me), s: Session = Depends(db)):
     items = notes_for(u, s); seen = {k for (k,) in s.query(NoteSeen.key).filter(NoteSeen.user_id == u.id, NoteSeen.key.in_([i["key"] for i in items] or [""]))}

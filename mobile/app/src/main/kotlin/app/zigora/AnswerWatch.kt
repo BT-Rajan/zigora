@@ -41,7 +41,7 @@ class AnswerWatch(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
             val open = PendingIntent.getActivity(app, q.id, Intent(app, MainActivity::class.java).setAction(OPEN).putExtra("question", q.id)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             val n = NotificationCompat.Builder(app, CHANNEL).setSmallIcon(R.drawable.ic_launcher_monochrome)
-                .setContentTitle(I18n.t("Your teacher answered your question")).setContentText(q.topic + if (q.last.isNotEmpty()) " · " + q.last else "")
+                .setContentTitle(I18n.t(if (q.message) "A message from your teacher" else "Your teacher answered your question")).setContentText(q.topic + if (q.last.isNotEmpty()) " · " + q.last else "")
                 .setStyle(NotificationCompat.BigTextStyle().bigText(q.last)).setContentIntent(open).setAutoCancel(true).build()
             NotificationManagerCompat.from(app).notify(1000 + q.id, n)
         }

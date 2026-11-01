@@ -182,7 +182,7 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
     Loaded(l) { first ->
         val t = q ?: first
         Page(t.topic, listOfNotNull(t.course, t.student, stateLabel(t.status)).filter { it.isNotEmpty() }.joinToString(" · "), back = back) {
-            TextButton(onClick = { openTopic(t.topic_id) }) { Text(tl("Open the topic")) }
+            if (t.topic_id > 0) TextButton(onClick = { openTopic(t.topic_id) }) { Text(tl("Open the topic")) }  // a teacher's message has no topic
             t.excerpt?.takeIf { it.isNotEmpty() }?.let { Quiet("“$it”") }
             if (t.shared) Quiet(if (t.teacher) tl("Shared with the class") else tl("Your teacher shared this with your class, without your name."))
             t.messages.forEach { m ->

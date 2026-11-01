@@ -32,6 +32,19 @@ A student who is stuck taps **Ask my teacher** on a topic, or **Still not clear?
 - **Shared with the class:** once a question has an answer, the teacher can **Share with the class**. Everyone studying the topic then sees it under **Questions from your class** on the topic, with the answers but without the name of the student who asked. The teacher can stop sharing at any time.
 - **On the phone:** the Android app checks every 15 minutes or so (Android's shortest interval for background work) and shows a notification when a teacher answers. Tapping it opens the question. The app asks for permission to notify the first time a student sends a question.
 
+## Courses a teacher offers
+Besides the courses in programs, a teacher can run a course of their own: faculty and admins, and school teachers (parent/teacher accounts that signed up as teachers). Menu: **Offered courses** (for admins under Courses).
+- **Offer a course** with a name, what it is about, and a start and end date if it has them. Choose who may join: **students I accept** (by invitation, and optionally students may ask to join) or **anyone, at once**.
+- Only the students on a course's list see it, from any program. They find it in **My courses** under "Offered courses"; nobody else sees it, even in the same program.
+- **Invite** students by email or username: each gets an email and a note in the bell, and has **48 hours** to accept (Home shows the invitation with the hours left; **Join a course** in the menu and in the app's Courses lists it). An answer not given in time lapses; invite again.
+- **Asking to join**: students find courses that take requests (and open courses) under Join a course. The teacher is told and has **48 hours** to accept or decline.
+- **The course's students** page: keep (restore), suspend (they can't open it until restored), mark completed (they can still look back), release (they lose it), or take back an invitation. Every change tells the student.
+- **Repeat** a course: a new run with the same units, topics and quizzes, new dates, and the same students invited again or nobody yet. **Cancel** a course: its students lose it, pending invitations and requests are cancelled, its classes still to come are cancelled, everyone is told. **Archive** hides it without cancelling.
+- Content (upload, edit, publish, unpublish), classes and announcements, student questions and where students struggle work as for any course.
+- **Write to students**: a message to all of a course's students or the ones ticked; each gets it in My questions (and a notification) and can answer the teacher there. Any course's teacher can do this.
+- **Offer help** (Where students struggle): writes to every student who was stuck on a topic lately; the teacher learns how many, never who.
+- **Change a class's time**: a new date, time, length or link; it moves in every calendar and students and parents are told.
+
 ## The admin's menu
 Seven sections: **Courses** (Courses, Programs, Reports, Where students struggle), **Teachers** (Teachers, Classes and announcements, Student questions), **Students** (Students, Parents and school teachers), **Tests** (Assigned tests, MCQ bank, MCQ practice), **Calendar**, **Settings** (Settings, All users, Activity log) and **About**. Each opens on its first page, and the section's other pages are tabs along the top, so every page is one tap away; the dashboard's links still go straight to the page they name.
 

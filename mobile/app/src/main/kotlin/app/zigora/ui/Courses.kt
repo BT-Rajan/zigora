@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.GroupAdd
 import androidx.compose.material.icons.outlined.Timelapse
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,7 +48,7 @@ import kotlinx.serialization.builtins.ListSerializer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, open: (Int) -> Unit) {
+fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, openJoin: () -> Unit = {}, open: (Int) -> Unit) {
     val tree = rememberLoad("tree") { get("/tree", ListSerializer(ProgramNode.serializer())) }
     Scaffold(topBar = { TopAppBar(title = { Text(tl("My courses")) }, actions = {
         IconButton(onClick = openSearch) { Icon(Icons.Outlined.Search, stringResource(R.string.tab_search)) } }) }) { pad ->
@@ -58,6 +59,8 @@ fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, open: (
                 else CourseList(courses, open)
             }
             Gap(16)
+            ListRow(tl("Join a course"), tl("Courses teachers offer: accept an invitation, join, or ask to join"), onClick = openJoin, leading = { RowIcon(Icons.Outlined.GroupAdd) })
+            Gap(8)
             ListRow(tl("Build a course"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
                     leading = { RowIcon(Icons.Outlined.AutoStories) })
         }

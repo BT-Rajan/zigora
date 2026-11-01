@@ -206,5 +206,17 @@
 [
 "^Razorpay answered with an error \\((?<code>\\d+)\\)\\.$",
 "Razorpay answered with an error ({code})."
+],
+[
+"^You're invited to (?<course>.+)$",
+"You're invited to {course}"
+],
+[
+"^Requests to join your courses: (?<n>\\d+)$",
+"Requests to join your courses: {n}"
+],
+[
+"^Help with (?<topic>.+)$",
+"Help with {topic}"
 ]
 ]

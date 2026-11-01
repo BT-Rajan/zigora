@@ -39,9 +39,13 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Learning(val status: String = "not_started")
 /** ask the teacher: a student's question about a topic, and its thread with the course's teacher */
 @Serializable data class QuestionRow(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val updated: String? = null,
-                                     val last: String = "", val unread: Boolean = false, val student: String? = null)
+                                     val last: String = "", val unread: Boolean = false, val student: String? = null, val message: Boolean = false)
 @Serializable data class QuestionPage(val total: Int = 0, val items: List<QuestionRow> = emptyList())
 @Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
+/** a course a teacher offers, as a student sees it in Join a course */
+@Serializable data class Offer(val id: Int, val name: String = "", val about: String = "", val starts_on: String? = null, val ends_on: String? = null, val access: String = "enroll",
+                               val state: String = "running", val teacher: String = "", val topics: Int = 0, val mine: String? = null, val enrolment: Int? = null, val expires_at: String? = null)
+@Serializable data class OfferList(val items: List<Offer> = emptyList(), val invited: List<Offer> = emptyList())
 @Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String? = null, val text: String = "", val image: String? = null, val at: String? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
                                         val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false, val teacher: Boolean = false, val can_share: Boolean = false,
