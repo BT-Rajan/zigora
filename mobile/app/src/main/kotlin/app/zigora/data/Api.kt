@@ -2,6 +2,7 @@ package app.zigora.data
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -27,6 +28,11 @@ class Api(private val store: Store, private val keep: java.io.File? = null, priv
     constructor(store: Store, onSignedOut: () -> Unit) : this(store, null, onSignedOut)
     /** true while screens show kept copies because the server can't be reached */
     val offline = androidx.compose.runtime.mutableStateOf(false)
+    /** a request has waited more than 12 seconds: the connection may be slow */
+    val slow = androidx.compose.runtime.mutableStateOf(false)
+    /** the last request could not reach the server at all (no network, or it dropped) */
+    val unreachable = androidx.compose.runtime.mutableStateOf(false)
+    private val waiting = java.util.concurrent.atomic.AtomicInteger(0)
     private fun keptFile(name: String) = keep?.let { java.io.File(it, java.security.MessageDigest.getInstance("SHA-1").digest(name.toByteArray()).joinToString("") { b -> "%02x".format(b) }) }
     fun keepText(name: String, text: String) { runCatching { keptFile(name)?.let { it.parentFile?.mkdirs(); it.writeText(text) } } }
     fun keptText(name: String): String? = runCatching { keptFile(name)?.takeIf { it.exists() }?.readText() }.getOrNull()
@@ -45,7 +51,13 @@ class Api(private val store: Store, private val keep: java.io.File? = null, priv
     /** a file sent as it is (study material), like the web's upload */
     suspend fun upload(path: String, bytes: ByteArray): JsonElement = call("POST", path, null, bytes)
 
-    private suspend fun call(method: String, path: String, body: JsonElement?, bytes: ByteArray? = null): JsonElement = withContext(Dispatchers.IO) {
+    private suspend fun call(method: String, path: String, body: JsonElement?, bytes: ByteArray? = null): JsonElement = kotlinx.coroutines.coroutineScope {
+        val timer = launch { kotlinx.coroutines.delay(12_000); waiting.incrementAndGet(); slow.value = true }
+        try { exchange(method, path, body, bytes) }
+        finally { if (timer.isCompleted && !timer.isCancelled) slow.value = waiting.decrementAndGet() > 0; timer.cancel() }
+    }
+
+    private suspend fun exchange(method: String, path: String, body: JsonElement?, bytes: ByteArray?): JsonElement = withContext(Dispatchers.IO) {
         if (base.isEmpty()) throw ApiError(I18n.str(app.zigora.R.string.need_address), 0)
         val rb = when {
             bytes != null -> bytes.toRequestBody("application/octet-stream".toMediaType())
@@ -58,8 +70,10 @@ class Api(private val store: Store, private val keep: java.io.File? = null, priv
         val readable = method == "GET" && KEEP.matches(path)
         val res = try { http.newCall(req).execute() } catch (e: IOException) {
             if (readable) keptText(path)?.let { k -> runCatching { json.parseToJsonElement(k) }.getOrNull() }?.let { offline.value = true; return@withContext it }
+            unreachable.value = true
             throw ApiError(I18n.str(app.zigora.R.string.err_offline), 0)
         }
+        unreachable.value = false
         res.use {
             val text = it.body.string()
             val parsed = runCatching { json.parseToJsonElement(text) }.getOrNull()

@@ -91,6 +91,24 @@ class AskTest {
         tap("Hardness of Water"); see("Offline. Showing what you read before."); see("Hard water carries dissolved calcium"); shot("5-offline-topic")
     }
 
+    /** while a student writes, answers the teacher already shared that look like it show first */
+    @Test fun similarSharedAnswersShowBeforeSending() {
+        signIn("stu@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
+        see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
+        tap("Softening Methods"); see("Ask my teacher"); tap("Ask my teacher"); see("Your teacher sees your name")
+        rule.onNode(hasSetTextAction()).performTextInput("Why does bicarbonate break down when boiling?")
+        see("Already answered for your class"); rule.onAllNodesWithText("Already answered", substring = true).onFirst().performScrollTo(); shot("6-similar")
+    }
+
+    /** a student on Lite sees asking the teacher with a lock: it comes with Pro */
+    @Test fun aLiteStudentCantAskTheTeacher() {
+        signIn("ravi@gmail.com"); rule.setContent { ZigoraRoot(null) {} }
+        see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
+        see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
+        tap("Hardness of Water"); see("Ask my teacher · Pro"); tap("Ask my teacher · Pro"); see("comes with Pro"); shot("7-lite-locked")
+    }
+
     @Test fun aLiteStudentSeesTheProOffers() {
         signIn("ravi@gmail.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNode(hasText("Me") and hasClickAction()).performClick()

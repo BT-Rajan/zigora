@@ -145,7 +145,11 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
                 Body(t, me, aiOn, aiOff, known, openReader = { openReader(id) }, openMaterial = { openMaterial(t.course_id, t.course) })
                 if (student) OutlinedButton(onClick = { openMcq(id) }, modifier = Modifier.fillMaxWidth()) { Text(tl("MCQ practice on this topic")) }
                 ClassQuestionsList(id)
-                if (student && !asking) OutlinedButton(onClick = { asking = true }, modifier = Modifier.fillMaxWidth()) { Text(tl("Ask my teacher")) }
+                if (t.ask != null && !asking) OutlinedButton(onClick = {
+                    if (t.ask == "pro") scope.launch { snack.showSnackbar(tl("Asking your teacher comes with Pro. See AI help on your profile.")) } else asking = true
+                }, modifier = Modifier.fillMaxWidth()) {
+                    if (t.ask == "pro") { Icon(Icons.Outlined.Lock, null, Modifier.size(16.dp)); Text(" " + tl("Ask my teacher") + " · " + tl("Pro")) } else Text(tl("Ask my teacher"))
+                }
                 if (asking) AskTeacherBox(id) { sent -> asking = false; if (sent) scope.launch { snack.showSnackbar(tl("Sent. Your teacher's answer will be in My questions.")) } }  // the Per topic way in; the bank needs no AI
                 if (student && aiOn) {
                     SectionTitle(stringResource(R.string.test_yourself))
@@ -311,7 +315,7 @@ private fun SelfMark(id: Int, onSimpler: (() -> Unit)?) {
 private fun Body(t: TopicFull, me: Me, aiOn: Boolean, aiOff: Boolean, known: List<String>, openReader: () -> Unit, openMaterial: () -> Unit) {
     var tab by rememberSaveable(t.id) { mutableIntStateOf(0) }
     Gap(12)
-    if (aiOff) { Quiet(tl(AI_OFF), Modifier.padding(bottom = 8.dp)); Notes(t, me, aiOn, openReader, openMaterial); return }  // no Explain or Sample answer tabs
+    if (aiOff) { Quiet(tl(AI_OFF), Modifier.padding(bottom = 8.dp)); t.model_answer?.let { ModelAnswerCard(it) }; Notes(t, me, aiOn, openReader, openMaterial); return }  // no Explain or Sample answer tabs
     SecondaryTabRow(selectedTabIndex = tab, containerColor = MaterialTheme.colorScheme.surface) {
         listOf(R.string.tab_notes, R.string.tab_explain, R.string.tab_answer).forEachIndexed { i, s -> Tab(tab == i, onClick = { tab = i }, text = { Text(stringResource(s), maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }) }
     }
@@ -319,7 +323,26 @@ private fun Body(t: TopicFull, me: Me, aiOn: Boolean, aiOff: Boolean, known: Lis
     when (tab) {
         0 -> Notes(t, me, aiOn, openReader, openMaterial)
         1 -> { if (known.isNotEmpty()) Quiet(stringResource(R.string.already_covered) + " " + known.joinToString(", "), Modifier.padding(bottom = 8.dp)); AiAnswer(t.id, "explain", aiOn, R.string.explain_it, t.my_notes != null) }
-        else -> { Outline(t.id, aiOn); AiAnswer(t.id, "answer", aiOn, R.string.full_sample_answer, t.my_notes != null) }
+        else -> { t.model_answer?.let { ModelAnswerCard(it) }; Outline(t.id, aiOn); AiAnswer(t.id, "answer", aiOn, R.string.full_sample_answer, t.my_notes != null) }
+    }
+}
+
+/** the teacher's marked model answer: the exam question, then each part with the marks it earns */
+@Composable
+private fun ModelAnswerCard(m: app.zigora.data.ModelAnswer) {
+    fun marks(v: Double) = (if (v % 1.0 == 0.0) v.toInt().toString() else v.toString()).let { if (v == 1.0) tl("1 mark") else tl("{n} marks", "n" to it) }
+    Panel(Modifier.padding(bottom = 12.dp)) {
+        Text(tl("Model answer from your teacher") + if (m.by.isNotEmpty()) " · ${m.by}" else "", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        MathMd(m.question)
+        m.parts.forEach { p ->
+            androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 6.dp))
+            Row(verticalAlignment = Alignment.Top) {
+                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) { MathMd(p.text) }
+                Text(marks(p.marks), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 8.dp))
+            }
+        }
+        androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 6.dp))
+        Row { Text(tl("Total"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f)); Text(marks(m.total), style = MaterialTheme.typography.titleSmall) }
     }
 }
 

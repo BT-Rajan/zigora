@@ -75,3 +75,25 @@ def test_the_teacher_shares_an_answer_with_the_class_without_naming_the_student(
     assert env.c.get(f"/api/topics/{i['topic']['Limits']}/class-questions", headers=other).status_code == 403
     env.c.post(f"/api/questions/{q['id']}/share", headers=env.fac, json={"shared": False})
     assert env.c.get(f"/api/topics/{t}/class-questions", headers=other).json()["items"] == []
+
+def test_lite_students_see_asking_comes_with_pro(env):
+    from tests.test_plans import lite_person
+    t = setup(env); h, uid = lite_person(env)
+    with Session_() as s: u = s.get(User, uid); stu = s.query(User).filter_by(email="stu@x.com").one(); u.program_id, u.semester = stu.program_id, stu.semester; s.commit()
+    assert env.c.get(f"/api/topics/{t}", headers=h).json()["ask"] == "pro" and env.c.get(f"/api/topics/{t}", headers=env.stu).json()["ask"] == "on"
+    assert env.c.get(f"/api/topics/{t}", headers=env.fac).json()["ask"] is None
+    r = ask(env, t, h=h); assert r.status_code == 403 and "comes with Pro" in r.json()["detail"]
+    import datetime as dt
+    with Session_() as s: s.get(User, uid).pro_until = dt.datetime.utcnow() + dt.timedelta(days=5); s.commit()
+    assert ask(env, t, h=h).status_code == 200
+
+def test_similar_shared_answers_show_while_a_student_writes(env):
+    t = setup(env); env.add_user("stu2@x.com"); i = ids(); enrol("stu2@x.com", i["prog"]["Mech"], 1); other = env.login("stu2@x.com")
+    q = ask(env, t, "Why does boiling remove temporary hardness of water?").json()
+    env.c.post(f"/api/questions/{q['id']}/replies", headers=env.fac, json={"text": "Bicarbonates break down on heating."})
+    sim = lambda text: env.c.get(f"/api/topics/{t}/similar", headers=other, params={"q": text}).json()["items"]
+    assert sim("how does boiling remove hardness") == []  # not shared yet
+    env.c.post(f"/api/questions/{q['id']}/share", headers=env.fac, json={"shared": True})
+    got = sim("how does boiling remove hardness"); assert len(got) == 1 and got[0]["messages"][1]["text"].startswith("Bicarbonates") and got[0]["messages"][0]["who"] is None
+    assert sim("ion exchange resin regeneration") == [] and sim("why") == []
+    assert env.c.get(f"/api/topics/{i['topic']['Limits']}/similar", headers=other, params={"q": "boiling hardness"}).status_code == 403

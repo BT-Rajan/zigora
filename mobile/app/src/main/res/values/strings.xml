@@ -269,8 +269,6 @@
     <string name="signin_lead">Calm, curious learning</string>
     <string name="signing_in">Signing in…</string>
     <string name="six_digit_code">6-digit code</string>
-    <string name="staff_body">Hello %1$s. Teachers and admins use %2$s on the web, where courses, quizzes, reports and settings are. Open it in your browser at %3$s</string>
-    <string name="staff_title">The app is for students</string>
     <string name="started">Started</string>
     <string name="step_check">Quick check</string>
     <string name="step_exam">Exam angle</string>

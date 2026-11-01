@@ -72,6 +72,17 @@ with Session_() as s:
     q = main.TeacherQuestion(user_id=meena.id, topic_id=hw.id, course_id=hw.course_id, excerpt="calcium bicarbonate breaks down", status="answered", shared=True); s.add(q); s.flush()  # shared with the class
     s.add(main.TeacherReply(question_id=q.id, user_id=meena.id, text="Why does only the bicarbonate break down when we boil the water?"))
     s.add(main.TeacherReply(question_id=q.id, user_id=priya.id, text="Heat splits the bicarbonate ion into carbonate and CO2. Calcium carbonate hardly dissolves, so it settles. Chlorides and sulphates have nothing heat can break off."))
+    # the teacher's marked model answer, and a class tomorrow with a Meet link (in the calendar too)
+    s.add(main.ModelAnswer(topic_id=hw.id, author_id=priya.id, question="Distinguish between temporary and permanent hardness. (5 marks)",
+                           parts=json.dumps([{"text": "Definition of hardness: salts of calcium and magnesium dissolved in water.", "marks": 1},
+                                             {"text": "Temporary hardness: bicarbonates; removed by boiling, $Ca(HCO_3)_2 \\rightarrow CaCO_3 + H_2O + CO_2$", "marks": 2},
+                                             {"text": "Permanent hardness: chlorides and sulphates; removed by ion exchange or lime-soda.", "marks": 2}])))
+    import datetime as _dt
+    tmw = _dt.date.today() + _dt.timedelta(days=1); start = _dt.datetime.combine(tmw, _dt.time(18, 0)) - _dt.timedelta(minutes=main.DAY_OFFSET)
+    ev = main.CalendarEvent(title="Revision: water technology", kind="class", day=tmw, at="18:00", scope="course", course_id=hw.course_id, created_by=priya.id, link="https://meet.google.com/abc-defg-hij"); s.add(ev); s.flush()
+    s.add(main.Announcement(course_id=hw.course_id, author_id=priya.id, kind="class", title="Revision: water technology", body="Bring your notes on hardness.", starts_at=start, minutes=45,
+                            link="https://meet.google.com/abc-defg-hij", event_id=ev.id))
+    s.add(main.Announcement(course_id=hw.course_id, author_id=priya.id, kind="note", title="Unit test on Friday", body="Units 1 and 2. Bring a calculator."))
     # buying Pro online: test keys and two offers, so a Lite student sees them (no payment is ever made here)
     for k, v in (("pay_key_id", "rzp_test_promo1234"), ("pay_key_secret", main.seal("promo_secret")), ("pay_offers", json.dumps([{"days": 30, "price": 149}, {"days": 365, "price": 999}]))):
         s.merge(main.Setting(k=k, v=v))

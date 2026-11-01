@@ -183,7 +183,7 @@ fun ReaderScreen(t: TopicFull, close: () -> Unit) {
             }
         }
     }
-    doubt?.let { p -> ModalBottomSheet(onDismissRequest = { doubt = null }) { DoubtBox(t.id, p) { doubt = null } } }
+    doubt?.let { p -> ModalBottomSheet(onDismissRequest = { doubt = null }) { DoubtBox(t.id, p, askOn = t.ask == "on") { doubt = null } } }
 }
 
 /** one highlight: its passage (tap to go to it), where it is, its explanation or "Explain this", and the reader's note */
@@ -224,7 +224,7 @@ fun HlItem(h: Highlight, where: String = "", focus: Boolean = false, onGo: (() -
 /** "Not clear?" on a phrase: first where it sits in the topic (and in the student's own notes) and a kept answer, all on the server;
  *  only if asked, the AI gets the program, semester, course and topic names and the phrase, never the notes */
 @Composable
-fun DoubtBox(tid: Int, phrase: String, close: () -> Unit) {
+fun DoubtBox(tid: Int, phrase: String, askOn: Boolean = true, close: () -> Unit) {
     val a = api(); val scope = rememberCoroutineScope()
     val d = rememberLoad("doubt", tid, phrase) { send("POST", "/topics/$tid/doubt", buildJsonObject { put("phrase", phrase) }, Doubt.serializer()) }
     var ans by remember(phrase) { mutableStateOf<Answer?>(null) }
@@ -258,7 +258,7 @@ fun DoubtBox(tid: Int, phrase: String, close: () -> Unit) {
                 Quiet(stringResource(R.string.doubt_privacy) + (x.ai_left?.takeIf { it <= 10 }?.let { " " + stringResource(R.string.n_left_today, it) } ?: ""))
                 if (err.isNotEmpty()) Quiet(err)
             }
-            if (student) {
+            if (student && askOn) {
                 if (sent) Quiet(tl("Sent. Your teacher's answer will be in My questions."), Modifier.padding(top = 12.dp))
                 else if (asking) Column(Modifier.padding(top = 8.dp)) { AskTeacherBox(tid, phrase) { ok -> asking = false; if (ok) sent = true } }
                 else TextButton(onClick = { asking = true }, modifier = Modifier.padding(top = 8.dp)) { Text(tl("Still not clear? Ask my teacher")) }
