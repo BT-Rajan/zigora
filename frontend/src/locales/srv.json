@@ -218,5 +218,29 @@
 [
 "^Help with (?<topic>.+)$",
 "Help with {topic}"
+],
+[
+"^This course starts on (?<date>[0-9-]+)$",
+"This course starts on {date}"
+],
+[
+"^(?<course>.+) starts today$",
+"{course} starts today"
+],
+[
+"^(?<course>.+) starts tomorrow$",
+"{course} starts tomorrow"
+],
+[
+"^(?<course>.+) ends on (?<date>[0-9-]+)$",
+"{course} ends on {date}"
+],
+[
+"^The course starts on (?<date>[0-9-]+): choose a day from then$",
+"The course starts on {date}: choose a day from then"
+],
+[
+"^The course ends on (?<date>[0-9-]+): choose a day before then$",
+"The course ends on {date}: choose a day before then"
 ]
 ]

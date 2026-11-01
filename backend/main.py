@@ -55,6 +55,7 @@ class User(Base):
     cal_token = Column(String(64), unique=True, nullable=True)  # a hash of the private link a phone's calendar subscribes to (the link itself is never stored)
     username = Column(String(40), unique=True, nullable=True)  # sign-in name for a child a parent or teacher created (no email of their own); lower case
     relation = Column(String(10), nullable=True)  # a guardian's relation to the students they manage: "parent" or "teacher"
+    approval = Column(String(10), nullable=True)  # a teacher who signed up: "pending" until an admin approves (they can't sign in), "declined" after a no
     level = Column(String(8), nullable=True)  # "school" or "college", chosen at sign-up; a student placed in a program takes it from the program instead
     lang = Column(String(5), nullable=True)  # the language of the app's screens and AI answers for them: en, ar or ta (null = English)  # a daily email of new notifications, if they asked for it; when it last went
 class GuardianLink(Base):  # a parent or teacher (role "guardian") and a student they look after; a teacher's invitation waits until the student accepts
@@ -108,6 +109,7 @@ class Course(Base):
     applications = Column(Boolean, nullable=True)  # an enroll course: students may ask to join
     about = Column(Text, nullable=True); starts_on = Column(Date, nullable=True); ends_on = Column(Date, nullable=True); cancelled_at = Column(DateTime, nullable=True)
     repeat_of = Column(Integer, nullable=True)  # the course this one repeats
+    start_told = Column(DateTime, nullable=True); end_told = Column(DateTime, nullable=True)  # when students were reminded it starts tomorrow, or ends in 3 days
 class CourseLink(Base):  # a common course shown in other programs' semesters as well; it is edited only at its home
     __tablename__ = "course_links"
     id = Column(Integer, primary_key=True)
@@ -559,12 +561,15 @@ ROLE_NOTE = {"student": "Your admin changed your {app} account: you now sign in 
              "admin": "Your admin changed your {app} account: you now sign in as an admin. Ask your admin if you think this is a mistake.",
              "guardian": "Your admin changed your {app} account: you now sign in as a parent or teacher. Ask your admin if you think this is a mistake."}
 NEW_ACCOUNT = {"student": "Your admin made a {app} account for you as a student. Sign in with {email} and the password your admin gives you.",
+               "parent": "Your admin made a {app} account for you as a parent. Sign in with {email} and the password your admin gives you.",
+               "teacher": "Your admin made a {app} account for you as a teacher. Sign in with {email} and the password your admin gives you.",
                "faculty": "Your admin made a {app} account for you as a faculty member. Sign in with {email} and the password your admin gives you.",
                "admin": "Your admin made a {app} account for you as an admin. Sign in with {email} and the password your admin gives you."}
 def notify_role(s, u, run=None):
     if u.role in ROLE_NOTE: notify(s, u, "status", "Your {app} account changed", ROLE_NOTE[u.role], run=run)
 def notify_new_account(s, u, run=None):  # an account an admin made, one at a time or from a CSV file: how to sign in, never the password
-    if u.active and u.email and u.role in NEW_ACCOUNT: notify(s, u, "welcome", "Your {app} account", NEW_ACCOUNT[u.role], run=run, email=u.email)
+    k = user_kind(u)
+    if u.active and u.email and k in NEW_ACCOUNT: notify(s, u, "welcome", "Your {app} account", NEW_ACCOUNT[k], run=run, email=u.email)
 def tok_hash(raw): return hashlib.sha256(raw.encode()).hexdigest()
 class ForgotIn(BaseModel): email: str; lang: str = ""  # lang: the screen's language, for a registration code sent again
 @app.post("/api/forgot")
@@ -721,12 +726,15 @@ def register_verify(b: VerifyIn, bg: BackgroundTasks, s: Session = Depends(db)):
     s.delete(p)
     u = new_account(s, bg, bad, name=p.name, email=email, pw=p.pw, lang=b.lang, who=p.who, level=p.level, institution=p.institution, id_number=p.id_number, phone=p.phone,
                     program_id=p.program_id, semester=p.semester, kids=kids)
-    return {"token": make_token(u), "user": me_json(u)}
+    return {"pending": True, "message": PENDING_MSG} if u.approval == "pending" else {"token": make_token(u), "user": me_json(u)}
+PENDING_MSG = "Your teacher account is waiting for your admin's approval. We will email you as soon as it is approved."
 def new_account(s, bg, bad, *, name, email, pw, lang, who, level, institution, id_number, phone, program_id, semester, kids, google_sub=None):
     """The account someone signed up for, with a parent's children or a teacher's students, then the welcome email. Both ways in end here:
     an emailed code, or Google (which has already checked the email)."""
     guardian = (who or "student") != "student"
-    u = User(name=name, email=email, pw=pw, lang=None if ui_lang(lang) == "en" else lang, role="guardian" if guardian else "student", relation=who if guardian else None, level=level, active=True,
+    waits = who == "teacher"  # a teacher who signs up waits for an admin; parents and students start at once
+    u = User(name=name, email=email, pw=pw, lang=None if ui_lang(lang) == "en" else lang, role="guardian" if guardian else "student", relation=who if guardian else None, level=level, active=not waits,
+             approval="pending" if waits else None,
              must_change=False, institution=institution or None, id_number=id_number or None, phone=phone, self_registered=True, google_sub=google_sub,
              program_id=None if guardian else program_id, semester=None if guardian else semester)
     s.add(u); s.flush()
@@ -737,6 +745,11 @@ def new_account(s, bg, bad, *, name, email, pw, lang, who, level, institution, i
     try: s.commit()
     except IntegrityError: s.rollback(); raise bad
     names = "".join(f"\n  {k['name']}: {k['username']}" for k in kids)
+    if u.approval == "pending":
+        notify(s, u, "welcome", "Your {app} teacher account is waiting for approval", "Thank you for signing up to {app} as a teacher. Your admin checks every teacher account; we will email you as soon as yours is approved.", run=bg.add_task)
+        for a in s.query(User).filter(User.role == "admin", User.active == True):  # noqa: E712
+            notify(s, a, "approval", "A teacher waits for approval on {app}", "{name} ({email}) signed up as a teacher on {app}. Open Students > Parents and school teachers to approve or decline.", run=bg.add_task, name=u.name, email=email)
+        return u
     notify(s, u, "welcome", "Welcome to {app}", "Your {app} account is ready. Sign in with {email}." if not kids else
            "Your {app} account is ready. Sign in with {email}.\n\nYour children sign in with these usernames and the passwords you chose:{names}" if u.relation == "parent" else
            "Your {app} account is ready. Sign in with {email}.\n\nYour students sign in with these usernames and the passwords you chose:{names}", run=bg.add_task, email=email, names=names)
@@ -760,7 +773,7 @@ def register_google(b: GoogleSignupIn, bg: BackgroundTasks, s: Session = Depends
     kids = clean_children(b, s)
     u = new_account(s, bg, taken, name=name, email=email, pw=hp(b.password), lang=b.lang, who=b.who, level=b.level, institution=inst, id_number=idn, phone=phone,
                     program_id=pid, semester=sem, kids=kids, google_sub=str(t["sub"])[:64])
-    return {"token": make_token(u), "user": me_json(u)}
+    return {"pending": True, "message": PENDING_MSG} if u.approval == "pending" else {"token": make_token(u), "user": me_json(u)}
 @app.post("/api/register/resend")
 def register_resend(b: ForgotIn, request: Request, bg: BackgroundTasks, s: Session = Depends(db)):
     email, now = b.email.strip().lower()[:190], dt.datetime.utcnow(); p = s.query(PendingRegistration).filter_by(email=email).first()
@@ -927,8 +940,10 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0039_classes_model_answers", lambda c: [Base.metadata.create_all(c, tables=[ModelAnswer.__table__, Announcement.__table__]), _addcol("calendar_events", "link", "VARCHAR(300) NULL")(c)]),
               ("0040_weekly_classes_joins", lambda c: [_addcol("announcements", "series", "VARCHAR(16) NULL")(c), Base.metadata.create_all(c, tables=[AnnJoin.__table__])]),
               ("0041_offered_courses", lambda c: [Base.metadata.create_all(c, tables=[Enrolment.__table__])] + [_addcol("subjects", col, typ)(c) for col, typ in (("access", "VARCHAR(8) NULL"), ("applications", "BOOLEAN NULL"),
-                  ("about", "TEXT NULL"), ("starts_on", "DATE NULL"), ("ends_on", "DATE NULL"), ("cancelled_at", "DATETIME NULL"), ("repeat_of", "INTEGER NULL"))]
-                  + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))])]
+                  ("about", "TEXT NULL"), ("starts_on", "DATE NULL"), ("ends_on", "DATE NULL"), ("cancelled_at", "DATETIME NULL"), ("repeat_of", "INTEGER NULL"),
+                  ("start_told", "DATETIME NULL"), ("end_told", "DATETIME NULL"))]
+                  + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))]
+                  + [_addcol("users", "approval", "VARCHAR(10) NULL")(c)])]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -990,7 +1005,7 @@ def login(b: Login, request: Request, s: Session = Depends(db)):
     u = s.query(User).filter_by(email=email).first() if "@" in email else s.query(User).filter_by(username=email).first()  # a child signs in with the name their parent or teacher gave them
     if DUMMY is None: DUMMY = hp("not-a-real-password")
     if not vp(b.password, u.pw if u else DUMMY) or not u: note_fail(s, email, ip); raise HTTPException(401, "Wrong email or password")
-    if not u.active: raise HTTPException(403, "Account disabled. Ask your admin.")
+    if not u.active: raise HTTPException(403, PENDING_MSG if u.approval == "pending" else "Account disabled. Ask your admin.")
     clear_fails(s, email, ip)
     if stale(u.pw) and not u.must_change: u.pw = hp(b.password); s.commit()  # quietly upgrade old hashes
     return {"token": make_token(u), "user": me_json(u)}
@@ -1039,7 +1054,7 @@ def login_google(b: GoogleIn, request: Request, s: Session = Depends(db)):
     u = s.query(User).filter_by(google_sub=sub).first() or s.query(User).filter_by(email=email).first()
     if u:
         if u.google_sub and u.google_sub != sub: raise HTTPException(409, "This account is linked to a different Google account. Use that one, or your password.")
-        if not u.active: raise HTTPException(403, "Account disabled. Ask your admin.")
+        if not u.active: raise HTTPException(403, PENDING_MSG if u.approval == "pending" else "Account disabled. Ask your admin.")
         if not u.google_sub: u.google_sub = sub  # linked: from now on this Google account signs in here, even if its email changes
         s.commit(); return {"token": make_token(u), "user": me_json(u)}
     if not google_signup(s): raise HTTPException(404, "No account uses this Google email. Ask your admin for an account, or sign in with your password.")
@@ -1239,6 +1254,12 @@ def change_password(b: PwChange, request: Request, bg: BackgroundTasks, u: User 
 
 # ---- admin ----
 ROLES = ("student", "faculty", "admin")
+USER_KINDS = ("student", "faculty", "admin", "parent", "teacher")  # what an admin chooses; a parent and a school teacher are guardians with that relation
+KIND_ERR = "Role must be student, faculty, admin, parent or teacher"
+def user_kind(u): return u.relation if u.role == "guardian" and u.relation in ("parent", "teacher") else u.role
+def set_kind(u, kind):  # the account type an admin chose
+    if kind in ("parent", "teacher"): u.role, u.relation, u.level = "guardian", kind, u.level or "school"
+    else: u.role, u.relation = kind, None
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 PWCHARS = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789"
 SEM = re.compile(r"^(?:s|sem|semester|y|yr|year|g|gr|grade|std|class)?\s*(1[0-2]|[1-9])$", re.I)
@@ -1296,6 +1317,7 @@ def check_course_access(u, course_id, s):
         e = enrolment(s, co.id, u.id)
         if e and e.status == "suspended": raise HTTPException(403, "Your place in this course is on hold. Ask your teacher.")
         if not e or e.status not in ENROL_SEES: raise HTTPException(403, "You are not enrolled in this course")
+        if co.starts_on and local_day(dt.datetime.utcnow()) < co.starts_on: raise HTTPException(403, f"This course starts on {co.starts_on.isoformat()}")  # its content opens on the first day
         return
     if co is not None and not can_edit(u, course_id, s) and course_off(s, co): raise HTTPException(403, UNAVAILABLE)  # admins and the course's owner can still open it, to restore it
     if not scoped(u): return
@@ -1356,7 +1378,7 @@ class UserPatch(BaseModel):
     program_id: int | None = None; semester: int | None = None  # send null to clear
 USORT = {"name": (func.lower(User.name),), "role": (User.role, func.lower(User.name)), "program": (func.lower(func.coalesce(Program.name, "~")), User.semester, func.lower(User.name)),
          "semester": (func.coalesce(User.semester, 99), func.lower(User.name)), "newest": (User.id.desc(),)}
-def urow(u, prog): return {"id": u.id, "name": u.name, "email": u.email, "role": u.role, "active": u.active, "program_id": u.program_id, "program": prog, "semester": u.semester,
+def urow(u, prog): return {"id": u.id, "name": u.name, "email": u.email, "role": u.role, "kind": user_kind(u), "relation": u.relation, "approval": u.approval, "active": u.active, "program_id": u.program_id, "program": prog, "semester": u.semester,
                            "self_registered": bool(u.self_registered), "institution": u.institution, "id_number": u.id_number, "phone": u.phone, "own_ai_key": bool(u.ai_key),
                            "plan": ai_plan(u), "pro_until": utc_iso(u.pro_until) if pro_active(u) else None, "relation": u.relation, "username": u.username,
                            "google": bool(u.google_sub)}
@@ -1372,9 +1394,11 @@ def users(q: str = "", program_id: int | None = None, semester: int | None = Non
         qs = qs.filter(or_(*conds))
     if program_id is not None: qs = qs.filter(User.program_id == program_id)
     if semester is not None: qs = qs.filter(User.semester == semester)
-    if role: qs = qs.filter(User.role == role)
+    if role in ("parent", "teacher"): qs = qs.filter(User.role == "guardian", User.relation == role)
+    elif role: qs = qs.filter(User.role == role)
     now = dt.datetime.utcnow(); asking = s.query(MoreRequest.user_id).filter(MoreRequest.done_at.is_(None))
-    if plan == "asked": qs = qs.filter(User.id.in_(asking))  # self-registered people asking for more AI
+    if plan == "awaiting": qs = qs.filter(User.approval == "pending")  # teachers who signed up and wait for an admin
+    elif plan == "asked": qs = qs.filter(User.id.in_(asking))  # self-registered people asking for more AI
     elif plan == "pro": qs = qs.filter(User.pro_until > now)  # only self-registered people and school students the admin added can be made pro
     elif plan == "pro_ending": qs = qs.filter(User.pro_until > now, User.pro_until <= now + dt.timedelta(days=PRO_ENDING_DAYS))
     elif plan in ("own", "college", "family", "off"):  # the dashboard's plan graph opens these: ai_plan decides, as everywhere else
@@ -1430,13 +1454,25 @@ def add_user(b: NewUser, bg: BackgroundTasks, _: User = Depends(admin), s: Sessi
     e, name = b.email.strip().lower(), b.name.strip()
     if not name: raise HTTPException(400, "Enter a name")
     if not EMAIL.match(e): raise HTTPException(400, "Enter a valid email")
-    if b.role not in ROLES: raise HTTPException(400, "Role must be student, faculty or admin")
+    if b.role not in USER_KINDS: raise HTTPException(400, KIND_ERR)
     if len(b.password) < 8: raise HTTPException(400, "Use at least 8 characters")
     if s.query(User).filter_by(email=e).first(): raise HTTPException(400, "That email is already registered")
-    n = User(name=name, email=e, pw=hp(b.password), role=b.role, active=b.active, program_id=check_program(b.program_id, s), semester=fit_sem(s, b.program_id, to_sem(b.semester)), must_change=b.role != "admin")
+    student = b.role == "student"
+    n = User(name=name, email=e, pw=hp(b.password), active=b.active, program_id=check_program(b.program_id, s) if student else None,
+             semester=fit_sem(s, b.program_id, to_sem(b.semester)) if student else None, must_change=b.role != "admin"); set_kind(n, b.role)
     s.add(n); s.commit()
     notify_new_account(s, n, bg.add_task)
     return {"ok": True}
+class ApproveIn(BaseModel): approve: bool
+@app.post("/api/admin/users/{uid}/approval")
+def approve_teacher(uid: int, b: ApproveIn, bg: BackgroundTasks, _: User = Depends(admin), s: Session = Depends(db)):
+    """A teacher who signed up: approved, they can sign in and offer courses; declined, the account stays switched off. They are told either way."""
+    u = s.get(User, uid)
+    if not u or u.approval != "pending": raise HTTPException(404, "No teacher waiting for approval")
+    u.approval, u.active = (None, True) if b.approve else ("declined", False); s.commit()
+    if b.approve: notify(s, u, "approval", "Your {app} teacher account is approved", "Your admin approved your teacher account on {app}. Sign in with {email}.", run=bg.add_task, email=u.email)
+    else: notify(s, u, "approval", "About your {app} teacher account", "Your admin could not approve your teacher account on {app}. Ask your admin if you think this is a mistake.", run=bg.add_task)
+    return urow(u, None)
 @app.delete("/api/admin/users/{uid}")
 def delete_user(uid: int, a: User = Depends(admin), s: Session = Depends(db)):
     """Removes an account for good with the person's own records (progress, test attempts, bookmarks, their study courses and so on).
@@ -1468,9 +1504,9 @@ def patch_user(uid: int, b: UserPatch, bg: BackgroundTasks, a: User = Depends(ad
         if not EMAIL.match(e): raise HTTPException(400, "Enter a valid email")
         if e != u.email and s.query(User).filter_by(email=e).first(): raise HTTPException(400, "That email is already registered")
         u.email = e
-    if b.role and b.role != u.role:  # a parent or teacher who signed up keeps "guardian" when an admin edits other details
-        if b.role not in ROLES: raise HTTPException(400, "Role must be student, faculty or admin")
-        u.role = b.role
+    if b.role and b.role not in (u.role, user_kind(u)):  # a parent or teacher keeps "guardian" when an admin edits other details
+        if b.role not in USER_KINDS: raise HTTPException(400, KIND_ERR)
+        set_kind(u, b.role)
     if b.active is not None: u.active = b.active
     sent = b.dict(exclude_unset=True)
     if "program_id" in sent: u.program_id = check_program(b.program_id, s)
@@ -1546,7 +1582,8 @@ def import_users(b: UserImportIn, bg: BackgroundTasks, a: User = Depends(admin),
         def bad(msg): errors.append({"row": n, "error": msg})
         if not EMAIL.match(e): bad("Invalid email"); continue
         if e in seen: bad("Duplicate email in this file"); continue
-        if role and role not in ROLES: bad("Role must be student, faculty or admin"); continue
+        if role == "school teacher": role = "teacher"
+        if role and role not in USER_KINDS: bad(KIND_ERR); continue
         if pw and len(pw) < 8: bad("Password needs 8+ characters"); continue
         name = v.get("name") or e.split("@")[0]
         if len(name) > 100 or len(e) > 190: bad("Name or email is too long"); continue
@@ -1561,7 +1598,7 @@ def import_users(b: UserImportIn, bg: BackgroundTasks, a: User = Depends(admin),
         if u:
             if u.id == a.id and role and role != u.role: bad("You can't change your own role"); continue
             if v.get("name"): u.name = name
-            if role: u.role = role
+            if role and role not in (u.role, user_kind(u)): set_kind(u, role)
             if prog: u.program_id = prog.id  # blank program/semester cells leave the current value alone
             if sem: u.semester = sem
             if pw and not b.dry_run: u.pw = hp(pw, TEMP_ITER); u.must_change = u.id != a.id
@@ -1570,7 +1607,7 @@ def import_users(b: UserImportIn, bg: BackgroundTasks, a: User = Depends(admin),
             created += 1; generated += not pw
             if not b.dry_run:
                 final = pw or gen_pw()
-                n = User(name=name, email=e, pw=hp(final, TEMP_ITER), role=role or "student", program_id=prog.id if prog else None, semester=sem, must_change=(role or "student") != "admin")
+                n = User(name=name, email=e, pw=hp(final, TEMP_ITER), program_id=prog.id if prog else None, semester=sem, must_change=(role or "student") != "admin"); set_kind(n, role or "student")
                 s.add(n); made.append(n)
                 if not pw: creds.append({"name": name, "email": e, "password": final})
     s.rollback() if b.dry_run else s.commit()
@@ -2121,6 +2158,7 @@ def admin_dashboard(u: User = Depends(admin), s: Session = Depends(db)):
         if n: out.append(item(cat, level, key, text, {"n": n, **(extra or {})}, action, **target))
     stu = s.query(User).filter_by(role="student", active=True)
     # people and plans
+    add(s.query(func.count(User.id)).filter(User.approval == "pending").scalar(), "people", "now", "teachers_waiting", "Teachers waiting for your approval: {n}", "approve")
     add(s.query(func.count(func.distinct(MoreRequest.user_id))).filter(MoreRequest.done_at.is_(None)).scalar(), "people", "now", "more_ai",
         "Asking for more AI: {n}", "users", plan="asked")
     add(s.query(func.count(User.id)).filter(User.active == True, User.pro_until > now, User.pro_until <= now + dt.timedelta(days=PRO_ENDING_DAYS)).scalar(), "people", "soon", "pro_ending",  # noqa: E712
@@ -2209,6 +2247,11 @@ class TopicIn(BaseModel):
     learning_due_at: dt.datetime | None = None  # ISO 8601 with a time zone; null removes the deadline; leave out to keep it
     diagram: bool = False; diagram_note: str = ""  # the teacher asks for an AI diagram (shown to students on Pro), and what it should show
 M = {"programs": Program, "semesters": Semester, "courses": Course, "units": Unit, "topics": Topic}
+def offered_cj(d, c, u):  # an offered course in someone's list: before its first day a student sees its name and start date, nothing inside
+    today = local_day(dt.datetime.utcnow()); soon = bool(c.starts_on and today < c.starts_on)
+    out = {**d, "offered": True, "starts_on": c.starts_on.isoformat() if c.starts_on else None, "ends_on": c.ends_on.isoformat() if c.ends_on else None, "upcoming": soon}
+    if soon and not d.get("editable"): out.update(units=[], tests=[])
+    return out
 @app.get("/api/tree")
 def tree(u: User = Depends(me), s: Session = Depends(db)):
     mine_p = {p.topic_id: p for p in s.query(Progress).filter_by(user_id=u.id)}; read = set(mine_p); now = dt.datetime.utcnow()
@@ -2254,7 +2297,7 @@ def tree(u: User = Depends(me), s: Session = Depends(db)):
     node = SimpleNamespace(id=None)  # offered courses sit in no program: one group of their own
     extra = [{"id": -1, "name": "Offered courses", "pattern": "semester", "term": "", "offered": True, "archived": False, "archived_self": False,
               "semesters": [{"id": -1, "name": "Courses", "number": None, "archived": False, "archived_self": False, "current": False,
-                             "courses": [{**cj(c, node), "offered": True} for c in sorted(offer, key=lambda c: c.name.lower())]}]}] if offer else []
+                             "courses": [offered_cj(cj(c, node), c, u) for c in sorted(offer, key=lambda c: c.name.lower())]}]}] if offer else []
     return extra + [{"id": p.id, "name": p.name, "pattern": p.pattern or "semester", "term": term_label(p), "archived": p.id in pa, "archived_self": p.id in pa, "semesters": [{"id": sm.id, "name": sm.name, "number": sm.semester_no, "archived": semoff.get(sm.id, False), "archived_self": bool(sm.archived_at), "current": scoped(u) and u.semester is not None and sm.semester_no == u.semester,
         "courses": [cj(c, sm) for c in co[sm.id] + links[sm.id]]} for sm in se[p.id] if sem_visible(u, sm)]} for p in progs]
 class ArchiveIn(BaseModel): archived: bool
@@ -4445,6 +4488,7 @@ def announce(b: AnnounceIn, bg: BackgroundTasks, u: User = Depends(author), s: S
         start = dt.datetime.combine(d, dt.time.fromisoformat(at)) - dt.timedelta(minutes=DAY_OFFSET)
         if start + dt.timedelta(minutes=b.minutes) < dt.datetime.utcnow(): raise HTTPException(400, "Choose a time that has not passed")
         if not 1 <= b.weeks <= ANN_WEEKS: raise HTTPException(400, "A weekly class runs for 2 to 26 weeks")
+        class_in_course(c, d, d + dt.timedelta(weeks=b.weeks - 1))
         series = secrets.token_hex(8) if b.weeks > 1 else None
         for w in range(b.weeks):  # each session is its own class and calendar event, so it shows in every calendar and can be cancelled on its own
             dw = d + dt.timedelta(weeks=w)
@@ -4619,6 +4663,7 @@ def invite(cid: int, b: InviteIn, bg: BackgroundTasks, u: User = Depends(author)
     """Invites students by email or username (one per line); each has 48 hours to accept. Says who could not be invited and why."""
     c = need_offer(cid, u, s)
     if c.cancelled_at or c.archived_at: raise HTTPException(400, "This course is not running")
+    if course_ended(c): raise HTTPException(400, "This course has ended. Change its end date, or repeat it, to invite students.")
     keys = [x.strip().lower() for x in b.who if x.strip()][:OFFER_INVITES]; sent, skipped, missing = 0, [], []
     for k in dict.fromkeys(keys):
         st = s.query(User).filter(or_(func.lower(User.email) == k, func.lower(User.username) == k)).first()
@@ -4657,6 +4702,7 @@ def enrol_action(eid: int, b: EnrolDo, bg: BackgroundTasks, u: User = Depends(me
     if e.status == "expired": raise HTTPException(400, "This lapsed after 48 hours. Ask again." if not teach else "This lapsed after 48 hours. Invite the student again.")
     if e.status not in allowed: raise HTTPException(400, "That no longer applies: " + ENROL_LABEL.get(e.status, e.status).lower())
     if not teach and b.action == "accept" and (c.cancelled_at or c.archived_at): raise HTTPException(400, "This course is not running")
+    if b.action in ("accept", "approve", "retain") and course_ended(c): raise HTTPException(400, "This course has ended")
     e.status, e.decided_at, e.by_id = to, dt.datetime.utcnow(), u.id if teach else e.by_id; s.commit()
     st = s.get(User, e.user_id)
     if teach and b.action in ENROL_TELL:
@@ -4695,11 +4741,44 @@ def join_offer(cid: int, bg: BackgroundTasks, u: User = Depends(me), s: Session 
         if t: notify(s, t, "enrol", "{name} asks to join {course}", "{name} asks to join your course {course} on {app}. Decide within 48 hours: open the course's students to accept or decline.", run=bg.add_task, name=u.name, course=c.name)
     else: raise HTTPException(403, "This course is by invitation only")
     s.commit(); return offer_json(c, s, u)
+def course_dates(now=None):
+    """An offered course's dates at work, run every half hour: the day before it starts its students (and those invited) and its teacher are
+    reminded; three days before it ends its students are reminded; once it has ended its enrolled students are marked completed (they can still
+    look back) and told, and invitations and requests no one answered lapse. Each reminder goes once."""
+    now = now or dt.datetime.utcnow(); today = local_day(now); done = 0
+    with Session_() as s:
+        live = s.query(Course).filter(Course.access.in_(("enroll", "open")), Course.cancelled_at.is_(None), Course.archived_at.is_(None))
+        for c in live.filter(Course.starts_on == today + dt.timedelta(days=1), Course.start_told.is_(None)).all():
+            c.start_told = now; s.commit(); done += 1
+            for st in offer_students(s, c, ("active", "invited")):
+                notify(s, st, "course", "{course} starts tomorrow", "The course {course} starts tomorrow on {app}." + (" Its first class is in your calendar." if s.query(Announcement.id).filter(Announcement.course_id == c.id, Announcement.kind == "class", Announcement.cancelled_at.is_(None)).first() else ""), course=c.name)
+            t = s.get(User, c.faculty_owner_id) if c.faculty_owner_id else None
+            if t: notify(s, t, "course", "{course} starts tomorrow", "Your course {course} starts tomorrow on {app}: {n} students enrolled.", course=c.name, n=len(offer_students(s, c)))
+        for c in live.filter(Course.ends_on == today + dt.timedelta(days=3), Course.end_told.is_(None)).all():
+            c.end_told = now; s.commit(); done += 1
+            for st in offer_students(s, c): notify(s, st, "course", "{course} ends in 3 days", "The course {course} on {app} ends on {date}. Finish what is left before then; you can still look back at it afterwards.", course=c.name, date=c.ends_on.isoformat())
+        for c in live.filter(Course.ends_on < today).all():
+            ending = offer_students(s, c)
+            if not ending and not s.query(Enrolment.id).filter(Enrolment.course_id == c.id, Enrolment.status.in_(("invited", "applied"))).first(): continue
+            s.query(Enrolment).filter(Enrolment.course_id == c.id, Enrolment.status == "active").update({"status": "completed", "decided_at": now}, synchronize_session=False)
+            s.query(Enrolment).filter(Enrolment.course_id == c.id, Enrolment.status.in_(("invited", "applied"))).update({"status": "expired"}, synchronize_session=False)
+            s.commit(); done += 1
+            for st in ending: notify(s, st, "course", "Course completed: {course}", "The course {course} on {app} has ended and is marked completed for you. Well done. You can still look back at it.", course=c.name)
+    return done
+def course_ended(c, today=None): return bool(c.ends_on and (today or local_day(dt.datetime.utcnow())) > c.ends_on)
+def class_in_course(c, d0, d1=None):  # a class of an offered course falls within its dates
+    if not offered(c): return
+    if c.starts_on and d0 < c.starts_on: raise HTTPException(400, f"The course starts on {c.starts_on.isoformat()}: choose a day from then")
+    if c.ends_on and (d1 or d0) > c.ends_on: raise HTTPException(400, f"The course ends on {c.ends_on.isoformat()}: choose a day before then")
 def enrol_notes(u, s):  # the bell: a student's invitations waiting; a teacher's requests waiting
     expire_enrolments(s); out = []
     if u.role == "student":
         for e, c in s.query(Enrolment, Course).join(Course, Course.id == Enrolment.course_id).filter(Enrolment.user_id == u.id, Enrolment.status == "invited", Course.cancelled_at.is_(None)):
             out.append({"key": f"inv-course:{e.id}:{int(e.at.timestamp())}", "text": f"You're invited to {c.name}", "sub": "Accept within 48 hours"})
+        today = local_day(dt.datetime.utcnow())
+        for c in s.query(Course).join(Enrolment, Enrolment.course_id == Course.id).filter(Enrolment.user_id == u.id, Enrolment.status == "active", Course.cancelled_at.is_(None)):
+            if c.starts_on and 0 <= (c.starts_on - today).days <= 1: out.append({"key": f"cstart:{c.id}", "text": f"{c.name} starts {'today' if c.starts_on == today else 'tomorrow'}", "sub": ""})
+            elif c.ends_on and 0 <= (c.ends_on - today).days <= 3: out.append({"key": f"cend:{c.id}", "text": f"{c.name} ends on {c.ends_on.isoformat()}", "sub": ""})
     elif is_author(u):
         n = s.query(func.count(Enrolment.id)).join(Course, Course.id == Enrolment.course_id).filter(Enrolment.status == "applied", *( [] if u.role == "admin" else [Course.faculty_owner_id == u.id])).scalar()
         if n: out.append({"key": f"applied:{n}", "text": f"Requests to join your courses: {n}", "sub": "Decide within 48 hours"})
@@ -4760,6 +4839,7 @@ def move_class(aid: int, b: ClassMoveIn, bg: BackgroundTasks, u: User = Depends(
     if not re.fullmatch(r"https://[^\s<>\"']{4,290}", link): raise HTTPException(400, "Paste the class's video link, starting with https:// (for example a Google Meet link)")
     start = dt.datetime.combine(d, dt.time.fromisoformat(at)) - dt.timedelta(minutes=DAY_OFFSET)
     if start + dt.timedelta(minutes=b.minutes) < dt.datetime.utcnow(): raise HTTPException(400, "Choose a time that has not passed")
+    class_in_course(c, d)
     title = " ".join((b.title or a.title).split())[:200]
     a.title, a.starts_at, a.minutes, a.link = title, start, b.minutes, link
     e = s.get(CalendarEvent, a.event_id) if a.event_id else None
@@ -6327,6 +6407,8 @@ def digest_loop():
         except Exception as e: log.warning("Daily summaries failed: %s", type(e).__name__)
         try: pro_endings()
         except Exception as e: log.warning("Pro endings failed: %s", type(e).__name__)
+        try: course_dates()
+        except Exception as e: log.warning("Course dates failed: %s", type(e).__name__)
         time.sleep(1800)
 def read_head():  # the commit this server's code is at (None when it is not a git checkout)
     try: return subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=os.path.dirname(os.path.abspath(__file__)), capture_output=True, text=True, timeout=5).stdout.strip() or None

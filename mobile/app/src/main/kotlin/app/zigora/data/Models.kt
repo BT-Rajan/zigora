@@ -18,7 +18,8 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class TopicRef(val id: Int, val title: String, val status: String = "not_started", val bookmarked: Boolean = false, val archived: Boolean = false,
                                   val learning_due_at: String? = null, val overdue: Boolean = false, val has_notes: Boolean = false)
 @Serializable data class UnitNode(val id: Int, val name: String, val archived: Boolean = false, val topics: List<TopicRef> = emptyList(), val quizzes: List<QuizRef> = emptyList())
-@Serializable data class CourseNode(val id: Int, val name: String, val archived: Boolean = false, val units: List<UnitNode> = emptyList(), val tests: List<QuizRef> = emptyList())
+@Serializable data class CourseNode(val id: Int, val name: String, val archived: Boolean = false, val units: List<UnitNode> = emptyList(), val tests: List<QuizRef> = emptyList(),
+                                    val upcoming: Boolean = false, val starts_on: String? = null)  // upcoming: an offered course before its first day (locked until then)
 @Serializable data class SemesterNode(val id: Int, val name: String, val current: Boolean = false, val courses: List<CourseNode> = emptyList())
 @Serializable data class ProgramNode(val id: Int, val name: String, val semesters: List<SemesterNode> = emptyList())
 

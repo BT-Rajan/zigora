@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import app.zigora.R
 import app.zigora.data.Config
 import app.zigora.data.LoginOut
+import app.zigora.data.I18n
 import app.zigora.data.Me
 import app.zigora.data.Msg
 import app.zigora.data.ProgOpts
@@ -82,6 +83,7 @@ fun SignIn(done: (Me) -> Unit) {
     var domains by remember { mutableStateOf(emptyList<String>()) }
     var level by rememberSaveable { mutableStateOf("") }  // school or college
     var who by rememberSaveable { mutableStateOf("") }  // student, parent or teacher
+    var waiting by rememberSaveable { mutableStateOf("") }
     var prog by rememberSaveable { mutableStateOf<Int?>(null) }
     var sem by rememberSaveable { mutableStateOf<Int?>(null) }
     val kids = remember { mutableStateListOf(NewStudent()) }
@@ -110,6 +112,10 @@ fun SignIn(done: (Me) -> Unit) {
     fun go() = act {
         val r = app.api.send("POST", "/login", buildJsonObject { put("email", email.trim()); put("password", pw) }, LoginOut.serializer())
         app.store.token = r.token; done(r.user)
+    }
+    fun signedUp(r: kotlinx.serialization.json.JsonObject) {  // a teacher who signed up waits for an admin's approval: no sign-in yet
+        if (r["pending"] != null) { waiting = r["message"]?.jsonPrimitive?.content.orEmpty(); mode = "waiting"; return }
+        val out = json.decodeFromJsonElement(LoginOut.serializer(), r); app.store.token = out.token; done(out.user)
     }
     fun google() = act {  // Google's own sheet picks the account; the server checks the ID token it hands back
         val id = googleId ?: return@act
@@ -230,8 +236,8 @@ fun SignIn(done: (Me) -> Unit) {
                                 put("ticket", ticket); put("name", reg[0]); put("institution", if (who == "parent") "" else reg[1]); put("id_number", if (who == "student") reg[2] else ""); put("phone", reg[3])
                                 put("level", level); put("who", who); put("program_id", if (who == "student") prog else null); put("semester", if (who == "student") sem else null)
                                 put("children", studentsJson(if (who == "parent") kids else emptyList())); put("lang", app.resources.configuration.locales[0].language)
-                            }, LoginOut.serializer())
-                            app.store.token = r.token; done(r.user)
+                            }, kotlinx.serialization.json.JsonObject.serializer())
+                            signedUp(r)
                         } }) { Text(tl("Create my account")) }
                         else Button(enabled = !busy && ok, modifier = Modifier.fillMaxWidth(), onClick = { act {
                             info = app.api.send("POST", "/register/start", buildJsonObject {
@@ -244,6 +250,12 @@ fun SignIn(done: (Me) -> Unit) {
                         } }) { Text(stringResource(R.string.send_me_code)) }
                         TextButton(onClick = { mode = "who"; msg = "" }, modifier = Modifier.fillMaxWidth()) { Text(tl("Back")) }
                     }
+                    "waiting" -> {
+                        Text(tl("Thank you for signing up"), style = MaterialTheme.typography.titleLarge)
+                        Text(I18n.srv(waiting))
+                        Quiet(tl("Your admin checks every teacher account. You can sign in once it is approved."))
+                        TextButton(onClick = { mode = "in"; msg = "" }, modifier = Modifier.fillMaxWidth()) { Text(tl("Back to sign in")) }
+                    }
                     "code" -> {
                         Text(stringResource(R.string.enter_code), style = MaterialTheme.typography.titleLarge)
                         Text(info)
@@ -252,8 +264,7 @@ fun SignIn(done: (Me) -> Unit) {
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
                         error()
                         Button(enabled = !busy && code.length == 6, modifier = Modifier.fillMaxWidth(), onClick = { act {
-                            val r = app.api.send("POST", "/register/verify", buildJsonObject { put("email", email.trim()); put("code", code); put("lang", app.resources.configuration.locales[0].language) }, LoginOut.serializer())
-                            app.store.token = r.token; done(r.user)
+                            signedUp(app.api.send("POST", "/register/verify", buildJsonObject { put("email", email.trim()); put("code", code); put("lang", app.resources.configuration.locales[0].language) }, kotlinx.serialization.json.JsonObject.serializer()))
                         } }) { Text(stringResource(R.string.verify_create)) }
                         TextButton(enabled = wait == 0, modifier = Modifier.fillMaxWidth(), onClick = { act {
                             app.api.raw("POST", "/register/resend", buildJsonObject { put("email", email.trim()); put("lang", app.resources.configuration.locales[0].language) }); wait = 30; code = ""; info = app.getString(R.string.new_code_coming)

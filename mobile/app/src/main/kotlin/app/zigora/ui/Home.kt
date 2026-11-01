@@ -162,6 +162,10 @@ fun CourseList(courses: List<CourseNode>, open: (Int) -> Unit) {
         val topics = c.units.flatMap { it.topics }
         val done = topics.count { it.status == "completed" }; val opened = topics.count { it.status != "not_started" }
         val i = courses.indexOf(c)
+        val soon = c.upcoming && c.starts_on != null
+        val startsMsg = c.starts_on?.let { tl("This course starts on {date}", "date" to day(it)) }.orEmpty()
+        if (soon) { ListRow(c.name, tl("Starts on {date}", "date" to day(c.starts_on!!)), onClick = { android.widget.Toast.makeText(ctx, startsMsg, android.widget.Toast.LENGTH_SHORT).show() },
+                            leading = { RowIcon(Icons.Outlined.Lock) }, trailing = {}); return@Paged }
         ListRow(c.name,
             if (c.archived) stringResource(R.string.course_unavailable)
             else listOfNotNull(pluralStringResource(R.plurals.topics, topics.size, topics.size),

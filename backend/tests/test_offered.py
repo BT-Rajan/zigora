@@ -98,3 +98,32 @@ def test_messages_offered_help_and_moving_a_class(env, monkeypatch):
     m = env.c.put(f"/api/announcements/{a['id']}", headers=env.fac, json={"day": d2, "at": "15:30", "minutes": 45}); assert m.status_code == 200, m.text
     cal = env.c.get("/api/calendar", headers=env.stu, params={"start": d, "end": d2}).json()["items"]
     assert [(x["date"], x["at"]) for x in cal if x["kind"] == "class"] == [(d2, "15:30")]
+
+def test_dates_open_the_course_close_it_and_bound_its_classes(env, monkeypatch):
+    setup(env); today = main.local_day(dt.datetime.utcnow()); tomorrow = today + dt.timedelta(days=1)  # the college's own day
+    c = offer(env, access="open", starts_on=tomorrow.isoformat(), ends_on=(tomorrow + dt.timedelta(days=10)).isoformat())
+    unit = env.c.post("/api/units", headers=env.fac, json={"name": "U", "course_id": c["id"]}).json(); t = env.c.post("/api/topics", headers=env.fac, json={"title": "T", "unit_id": unit["id"], "content": "c"}).json()
+    assert env.c.post(f"/api/offered/{c['id']}/join", headers=env.stu).json()["mine"] == "active"  # joining before the start is fine
+    r = env.c.get(f"/api/topics/{t['id']}", headers=env.stu); assert r.status_code == 403 and "starts on" in r.json()["detail"]
+    mine = [x for p in env.c.get("/api/tree", headers=env.stu).json() for sm in p["semesters"] for x in sm["courses"] if x["id"] == c["id"]][0]
+    assert mine["upcoming"] is True and mine["units"] == [] and mine["starts_on"] == tomorrow.isoformat()
+    assert env.c.get(f"/api/topics/{t['id']}", headers=env.fac).status_code == 200  # the teacher prepares it before then
+    link = "https://meet.google.com/a-b-c"
+    r = env.c.post("/api/announcements", headers=env.fac, json={"course_id": c["id"], "kind": "class", "title": "Too late", "day": (tomorrow + dt.timedelta(days=20)).isoformat(), "at": "10:00", "link": link})
+    assert r.status_code == 400 and "ends on" in r.json()["detail"]
+    r = env.c.post("/api/announcements", headers=env.fac, json={"course_id": c["id"], "kind": "class", "title": "Weekly", "day": tomorrow.isoformat(), "at": "10:00", "link": link, "weeks": 3})
+    assert r.status_code == 400  # the third week falls after the end
+    assert env.c.post("/api/announcements", headers=env.fac, json={"course_id": c["id"], "kind": "class", "title": "First", "day": tomorrow.isoformat(), "at": "10:00", "link": link}).status_code == 200
+    sent = []; monkeypatch.setattr(main, "mail_on", lambda s=None: True); monkeypatch.setattr(main, "account_mail", lambda to, name, kind, subj, body, link, lang="en": sent.append((to, subj)))
+    main.course_dates(); main.course_dates()  # twice: each reminder goes once
+    assert sorted(sent) == [("fac@x.com", "Python for engineers starts tomorrow"), ("stu@x.com", "Python for engineers starts tomorrow")]
+    assert any(n["key"] == f"cstart:{c['id']}" for n in env.c.get("/api/me/notifications", headers=env.stu).json()["items"])
+    # it ran and ended: the enrolled are completed, pending ones lapse, nothing new can start
+    with Session_() as s: x = s.get(Course, c["id"]); x.starts_on, x.ends_on = today - dt.timedelta(days=10), today - dt.timedelta(days=1); s.commit()
+    env.c.post(f"/api/offered/{c['id']}/invite", headers=env.fac, json={"who": ["ann@x.com"]})  # refused: it has ended
+    sent.clear(); main.course_dates()
+    with Session_() as s: assert {e.status for e in s.query(Enrolment).filter_by(course_id=c["id"])} == {"completed"}
+    assert ("stu@x.com", "Course completed: Python for engineers") in sent
+    assert env.c.get(f"/api/topics/{t['id']}", headers=env.stu).status_code == 200  # completed students can look back
+    r = env.c.post(f"/api/offered/{c['id']}/invite", headers=env.fac, json={"who": ["ann@x.com"]}); assert r.status_code == 400 and "ended" in r.json()["detail"]
+    assert env.c.post(f"/api/offered/{c['id']}/join", headers=env.ann).status_code == 400
