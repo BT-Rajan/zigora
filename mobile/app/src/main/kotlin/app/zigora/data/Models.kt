@@ -29,7 +29,7 @@ import kotlinx.serialization.json.JsonObject
 
 @Serializable data class Nav(val prev: NavTopic? = null, val next: NavTopic? = null, val position: Int? = null, val total: Int = 0)
 @Serializable data class NavTopic(val id: Int, val title: String)
-@Serializable data class TopicFull(val id: Int, val ask: String? = null, val title: String, val course: String = "", val course_id: Int = 0, val unit: String = "", val semester: String = "", val program: String = "",
+@Serializable data class TopicFull(val id: Int, val ask: String? = null, val model_answer: ModelAnswer? = null, val title: String, val course: String = "", val course_id: Int = 0, val unit: String = "", val semester: String = "", val program: String = "",
                                    val content: String? = null, val content_format: String = "markdown", val question_pattern: String? = null, val guideline: String? = null,
                                    val my_notes: String? = null, val frame_url: String? = null, val status: String = "not_started", val learning_due_at: String? = null,
                                    val bookmarked: Boolean = false, val nav: Nav? = null,
@@ -39,11 +39,25 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Learning(val status: String = "not_started")
 /** ask the teacher: a student's question about a topic, and its thread with the course's teacher */
 @Serializable data class QuestionRow(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val updated: String? = null,
-                                     val last: String = "", val unread: Boolean = false)
+                                     val last: String = "", val unread: Boolean = false, val student: String? = null)
+@Serializable data class QuestionPage(val total: Int = 0, val items: List<QuestionRow> = emptyList())
 @Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
 @Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String? = null, val text: String = "", val image: String? = null, val at: String? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
-                                        val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false)
+                                        val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false, val teacher: Boolean = false, val can_share: Boolean = false,
+                                        val student: String? = null)
+/** a teacher's marked model answer for a topic */
+@Serializable data class MAPart(val text: String = "", val marks: Double = 0.0)
+@Serializable data class ModelAnswer(val question: String = "", val parts: List<MAPart> = emptyList(), val total: Double = 0.0, val by: String = "")
+/** announcements and classes */
+@Serializable data class Ann(val id: Int, val kind: String = "note", val course_id: Int = 0, val course: String = "", val title: String = "", val body: String = "", val by: String = "",
+                             val at: String? = null, val starts_at: String? = null, val minutes: Int? = null, val link: String? = null, val status: String? = null, val can_edit: Boolean = false)
+@Serializable data class CourseRef(val id: Int, val name: String)
+@Serializable data class AnnList(val items: List<Ann> = emptyList(), val upcoming: List<Ann> = emptyList(), val can_post: Boolean = false, val courses: List<CourseRef> = emptyList())
+/** where students struggle */
+@Serializable data class Struggle(val topic_id: Int, val topic: String = "", val course: String = "", val students: Int = 0, val questions: Int = 0, val doubts: Int = 0, val not_quite: Int = 0,
+                                  val simpler: Int = 0, val flags: Int = 0, val asked: List<String> = emptyList())
+@Serializable data class Struggles(val days: Int = 30, val items: List<Struggle> = emptyList(), val courses: List<CourseRef> = emptyList())
 @Serializable data class ClassQuestion(val id: Int, val excerpt: String? = null, val mine: Boolean = false, val messages: List<QuestionMsg> = emptyList())
 @Serializable data class ClassQuestions(val items: List<ClassQuestion> = emptyList())
 /** buying Pro online: the offers the admin set, and the Razorpay page to pay on */
@@ -214,7 +228,9 @@ import kotlinx.serialization.json.JsonObject
 // the calendar (GET /calendar): events people added, and what Zigora knows (deadlines, sessions, days studied, results)
 @Serializable data class CalEvent(val id: Int, val notes: String = "", val scope: String = "user", val user_id: Int? = null, val course_id: Int? = null, val can_edit: Boolean = false)
 @Serializable data class CalItem(val id: String, val kind: String, val date: String, val end: String? = null, val at: String? = null, val title: String = "", val sub: String = "",
-                                 val state: String? = null, val event: CalEvent? = null)
+                                 val state: String? = null, val event: CalEvent? = null, val link: JsonObject? = null) {
+    val join: String? get() = (link?.get("join") as? kotlinx.serialization.json.JsonPrimitive)?.content  // a class's video link
+}
 @Serializable data class CalWho(val id: Int, val name: String)
 @Serializable data class CalResp(val items: List<CalItem> = emptyList(), val today: String = "", val student: CalWho? = null, val students: List<CalWho> = emptyList())
 @Serializable data class CalLink(val on: Boolean = false, val path: String? = null)

@@ -268,8 +268,6 @@
     <string name="signin_lead">அமைதியான, ஆர்வமூட்டும் கற்றல்</string>
     <string name="signing_in">உள்நுழைகிறது…</string>
     <string name="six_digit_code">6 இலக்கக் குறியீடு</string>
-    <string name="staff_body">வணக்கம் %1$s. ஆசிரியர்களும் நிர்வாகிகளும் %2$s ஐ இணையத்தில் பயன்படுத்துகிறார்கள்; அங்கே பாடநெறிகள், வினாடி வினாக்கள், அறிக்கைகள், அமைப்புகள் உள்ளன. உங்கள் உலாவியில் %3$s இல் திறக்கவும்</string>
-    <string name="staff_title">இந்தச் செயலி மாணவர்களுக்கானது</string>
     <string name="started">தொடங்கியது</string>
     <string name="step_check">விரைவுச் சோதனை</string>
     <string name="step_exam">தேர்வுக் கோணம்</string>

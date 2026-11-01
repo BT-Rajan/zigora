@@ -87,7 +87,7 @@ fun ZigoraRoot(incoming: Incoming?, handled: () -> Unit) {
         when {
             user == null -> SignIn { m -> app.store.userJson = json.encodeToString(Me.serializer(), m); me = m }
             user.role == "guardian" -> GuardianHome(user) { app.store.signOut(); me = null }  // a parent or teacher who signed up: their children or students
-            user.role != "student" -> StaffNote(user) { app.store.signOut(); me = null }  // college staff and admins stay on the web
+            user.role != "student" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); me = null }  // teachers: questions, classes, struggles
             user.must_change -> ChangePassword(forced = true) { me = user.copy(must_change = false).also { app.store.userJson = json.encodeToString(Me.serializer(), it) } }
             else -> Main(user, incoming, handled, wallpaper = { wallpaper = it; app.store.wallpaper = it }, theme = { theme = it; app.store.theme = it }) {
                 app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); me = null }
@@ -114,6 +114,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             is Incoming.Lookup -> nav.navigate(SearchR(incoming.text))
             is Incoming.Photo -> nav.navigate(PhotoR(incoming.uri?.toString().orEmpty()))
             is Incoming.Question -> nav.navigate(QuestionR(incoming.id))
+            is Incoming.Classes -> nav.navigate(ClassesR)
             null -> return@LaunchedEffect
         }
         handled()
@@ -150,7 +151,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
         NavHost(nav, startDestination = HomeR, modifier = Modifier.weight(1f)) {
             composable<HomeR> { HomeScreen(me, openTopic = open, openCourse = { nav.navigate(CourseR(it)) }, openQuiz = { nav.navigate(QuizR(it)) },
                                            openNotes = { nav.navigate(NotesR) }, openPhoto = { nav.navigate(PhotoR()) }, openSearch = search,
-                                           openRoutine = { nav.navigate(RoutineR) }, openSession = session, openStudy = { nav.navigate(StudyR) }, openMcq = { nav.navigate(McqR()) }, openCalendar = { nav.navigate(CalendarR) }, openProgress = { nav.navigate(ProgressR) }, openPlan = { nav.navigate(MeR) },
+                                           openRoutine = { nav.navigate(RoutineR) }, openSession = session, openStudy = { nav.navigate(StudyR) }, openMcq = { nav.navigate(McqR()) }, openCalendar = { nav.navigate(CalendarR) }, openProgress = { nav.navigate(ProgressR) }, openPlan = { nav.navigate(MeR) }, openClasses = { nav.navigate(ClassesR) },
                                            openOwn = ownTopic, review = review) }
             composable<CoursesR> { CoursesScreen(me, search, openStudy = { nav.navigate(StudyR) }) { nav.navigate(CourseR(it)) } }
             composable<StudyR> { StudyHomeScreen(back = { nav.popBackStack() }, open = { id, wizard -> nav.navigate(if (wizard) StudyWizardR(id) else StudyCourseR(id)) },
@@ -164,6 +165,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
                 StudyTopicScreen(id, back = { nav.popBackStack() }, go = { t -> nav.navigate(StudyTopicR(t)) { popUpTo<StudyTopicR> { inclusive = true } } },
                                  quiz = { q -> nav.navigate(StudyQuizR(q.id, own = id)) }) }
             composable<SavedR> { SavedScreen(open) { nav.navigate(QuestionR(it)) } }
+            composable<ClassesR> { ClassesScreen { nav.popBackStack() } }
             composable<QuestionR> { QuestionScreen(it.toRoute<QuestionR>().id, back = { nav.popBackStack() }, openTopic = open) }
             composable<ProgressR> { ProgressScreen(open, openRoutine = { nav.navigate(RoutineR) }, openScores = { nav.navigate(ScoreCourseR(it)) }) }
             composable<RoutineR> { RoutineScreen { nav.popBackStack() } }
@@ -210,25 +212,6 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
 val LocalMe = androidx.compose.runtime.staticCompositionLocalOf<Me?> { null }
 
 /** the app is the students' half of Zigora: staff are pointed to the web, where their tools are */
-@Composable
-private fun StaffNote(me: Me, signOut: () -> Unit) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current; val app = app()
-    androidx.compose.material3.Scaffold { pad ->
-        androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(pad).fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(24.dp),
-                                                  verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-            Gap(if (me.role == "admin") 16 else 48)
-            androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.ic_logo), null, androidx.compose.ui.Modifier.size(72.dp))
-            Text(stringResource(R.string.staff_title), style = androidx.compose.material3.MaterialTheme.typography.headlineSmall)
-            Text(stringResource(R.string.staff_body, firstName(me.name), app.store.appName, app.store.server), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                 color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant)
-            androidx.compose.material3.Button(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, app.store.server.toUri())) } },
-                                              modifier = androidx.compose.ui.Modifier.fillMaxWidth()) { Text(stringResource(R.string.open_in_browser)) }
-            androidx.compose.material3.OutlinedButton(onClick = signOut, modifier = androidx.compose.ui.Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
-            if (me.role == "admin") MoreAiPanel()  // the one admin task the app does too: giving a student more AI
-        }
-    }
-}
-
 /** after a crash, the next start offers the report to share (by mail, chat, anything); it stays on the phone otherwise */
 @Composable
 private fun CrashNote() {

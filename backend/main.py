@@ -245,6 +245,17 @@ class TeacherReply(Base):  # one message in a question's thread, the student's f
     id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); text = Column(Text); at = Column(DateTime, default=dt.datetime.utcnow)
     image = Column(String(40), nullable=True)  # a photo with the message (working on paper, a diagram): its file name under uploads/questions
+class ModelAnswer(Base):  # a teacher's model answer for a topic, with the marks each part earns
+    __tablename__ = "model_answers"
+    id = Column(Integer, primary_key=True); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), unique=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); question = Column(Text); parts = Column(Text)  # parts: [{"text", "marks"}] as JSON
+    updated = Column(DateTime, default=dt.datetime.utcnow)
+class Announcement(Base):  # a note to a course's class, or a class at a time with a video link (then also a calendar event)
+    __tablename__ = "announcements"
+    id = Column(Integer, primary_key=True); course_id = Column(Integer, ForeignKey("courses.id", ondelete="CASCADE"), index=True)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); kind = Column(String(8), default="note")
+    title = Column(String(200)); body = Column(Text, nullable=True); starts_at = Column(DateTime, nullable=True); minutes = Column(Integer, nullable=True)
+    link = Column(String(300), nullable=True); event_id = Column(Integer, nullable=True); created_at = Column(DateTime, default=dt.datetime.utcnow, index=True); cancelled_at = Column(DateTime, nullable=True)
 class Payment(Base):  # a student buying Pro online through a Razorpay payment link; kept after the account goes, without who paid
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -886,7 +897,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0035_topic_diagram", lambda c: [_addcol("topics", "diagram", "BOOLEAN NULL")(c), _addcol("topics", "diagram_note", "TEXT NULL")(c)]),
               ("0036_ask_teacher", lambda c: Base.metadata.create_all(c, tables=[TeacherQuestion.__table__, TeacherReply.__table__])),
               ("0037_payments", lambda c: Base.metadata.create_all(c, tables=[Payment.__table__])),
-              ("0038_question_photos_shared", lambda c: [_addcol("teacher_questions", "shared", "BOOLEAN NULL")(c), _addcol("teacher_replies", "image", "VARCHAR(40) NULL")(c)])]
+              ("0038_question_photos_shared", lambda c: [_addcol("teacher_questions", "shared", "BOOLEAN NULL")(c), _addcol("teacher_replies", "image", "VARCHAR(40) NULL")(c)]),
+              ("0039_classes_model_answers", lambda c: [Base.metadata.create_all(c, tables=[ModelAnswer.__table__, Announcement.__table__]), _addcol("calendar_events", "link", "VARCHAR(300) NULL")(c)])]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -3273,7 +3285,7 @@ def topic(tid: int, u: User = Depends(me), s: Session = Depends(db)):
     p = s.query(Progress).filter_by(user_id=u.id, topic_id=tid).first()
     edit = can_edit(u, topic_course_id(t, s), s)
     frame = {"frame_url": f"/api/topics/{tid}/frame?t={frame_pass(u, tid)}"} if fmt_of(t) == "interactive" else {}
-    return {**full(t, s), **frame, "diagram": diagram_state(u, t, s), "ask": ask_state(u), **learning_state(t.learning_due_at, p, dt.datetime.utcnow()), "my_notes": my_notes(s, u.id, tid), "can_edit": edit, "nav": topic_neighbours(t, edit, s), "bookmarked": s.query(Bookmark).filter_by(user_id=u.id, topic_id=tid).first() is not None}
+    return {**full(t, s), **frame, "diagram": diagram_state(u, t, s), "ask": ask_state(u), "model_answer": model_answer_json(s, tid), **learning_state(t.learning_due_at, p, dt.datetime.utcnow()), "my_notes": my_notes(s, u.id, tid), "can_edit": edit, "nav": topic_neighbours(t, edit, s), "bookmarked": s.query(Bookmark).filter_by(user_id=u.id, topic_id=tid).first() is not None}
 # ---- interactive topics run in a sandboxed frame; highlights are saved per person ----
 # The page gets an opaque origin (CSP sandbox without allow-same-origin), so its scripts can't read the app's sign-in, call the API as the reader or
 # touch the app's page. It talks to the app only through postMessage, and the app accepts just the highlight messages below.
@@ -4247,6 +4259,150 @@ def tq_answered(u, s):  # a student's questions answered since they last looked,
     return [{"key": f"answer:{q.id}:{int(q.updated.timestamp())}", "text": "Your teacher answered your question", "sub": t.title}
             for q, t in s.query(TeacherQuestion, Topic).join(Topic, Topic.id == TeacherQuestion.topic_id).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status == "answered",
                                                                                                          or_(TeacherQuestion.seen.is_(None), TeacherQuestion.seen < TeacherQuestion.updated)).limit(20)]
+# ---- a teacher's marked model answer for a topic: the exam question, the answer in parts, and how many marks each part earns. Students see it
+# ---- under Sample answer, above the AI's, and it is saved with the topic for reading offline.
+MA_PARTS, MA_TEXT = 12, 2000
+class MAPart(BaseModel): text: str; marks: float
+class ModelAnswerIn(BaseModel): question: str; parts: list[MAPart]
+def model_answer_json(s, tid):
+    m = s.query(ModelAnswer).filter_by(topic_id=tid).first()
+    if not m: return None
+    parts = json.loads(m.parts or "[]"); a = s.get(User, m.author_id) if m.author_id else None
+    return {"question": m.question, "parts": parts, "total": sum(p["marks"] for p in parts), "by": a.name if a else "", "updated": utc_iso(m.updated)}
+@app.put("/api/topics/{tid}/model-answer")
+def put_model_answer(tid: int, b: ModelAnswerIn, u: User = Depends(staff), s: Session = Depends(db)):
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    need_edit(u, topic_course_id(t, s), s)
+    q = (b.question or "").strip(); parts = [{"text": p.text.strip(), "marks": round(p.marks, 1) if p.marks % 1 else int(p.marks)} for p in b.parts if p.text.strip()]
+    if not 3 <= len(q) <= 500: raise HTTPException(400, "Write the exam question (up to 500 characters)")
+    if not parts or len(parts) > MA_PARTS: raise HTTPException(400, "Give the answer in 1 to 12 parts")
+    if any(len(p["text"]) > MA_TEXT for p in parts): raise HTTPException(400, "Keep each part under 2000 characters")
+    if any(not 0 < p["marks"] <= 100 for p in parts): raise HTTPException(400, "Give each part its marks, from 0.5 to 100")
+    m = s.query(ModelAnswer).filter_by(topic_id=tid).first() or ModelAnswer(topic_id=tid)
+    m.question, m.parts, m.author_id, m.updated = q, json.dumps(parts), u.id, dt.datetime.utcnow(); s.add(m); s.commit()
+    return model_answer_json(s, tid)
+@app.delete("/api/topics/{tid}/model-answer")
+def drop_model_answer(tid: int, u: User = Depends(staff), s: Session = Depends(db)):
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    need_edit(u, topic_course_id(t, s), s); s.query(ModelAnswer).filter_by(topic_id=tid).delete(); s.commit(); return {"ok": True}
+# ---- where students struggle: per topic of this teacher's courses (every course for admins), over the last days, what students did when stuck:
+# ---- questions to the teacher, "Not clear?" on a phrase, "Not quite" after a quick check, "More simply", and "This looks wrong?". Counts only, no names.
+@app.get("/api/reports/struggles")
+def struggles(days: int = 30, course_id: int = 0, u: User = Depends(staff), s: Session = Depends(db)):
+    days = min(max(days, 7), 180); since = dt.datetime.utcnow() - dt.timedelta(days=days)
+    cids = [c.id for c in live_courses(u, s) if not course_id or c.id == course_id]
+    topics = {t.id: t for t in s.query(Topic).filter(Topic.unit_id.in_(live_units(s, cids)), Topic.archived_at.is_(None))}
+    if not topics: return {"days": days, "items": [], "courses": [{"id": c.id, "name": c.name} for c in live_courses(u, s)]}
+    rows = defaultdict(lambda: {"questions": 0, "doubts": 0, "not_quite": 0, "simpler": 0, "flags": 0, "students": set()})
+    ids = list(topics)
+    for tid, uid in s.query(TeacherQuestion.topic_id, TeacherQuestion.user_id).filter(TeacherQuestion.topic_id.in_(ids), TeacherQuestion.at >= since): rows[tid]["questions"] += 1; rows[tid]["students"].add(uid)
+    for tid, uid, kind, out in s.query(StepLog.topic_id, StepLog.user_id, StepLog.kind, StepLog.outcome).filter(StepLog.topic_id.in_(ids), StepLog.at >= since, StepLog.kind.in_(("doubt", "check", "simpler"))):
+        if kind == "doubt": rows[tid]["doubts"] += 1
+        elif kind == "simpler": rows[tid]["simpler"] += 1
+        elif out == "not_yet": rows[tid]["not_quite"] += 1
+        else: continue
+        rows[tid]["students"].add(uid)
+    for tid, uid in s.query(AIFlag.topic_id, AIFlag.user_id).filter(AIFlag.topic_id.in_(ids), AIFlag.at >= since): rows[tid]["flags"] += 1; rows[tid]["students"].add(uid)
+    cn = {c.id: c.name for c in s.query(Course).filter(Course.id.in_(cids or [0]))}
+    out = []
+    for tid, r in rows.items():
+        score = 3 * r["questions"] + 2 * r["doubts"] + 2 * r["not_quite"] + r["simpler"] + 2 * r["flags"]
+        if not score: continue
+        t = topics[tid]; asked = [x for (x,) in s.query(TeacherReply.text).join(TeacherQuestion, TeacherQuestion.id == TeacherReply.question_id)
+                                       .filter(TeacherQuestion.topic_id == tid, TeacherQuestion.at >= since, TeacherReply.user_id == TeacherQuestion.user_id).order_by(TeacherReply.id.desc()).limit(3)]
+        out.append({"topic_id": tid, "topic": t.title, "course": cn.get(topic_course_id(t, s), ""), "score": score, "students": len(r["students"]),
+                    **{k: r[k] for k in ("questions", "doubts", "not_quite", "simpler", "flags")}, "asked": [a[:160] for a in asked if a]})
+    out.sort(key=lambda x: (-x["score"], x["topic"]))
+    return {"days": days, "items": out[:30], "courses": [{"id": c.id, "name": c.name} for c in live_courses(u, s)]}
+# ---- announcements and classes: a course's teacher (or an admin) posts a note to the class, or schedules a class with a video link (Google Meet,
+# ---- Zoom or any https link). A class goes into the calendar of the course's students, their parents and the teacher; the students are told by
+# ---- email, in the bell and on the phone, and so are their parents; admins see it in their bell. Cancelling tells them too.
+ANN_KINDS = ("note", "class")
+class AnnounceIn(BaseModel): course_id: int; kind: str = "note"; title: str; body: str = ""; day: str = ""; at: str = ""; minutes: int = 60; link: str = ""
+def ann_students(s, c):
+    sems = {x.id: x for x in s.query(Semester)}; links = defaultdict(list)
+    for l in s.query(CourseLink).filter_by(course_id=c.id): links[l.course_id].append(l.semester_id)
+    return course_audience(c, s.query(User).filter(User.role == "student", User.active == True).all(), sems, links)  # noqa: E712
+def ann_json(a, c, s, u=None):
+    by = s.get(User, a.author_id) if a.author_id else None; now = dt.datetime.utcnow()
+    st = None
+    if a.kind == "class" and a.starts_at:
+        end = a.starts_at + dt.timedelta(minutes=a.minutes or 60)
+        st = "cancelled" if a.cancelled_at else "ended" if now >= end else "live" if now >= a.starts_at - dt.timedelta(minutes=10) else "upcoming"
+    elif a.cancelled_at: st = "cancelled"
+    return {"id": a.id, "kind": a.kind, "course_id": a.course_id, "course": c.name if c else "", "title": a.title, "body": a.body or "", "by": by.name if by else "",
+            "at": utc_iso(a.created_at), "starts_at": utc_iso(a.starts_at), "minutes": a.minutes, "link": a.link if a.kind == "class" and not a.cancelled_at else None, "status": st,
+            "can_edit": bool(u and is_staff(u) and can_edit(u, a.course_id, s))}
+def ann_tell(s, a, c, author, bg, cancelled=False):
+    """Email the course's students (or, for a username account, its parents) and every parent of a student who has an email of their own."""
+    when = ""
+    if a.kind == "class" and a.starts_at: when = f"{local_day(a.starts_at).isoformat()} {local_hhmm(a.starts_at)}"
+    if cancelled: subj, mine, theirs = "Class cancelled: {title}", "{teacher} cancelled the class {title} on {when} for {course}.", "{teacher} cancelled the class {title} on {when} for {course}, which {name} takes."
+    elif a.kind == "class": subj, mine, theirs = "New class: {title}", "{teacher} scheduled a class for {course}: {title}, on {when}. Join from {app} when it starts; it is in your calendar.", "{teacher} scheduled a class for {course}, which {name} takes: {title}, on {when}. It is in {name}'s calendar."
+    else: subj, mine, theirs = "{course}: {title}", "{teacher} posted to {course}: {title}. Read it in {app}.", "{teacher} posted to {course}, which {name} takes: {title}."
+    told = set()
+    for st in ann_students(s, c):
+        notify(s, st, "class", subj, mine, theirs, run=bg.add_task, title=a.title, teacher=author.name, course=c.name, when=when, name=st.name)
+        if st.email:
+            for g in guardians_of(s, st.id):
+                if g.email and g.active and g.id not in told:
+                    told.add(g.id); notify(s, g, "class", subj, theirs, run=bg.add_task, title=a.title, teacher=author.name, course=c.name, when=when, name=st.name)
+@app.post("/api/announcements")
+def announce(b: AnnounceIn, bg: BackgroundTasks, u: User = Depends(staff), s: Session = Depends(db)):
+    c = s.get(Course, b.course_id)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, c.id, s)
+    if b.kind not in ANN_KINDS: raise HTTPException(400, "Choose an announcement or a class")
+    title, body = " ".join(b.title.split()), b.body.strip()
+    if not 3 <= len(title) <= 200: raise HTTPException(400, "Give it a title (up to 200 characters)")
+    if len(body) > 4000: raise HTTPException(400, "Keep the message under 4000 characters")
+    a = Announcement(course_id=c.id, author_id=u.id, kind=b.kind, title=title, body=body or None)
+    if b.kind == "class":
+        d = day_of(b.day); at = (b.at or "").strip()
+        if not HHMM.fullmatch(at): raise HTTPException(400, "Give the time as HH:MM, for example 09:30")
+        if not 10 <= b.minutes <= 600: raise HTTPException(400, "A class lasts 10 minutes to 10 hours")
+        link = b.link.strip()
+        if not re.fullmatch(r"https://[^\s<>\"']{4,290}", link): raise HTTPException(400, "Paste the class's video link, starting with https:// (for example a Google Meet link)")
+        start = dt.datetime.combine(d, dt.time.fromisoformat(at)) - dt.timedelta(minutes=DAY_OFFSET)
+        if start + dt.timedelta(minutes=b.minutes) < dt.datetime.utcnow(): raise HTTPException(400, "Choose a time that has not passed")
+        e = CalendarEvent(title=title, notes=body[:1000] or None, kind="class", day=d, at=at, scope="course", course_id=c.id, created_by=u.id, link=link); s.add(e); s.flush()
+        a.starts_at, a.minutes, a.link, a.event_id = start, b.minutes, link, e.id
+    s.add(a); s.commit(); ann_tell(s, a, c, u, bg)
+    return ann_json(a, c, s, u)
+@app.post("/api/announcements/{aid}/cancel")
+def cancel_announcement(aid: int, bg: BackgroundTasks, u: User = Depends(staff), s: Session = Depends(db)):
+    a = s.get(Announcement, aid)
+    if not a or a.cancelled_at: raise HTTPException(404, "Not found")
+    need_edit(u, a.course_id, s); c = s.get(Course, a.course_id)
+    a.cancelled_at = dt.datetime.utcnow()
+    if a.event_id: s.query(CalendarEvent).filter_by(id=a.event_id).delete()
+    s.commit()
+    if a.kind == "class" and a.starts_at and a.starts_at + dt.timedelta(minutes=a.minutes or 60) > dt.datetime.utcnow(): ann_tell(s, a, c, u, bg, cancelled=True)
+    return ann_json(a, c, s, u)
+def ann_courses(u, s):  # whose announcements this person reads: a student's courses, a parent's children's, a teacher's own, every course for admins
+    if u.role == "student": return student_course_ids(u, s)
+    if u.role == "guardian": return set().union(*[student_course_ids(x, s) for x in linked_students(s, u)]) if linked_students(s, u) else set()
+    return {c.id for c in my_courses(u, s)}
+@app.get("/api/announcements")
+def announcements(course_id: int = 0, limit: int = 30, u: User = Depends(me), s: Session = Depends(db)):
+    cids = ann_courses(u, s)
+    if course_id: cids = cids & {course_id}
+    q = s.query(Announcement).filter(Announcement.course_id.in_(cids or {0}), Announcement.created_at >= dt.datetime.utcnow() - dt.timedelta(days=120))
+    rows = q.order_by(Announcement.created_at.desc()).limit(min(max(limit, 1), 100)).all(); cs = {c.id: c for c in s.query(Course).filter(Course.id.in_({a.course_id for a in rows} or {0}))}
+    items = [ann_json(a, cs.get(a.course_id), s, u) for a in rows]
+    upcoming = sorted([x for x in items if x["status"] in ("upcoming", "live")], key=lambda x: x["starts_at"])
+    return {"items": items, "upcoming": upcoming, "can_post": is_staff(u) and bool(my_courses(u, s)),
+            "courses": [{"id": c.id, "name": c.name} for c in live_courses(u, s)] if is_staff(u) else []}
+def ann_notes(u, s):  # the bell: what was posted in the last week, and a class about to start
+    cids = ann_courses(u, s) if u.role != "admin" else None; now = dt.datetime.utcnow()
+    q = s.query(Announcement, Course).join(Course, Course.id == Announcement.course_id).filter(Announcement.created_at >= now - dt.timedelta(days=7), Announcement.cancelled_at.is_(None))
+    if cids is not None: q = q.filter(Announcement.course_id.in_(cids or {0}))
+    out = []
+    for a, c in q.order_by(Announcement.created_at.desc()).limit(10):
+        out.append({"key": f"ann:{a.id}", "text": f"{c.name}: {a.title}", "sub": "New class" if a.kind == "class" else "New announcement"})
+    return out
 # ---- buying Pro online: the admin sets the Razorpay keys and a few offers (days for a price). A student picks one and pays on Razorpay's own page
 # ---- (a payment link: cards, UPI, netbanking and wallets, on the web and from the Android app alike). Pro starts when Razorpay confirms the payment:
 # ---- on the way back (its signature checked), by its webhook, or when the app asks Razorpay directly. Each payment adds its days once.
@@ -4431,6 +4587,7 @@ def doubt_topic(tid, u, s):
 def doubt_local(tid: int, b: DoubtIn, u: User = Depends(me), s: Session = Depends(db)):
     """Step one, nothing leaves the server: where the phrase sits in the topic (and in the student's own notes), and a kept AI answer if this doubt was asked before."""
     t = doubt_topic(tid, u, s); phrase = doubt_phrase(b); f = full(t, s)
+    if u.role == "student": s.add(StepLog(user_id=u.id, topic_id=t.id, kind="doubt")); s.commit()  # counted for the teacher's "where students struggle", never who
     mine = my_notes(s, u.id, tid) if u.role == "student" else None
     _, qh = doubt_key(u, t, phrase, s); hit = s.query(DoubtAnswer).filter_by(qhash=qh).first() if key_for(u, s) else None
     if hit: hit.hits += 1; s.commit(); note_use(s, u, "doubt", hit.id, hit.author_id)
@@ -5755,12 +5912,12 @@ def stop_routine(u: User = Depends(me), s: Session = Depends(db)):  # back to st
 # ---- notifications: worked out from what needs doing now, with each person's seen ones remembered, and an optional daily email ----
 STUDENT_NOTES = ("due_soon", "quiz_new")  # a teacher's date coming up and a new test; no reminders about being late or scoring low
 def notes_for(u, s):  # [{key, text, sub}]: staff get what needs attention, students their deadlines, tests and calendar events. The key changes when the item does
-    if u.role == "guardian": return cal_notes(u, s)
+    if u.role == "guardian": return ann_notes(u, s) + cal_notes(u, s)
     if u.role == "student":
         asks = [{"key": f"invite:{l.id}", "text": f"{g.name} wants to follow your progress", "sub": "Accept or decline on Home"} for l, g in invitations(s, u.id)]
-        return asks + tq_answered(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
+        return asks + tq_answered(u, s) + ann_notes(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
                 for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + cal_notes(u, s)
-    return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]]
+    return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + (ann_notes(u, s) if u.role == "admin" else [])
 @app.get("/api/me/notifications")
 def my_notifications(u: User = Depends(me), s: Session = Depends(db)):
     items = notes_for(u, s); seen = {k for (k,) in s.query(NoteSeen.key).filter(NoteSeen.user_id == u.id, NoteSeen.key.in_([i["key"] for i in items] or [""]))}
@@ -6352,12 +6509,13 @@ class CalendarEvent(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)  # a course's exam stays when its author's account goes
     created_at = Column(DateTime, default=dt.datetime.utcnow)
+    link = Column(String(300), nullable=True)  # a class's video link (Google Meet, Zoom), shown as Join
 def calendar_tables(c):
     Base.metadata.create_all(c, tables=[CalendarEvent.__table__])
     _addcol("users", "cal_token", "VARCHAR(64) NULL")(c); ins = inspect(c)
     if not any(x["column_names"] == ["cal_token"] for x in ins.get_indexes("users") + ins.get_unique_constraints("users")):
         c.execute(text("CREATE UNIQUE INDEX ix_users_cal_token ON users (cal_token)"))
-EVENT_KINDS = ("exam", "test", "assignment", "holiday", "event", "reminder")
+EVENT_KINDS = ("exam", "test", "assignment", "holiday", "event", "reminder")  # what the calendar form offers; a "class" comes from Announcements
 CAL_SPAN, EVENT_DAYS, FEED_BACK, FEED_AHEAD = 92, 60, 30, 180  # longest range asked for at once; longest event; what the subscribed calendar covers
 HHMM = re.compile(r"([01]\d|2[0-3]):[0-5]\d")
 def day_of(v, what="date"):
@@ -6392,8 +6550,8 @@ def scope_label(e, s):
     o = s.get(User, e.user_id); return o.name if o else ""
 def event_item(e, u, s):
     return {"id": f"ev:{e.id}", "kind": e.kind, "date": e.day.isoformat(), "end": e.end_day.isoformat() if e.end_day else None, "at": e.at, "title": e.title, "sub": scope_label(e, s),
-            "state": None, "event": {"id": e.id, "notes": e.notes or "", "scope": e.scope, "program_id": e.program_id, "semester": e.semester, "course_id": e.course_id,
-                                     "user_id": e.user_id, "can_edit": e.created_by == u.id or u.role == "admin"}}
+            "state": None, "link": {"join": e.link} if e.link else None, "event": {"id": e.id, "notes": e.notes or "", "scope": e.scope, "program_id": e.program_id, "semester": e.semester, "course_id": e.course_id,
+                                     "user_id": e.user_id, "can_edit": (e.created_by == u.id or u.role == "admin") and e.kind != "class"}}  # a class is changed from Announcements
 def local_hhmm(t): return (t + dt.timedelta(minutes=DAY_OFFSET)).strftime("%H:%M")
 def student_items(st, s, d0, d1, now):
     """What Zigora already knows about this student, day by day: deadlines, study sessions, days studied, results, Pro ending, the next free MCQ set."""
@@ -6544,10 +6702,12 @@ def ics_event(it, who, stamp):  # who: (id, name) of the child it is about, in a
     else:
         end = dt.date.fromisoformat(it["end"]) if it.get("end") else d
         lines += [f"DTSTART;VALUE=DATE:{d:%Y%m%d}", f"DTEND;VALUE=DATE:{end + dt.timedelta(days=1):%Y%m%d}"]
-    desc = " · ".join(x for x in (it.get("sub"), (it.get("event") or {}).get("notes")) if x)
+    join = (it.get("link") or {}).get("join")
+    desc = " · ".join(x for x in (it.get("sub"), (it.get("event") or {}).get("notes"), join) if x)
+    if join: lines.append(f"URL:{ics_text(join)}")
     if desc: lines.append(f"DESCRIPTION:{ics_text(desc)}")
     return lines + ["END:VEVENT"]
-FEED_KINDS = ("exam", "test", "assignment", "holiday", "event", "reminder", "deadline", "session", "plan")  # what is worth a phone's calendar: not results or days studied
+FEED_KINDS = ("exam", "test", "assignment", "holiday", "event", "reminder", "deadline", "session", "plan", "class")  # what is worth a phone's calendar: not results or days studied
 @app.get("/api/calendar/feed/{token}")
 def cal_feed(token: str, s: Session = Depends(db)):
     t = token[:-4] if token.endswith(".ics") else token

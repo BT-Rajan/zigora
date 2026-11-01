@@ -552,3 +552,8 @@ html:has(.zgr) #root{min-height:0!important}html:has(.zgr) body *{font-family:in
 .offbar{background:var(--warnbg);color:var(--tx);text-align:center;font-size:13px;padding:6px 16px}
 .msg .prose,.classq .prose{background:none;border:0;padding:0;margin:0;box-shadow:none;border-radius:0}
 .simq{margin:12px 0}.simq .qbox{margin-top:8px}
+.prose.flat{background:none;border:0;padding:0;margin:0;box-shadow:none}.ann{margin-bottom:10px}.ann.cls{border-inline-start:3px solid var(--acc)}.ann .tools .btn{margin:0}
+.modelans{border-inline-start:3px solid var(--ok)}.markparts{margin:10px 0}.mrow{display:flex;gap:12px;align-items:flex-start;border-top:1px solid var(--line);padding:8px 0}
+.mrow .prose{flex:1;min-width:0}.mrow .mk{white-space:nowrap;color:var(--acct)}.mrow.tot{border-top:2px solid var(--line);justify-content:space-between}
+a.btn,a.tool{text-decoration:none}
+.mapart{display:flex;gap:8px;align-items:flex-end}.mapart textarea,.mapart input{margin:0}

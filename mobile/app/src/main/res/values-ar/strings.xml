@@ -268,8 +268,6 @@
     <string name="signin_lead">تعلّم هادئ وفضولي</string>
     <string name="signing_in">جارٍ تسجيل الدخول…</string>
     <string name="six_digit_code">رمز من 6 أرقام</string>
-    <string name="staff_body">مرحبًا %1$s. يستخدم المعلمون والمسؤولون %2$s على الويب، حيث توجد المقررات والاختبارات والتقارير والإعدادات. افتحه في متصفحك على %3$s</string>
-    <string name="staff_title">التطبيق مخصّص للطلاب</string>
     <string name="started">بدأته</string>
     <string name="step_check">سؤال سريع</string>
     <string name="step_exam">زاوية الامتحان</string>

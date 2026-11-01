@@ -181,10 +181,10 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
     var closing by remember { mutableStateOf(false) }
     Loaded(l) { first ->
         val t = q ?: first
-        Page(t.topic, listOf(t.course, stateLabel(t.status)).filter { it.isNotEmpty() }.joinToString(" · "), back = back) {
+        Page(t.topic, listOfNotNull(t.course, t.student, stateLabel(t.status)).filter { it.isNotEmpty() }.joinToString(" · "), back = back) {
             TextButton(onClick = { openTopic(t.topic_id) }) { Text(tl("Open the topic")) }
             t.excerpt?.takeIf { it.isNotEmpty() }?.let { Quiet("“$it”") }
-            if (t.shared) Quiet(tl("Your teacher shared this with your class, without your name."))
+            if (t.shared) Quiet(if (t.teacher) tl("Shared with the class") else tl("Your teacher shared this with your class, without your name."))
             t.messages.forEach { m ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start) {
                     Surface(shape = RoundedCornerShape(16.dp), color = if (m.mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -197,9 +197,12 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                     }
                 }
             }
+            if (t.teacher && (t.can_share || t.shared)) OutlinedButton(onClick = { scope.launch {
+                try { q = a.send("POST", "/questions/$id/share", buildJsonObject { put("shared", !t.shared) }, QuestionThread.serializer()) } catch (e: Exception) { err = I18n.srv(e.message) }
+            } }) { Text(if (t.shared) tl("Stop sharing with the class") else tl("Share with the class")) }
             if (t.status == "closed") Quiet(tl("This question is closed."), Modifier.padding(top = 8.dp))
             else {
-                OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, label = { Text(tl("Reply")) })
+                OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, label = { Text(if (t.teacher) tl("Your answer") else tl("Reply")) })
                 PhotoPick(photo) { photo = it }
                 if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -208,7 +211,7 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                         try { q = a.send("POST", "/questions/$id/replies", buildJsonObject { put("text", text.trim()); put("photo", photo.orEmpty()) }, QuestionThread.serializer()); text = ""; photo = null }
                         catch (e: Exception) { err = I18n.srv(e.message) }
                         busy = false
-                    } }) { Text(if (busy) tl("Sending…") else tl("Send")) }
+                    } }) { Text(if (busy) tl("Sending…") else if (t.teacher) tl("Send answer") else tl("Send")) }
                     OutlinedButton(onClick = { closing = true }) { Text(tl("Close the question")) }
                 }
             }

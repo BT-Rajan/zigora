@@ -14,7 +14,8 @@ import app.zigora.ui.ZigoraRoot
 sealed interface Incoming {
     data class Lookup(val text: String) : Incoming
     data class Photo(val uri: Uri?) : Incoming
-    data class Question(val id: Int) : Incoming  // a teacher's answer, from its notification
+    data class Question(val id: Int) : Incoming  // a teacher's answer (or, for a teacher, a new question), from its notification
+    data object Classes : Incoming  // a new class or announcement, from its notification
 }
 
 class MainActivity : ComponentActivity() {
@@ -40,7 +41,7 @@ class MainActivity : ComponentActivity() {
         Intent.ACTION_PROCESS_TEXT -> i.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()?.take(200)?.let { Incoming.Lookup(it) }
         "app.zigora.SEARCH" -> Incoming.Lookup("")
         "app.zigora.PHOTO" -> Incoming.Photo(null)
-        AnswerWatch.OPEN -> i.getIntExtra("question", 0).takeIf { it > 0 }?.let { Incoming.Question(it) }
+        AnswerWatch.OPEN -> i.getIntExtra("question", 0).takeIf { it > 0 }?.let { Incoming.Question(it) } ?: Incoming.Classes.takeIf { i.getBooleanExtra("classes", false) }
         else -> null
     }
 }

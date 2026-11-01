@@ -59,7 +59,7 @@ import java.util.Locale
 // The calendar, as on the web: events people add beside what Zigora knows (learn-by dates, study sessions, days studied, results). A parent or
 // teacher picks one of their students. Here people add events for themselves (a parent also for a child); course and program events are added on the web.
 private val KINDS = listOf("exam" to "Exam", "test" to "Test", "assignment" to "Assignment", "holiday" to "Holiday", "event" to "Event", "reminder" to "Reminder")
-private val TAG = mapOf("exam" to "Exam", "test" to "Test", "assignment" to "Assignment", "holiday" to "Holiday", "event" to "Event", "reminder" to "Reminder",
+private val TAG = mapOf("class" to "Class", "exam" to "Exam", "test" to "Test", "assignment" to "Assignment", "holiday" to "Holiday", "event" to "Event", "reminder" to "Reminder",
     "deadline" to "Learn by", "session" to "Study session", "studied" to "Studied", "result" to "Result", "plan" to "Plan")
 private val STATE = mapOf("done" to "Done", "missed" to "Missed", "overdue" to "Overdue")
 
@@ -87,6 +87,8 @@ private fun CalRow(x: CalItem, edit: ((CalItem) -> Unit)?) {
         .filter { it.isNotEmpty() }.joinToString(" · ")
     ListRow(title + (STATE[x.state]?.let { " · " + tl(it) } ?: ""), meta, onClick = if (x.event?.can_edit == true && edit != null) ({ edit(x) }) else null,
             leading = { Box(Modifier.size(12.dp).background(c, CircleShape)) },
+            trailing = x.join?.let { url -> { val ctx = androidx.compose.ui.platform.LocalContext.current
+                androidx.compose.material3.TextButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))) } }) { Text(tl("Join")) } } },
             extra = { x.event?.notes?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) } })
 }
 
