@@ -2651,5 +2651,9 @@
 "{teacher} scheduled a weekly class for {course}, which {name} takes: {title}, every week from {when}, {weeks} times. Every session is in {name}'s calendar.": "جدول {teacher} حصة أسبوعية لمقرر {course} الذي يدرسه {name}: {title}، كل أسبوع بدءًا من {when}، {weeks} مرات. كل جلسة في تقويم {name}.",
 "Weekly class cancelled: {title}": "أُلغيت الحصة الأسبوعية: {title}",
 "{teacher} cancelled the weekly class {title} for {course}, from {when} on ({weeks} sessions).": "ألغى {teacher} الحصة الأسبوعية {title} لمقرر {course}، بدءًا من {when} ({weeks} جلسات).",
-"{teacher} cancelled the weekly class {title} for {course}, which {name} takes, from {when} on ({weeks} sessions).": "ألغى {teacher} الحصة الأسبوعية {title} لمقرر {course} الذي يدرسه {name}، بدءًا من {when} ({weeks} جلسات)."
+"{teacher} cancelled the weekly class {title} for {course}, which {name} takes, from {when} on ({weeks} sessions).": "ألغى {teacher} الحصة الأسبوعية {title} لمقرر {course} الذي يدرسه {name}، بدءًا من {when} ({weeks} جلسات).",
+"All users": "كل المستخدمين",
+"Teachers": "المعلّمون",
+"Parents and school teachers": "أولياء الأمور ومعلّمو المدارس",
+"Tests": "الاختبارات"
 }

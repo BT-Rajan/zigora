@@ -2651,5 +2651,9 @@
 "{teacher} scheduled a weekly class for {course}, which {name} takes: {title}, every week from {when}, {weeks} times. Every session is in {name}'s calendar.": "{name} படிக்கும் {course} பாடநெறிக்கு {teacher} ஒரு வாராந்திர வகுப்பைத் திட்டமிட்டுள்ளார்: {title}, {when} முதல் ஒவ்வொரு வாரமும், {weeks} முறை. ஒவ்வொரு அமர்வும் {name}-இன் நாட்காட்டியில் உள்ளது.",
 "Weekly class cancelled: {title}": "வாராந்திர வகுப்பு ரத்து: {title}",
 "{teacher} cancelled the weekly class {title} for {course}, from {when} on ({weeks} sessions).": "{course} பாடநெறிக்கான {title} வாராந்திர வகுப்பை {when} முதல் {teacher} ரத்துசெய்தார் ({weeks} அமர்வுகள்).",
-"{teacher} cancelled the weekly class {title} for {course}, which {name} takes, from {when} on ({weeks} sessions).": "{name} படிக்கும் {course} பாடநெறிக்கான {title} வாராந்திர வகுப்பை {when} முதல் {teacher} ரத்துசெய்தார் ({weeks} அமர்வுகள்)."
+"{teacher} cancelled the weekly class {title} for {course}, which {name} takes, from {when} on ({weeks} sessions).": "{name} படிக்கும் {course} பாடநெறிக்கான {title} வாராந்திர வகுப்பை {when} முதல் {teacher} ரத்துசெய்தார் ({weeks} அமர்வுகள்).",
+"All users": "அனைத்துப் பயனர்களும்",
+"Teachers": "ஆசிரியர்கள்",
+"Parents and school teachers": "பெற்றோரும் பள்ளி ஆசிரியர்களும்",
+"Tests": "தேர்வுகள்"
 }
