@@ -919,7 +919,8 @@ def applied_migrations():
 def boot():
     require_secret()
     upgrade_schema()
-    spawn(digest_loop)  # daily summaries by email, for those who ask (it checks each time whether email is set up)
+    spawn(digest_loop)
+    if not os.getenv("PYTEST_CURRENT_TEST"): spawn(google_keys_loop)  # Google's sign-in keys, ready before anyone signs in
     with Session_() as s: s.query(MailLog).filter(MailLog.at < dt.datetime.utcnow() - dt.timedelta(days=90)).delete(); s.commit()
     with Session_() as s: s.query(PasswordReset).filter(PasswordReset.created_at < dt.datetime.utcnow() - dt.timedelta(days=2)).delete(); s.commit()
     with Session_() as s: s.query(PendingRegistration).filter(PendingRegistration.created_at < dt.datetime.utcnow() - dt.timedelta(days=1)).delete(); s.commit()
@@ -979,11 +980,24 @@ GOOGLE_ID = re.compile(r"[0-9]+-[0-9a-z]+\.apps\.googleusercontent\.com")
 _google_jwks = None
 def google_ids(s):  # the client IDs a token may be for: the web client first (the apps on Android ask for a token for it too)
     return [x.strip() for x in (setting(s, "google_client_id") or os.getenv("GOOGLE_CLIENT_ID") or "").split(",") if x.strip()]
+def google_jwks():
+    global _google_jwks
+    if _google_jwks is None: _google_jwks = jwt.PyJWKClient(GOOGLE_KEYS, cache_keys=True, lifespan=6 * 3600, timeout=10)
+    return _google_jwks
+def google_keys_loop():
+    """Google's signing keys, fetched when the server starts and again every 45 minutes, so a sign-in never waits on Google's servers (it used to,
+    the first time after each restart and every hour; on a server with a slow route to Google that wait could be many seconds)."""
+    while True:
+        try:
+            with Session_() as s: on = bool(google_ids(s))
+            if on:
+                t = time.time(); google_jwks().get_jwk_set(refresh=True)
+                if time.time() - t > 2: log.warning("Fetching Google's sign-in keys took %.1f s: check this server's route to www.googleapis.com (IPv6, DNS)", time.time() - t)
+        except Exception as e: log.warning("Google's sign-in keys could not be fetched now (%s); sign-ins fetch them themselves", type(e).__name__)
+        time.sleep(45 * 60)
 def google_claims(token, audiences):
     """The checked claims of a Google ID token. Raises jwt.PyJWKClientError when Google's keys can't be fetched, jwt.InvalidTokenError otherwise."""
-    global _google_jwks
-    if _google_jwks is None: _google_jwks = jwt.PyJWKClient(GOOGLE_KEYS, cache_keys=True, lifespan=3600, timeout=10)
-    c = jwt.decode(token, _google_jwks.get_signing_key_from_jwt(token).key, algorithms=["RS256"], audience=audiences, options={"require": ["exp", "iat", "sub", "iss", "aud"]})
+    c = jwt.decode(token, google_jwks().get_signing_key_from_jwt(token).key, algorithms=["RS256"], audience=audiences, options={"require": ["exp", "iat", "sub", "iss", "aud"]})
     if c.get("iss") not in GOOGLE_ISSUERS: raise jwt.InvalidIssuerError("not Google")
     return c
 class GoogleIn(BaseModel): credential: str
@@ -992,9 +1006,11 @@ def login_google(b: GoogleIn, request: Request, s: Session = Depends(db)):
     ids = google_ids(s)
     if not ids: raise HTTPException(404, "Sign in with Google is not set up here. Use your email and password.")
     ip = client_ip(request); key = f"google:{ip}"[:190]; throttle(s, key, ip)  # bad tokens from one network wait a while; nobody else is held up
+    t0 = time.time()
     try: c = google_claims(b.credential.strip()[:4096], ids)
     except jwt.PyJWKClientError: raise HTTPException(503, "Google could not be reached. Try again in a moment, or use your password.")
     except jwt.InvalidTokenError: note_fail(s, key, ip); raise HTTPException(401, "Google sign-in didn't work. Try again.")
+    if time.time() - t0 > 2: log.warning("A Google sign-in waited %.1f s for Google's keys", time.time() - t0)
     email, sub = str(c.get("email") or "").strip().lower()[:190], str(c["sub"])[:64]
     if not email or c.get("email_verified") is not True: raise HTTPException(401, "Your Google account's email isn't verified, so it can't be used here.")
     u = s.query(User).filter_by(google_sub=sub).first() or s.query(User).filter_by(email=email).first()

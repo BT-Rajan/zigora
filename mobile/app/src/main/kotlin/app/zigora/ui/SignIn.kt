@@ -114,9 +114,11 @@ fun SignIn(done: (Me) -> Unit) {
     fun google() = act {  // Google's own sheet picks the account; the server checks the ID token it hands back
         val id = googleId ?: return@act
         val token = try {
-            val req = androidx.credentials.GetCredentialRequest.Builder()
-                .addCredentialOption(com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(id).build()).build()
-            val cred = androidx.credentials.CredentialManager.create(ctx).getCredential(ctx, req).credential
+            val cm = androidx.credentials.CredentialManager.create(ctx)
+            suspend fun ask(o: androidx.credentials.CredentialOption) = cm.getCredential(ctx, androidx.credentials.GetCredentialRequest.Builder().addCredentialOption(o).build()).credential
+            // a Google account that signed in here before goes straight in, with no account picker; anyone else gets Google's sign-in sheet
+            val cred = try { ask(com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder().setServerClientId(id).setFilterByAuthorizedAccounts(true).setAutoSelectEnabled(true).build()) }
+                       catch (e: androidx.credentials.exceptions.NoCredentialException) { ask(com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(id).build()) }
             if (cred is androidx.credentials.CustomCredential && cred.type == com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL)
                 com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(cred.data).idToken
             else { msg = tl("Google sign-in didn't work. Try again."); return@act }
