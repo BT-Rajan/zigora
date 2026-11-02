@@ -2879,5 +2879,11 @@
 "{course} is paused": "{course} موقوف مؤقتًا",
 "{teacher} paused the course {course} for now. Your place is kept; you will be told when it reopens.": "أوقف {teacher} المقرر {course} مؤقتًا. مكانك محفوظ؛ وستُبلَّغ عند إعادة فتحه.",
 "{course} is open again": "{course} مفتوح مجددًا",
-"{teacher} reopened the course {course}. Carry on where you left off on {app}.": "أعاد {teacher} فتح المقرر {course}. تابع من حيث توقفت على {app}."
+"{teacher} reopened the course {course}. Carry on where you left off on {app}.": "أعاد {teacher} فتح المقرر {course}. تابع من حيث توقفت على {app}.",
+"We sent a 6-digit code to {email}. It works for {minutes} minutes.": "أرسلنا رمزًا من 6 أرقام إلى {email}. يعمل لمدة {minutes} دقائق.",
+"We couldn't send your verification code": "تعذّر إرسال رمز التحقق",
+"Please try again. If the problem continues, you can return to sign-in and try later.": "حاول مرة أخرى. إذا استمرت المشكلة، يمكنك العودة إلى تسجيل الدخول والمحاولة لاحقًا.",
+"It didn't go through this time either. Wait a moment and try again.": "لم يُرسل هذه المرة أيضًا. انتظر لحظة وحاول مرة أخرى.",
+"Try sending the code again": "حاول إرسال الرمز مرة أخرى",
+"We couldn't send your verification code. Please try again. If the problem continues, you can return to sign-in and try later.": "تعذّر إرسال رمز التحقق. حاول مرة أخرى. إذا استمرت المشكلة، يمكنك العودة إلى تسجيل الدخول والمحاولة لاحقًا."
 }

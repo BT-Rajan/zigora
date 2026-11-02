@@ -131,3 +131,39 @@ def test_admin_sees_registration_details_and_migration_adds_columns(reg, tmp_pat
     try:
         main.upgrade_schema(); assert {"institution", "id_number", "phone", "self_registered", "ai_key"} <= {x["name"] for x in inspect(e).get_columns("users")}
     finally: main.engine = old
+
+def failing_mail(reg, monkeypatch, fails):  # the first `fails` emails fail; the rest go out (and land in reg.sent)
+    monkeypatch.setattr(main, "MAIL_RETRY_SECONDS", 0); tries = []
+    def send(to, subj, body, **k):
+        tries.append(to)
+        if len(tries) <= fails: raise main.MailError("Could not reach smtp.test:587 (OSError).")
+        reg.sent.append((to, subj, body))
+    monkeypatch.setattr(main, "send_mail", send); return tries
+
+def test_a_code_email_that_fails_is_tried_once_more_then_reported_without_details(reg, monkeypatch):
+    tries = failing_mail(reg, monkeypatch, 1)
+    r = reg.start().json(); assert r["sent"] is True and "We sent a 6-digit code" in r["message"] and len(tries) == 2  # the retry got it through
+    tries = failing_mail(reg, monkeypatch, 2); wait("asha@college.edu")
+    r = reg.c.post("/api/register/resend", json={"email": "asha@college.edu"}).json()
+    assert r["sent"] is False and r["message"] == main.NOT_SENT and "smtp" not in r["message"].lower() and len(tries) == 2
+    r = reg.c.post("/api/register/resend", json={"email": "asha@college.edu"}).json()  # no cooldown after a failure: try again at once
+    assert r["sent"] is True and len(tries) == 3
+    assert reg.c.post("/api/register/verify", json={"email": "asha@college.edu", "code": reg.code()}).status_code == 200
+
+def test_a_failed_first_email_leaves_no_account_and_the_resend_finishes_it(reg, monkeypatch):
+    failing_mail(reg, monkeypatch, 2)
+    r = reg.start().json(); assert (r["sent"], r["email"]) == (False, "asha@college.edu")
+    with Session_() as s: assert s.query(User).filter_by(email="asha@college.edu").first() is None
+    r = reg.c.post("/api/register/resend", json={"email": "asha@college.edu"}).json(); assert r["sent"] is True
+    assert "token" in reg.c.post("/api/register/verify", json={"email": "asha@college.edu", "code": reg.code()}).json()
+
+def test_a_failure_reads_the_same_for_an_address_that_has_an_account(reg, monkeypatch):
+    failing_mail(reg, monkeypatch, 2)
+    new = reg.start(email="new@college.edu").json()
+    failing_mail(reg, monkeypatch, 2)
+    old = reg.start(email="stu@x.com", id_number="21CS002").json()  # the test student's address
+    assert {k: v for k, v in new.items() if k != "email"} == {k: v for k, v in old.items() if k != "email"} and old["sent"] is False
+    tries = failing_mail(reg, monkeypatch, 2)
+    r = reg.c.post("/api/register/resend", json={"email": "stu@x.com"}).json(); assert r["sent"] is False and len(tries) == 2
+    tries = failing_mail(reg, monkeypatch, 0)
+    r = reg.c.post("/api/register/resend", json={"email": "stu@x.com"}).json(); assert r["sent"] is True and "already has an account" in reg.sent[-1][2]

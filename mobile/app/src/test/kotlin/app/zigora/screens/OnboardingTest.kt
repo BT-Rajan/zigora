@@ -2,6 +2,8 @@ package app.zigora.screens
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -65,6 +67,19 @@ class OnboardingTest {
         tap("A school student"); see("Who is signing up?"); shot("onboarding-02-who")
         tap("A parent"); see("Child 1"); see("Your children"); shot("onboarding-03-parent-form")
         rule.onAllNodesWithText("Add another child").onFirst().performScrollTo(); shot("onboarding-04-parent-form-children")
+    }
+
+    @Test fun aCodeEmailThatCannotBeSentSaysSoAndOffersAWayOn() {  // the screens server's mail host doesn't exist, so every code email fails
+        app.store.server = server; app.store.signOut()
+        rule.setContent { ZigoraRoot(null) {} }
+        see("Create an account"); tap("Create an account"); see("Sign up with email"); tap("Sign up with email")
+        see("Who is studying?"); tap("A school student"); see("Who is signing up?"); tap("I'm the student")
+        fun type(label: String, v: String) { val n = rule.onAllNodes(hasSetTextAction() and hasText(label, substring = true)).onFirst(); runCatching { n.performScrollTo() }; n.performTextInput(v) }
+        type("Full name", "Nila"); type("School", "Govt. High School"); type("Email", "nila@home.in"); type("Phone", "+91 98765 43210"); type("Password", "longenough1")
+        tap("Send me a code")
+        see("We couldn't send your verification code", 60_000); assertTrue("no code screen when no code went out", none("Verify and create my account")); shot("onboarding-09-code-not-sent")
+        tap("Try sending the code again"); see("It didn't go through this time either", 60_000)
+        tap("Back to sign in"); see("Email or username")
     }
 
     @Test fun aParentSeesTheirChildAndTheAiKey() {

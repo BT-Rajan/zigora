@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Me(val id: Int, val name: String, val role: String, val must_change: Boolean = false, val self_registered: Boolean = false, val placed: Boolean = true, val lang: String = "en",
                             val username: String? = null, val relation: String? = null, val level: String? = null, val ai_off: Boolean = false)  // relation: a guardian's "parent" or "teacher"; ai_off: a school student with no parent's or teacher's key
 @Serializable data class Msg(val message: String = "", val ok: Boolean = true)
+@Serializable data class CodeOut(val message: String = "", val sent: Boolean = true)  // a sign-up code: whether its email went out
 @Serializable data class RegStatus(val open: Boolean = false, val domains: List<String> = emptyList())
 @Serializable data class LoginOut(val token: String, val user: Me)
 

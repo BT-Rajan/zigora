@@ -375,6 +375,7 @@ Off by default. Turn it on under Settings > Self-registration. It also needs ema
 
 - The sign-in page shows "Create an account". People give full name, institution, ID number, email, phone and a password.
 - A 6-digit code is emailed (valid 10 minutes, 5 tries, resend after 30 seconds, at most 8 codes per email). **No account exists until the code is verified.** Then they are signed in as students.
+- The code email is sent while the person waits, and tried once more if it fails. If it still fails, the screen says the code could not be sent (never that it was), with **Try sending the code again** (no 30-second wait after a failure) and **Back to sign in**. The reason stays in the email log for the admin. An address that already has an account gets the same answer, delivery failure included, so the form still can't be used to find out who is registered.
 - The sign-up form gives the same answer whether or not an email already has an account (an existing address gets a notice by email), and an institution + ID number can only be used once.
 - Optional "only these email domains" (for example `college.edu`) limits who can register.
 - They arrive with no program or semester. Find them in Users (marked "Self-registered"; search by name, email, ID or phone), then use Select several > Move.
