@@ -2,6 +2,8 @@ package app.zigora.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -43,7 +45,7 @@ fun CourseInvitesCard(openJoin: () -> Unit) {
 }
 
 @Composable
-fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
+fun JoinScreen(back: () -> Unit, openStudy: () -> Unit = {}, openCourse: (Int) -> Unit) {
     val a = api(); val scope = rememberCoroutineScope()
     val l = rememberLoad("catalog") { get("/offered/catalog", OfferList.serializer()) }
     var busy by remember { mutableIntStateOf(0) }
@@ -116,7 +118,11 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
             }
             if (mine.isNotEmpty()) { SectionTitle(tl("Your offered courses")); Paged(mine, "mine") { card(it) } }
             SectionTitle(tl("Courses you can join"))
-            if (others.isEmpty()) Quiet(tl("No courses are open to join right now.")) else Paged(others, "others") { card(it) }
+            if (others.isEmpty()) {  // nothing to join: the two ways on
+                Quiet(tl("No courses are open to join right now. You can ask your teacher for an invitation, or start learning now by building a course from your own notes."))
+                ListRow(tl("Build a course from your own notes"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
+                        leading = { RowIcon(Icons.Outlined.AutoStories) })
+            } else Paged(others, "others") { card(it) }
         }
     }
 }
