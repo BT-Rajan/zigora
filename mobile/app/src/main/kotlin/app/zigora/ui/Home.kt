@@ -21,6 +21,7 @@ import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.SystemUpdate
@@ -141,10 +142,12 @@ fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, open
                 if (sme != null && sme.courses > 0) { SectionTitle(tl("Your own courses")); LearnCard(sme, openOwn, review) }
                 Loaded(tree) { list ->
                     val courses = coursesOf(list)
-                    if (sme != null && sme.courses == 0 && courses.isEmpty())
+                    val unplaced = me.self_registered && !me.placed
+                    if (courses.isEmpty() && unplaced) NotPlacedYet(me, openStudy, openJoin)
+                    else if (sme != null && sme.courses == 0 && courses.isEmpty())
                         ListRow(tl("Build a course from your own notes"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
                                 leading = { RowIcon(Icons.Outlined.AutoStories) })
-                    if (courses.isEmpty()) Quiet(stringResource(if (me.self_registered && !me.placed) R.string.not_placed else R.string.not_enrolled), Modifier.padding(top = 16.dp))
+                    if (courses.isEmpty()) { if (!unplaced) Quiet(stringResource(R.string.not_enrolled), Modifier.padding(top = 16.dp)) }
                     else {
                         SectionTitle(stringResource(R.string.my_courses))
                         CourseList(courses, openCourse)
@@ -241,4 +244,17 @@ private fun ThisWeekCard(d: app.zigora.data.SDash, open: () -> Unit) {
         }
         Quiet(tl("Topics learned this week: {n}", "n" to d.completed_this_week) + " · " + tl("{p}% of your topics learned", "p" to d.percent))
     }
+}
+
+/** A student who signed up and isn't placed yet: placement is the admin's, and two ways to start meanwhile (web: the same block on Home). */
+@Composable
+fun NotPlacedYet(me: Me, openStudy: () -> Unit, openJoin: () -> Unit) {
+    SectionTitle(tl("Your account is ready"))
+    Quiet(if (me.level == "school") tl("Your institution's admin will assign your program and grade. Your institution's courses will appear here after that.")
+          else tl("Your institution's admin will assign your program and semester or year. Your institution's courses will appear here after that."))
+    Text(tl("You don't have to wait to start learning."), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+    ListRow(tl("Build a course from your own notes"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
+            leading = { RowIcon(Icons.Outlined.AutoStories) })
+    ListRow(tl("Join a course offered by a teacher"), tl("Open courses, courses you can ask to join, and invitations"), onClick = openJoin,
+            leading = { RowIcon(Icons.Outlined.Add) })
 }
