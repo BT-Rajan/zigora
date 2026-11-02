@@ -2929,5 +2929,17 @@
 "Long material is sliced part by part: {done} of {of} done. This can take a few minutes.": "تُقسَّم المادة الطويلة جزءًا جزءًا: اكتمل {done} من {of}. قد يستغرق ذلك بضع دقائق.",
 "The AI's answer could not be read. Try again, or slice by headings.": "تعذّرت قراءة إجابة الذكاء الاصطناعي. حاول مرة أخرى، أو قسّم حسب العناوين.",
 "Your material changed while it was being sliced. Slice it again.": "تغيّرت مادتك أثناء تقسيمها. قسّمها مرة أخرى.",
-"Slicing stopped before it finished. Slice it again.": "توقف التقسيم قبل أن ينتهي. قسّمها مرة أخرى."
+"Slicing stopped before it finished. Slice it again.": "توقف التقسيم قبل أن ينتهي. قسّمها مرة أخرى.",
+", {n}{v}. Rename anything, merge a topic into the next one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.": "، {n}{v}. أعد تسمية أي شيء، أو ادمج موضوعًا في الذي يليه، أو انقل موضوعًا إلى وحدة أخرى، أو احذف ما لا تحتاجه. ليس صحيحًا؟ غيّر الملاحظات وقسّمها من جديد.",
+"Remove “{title}”?": "هل تحذف «{title}»؟",
+"Its text ({n}) won't be in your course. To keep the text, merge it into another topic instead.": "لن يكون نصه ({n}) في مقررك. للإبقاء على النص، ادمجه في موضوع آخر بدلًا من ذلك.",
+"Move to unit…": "انقل إلى وحدة…",
+"Move “{title}” to another unit": "انقل «{title}» إلى وحدة أخرى",
+"Unit {v}": "الوحدة {v}",
+"A classmate studies this course too: their progress and quiz results on it are removed as well.": "يدرس زميل هذا المقرر أيضًا: سيُحذف تقدمه ونتائج اختباراته فيه كذلك.",
+"{n} classmates study this course too: their progress and quiz results on it are removed as well.": "يدرس {n} من الزملاء هذا المقرر أيضًا: سيُحذف تقدمهم ونتائج اختباراتهم فيه كذلك.",
+"A classmate has progress or quiz results on this course. Finishing again removes theirs too.": "لدى زميل تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا.",
+"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.": "لدى {n} من الزملاء تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا.",
+"That was the last topic of this course.": "كان هذا آخر موضوع في هذا المقرر.",
+"Back to the course": "العودة إلى المقرر"
 }

@@ -2929,5 +2929,17 @@
 "Long material is sliced part by part: {done} of {of} done. This can take a few minutes.": "நீண்ட பாடப்பொருள் பகுதி பகுதியாகப் பிரிக்கப்படுகிறது: {of} இல் {done} முடிந்தது. இதற்குச் சில நிமிடங்கள் ஆகலாம்.",
 "The AI's answer could not be read. Try again, or slice by headings.": "செயற்கை நுண்ணறிவின் பதிலைப் படிக்க முடியவில்லை. மீண்டும் முயலுங்கள், அல்லது தலைப்புகளின்படி பிரியுங்கள்.",
 "Your material changed while it was being sliced. Slice it again.": "பிரிக்கும்போது உங்கள் பாடப்பொருள் மாறியது. மீண்டும் பிரியுங்கள்.",
-"Slicing stopped before it finished. Slice it again.": "பிரித்தல் முடிவதற்குள் நின்றது. மீண்டும் பிரியுங்கள்."
+"Slicing stopped before it finished. Slice it again.": "பிரித்தல் முடிவதற்குள் நின்றது. மீண்டும் பிரியுங்கள்.",
+", {n}{v}. Rename anything, merge a topic into the next one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.": ", {n}{v}. எதையும் மறுபெயரிடுங்கள், ஒரு தலைப்பை அடுத்ததுடன் இணைக்கவும், ஒன்றை வேறு அலகுக்கு நகர்த்தவும், அல்லது தேவையில்லாததை நீக்கவும். சரியில்லையா? குறிப்புகளை மாற்றி மீண்டும் பிரிக்கவும்.",
+"Remove “{title}”?": "“{title}” ஐ நீக்கவா?",
+"Its text ({n}) won't be in your course. To keep the text, merge it into another topic instead.": "அதன் உரை ({n}) உங்கள் பாடத்தில் இருக்காது. உரையை வைத்துக்கொள்ள, அதை வேறு தலைப்புடன் இணைக்கவும்.",
+"Move to unit…": "அலகுக்கு நகர்த்து…",
+"Move “{title}” to another unit": "“{title}” ஐ வேறு அலகுக்கு நகர்த்து",
+"Unit {v}": "அலகு {v}",
+"A classmate studies this course too: their progress and quiz results on it are removed as well.": "ஒரு வகுப்புத் தோழரும் இந்தப் பாடத்தைப் படிக்கிறார்: அதில் அவரது முன்னேற்றமும் வினாடி வினா முடிவுகளும் நீக்கப்படும்.",
+"{n} classmates study this course too: their progress and quiz results on it are removed as well.": "{n} வகுப்புத் தோழர்களும் இந்தப் பாடத்தைப் படிக்கிறார்கள்: அதில் அவர்களின் முன்னேற்றமும் வினாடி வினா முடிவுகளும் நீக்கப்படும்.",
+"A classmate has progress or quiz results on this course. Finishing again removes theirs too.": "ஒரு வகுப்புத் தோழருக்கு இந்தப் பாடத்தில் முன்னேற்றம் அல்லது வினாடி வினா முடிவுகள் உள்ளன. மீண்டும் முடித்தால் அவையும் நீக்கப்படும்.",
+"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.": "{n} வகுப்புத் தோழர்களுக்கு இந்தப் பாடத்தில் முன்னேற்றம் அல்லது வினாடி வினா முடிவுகள் உள்ளன. மீண்டும் முடித்தால் அவையும் நீக்கப்படும்.",
+"That was the last topic of this course.": "இது இந்தப் பாடத்தின் கடைசித் தலைப்பு.",
+"Back to the course": "பாடத்துக்குத் திரும்பு"
 }

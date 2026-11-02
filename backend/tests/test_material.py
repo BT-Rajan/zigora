@@ -160,3 +160,21 @@ def test_a_topic_moved_to_another_course_leaves_the_old_filing_and_keeps_its_not
     assert env.c.put(url(i, "/sections"), headers=env.stu, json={"sections": secs}).status_code == 200  # changing a part and saving again still works
     assert env.c.post(url(i, "/save"), headers=env.stu).status_code == 200
     assert env.c.get(f"/api/topics/{r}", headers=env.stu).json()["my_notes"].startswith("# Rusting")  # the note stays with its topic in the new course
+
+def test_a_topic_with_only_own_notes_gets_its_gist_and_steps_from_them_privately(env, monkeypatch):
+    i = setup(env, monkeypatch); h = i["t"]["Hardness of water"]; env.add_user("stu2@x.com", program=i["prog"]["Mech"], semester=1); s2 = env.login("stu2@x.com")
+    async def ai(k, messages, **kw):  # the gist answers in its JSON shape
+        if '"points"' in messages[0]["content"]: FakeAI.calls.append((messages[0]["content"][:30], messages[1]["content"])); return json.dumps({"points": ["What it is", "The key idea", "Why it matters"]}), 10
+        return await (MatchAI())(k.key, k.model, messages, **kw)
+    monkeypatch.setattr(main, "chat", ai)
+    env.c.post(url(i, "/text"), headers=env.stu, json={"text": NOTES}); env.c.post(url(i, "/match"), headers=env.stu, json={"method": "headings"}); env.c.post(url(i, "/save"), headers=env.stu)
+    r = env.c.get(f"/api/topics/{h}/ai/gist", headers=env.stu).json()
+    assert r["own_notes"] and not r["cached"] and r["data"]["points"][0] == "What it is" and "you" in r  # the page's steps work as on any topic
+    assert "Boiling removes temporary hardness" in FakeAI.calls[-1][1]
+    with Session_() as s: assert s.query(main.AICache).count() == 0 and s.query(main.PrivateAnswer).filter_by(kind="gist").count() == 1  # never shared
+    n = len(FakeAI.calls); again = env.c.get(f"/api/topics/{h}/ai/gist", headers=env.stu).json()
+    assert again["cached"] and again["data"] == r["data"] and len(FakeAI.calls) == n  # kept: nothing is sent again
+    r = env.c.get(f"/api/topics/{h}/ai/gist", headers=s2); assert r.status_code == 400 and r.json()["detail"] == main.EMPTY_TOPIC  # a classmate without notes: still nothing from the name alone
+    with Session_() as s: x = s.get(Topic, h); x.content = "Hard water carries calcium and magnesium salts."; s.commit()
+    n = len(FakeAI.calls); r = env.c.get(f"/api/topics/{h}/ai/gist", headers=env.stu).json()  # once the topic has notes of its own, the gist is the shared one again
+    assert not r.get("own_notes") and "Boiling removes temporary hardness" not in FakeAI.calls[-1][1] and len(FakeAI.calls) == n + 1

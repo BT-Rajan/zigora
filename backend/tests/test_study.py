@@ -82,6 +82,14 @@ def test_wizard_slices_previews_adjusts_and_finishes(env, monkeypatch):
     edited = [{"title": "Hard water", "topics": [{"title": "Hardness and boiling", "from": 1, "to": 3}]}, plan["units"][1]]
     assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": edited}).status_code == 200
     assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": [{"title": "x", "topics": [{"from": 2, "to": 5}, {"from": 4, "to": 7}]}]}).status_code == 400
+    # a topic moved to another unit takes its place there by where its text is; no paragraph may be in two topics
+    moved = [{"title": "Hard water", "topics": [{"title": "What it is", "from": 1, "to": 2}]},
+             {"title": "Treatment", "topics": [{"title": "Membranes", "from": 7, "to": 7}, {"title": "Boiling", "from": 3, "to": 3}, {"title": "Softening", "from": 4, "to": 6}]}]
+    p = env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": moved}).json()["plan"]
+    assert [[t["title"] for t in u["topics"]] for u in p["units"]] == [["What it is"], ["Boiling", "Softening", "Membranes"]]
+    clash = [{"title": "A", "topics": [{"from": 4, "to": 6}]}, {"title": "B", "topics": [{"from": 1, "to": 2}, {"from": 5, "to": 5}]}]
+    assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": clash}).status_code == 400
+    assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": [{"title": "x", "topics": [{"from": 0, "to": 1}]}]}).status_code == 400
     h = env.c.post(f"/api/study/courses/{cid}/slice", headers=env.stu, json={"method": "headings"}).json()["plan"]
     assert [u["title"] for u in h["units"]] == ["Hard water", "Treatment"]
     env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": edited})
@@ -133,6 +141,15 @@ def test_sharing_with_classmates_and_privacy(env, monkeypatch):
     assert env.c.put(f"/api/study/courses/{cid}", headers=mate, json={"title": "Mine now"}).status_code == 403 and env.c.delete(f"/api/study/courses/{cid}", headers=other).status_code == 404
     q = env.c.post(f"/api/study/topics/{tids[0]}/quizzes", headers=mate, json={"kind": "mcq"}).json()["id"]
     assert env.c.get(f"/api/study/quizzes/{q}", headers=env.stu).status_code == 404  # a set belongs to whoever asked for it
+    # finishing again would remove the classmate's work too: the owner is told, and the server holds back until the request says so
+    assert env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json()["classmates_using"] == 1
+    r = env.c.post(f"/api/study/courses/{cid}/finish", headers=env.stu, json={"replace": True})
+    assert r.status_code == 409 and r.json()["detail"] == "A classmate has progress or quiz results on this course. Finishing again removes theirs too."
+    with Session_() as s: assert s.query(StudyQuiz).filter_by(id=q).count() == 1  # nothing was removed
+    assert env.c.post(f"/api/study/courses/{cid}/finish", headers=env.stu, json={"replace": True, "classmates": True}).status_code == 200
+    with Session_() as s: assert s.query(StudyQuiz).filter_by(id=q).count() == 0
+    assert env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json()["classmates_using"] == 0
+    tids = [t["id"] for u in env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json()["units"] for t in u["topics"]]
     env.add_user("lone@x.com"); lone = env.login("lone@x.com"); lc = new(env, lone)
     assert env.c.put(f"/api/study/courses/{lc}", headers=lone, json={"share": "program"}).status_code == 400  # no program, nobody to share with
     assert env.c.delete(f"/api/study/courses/{cid}", headers=env.stu).status_code == 200

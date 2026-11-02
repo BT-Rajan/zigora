@@ -4157,19 +4157,24 @@ async def ai(tid: int, kind: str, u: User = Depends(me), s: Session = Depends(db
     f = full(t, s); prompt = in_lang(u, prompt_for(s, kind) + (CHECK_LEVEL.get(you["level"], "") if you and kind == "check" else ""))
     if you and kind in PICKS + ("simpler",): s.add(StepLog(user_id=u.id, topic_id=tid, kind=kind)); s.commit()  # a step the student chose to open
     extra = {"you": {**you, "question_first": question_first(u, t, s)}} if you and kind == "gist" else {"level": you["level"]} if you and kind == "check" else {}
-    mine = my_notes(s, u.id, tid) if u.role == "student" and kind in ("explain", "answer") else None
-    if not mine and not words_of(f["content"], f["content_format"]).strip() and not (kind in EXAM_KINDS and (t.sample_content or t.question_pattern or t.guideline)):
+    has_text = bool(words_of(f["content"], f["content_format"]).strip())
+    # the student's own notes go to the AI for Explain and Sample answer; and, on a topic with no notes of its own, for the gist and the steps too
+    mine = my_notes(s, u.id, tid) if u.role == "student" and (kind in ("explain", "answer") or (kind in STEPS and not has_text)) else None
+    if not mine and not has_text and not (kind in EXAM_KINDS and (t.sample_content or t.question_pattern or t.guideline)):
         raise HTTPException(400, EMPTY_TOPIC)  # nothing to explain from but the topic's name: the AI would make it up
     if mine:  # the student's own notes are private: the answer is written for them alone and never shared. It goes to the AI once; after that the kept copy is shown and nothing is sent.
         key_or_fail(u, s); ch = hashlib.sha256("|".join(["own", topic_hash(t, kind, prompt), mine]).encode()).hexdigest()
         hit = s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind=kind, chash=ch).first()
-        if hit: return {"text": hit.text, "cached": True, "own_notes": True}
-        text = await study_ask(u, s, "t_" + kind, prompt, topic_msg(f, kind, mine), max_tokens=None, topic_id=tid)  # kinds fit the 10-character column
+        step = {"data": step_reply(kind, hit.text)} if hit and kind in STEPS else {}
+        if hit: return {"text": hit.text, "cached": True, "own_notes": True, **step, **extra}
+        text = await study_ask(u, s, "t_" + kind, prompt, topic_msg(f, kind, mine), max_tokens=STEPS.get(kind), topic_id=tid)  # kinds fit the 10-character column
+        data = step_reply(kind, text) if kind in STEPS else None
+        if kind in STEPS and data is None: raise HTTPException(502, "The AI's answer could not be read. Try again.")  # not kept, so the next try asks again
         try:
             s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind=kind).delete()  # an answer for older notes is no use now
             s.add(PrivateAnswer(user_id=u.id, topic_id=tid, kind=kind, chash=ch, text=text)); s.commit()
         except Exception: s.rollback()
-        return {"text": text, "cached": False, "own_notes": True}
+        return {"text": text, "cached": False, "own_notes": True, **({"data": data} if kind in STEPS else {}), **extra}
     ch = topic_hash(t, kind, prompt)
     key = key_or_fail(u, s)
     hit = s.query(AICache).filter_by(topic_id=tid, kind=kind, chash=ch).first()
@@ -5812,7 +5817,8 @@ def study_list(u: User = Depends(me), s: Session = Depends(db)):
 def study_get(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s); mine = c.owner_id == u.id or u.role == "admin"
     out = {**study_row(c, s, u), "can_edit": mine, "notes": (c.notes or "") if mine else "", "sliced_by": c.sliced_by or "", **study_ai_status(u, s)}
-    if mine: out.update(reading=scan_state(c, s), ocr_available=ocr_ready(), sources=json.loads(c.sources or "[]"), paragraphs=len(json.loads(c.paras or "[]")), plan=plan_view(c))
+    if mine: out.update(reading=scan_state(c, s), ocr_available=ocr_ready(), sources=json.loads(c.sources or "[]"), paragraphs=len(json.loads(c.paras or "[]")), plan=plan_view(c),
+                        classmates_using=study_classmates_using(s, c))
     if c.status == "ready":
         prog = {p.topic_id: p for p in s.query(StudyProgress).filter(StudyProgress.user_id == u.id, StudyProgress.topic_id.in_(s.query(StudyTopic.id).filter_by(course_id=c.id)))}
         best = study_best(s, u.id, c.id); now = dt.datetime.utcnow()
@@ -5839,6 +5845,11 @@ def study_edit(cid: int, b: StudyCourseIn, u: User = Depends(me), s: Session = D
 @app.delete("/api/study/courses/{cid}")
 def study_delete(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s, edit=True); drop_study_content(s, c.id); s.delete(c); s.commit(); return {"ok": True}
+def study_classmates_using(s, c):  # other people with progress or quiz results on this course, which finishing it again would remove
+    tids = s.query(StudyTopic.id).filter_by(course_id=c.id)
+    who = {i for (i,) in s.query(StudyProgress.user_id).filter(StudyProgress.topic_id.in_(tids))}
+    who |= {i for (i,) in s.query(StudyQuiz.user_id).filter(or_(StudyQuiz.topic_id.in_(tids), StudyQuiz.course_id == c.id))}
+    return len(who - {c.owner_id})
 def drop_study_content(s, cid):  # units, topics and everything hanging off them (SQLite does not cascade)
     tids = [i for (i,) in s.query(StudyTopic.id).filter_by(course_id=cid)] or [0]
     qids = [i for (i,) in s.query(StudyQuiz.id).filter(or_(StudyQuiz.topic_id.in_(tids), StudyQuiz.course_id == cid))] or [0]
@@ -5964,30 +5975,39 @@ def study_slicing(cid: int, u: User = Depends(me), s: Session = Depends(db)):
 class PlanIn(BaseModel): units: list[dict]
 @app.put("/api/study/courses/{cid}/plan")
 def study_plan(cid: int, b: PlanIn, u: User = Depends(me), s: Session = Depends(db)):
-    """The preview after the student renamed, merged or removed topics. Topics stay in order and never overlap; removed topics leave their paragraphs out."""
-    c = study_course_or_404(cid, u, s, edit=True); n = len(json.loads(c.paras or "[]")); last, units = 0, []
+    """The preview after the student renamed, merged, removed or moved topics. A topic may move to another unit, where it takes its place by where its text is in
+    the material; no two topics share a paragraph, so nothing is repeated. Removed topics leave their paragraphs out."""
+    c = study_course_or_404(cid, u, s, edit=True); n = len(json.loads(c.paras or "[]")); units = []
     for un in b.units:
         topics = []
         for t in un.get("topics") or []:
             try: f, to = int(t["from"]), int(t["to"])
             except (KeyError, TypeError, ValueError): raise HTTPException(400, "Each topic needs its first and last paragraph")
-            if not (last < f <= to <= n): raise HTTPException(400, "Topics must stay in order without overlapping")
-            last = to; topics.append({"title": (str(t.get("title") or "").strip() or "Untitled topic")[:200], "summary": str(t.get("summary") or "")[:300], "from": f, "to": to})
-        if topics: units.append({"title": (str(un.get("title") or "").strip() or "Untitled unit")[:200], "topics": topics})
+            if not 1 <= f <= to <= n: raise HTTPException(400, "Topics must stay in order without overlapping")
+            topics.append({"title": (str(t.get("title") or "").strip() or "Untitled topic")[:200], "summary": str(t.get("summary") or "")[:300], "from": f, "to": to})
+        if topics: units.append({"title": (str(un.get("title") or "").strip() or "Untitled unit")[:200], "topics": sorted(topics, key=lambda t: t["from"])})
     if not units: raise HTTPException(400, "Keep at least one topic")
+    last = 0
+    for t in sorted((t for un in units for t in un["topics"]), key=lambda t: t["from"]):
+        if t["from"] <= last: raise HTTPException(400, "Topics must stay in order without overlapping")
+        last = t["to"]
     c.plan = json.dumps({"units": units}, ensure_ascii=False); touch(c); s.commit(); return {"plan": plan_view(c)}
 @app.get("/api/study/courses/{cid}/preview")
 def study_preview(cid: int, start: int, end: int, u: User = Depends(me), s: Session = Depends(db)):  # the full text of a planned topic
     c = study_course_or_404(cid, u, s, edit=True); paras = json.loads(c.paras or "[]")
     if not 1 <= start <= end <= len(paras): raise HTTPException(400, "Out of range")
     return {"content": "\n\n".join(paras[start - 1:end])}
-class FinishIn(BaseModel): replace: bool = False
+class FinishIn(BaseModel): replace: bool = False; classmates: bool = False  # classmates: the owner was told that classmates' progress and quiz results go too
 @app.post("/api/study/courses/{cid}/finish")
 def study_finish(cid: int, b: FinishIn, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s, edit=True)
     if not c.plan: raise HTTPException(400, "Slice your material and check the preview first")
     if s.query(StudyTopic.id).filter_by(course_id=c.id).first():
         if not b.replace: raise HTTPException(409, "This course already has topics. Finishing again replaces them, with their progress and quizzes.")
+        n = study_classmates_using(s, c)
+        if n and not b.classmates:  # an older app, or a classmate started meanwhile: say so before their work goes
+            raise HTTPException(409, "A classmate has progress or quiz results on this course. Finishing again removes theirs too." if n == 1 else
+                                     f"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.")
         drop_study_content(s, c.id)
     paras = json.loads(c.paras or "[]"); n = 0
     for ui, un in enumerate(json.loads(c.plan)["units"]):

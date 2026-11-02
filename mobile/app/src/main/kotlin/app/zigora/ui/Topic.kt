@@ -142,7 +142,7 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
             Loaded(topic) { t ->
                 val aiOn = (ai.state as? Load.Ok)?.value?.available == true
                 val aiOff = (ai.state as? Load.Ok)?.value?.off == true  // no parent's or teacher's key: the notes only
-                if (aiOn && !t.content.isNullOrBlank()) Steps(id, student, t.diagram, openDiagram)  // no gist from a topic's name alone
+                if (aiOn && (!t.content.isNullOrBlank() || t.my_notes != null)) Steps(id, student, t.diagram, openDiagram)  // no gist from a topic's name alone: from its notes, or the student's own
                 Body(t, me, aiOn, aiOff, known, openReader = { openReader(id) }, openMaterial = { openMaterial(t.course_id, t.course) })
                 if (student) OutlinedButton(onClick = { openMcq(id) }, modifier = Modifier.fillMaxWidth()) { Text(tl("MCQ practice on this topic")) }
                 ClassQuestionsList(id)
@@ -255,6 +255,7 @@ private fun Steps(id: Int, student: Boolean, diagram: String? = null, openDiagra
             TextButton(onClick = { showGist = true }) { Text(stringResource(R.string.show_gist)) }
         } else {
             Text(stringResource(R.string.the_gist), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            if (g.own_notes) Quiet(stringResource(R.string.written_with_notes))
             d.list("points").forEach { p -> Row(Modifier.padding(top = 6.dp)) { Text("•  "); Md(p) } }
             if (d.str("hook").isNotEmpty() && !showGist) Hook(d.str("hook"), d.str("hook_answer"))
             FlagLink("topic", g.id, id)

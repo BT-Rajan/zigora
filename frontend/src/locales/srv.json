@@ -274,5 +274,9 @@
 [
 "^Your invitation to (?<course>.+) lapsed$",
 "Your invitation to {course} lapsed"
+],
+[
+"^(?<n>\\d+) classmates have progress or quiz results on this course\\. Finishing again removes theirs too\\.$",
+"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too."
 ]
 ]
