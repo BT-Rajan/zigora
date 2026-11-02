@@ -103,7 +103,7 @@ export default function App(){
     <OfflineBar/>{admin&&<SectionTabs page={page} go={go}/>}<div id="pageslot"/>
     {page==='home'&&student&&<Dashboard user={user} toast={toast} onOpen={openIn} onStudy={openStudy} onRoutine={()=>go('routine')} onCalendar={()=>go('calendar')} onGo={go}/>}
     {page==='routine'&&student&&<RoutinePage toast={toast} done={()=>go('home')}/>}
-    {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go(p==='awaiting'?'parents':'students')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
+    {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')} onGo={go}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go(p==='awaiting'?'parents':'students')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
     {page==='search'&&<SearchPage key={findQ.n} initial={findQ.q} user={user} toast={toast}/>}{page==='learn'&&<Learn key={String(start)} start={start} user={user} toast={toast} appName={name}/>}
     {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}
     {page==='build'&&user.role==='student'&&<StudyHome key={JSON.stringify(studyStart)} start={studyStart} toast={toast}/>}
@@ -236,7 +236,23 @@ function WardCard({c,open}){
     {c.place&&<small className="known">{c.place}</small>}
     <span className="wweek" aria-label={tl("Studied on {n} of the last 7 days",{n:c.active_days_week})}>{c.week.map((on,i)=><span key={i} className={on?'on':''} aria-hidden="true">{days[i]}</span>)}</span>
     <small className="known">{tl("Topics learned this week: {n}",{n:c.completed_this_week})} · {c.last_studied?tl("last studied {when}",{when:day(c.last_studied)}):tl("not started yet")}</small></button>}
-function GuardianHome({user,toast,onKey,onCalendar}){  // a parent's children, or a teacher's students: add them, invite them (teachers), see their progress, and the AI key that covers them
+// a school teacher's Home: what needs them, most urgent first, each a tap from the page that deals with it
+function TeacherAttention({onGo}){
+  const [d,setD]=useState(null)
+  useEffect(()=>{Promise.allSettled([api('/offered'),api('/questions?status=waiting&limit=1'),api('/announcements?limit=30'),api('/reports/struggles?days=7')]).then(([o,q,a,st])=>{
+    const today=ymd(new Date()),offers=o.value?.items||[]
+    setD({applied:offers.reduce((n,c)=>n+(c.counts.applied||0),0),invited:offers.reduce((n,c)=>n+(c.counts.invited||0),0),questions:q.value?.total||0,
+          today:(a.value?.upcoming||[]).filter(x=>x.starts_at&&ymd(new Date(x.starts_at))===today),stuck:(st.value?.items||[]).length,running:offers.filter(c=>c.state==='running').length})})},[])
+  if(!d)return <Skeleton rows={1}/>
+  const items=[d.applied&&[tl(d.applied===1?"1 student asks to join your courses":"{n} students ask to join your courses",{n:d.applied}),tl("Decide within 48 hours"),'offered'],
+    d.questions&&[tl(d.questions===1?"1 question waits for your answer":"{n} questions wait for your answer",{n:d.questions}),'','questions'],
+    ...d.today.map(x=>[tl("Class today: {title}",{title:x.title}),classWhen(x),'classes']),
+    d.stuck&&[tl(d.stuck===1?"Students got stuck on 1 topic this week":"Students got stuck on {n} topics this week",{n:d.stuck}),tl("Offer help"),'struggles']].filter(Boolean)
+  return <><h3 className="sec first">{tl("Needs your attention")}</h3>
+    {items.length?items.map(([t,sub,go],i)=><button key={i} className="card" style={{textAlign:'start',width:'100%'}} onClick={()=>onGo(go)}><div style={{flex:1}}><b>{t}</b>{sub&&<span className="known" style={{display:'block'}}>{sub}</span>}</div><ChevronRight size={18}/></button>)
+      :<p className="known">{tl("Nothing needs you right now.")}{d.invited?' '+tl(d.invited===1?"1 invitation is waiting for a student's answer.":"{n} invitations are waiting for students' answers.",{n:d.invited}):''}</p>}
+    <div className="two" style={{marginBottom:24}}><button className="btn ghost" onClick={()=>onGo('offered')}><GraduationCap size={16}/>{" "}{tl("Offered courses")}{d.running?` (${d.running})`:''}</button><button className="btn ghost" onClick={()=>onGo('classes')}><Megaphone size={16}/>{" "}{tl("Classes")}</button></div></>}
+function GuardianHome({user,toast,onKey,onCalendar,onGo}){  // a parent's children, or a teacher's students: add them, invite them (teachers), see their progress, and the AI key that covers them
   const confirm=useConfirm()
   const [d,setD]=useState(null),[k,setK]=useState(null),[opts,setOpts]=useState({school:[],college:[]}),[add,setAdd]=useState(null),[inv,setInv]=useState(''),[sent,setSent]=useState(''),[see,setSee]=useState(null),[b,setB]=useState(false)
   const [dash,setDash]=useState(null)
@@ -250,6 +266,7 @@ function GuardianHome({user,toast,onKey,onCalendar}){  // a parent's children, o
   const drop=async x=>{if(!await confirm({title:tl("Stop following {name}?",{name:x.name}),body:tl("Their account and progress stay. You no longer see their progress, and your AI key no longer covers them."),ok:tl("Stop following"),danger:true}))return
     try{await api('/guardian/students/'+x.id,{method:'DELETE'});load()}catch(e){toast(e.message)}}
   return <><Bar title={tl("Hello, {name}",{name:firstName(user.name)})}/><div className="main">
+    {user.relation==='teacher'&&onGo&&<TeacherAttention onGo={onGo}/>}
     {dash?.items.length>0&&<><h3 className="sec first">{tl("Needs you")}</h3>
       {dash.items.map((x,i)=><div key={x.key+i} className={'card dash '+x.level}><span className="dot" aria-hidden="true"/><div style={{flex:1}}><b>{tl(x.text,{...x.vars,...(x.vars.date?{date:day(x.vars.date)}:{})})}</b></div>
         <button className="btn ghost" onClick={()=>x.action==='key'?onKey():setSee(x.student_id)}>{x.action==='key'?tl("Add an AI key"):tl("See progress")}</button></div>)}</>}
@@ -563,13 +580,13 @@ function Learn({user,toast,appName,start}){
   if(ed)return <TopicEditor role={user.role} toast={toast} edit={ed.id?ed:null} unitId={ed.unit_id} done={()=>setEd(null)} cancel={()=>setEd(null)}/>
   const tsub=x=>[x.published===false&&'Draft · students cannot see it',x.learning_due_at&&(staff?'Due '+when(x.learning_due_at):tl("Your teacher's date")+': '+day(x.learning_due_at)),
     cp?.topics[x.id]&&`${cp.topics[x.id].completed}/${cp.students} completed`+(cp.topics[x.id].overdue?` · ${cp.topics[x.id].overdue} overdue`:'')].filter(Boolean).join(' · ')
-  const row=(x,kind,one,sub,extra={})=>({id:x.id,n:x.name,sub,kind,archived:x.archived,archived_self:x.archived_self,locked:!staff&&kind==='courses'&&(x.archived||x.upcoming),can:x.offered||prog?.offered&&kind!=='units'?false:kind==='programs'||kind==='semesters'?isAdmin:kind==='courses'?(isAdmin||x.mine)&&!x.shared:mayEdit&&!co?.shared,go:()=>setNav([...nav,x.id]),edit:()=>setEd({kind:one,id:x.id,name:x.name,...extra})})
+  const row=(x,kind,one,sub,extra={})=>({id:x.id,n:x.name,sub,kind,archived:x.archived,archived_self:x.archived_self,locked:!staff&&kind==='courses'&&(x.archived||x.upcoming||x.paused),can:x.offered||prog?.offered&&kind!=='units'?false:kind==='programs'||kind==='semesters'?isAdmin:kind==='courses'?(isAdmin||x.mine)&&!x.shared:mayEdit&&!co?.shared,go:()=>setNav([...nav,x.id]),edit:()=>setEd({kind:one,id:x.id,name:x.name,...extra})})
   const drafts=t=>t.filter(x=>x.published===false).length
   const setPub=async(url,published,msg)=>{try{await api(url,{method:'PUT',body:{published}});toast(msg);load()}catch(e){toast(e.message)}}
   const move=async(items,i,d,url)=>{const ids=items.map(x=>x.id),j=i+d;if(j<0||j>=ids.length)return;[ids[i],ids[j]]=[ids[j],ids[i]];try{await api(url,{method:'PUT',body:{ids}});load()}catch(e){toast(e.message)}}
   const list0=unit?unit.topics.map(x=>({id:x.id,n:x.title,s:x.status,b:x.bookmarked,kind:'topics',archived:x.archived,archived_self:x.archived_self,can:mayEdit&&!co.shared,sub:tsub(x),late:x.overdue,draft:x.published===false,go:()=>setT(x.id),edit:()=>setEd({id:x.id}),pub:()=>setPub(`/topics/${x.id}/publish`,x.published===false,x.published===false?'Published':'Moved to drafts')}))
     :co?co.units.map(x=>({...row(x,'units','unit',pl(x.topics.length,'topic')+(mayEdit&&drafts(x.topics)?' · '+tl('{n} draft',{n:drafts(x.topics)}):'')),edit:()=>setSheet({type:'unit',un:x,cid:co.id})}))
-    :sem?sem.courses.map(x=>({...row(x,'courses','course',(x.upcoming&&!staff?tl("Starts on {date}",{date:day(x.starts_on)})+(x.ends_on?' · '+tl("to {date}",{date:day(x.ends_on)}):''):staff?pl(x.units.length,'unit'):pl(x.units.flatMap(n=>n.topics).length,'topic'))+(x.shared?tl(" · shared from {home}",{home:x.home}):x.shared_with?tl(" · shared with {shared_with} more",{shared_with:x.shared_with}):'')+(staff?' · '+ownerLine(x):'')),soon:x.upcoming&&!staff?tl("This course starts on {date}",{date:day(x.starts_on)}):null,edit:()=>setSheet({type:'course',c:x,pid:prog.id,sid:x.semester_id}),share:()=>setSh({id:x.id,name:x.name,home:x.semester_id,sel:x.link_ids||[]}),unlink:x.shared?{id:x.id,keep:(x.link_ids||[]).filter(i=>i!==sem.id)}:null}))
+    :sem?sem.courses.map(x=>({...row(x,'courses','course',(x.upcoming&&!staff?tl("Starts on {date}",{date:day(x.starts_on)})+(x.ends_on?' · '+tl("to {date}",{date:day(x.ends_on)}):''):staff?pl(x.units.length,'unit'):pl(x.units.flatMap(n=>n.topics).length,'topic'))+(x.shared?tl(" · shared from {home}",{home:x.home}):x.shared_with?tl(" · shared with {shared_with} more",{shared_with:x.shared_with}):'')+(staff?' · '+ownerLine(x):'')),soon:x.paused&&!staff?tl("This course is paused for now. Your teacher will reopen it."):x.upcoming&&!staff?tl("This course starts on {date}",{date:day(x.starts_on)}):null,edit:()=>setSheet({type:'course',c:x,pid:prog.id,sid:x.semester_id}),share:()=>setSh({id:x.id,name:x.name,home:x.semester_id,sel:x.link_ids||[]}),unlink:x.shared?{id:x.id,keep:(x.link_ids||[]).filter(i=>i!==sem.id)}:null}))
     :prog?prog.semesters.map(x=>({...row(x,'semesters','semester',(isAdmin?(x.number?tl('{term} no. {n}',{term:prog.term,n:x.number}):tl('No {term} number set',{term:prog.term.toLowerCase()}))+' · ':'')+pl(x.courses.length,'course')),edit:()=>setSheet({type:'semester',sem:x,pid:prog.id})}))
     :tree.map(x=>({...row(x,'programs','program',x.offered?pl(x.semesters[0]?.courses.length||0,'course'):x.semesters.length+' '+x.term.toLowerCase()+(x.semesters.length===1?'':'s')),edit:()=>setSheet({type:'program',p:x}),...(x.offered?{go:()=>setNav([-1,-1])}:{})}))  // offered courses: straight to the list
   const offeredNode=tree.find(x=>x.offered)
@@ -805,7 +822,8 @@ function PhotoPick({photo,setPhoto,toast}){
   const pick=async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;try{setPhoto(await shrink(f))}catch(x){toast(x.message)}}
   return photo?<div className="qphoto"><img src={photo} alt={tl("Your photo")}/><button className="ic sm" aria-label={tl("Remove the photo")} onClick={()=>setPhoto(null)}><X size={16}/></button></div>
     :<label className="btn ghost photopick"><Camera size={16}/> {tl("Add a photo")}<input type="file" accept="image/*" onChange={pick} hidden/></label>}
-const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}</>
+const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}
+  {m.file&&<a className="msgfile" href={at(m.file.url)} download={m.file.name}><FileText size={18}/><span>{m.file.name}</span><small>{tl("Download")}</small></a>}</>
 function AskTeacher({tid,excerpt,close,toast}){
   const [text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[sim,setSim]=useState([]),[open,setOpen]=useState({})
   useEffect(()=>{const q=[excerpt,text].filter(Boolean).join(' ').trim();if(q.split(/\s+/).length<2){setSim([]);return}  // answers the teacher already shared that look like this one
@@ -960,7 +978,7 @@ function ModelAnswer({t,canEdit,toast,onSaved}){
     {canEdit&&<button className="link" onClick={start}><Pencil size={14}/> {tl("Edit")}</button>}</div>}
 // ---- courses a teacher offers: faculty, admins and school teachers run a course of their own, seen only by the students on its list.
 // ---- Students are invited (48 hours to accept), ask to join (the teacher has 48 hours to decide), or join at once when it is open to anyone
-const OFFER_STATE={upcoming:['Starts soon','var(--acct)'],running:['Running','var(--ok)'],ended:['Ended','var(--mut)'],cancelled:['Cancelled','var(--bad)'],archived:['Archived','var(--mut)']}
+const OFFER_STATE={upcoming:['Starts soon','var(--acct)'],running:['Running','var(--ok)'],paused:['Paused','var(--warn)'],ended:['Ended','var(--mut)'],cancelled:['Cancelled','var(--bad)'],archived:['Archived','var(--mut)']}
 const offerDates=c=>c.starts_on||c.ends_on?[c.starts_on&&tl("from {date}",{date:day(c.starts_on)}),c.ends_on&&tl("to {date}",{date:day(c.ends_on)})].filter(Boolean).join(' '):tl("No fixed dates")
 const offerAccess=c=>c.access==='open'?tl("Open to anyone"):c.applications?tl("By invitation, or ask to join"):tl("By invitation only")
 const hoursLeft=iso=>{const h=Math.max(0,Math.round((new Date(iso)-Date.now())/36e5));return h<1?tl("less than an hour left"):tl(h===1?"1 hour left":"{n} hours left",{n:h})}
@@ -1003,6 +1021,8 @@ function OfferDetail({id,back,toast,openCourse}){
     try{await api(`/enrolments/${e.id}`,{method:'POST',body:{action:a}});load()}catch(x){toast(srv(x.message))}}
   const cancel=async()=>{if(!await confirm({title:tl("Cancel this course?"),body:tl("Its students lose it, invitations and requests are cancelled, and its classes still to come are cancelled. Everyone is told. This can't be undone."),ok:tl("Cancel the course"),danger:true}))return
     try{await api(`/offered/${id}/cancel`,{method:'POST'});load()}catch(e){toast(srv(e.message))}}
+  const pause=async on=>{if(on&&!await confirm({title:tl("Pause this course?"),body:tl("Students keep their place but can't open it, and nobody can join, until you resume it. They are told both times."),ok:tl("Pause")}))return
+    try{await api(`/offered/${id}/pause`,{method:'POST',body:{paused:on}});toast(on?tl("Paused. Students are told."):tl("Resumed. Students are told."));load()}catch(e){toast(srv(e.message))}}
   const archive=async on=>{try{await api(`/courses/${id}/archive`,{method:'PUT',body:{archived:on}});toast(on?tl("Archived"):tl("Restored"));load()}catch(e){toast(srv(e.message))}}
   const repeat=async()=>{setBusy(true);try{const r=await api(`/offered/${id}/repeat`,{method:'POST',body:{...rep,starts_on:rep.starts_on||null,ends_on:rep.ends_on||null}});toast(rep.students==='same'?tl("New run made. {n} students invited.",{n:r.invited}):tl("New run made."));setRep(null)}catch(e){toast(srv(e.message))}setBusy(false)}
   if(!d)return <><Bar title={tl("Course")} back={back}/><div className="main"><Skeleton/></div></>
@@ -1019,6 +1039,7 @@ function OfferDetail({id,back,toast,openCourse}){
     {tab==='message'&&<WriteStudents cid={c.id} toast={toast}/>}
     {tab==='course'&&<>{c.about&&<div className="prose flat" style={{marginBottom:10}}><Md>{c.about}</Md></div>}
       {live&&<button className="btn ghost" onClick={()=>setEd(true)}><Pencil size={16}/>{" "}{tl("Change the details, dates or who may join")}</button>}
+      {live&&<button className="btn ghost" onClick={()=>pause(c.state!=='paused')}>{c.state==='paused'?<><Play size={16}/>{" "}{tl("Resume the course")}</>:<><Clock size={16}/>{" "}{tl("Pause the course")}</>}</button>}
       <button className="btn ghost" onClick={()=>setRep({name:c.name,starts_on:'',ends_on:'',students:'same'})}><RotateCcw size={16}/>{" "}{tl("Repeat this course")}</button>
       {c.state!=='cancelled'&&<button className="btn ghost" onClick={()=>archive(c.state!=='archived')}>{c.state==='archived'?<><ArchiveRestore size={16}/>{" "}{tl("Restore from the archive")}</>:<><Archive size={16}/>{" "}{tl("Archive")}</>}</button>}
       {live&&<button className="btn ghost danger" onClick={cancel}>{tl("Cancel the course")}</button>}
@@ -1032,21 +1053,28 @@ function OfferDetail({id,back,toast,openCourse}){
       <button className="btn" disabled={busy} onClick={repeat}>{tl("Make the new run")}</button><button className="btn ghost" onClick={()=>setRep(null)}>{tl("Cancel")}</button></Sheet>}</>}
 // writing to a course's students: all of them, or the ones ticked; each gets their own thread to answer in (My questions)
 function WriteStudents({cid,toast}){
-  const [ppl,setPpl]=useState(null),[sel,setSel]=useState([]),[f,setF]=useState({subject:'',text:''}),[busy,setBusy]=useState(false)
+  const [ppl,setPpl]=useState(null),[sel,setSel]=useState([]),[f,setF]=useState({subject:'',text:''}),[busy,setBusy]=useState(false),[file,setFile]=useState(null)
+  const pick=e=>{const x=e.target.files?.[0];e.target.value='';if(!x)return;if(x.size>15*1024*1024){toast(tl("Keep the file under 15 MB"));return}
+    const rd=new FileReader();rd.onload=()=>setFile({name:x.name,data:rd.result});rd.onerror=()=>toast(tl("That file could not be read"));rd.readAsDataURL(x)}
   useEffect(()=>{api(`/courses/${cid}/students`).then(r=>setPpl(r.items)).catch(()=>setPpl([]))},[cid])
-  const send=async()=>{setBusy(true);try{const r=await api(`/courses/${cid}/message`,{method:'POST',body:{...f,student_ids:sel}});toast(tl(r.sent===1?"Sent to 1 student":"Sent to {n} students",{n:r.sent}));setF({subject:'',text:''});setSel([])}catch(e){toast(srv(e.message))}setBusy(false)}
+  const send=async()=>{setBusy(true);try{const r=await api(`/courses/${cid}/message`,{method:'POST',body:{...f,student_ids:sel,file}});toast(tl(r.sent===1?"Sent to 1 student":"Sent to {n} students",{n:r.sent}));setF({subject:'',text:''});setSel([]);setFile(null)}catch(e){toast(srv(e.message))}setBusy(false)}
   return <div className="qbox"><label htmlFor="wss">{tl("Subject")}</label><input id="wss" value={f.subject} maxLength={200} onChange={e=>setF({...f,subject:e.target.value})}/>
     <label htmlFor="wst">{tl("Message")}</label><textarea id="wst" rows={4} maxLength={1000} value={f.text} onChange={e=>setF({...f,text:e.target.value})}/>
+    {file?<div className="msgfile" style={{marginTop:8}}><FileText size={18}/><span>{file.name}</span><button className="ic sm" aria-label={tl("Remove the file")} onClick={()=>setFile(null)}><X size={16}/></button></div>
+      :<label className="btn ghost photopick"><Upload size={16}/> {tl("Attach material")}<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip,image/png,image/jpeg" onChange={pick} hidden/></label>}
+    <small className="known" style={{display:'block'}}>{tl("PDF, Word, PowerPoint, Excel, text, ZIP or a picture, up to 15 MB.")}</small>
     <p className="known">{sel.length?tl("To the {n} ticked below.",{n:sel.length}):tl("To every student on the course, or tick some below.")}{" "}{tl("Each student gets it in My questions and can answer you there.")}</p>
     {ppl&&ppl.length>0&&<div className="pickppl">{ppl.map(p=><label key={p.id} className="chk"><input type="checkbox" checked={sel.includes(p.id)} onChange={()=>setSel(s=>s.includes(p.id)?s.filter(x=>x!==p.id):[...s,p.id])}/>{" "}{p.name}</label>)}</div>}
     {ppl&&!ppl.length&&<p className="known">{tl("No students on this course yet.")}</p>}
     <button className="btn" disabled={busy||!ppl?.length||f.subject.trim().length<3||f.text.trim().length<3} onClick={send}>{tl("Send")}</button></div>}
 // ---- for students: courses they are invited to (accept within 48 hours), and courses they can join or ask to join
 function JoinPage({toast,openCourse}){
-  const [d,setD]=useState(null),[busy,setBusy]=useState(0)
+  const confirm=useConfirm(),[d,setD]=useState(null),[busy,setBusy]=useState(0)
   const load=()=>api('/offered/catalog').then(setD).catch(e=>toast(e.message));useEffect(()=>{load()},[])
   const join=async c=>{setBusy(c.id);try{const r=await api(`/offered/${c.id}/join`,{method:'POST'});toast(r.mine==='active'?tl("You're in. It is in your courses."):tl("Asked. Your teacher has 48 hours to decide."));load()}catch(e){toast(srv(e.message))}setBusy(0)}
   const answer=async(c,action)=>{setBusy(c.id);try{await api('/enrolments/'+c.enrolment,{method:'POST',body:{action}});toast(action==='accept'?tl("You're in. It is in your courses."):tl("Declined"));load()}catch(e){toast(srv(e.message))}setBusy(0)}
+  const leave=async c=>{if(!await confirm({title:tl("Leave {course}?",{course:c.name}),body:tl("It goes from your courses. Your work so far is kept; you can ask to join again later."),ok:tl("Leave"),danger:true}))return
+    setBusy(c.id);try{await api('/enrolments/'+c.enrolment,{method:'POST',body:{action:'leave'}});toast(tl("You have left the course"));load()}catch(e){toast(srv(e.message))}setBusy(0)}
   const others=d?d.items.filter(x=>x.mine!=='invited'):[]
   return <><Bar title={tl("Join a course")}/><div className="main">
     {!d?<Skeleton/>:<>{d.invited.length>0&&<><h3 className="sec first">{tl("You're invited")}</h3>{d.invited.map(c=><div key={c.id} className="qbox"><b>{c.name}</b><small className="known" style={{display:'block'}}>{c.teacher} · {offerDates(c)} · {hoursLeft(c.expires_at)}</small>
@@ -1054,7 +1082,7 @@ function JoinPage({toast,openCourse}){
       <h3 className="sec">{tl("Courses you can join")}</h3>
       {!others.length?<p className="known">{tl("No courses are open to join right now.")}</p>:others.map(c=><div key={c.id} className="qbox"><div className="wtop" style={{display:'flex',justifyContent:'space-between',gap:8}}><b>{c.name}</b><OfferChip c={c}/></div>
         <small className="known" style={{display:'block'}}>{c.teacher} · {offerDates(c)} · {pl(c.topics,'topic')}</small>{c.about&&<div className="prose flat"><Md>{c.about}</Md></div>}
-        {c.mine==='active'||c.mine==='completed'?<button className="btn ghost" onClick={()=>openCourse(c.id)}>{tl("Open")}</button>
+        {c.mine==='active'||c.mine==='completed'?<div className="two">{c.state!=='paused'&&<button className="btn ghost" onClick={()=>openCourse(c.id)}>{tl("Open")}</button>}{c.mine==='active'&&<button className="btn ghost" disabled={busy===c.id} onClick={()=>leave(c)}>{tl("Leave the course")}</button>}</div>
           :c.mine==='applied'?<p className="known">{tl("You asked to join. Your teacher has 48 hours to decide.")}{c.expires_at?' ('+hoursLeft(c.expires_at)+')':''}</p>
           :c.mine==='suspended'?<p className="known">{tl("Your place is on hold. Ask your teacher.")}</p>
           :<button className="btn" disabled={busy===c.id} onClick={()=>join(c)}>{c.access==='open'?tl("Join"):tl("Ask to join")}</button>}</div>)}</>}</div></>}

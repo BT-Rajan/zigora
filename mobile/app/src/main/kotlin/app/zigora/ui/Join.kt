@@ -47,7 +47,14 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
     val l = rememberLoad("catalog") { get("/offered/catalog", OfferList.serializer()) }
     var busy by remember { mutableIntStateOf(0) }
     var msg by remember { mutableStateOf("") }
+    var leaving by remember { mutableStateOf<Offer?>(null) }
     fun run(c: Offer, block: suspend () -> Unit) = scope.launch { busy = c.id; msg = ""; try { block(); l.reload() } catch (e: Exception) { msg = I18n.srv(e.message) }; busy = 0 }
+    leaving?.let { c ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { leaving = null }, title = { Text(tl("Leave {course}?", "course" to c.name)) },
+            text = { Text(tl("It goes from your courses. Your work so far is kept; you can ask to join again later.")) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { leaving = null; run(c) { a.raw("POST", "/enrolments/${c.enrolment}", buildJsonObject { put("action", "leave") }); msg = tl("You have left the course") } }) { Text(tl("Leave")) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { leaving = null }) { Text(androidx.compose.ui.res.stringResource(app.zigora.R.string.cancel)) } })
+    }
     Page(tl("Join a course"), back = back) {
         if (msg.isNotEmpty()) Text(msg, color = MaterialTheme.colorScheme.primary)
         Loaded(l) { d ->
@@ -74,7 +81,10 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                     Quiet(listOf(c.teacher, datesOf(c), pl(c.topics, "topic")).filter { it.isNotEmpty() }.joinToString(" · "))
                     if (c.about.isNotEmpty()) MathMd(c.about)
                     when (c.mine) {
-                        "active", "completed" -> OutlinedButton(onClick = { openCourse(c.id) }, modifier = Modifier.padding(top = 8.dp)) { Text(tl("Open")) }
+                        "active", "completed" -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                            if (c.state != "paused") OutlinedButton(onClick = { openCourse(c.id) }) { Text(tl("Open")) }
+                            if (c.mine == "active") androidx.compose.material3.TextButton(enabled = busy != c.id, onClick = { leaving = c }) { Text(tl("Leave the course")) }
+                        }
                         "applied" -> Quiet(tl("You asked to join. Your teacher has 48 hours to decide.") + " (" + hoursLeft(c.expires_at) + ")", Modifier.padding(top = 8.dp))
                         "suspended" -> Quiet(tl("Your place is on hold. Ask your teacher."), Modifier.padding(top = 8.dp))
                         else -> Button(enabled = busy != c.id, modifier = Modifier.padding(top = 8.dp), onClick = { run(c) {

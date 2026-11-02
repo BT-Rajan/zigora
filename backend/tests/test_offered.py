@@ -127,3 +127,35 @@ def test_dates_open_the_course_close_it_and_bound_its_classes(env, monkeypatch):
     assert env.c.get(f"/api/topics/{t['id']}", headers=env.stu).status_code == 200  # completed students can look back
     r = env.c.post(f"/api/offered/{c['id']}/invite", headers=env.fac, json={"who": ["ann@x.com"]}); assert r.status_code == 400 and "ended" in r.json()["detail"]
     assert env.c.post(f"/api/offered/{c['id']}/join", headers=env.ann).status_code == 400
+
+def test_repeat_brings_model_answers_and_the_question_bank(env):
+    setup(env); c = offer(env)
+    unit = env.c.post("/api/units", headers=env.fac, json={"name": "W1", "course_id": c["id"]}).json(); t = env.c.post("/api/topics", headers=env.fac, json={"title": "Loops", "unit_id": unit["id"], "content": "for i in range(3)"}).json()
+    env.c.put(f"/api/topics/{t['id']}/model-answer", headers=env.fac, json={"question": "Explain a for loop. (3 marks)", "parts": [{"text": "Definition", "marks": 1}, {"text": "Example", "marks": 2}]})
+    with Session_() as s:
+        s.add(main.McqItem(topic_id=t["id"], course_id=c["id"], text="What does range(3) give?", options='["0,1,2","1,2,3"]', correct=0, explanation="", difficulty="easy", keywords="", source="teacher", status="published", version=1, sig="x"))
+        s.commit()
+    r = env.c.post(f"/api/offered/{c['id']}/repeat", headers=env.fac, json={"name": "Run 2"}).json()
+    with Session_() as s:
+        nt = s.query(main.Topic).join(main.Unit, main.Unit.id == main.Topic.unit_id).filter(main.Unit.course_id == r["id"]).one()
+        assert s.query(main.ModelAnswer).filter_by(topic_id=nt.id).one().question.startswith("Explain a for loop")
+        assert [q.text for q in s.query(main.McqItem).filter_by(topic_id=nt.id)] == ["What does range(3) give?"] and s.query(main.McqItem).filter_by(topic_id=nt.id).one().course_id == r["id"]
+
+def test_a_student_leaves_and_a_teacher_pauses_and_sends_material(env, monkeypatch):
+    setup(env); c = offer(env, access="open")
+    unit = env.c.post("/api/units", headers=env.fac, json={"name": "U", "course_id": c["id"]}).json(); t = env.c.post("/api/topics", headers=env.fac, json={"title": "T", "unit_id": unit["id"], "content": "c"}).json()
+    env.c.post(f"/api/offered/{c['id']}/join", headers=env.stu); env.c.post(f"/api/offered/{c['id']}/join", headers=env.ann)
+    sent = []; monkeypatch.setattr(main, "mail_on", lambda s=None: True); monkeypatch.setattr(main, "account_mail", lambda to, name, kind, subj, body, link, lang="en": sent.append((to, subj)))
+    assert env.c.post(f"/api/offered/{c['id']}/pause", headers=env.fac, json={"paused": True}).json()["state"] == "paused"
+    r = env.c.get(f"/api/topics/{t['id']}", headers=env.stu); assert r.status_code == 403 and "paused" in r.json()["detail"]
+    assert ("stu@x.com", "Python for engineers is paused") in sent and env.c.post(f"/api/offered/{c['id']}/pause", headers=env.stu, json={"paused": False}).status_code == 403
+    env.c.post(f"/api/offered/{c['id']}/pause", headers=env.fac, json={"paused": False}); assert env.c.get(f"/api/topics/{t['id']}", headers=env.stu).status_code == 200
+    import base64
+    pdf = "data:application/pdf;base64," + base64.b64encode(b"%PDF-1.4 notes").decode()
+    assert env.c.post(f"/api/courses/{c['id']}/message", headers=env.fac, json={"subject": "Notes", "text": "Read before class.", "file": {"name": "x.exe", "data": pdf}}).status_code == 400
+    assert env.c.post(f"/api/courses/{c['id']}/message", headers=env.fac, json={"subject": "Week 1 notes", "text": "Read before class.", "file": {"name": "Week 1.pdf", "data": pdf}}).json() == {"sent": 2}
+    q = env.c.get("/api/me/questions", headers=env.stu).json()["items"][0]; f = env.c.get(f"/api/questions/{q['id']}", headers=env.stu).json()["messages"][0]["file"]
+    assert f["name"] == "Week 1.pdf" and env.c.get(f["url"]).content == b"%PDF-1.4 notes" and "attachment" in env.c.get(f["url"]).headers["content-disposition"]
+    e = env.c.get("/api/offered/catalog", headers=env.stu).json()["items"][0]["enrolment"]
+    assert env.c.post(f"/api/enrolments/{e}", headers=env.stu, json={"action": "leave"}).json()["mine"] == "released"
+    assert env.c.get(f"/api/topics/{t['id']}", headers=env.stu).status_code == 403

@@ -76,6 +76,7 @@ class AccountTest {
     @Test fun anAdminGivesMoreAi() {
         signIn("admin@x.com")
         rule.setContent { ZigoraRoot(null) {} }
+        see("Questions"); tapExactly("Me")  // staff open on Questions; More AI is on Me
         see("More AI"); see("Asha"); shot("account-02-more-ai")
         tap("Asha"); see("30 days"); tap("30 days")
         rule.waitUntil(20_000) { none("asha@x.com") }  // she leaves the list of people asking

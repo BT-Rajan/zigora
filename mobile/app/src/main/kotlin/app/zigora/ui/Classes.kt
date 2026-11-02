@@ -41,7 +41,7 @@ private fun whenOf(a: Ann): String = a.starts_at?.let { stamp(it) + " · " + tl(
 private fun stateOf(s: String?) = when (s) { "live" -> tl("Starting now"); "upcoming" -> tl("Coming up"); "ended" -> tl("Ended"); "cancelled" -> tl("Cancelled"); else -> "" }
 
 @Composable
-fun AnnCard(a: Ann, cancel: ((Ann) -> Unit)? = null) {
+fun AnnCard(a: Ann, cancel: ((Ann) -> Unit)? = null, move: ((Ann) -> Unit)? = null) {
     val ctx = LocalContext.current; val api = api(); val scope = rememberCoroutineScope()
     var who by remember(a.id) { mutableStateOf(false) }
     Panel {
@@ -59,6 +59,7 @@ fun AnnCard(a: Ann, cancel: ((Ann) -> Unit)? = null) {
             }
             if (cancel != null && a.can_edit && a.status != "cancelled" && a.status != "ended") TextButton(onClick = { cancel(a) }) { Text(if (a.kind == "class") tl("Cancel the class") else tl("Withdraw")) }
         }
+        if (move != null && a.can_edit && a.kind == "class" && a.status == "upcoming") TextButton(onClick = { move(a) }) { Text(tl("Change the time")) }
         val joins = a.joins
         if (joins != null && a.status != "upcoming") {
             TextButton(onClick = { who = !who }) { Text(tl("Tapped Join: {n} of {of}", "n" to joins.size, "of" to a.class_size)) }
@@ -86,6 +87,29 @@ fun ClassesScreen(back: (() -> Unit)?) {
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf("") }
     var cancelling by remember { mutableStateOf<Ann?>(null) }
+    var moving by remember { mutableStateOf<Ann?>(null) }
+    moving?.let { x ->
+        val start = remember(x.id) { runCatching { java.time.Instant.parse(x.starts_at).atZone(java.time.ZoneId.systemDefault()) }.getOrNull() }
+        var day by remember(x.id) { mutableStateOf(start?.toLocalDate()?.toString().orEmpty()) }
+        var at by remember(x.id) { mutableStateOf(start?.toLocalTime()?.toString()?.take(5).orEmpty()) }
+        var mins by remember(x.id) { mutableStateOf((x.minutes ?: 60).toString()) }
+        var link by remember(x.id) { mutableStateOf(x.link.orEmpty()) }
+        var err by remember(x.id) { mutableStateOf("") }
+        AlertDialog(onDismissRequest = { moving = null }, title = { Text(tl("Change the class time")) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Quiet(x.title)
+                OutlinedTextField(day, { day = it.take(10) }, Modifier.fillMaxWidth(), label = { Text(tl("Date")) }, singleLine = true)
+                OutlinedTextField(at, { at = it.take(5) }, Modifier.fillMaxWidth(), label = { Text(tl("Time")) }, singleLine = true)
+                OutlinedTextField(mins, { mins = it.filter(Char::isDigit).take(3) }, Modifier.fillMaxWidth(), label = { Text(tl("Length (minutes)")) }, singleLine = true)
+                OutlinedTextField(link, { link = it.trim() }, Modifier.fillMaxWidth(), label = { Text(tl("Video link")) }, singleLine = true)
+                if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
+            } },
+            confirmButton = { TextButton(onClick = { scope.launch {
+                try { a.raw("PUT", "/announcements/${x.id}", buildJsonObject { put("day", day); put("at", at); put("minutes", mins.toIntOrNull() ?: 60); put("link", link) }); moving = null; l.reload() }
+                catch (e: Exception) { err = I18n.srv(e.message) }
+            } }) { Text(tl("Move the class")) } },
+            dismissButton = { TextButton(onClick = { moving = null }) { Text(stringResource(R.string.cancel)) } })
+    }
     Page(tl("Classes and announcements"), back = back) {
         Loaded(l) { d ->
             androidx.compose.runtime.LaunchedEffect(d) { app.zigora.ClassAlarms.sync(ctx, d.upcoming) }  // the 10-minute reminders
@@ -141,7 +165,7 @@ fun ClassesScreen(back: (() -> Unit)?) {
                     }
                 }
             }
-            if (d.upcoming.isNotEmpty()) { SectionTitle(tl("Coming up")); d.upcoming.forEach { x -> AnnCard(x) { cancelling = it } } }
+            if (d.upcoming.isNotEmpty()) { SectionTitle(tl("Coming up")); d.upcoming.forEach { x -> AnnCard(x, { cancelling = it }) { m -> moving = m } } }
             val rest = d.items.filter { x -> d.upcoming.none { it.id == x.id } }
             SectionTitle(tl("Recent"))
             if (rest.isEmpty()) Quiet(tl("Nothing posted yet."))

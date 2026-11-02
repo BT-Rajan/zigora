@@ -88,7 +88,8 @@ fun ZigoraRoot(incoming: Incoming?, handled: () -> Unit) {
         if (user == null || user.role != "student" || user.must_change) LaunchedEffect(Unit) { app.firstScreenReady.value = true }  // Home says so itself, once it has loaded
         when {
             user == null -> SignIn { m -> app.store.userJson = json.encodeToString(Me.serializer(), m); me = m }
-            user.role == "guardian" -> GuardianHome(user) { app.store.signOut(); me = null }  // a parent or teacher who signed up: their children or students
+            user.role == "guardian" && user.relation == "teacher" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }  // a school teacher: their students and the teacher's pages
+            user.role == "guardian" -> GuardianHome(user) { app.store.signOut(); me = null }  // a parent: their children
             user.role != "student" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }  // teachers: questions, classes, struggles
             user.must_change -> ChangePassword(forced = true) { me = user.copy(must_change = false).also { app.store.userJson = json.encodeToString(Me.serializer(), it) } }
             else -> Main(user, incoming, handled, wallpaper = { wallpaper = it; app.store.wallpaper = it }, theme = { theme = it; app.store.theme = it }) {

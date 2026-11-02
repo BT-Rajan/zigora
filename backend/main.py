@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import NamedTuple
+import urllib.parse
 from types import SimpleNamespace
 import anthropic, asyncio, base64, csv, functools, html as htmllib, io, json, logging, os, re, smtplib, subprocess, hashlib, hmac, secrets, threading, time, datetime as dt, httpx, jwt, nh3
 from dotenv import load_dotenv
@@ -109,7 +110,8 @@ class Course(Base):
     applications = Column(Boolean, nullable=True)  # an enroll course: students may ask to join
     about = Column(Text, nullable=True); starts_on = Column(Date, nullable=True); ends_on = Column(Date, nullable=True); cancelled_at = Column(DateTime, nullable=True)
     repeat_of = Column(Integer, nullable=True)  # the course this one repeats
-    start_told = Column(DateTime, nullable=True); end_told = Column(DateTime, nullable=True)  # when students were reminded it starts tomorrow, or ends in 3 days
+    start_told = Column(DateTime, nullable=True); end_told = Column(DateTime, nullable=True)
+    paused_at = Column(DateTime, nullable=True)  # paused by its teacher: students can't open it until it resumes  # when students were reminded it starts tomorrow, or ends in 3 days
 class CourseLink(Base):  # a common course shown in other programs' semesters as well; it is edited only at its home
     __tablename__ = "course_links"
     id = Column(Integer, primary_key=True)
@@ -262,6 +264,7 @@ class TeacherReply(Base):  # one message in a question's thread, the student's f
     id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); text = Column(Text); at = Column(DateTime, default=dt.datetime.utcnow)
     image = Column(String(40), nullable=True)  # a photo with the message (working on paper, a diagram): its file name under uploads/questions
+    file = Column(String(60), nullable=True); file_name = Column(String(200), nullable=True)  # material a teacher sent with a message (a PDF, slides, a document)
 class ModelAnswer(Base):  # a teacher's model answer for a topic, with the marks each part earns
     __tablename__ = "model_answers"
     id = Column(Integer, primary_key=True); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), unique=True)
@@ -941,9 +944,9 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0040_weekly_classes_joins", lambda c: [_addcol("announcements", "series", "VARCHAR(16) NULL")(c), Base.metadata.create_all(c, tables=[AnnJoin.__table__])]),
               ("0041_offered_courses", lambda c: [Base.metadata.create_all(c, tables=[Enrolment.__table__])] + [_addcol("subjects", col, typ)(c) for col, typ in (("access", "VARCHAR(8) NULL"), ("applications", "BOOLEAN NULL"),
                   ("about", "TEXT NULL"), ("starts_on", "DATE NULL"), ("ends_on", "DATE NULL"), ("cancelled_at", "DATETIME NULL"), ("repeat_of", "INTEGER NULL"),
-                  ("start_told", "DATETIME NULL"), ("end_told", "DATETIME NULL"))]
+                  ("start_told", "DATETIME NULL"), ("end_told", "DATETIME NULL"), ("paused_at", "DATETIME NULL"))]
                   + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))]
-                  + [_addcol("users", "approval", "VARCHAR(10) NULL")(c)])]
+                  + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)])]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -1318,6 +1321,7 @@ def check_course_access(u, course_id, s):
         if e and e.status == "suspended": raise HTTPException(403, "Your place in this course is on hold. Ask your teacher.")
         if not e or e.status not in ENROL_SEES: raise HTTPException(403, "You are not enrolled in this course")
         if co.starts_on and local_day(dt.datetime.utcnow()) < co.starts_on: raise HTTPException(403, f"This course starts on {co.starts_on.isoformat()}")  # its content opens on the first day
+        if co.paused_at: raise HTTPException(403, "This course is paused for now. Your teacher will reopen it.")
         return
     if co is not None and not can_edit(u, course_id, s) and course_off(s, co): raise HTTPException(403, UNAVAILABLE)  # admins and the course's owner can still open it, to restore it
     if not scoped(u): return
@@ -2249,8 +2253,9 @@ class TopicIn(BaseModel):
 M = {"programs": Program, "semesters": Semester, "courses": Course, "units": Unit, "topics": Topic}
 def offered_cj(d, c, u):  # an offered course in someone's list: before its first day a student sees its name and start date, nothing inside
     today = local_day(dt.datetime.utcnow()); soon = bool(c.starts_on and today < c.starts_on)
-    out = {**d, "offered": True, "starts_on": c.starts_on.isoformat() if c.starts_on else None, "ends_on": c.ends_on.isoformat() if c.ends_on else None, "upcoming": soon}
-    if soon and not d.get("editable"): out.update(units=[], tests=[])
+    out = {**d, "offered": True, "starts_on": c.starts_on.isoformat() if c.starts_on else None, "ends_on": c.ends_on.isoformat() if c.ends_on else None, "upcoming": soon,
+           "paused": bool(c.paused_at)}
+    if (soon or c.paused_at) and not d.get("editable"): out.update(units=[], tests=[])
     return out
 @app.get("/api/tree")
 def tree(u: User = Depends(me), s: Session = Depends(db)):
@@ -4323,7 +4328,8 @@ def tq_json(q, u, s):
             "can_share": teach and any(m["teacher"] for m in msgs)}
 def tq_msgs(s, q, u, asker_name):  # asker_name None: the class's view, where the student who asked is not named
     return [{"id": r.id, "mine": r.user_id == u.id, "teacher": r.user_id != q.user_id, "who": (w.name if w else "") if r.user_id != q.user_id else asker_name,
-             "text": r.text, "image": f"/api/qimg/{r.image}" if r.image else None, "at": utc_iso(r.at)}
+             "text": r.text, "image": f"/api/qimg/{r.image}" if r.image else None, "at": utc_iso(r.at),
+             "file": {"url": f"/api/qfile/{r.file}?n={urllib.parse.quote(r.file_name or '')}", "name": r.file_name or "file"} if r.file else None}
             for r, w in s.query(TeacherReply, User).outerjoin(User, User.id == TeacherReply.user_id).filter(TeacherReply.question_id == q.id).order_by(TeacherReply.id)]
 class ShareIn(BaseModel): shared: bool
 @app.post("/api/questions/{qid}/share")
@@ -4579,6 +4585,7 @@ def offer_state(c, today=None):
     today = today or local_day(dt.datetime.utcnow())
     if c.cancelled_at: return "cancelled"
     if c.archived_at: return "archived"
+    if c.paused_at: return "paused"
     if c.starts_on and today < c.starts_on: return "upcoming"
     if c.ends_on and today > c.ends_on: return "ended"
     return "running"
@@ -4631,10 +4638,23 @@ def cancel_offer(cid: int, bg: BackgroundTasks, u: User = Depends(author), s: Se
     s.commit()
     for st in students: notify(s, st, "course", "Course cancelled: {course}", "{teacher} cancelled the course {course}. Its classes still to come are cancelled too.", run=bg.add_task, course=c.name, teacher=u.name)
     return offer_json(c, s)
+class PauseIn(BaseModel): paused: bool
+@app.post("/api/offered/{cid}/pause")
+def pause_offer(cid: int, b: PauseIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
+    """Pauses the course (its students keep their place but can't open it, and nobody can join) or resumes it. Its students are told."""
+    c = need_offer(cid, u, s)
+    if c.cancelled_at: raise HTTPException(400, "This course is cancelled")
+    if b.paused == bool(c.paused_at): return offer_json(c, s)
+    c.paused_at = dt.datetime.utcnow() if b.paused else None; s.commit()
+    for st in offer_students(s, c, ("active", "suspended")):
+        if b.paused: notify(s, st, "course", "{course} is paused", "{teacher} paused the course {course} for now. Your place is kept; you will be told when it reopens.", run=bg.add_task, course=c.name, teacher=u.name)
+        else: notify(s, st, "course", "{course} is open again", "{teacher} reopened the course {course}. Carry on where you left off on {app}.", run=bg.add_task, course=c.name, teacher=u.name)
+    return offer_json(c, s)
 class RepeatIn(BaseModel): name: str = ""; starts_on: str | None = None; ends_on: str | None = None; students: str = "none"  # none, or same: invite this course's students again
 @app.post("/api/offered/{cid}/repeat")
 def repeat_offer(cid: int, b: RepeatIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
-    """A new run of the course: its units, topics (published as they are) and quizzes copied, new dates, and its students invited again or nobody yet."""
+    """A new run of the course: its units, topics (published as they are), quizzes, model answers and question-bank questions copied, new dates,
+    and its students invited again or nobody yet."""
     src = need_offer(cid, u, s); d0, d1 = offer_dates(b)
     c = Course(name=item_name(b.name or src.name, "course"), program_id=None, semester_id=None, faculty_owner_id=u.id, access=src.access, applications=src.applications,
                about=src.about, starts_on=d0, ends_on=d1, repeat_of=src.id); c.created_by = u.id; s.add(c); s.flush()
@@ -4642,7 +4662,13 @@ def repeat_offer(cid: int, b: RepeatIn, bg: BackgroundTasks, u: User = Depends(a
         copy_unit(un.id, CopyIn(course_id=c.id), u, s)
         nu = s.query(Unit).filter_by(course_id=c.id).order_by(Unit.id.desc()).first(); nu.name = un.name
         olds = s.query(Topic).filter_by(unit_id=un.id).order_by(*ORDER.get(Topic, (Topic.id,))).all(); news = s.query(Topic).filter_by(unit_id=nu.id).order_by(*ORDER.get(Topic, (Topic.id,))).all()
-        for o, n in zip(olds, news): n.published = o.published  # a repeat runs as the teacher left it
+        for o, n in zip(olds, news):
+            n.published = o.published  # a repeat runs as the teacher left it
+            m = s.query(ModelAnswer).filter_by(topic_id=o.id).first()
+            if m: s.add(ModelAnswer(topic_id=n.id, author_id=u.id, question=m.question, parts=m.parts, updated=dt.datetime.utcnow()))  # the marked model answer comes along
+            for q in s.query(McqItem).filter(McqItem.topic_id == o.id, McqItem.status != "retired"):  # and the topic's questions in the bank
+                s.add(McqItem(**{k: getattr(q, k) for k in ("text", "options", "correct", "explanation", "image", "option_images", "explanation_image", "difficulty", "keywords", "source", "status", "sig")},
+                              topic_id=n.id, course_id=c.id, author_id=q.author_id, version=1, created_at=dt.datetime.utcnow(), updated_at=dt.datetime.utcnow()))
     s.commit(); invited = 0
     if b.students == "same":
         for st in offer_students(s, src, ("active", "completed", "suspended")): invited += invite_one(s, c, st, u, bg)
@@ -4657,9 +4683,9 @@ def invite_one(s, c, st, by, bg):  # 1 when an invitation went out
     notify(s, st, "invite", "{teacher} invited you to {course}", "{teacher} invited you to join the course {course} on {app}. Open {app} within 48 hours to accept.",
            "{teacher} invited {name} to join the course {course} on {app}. {name} can accept within 48 hours.", run=bg.add_task, teacher=by.name, course=c.name, name=st.name)
     return 1
-class InviteIn(BaseModel): who: list[str]
+class OfferInviteIn(BaseModel): who: list[str]
 @app.post("/api/offered/{cid}/invite")
-def invite(cid: int, b: InviteIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
+def invite_to_offer(cid: int, b: OfferInviteIn, bg: BackgroundTasks, u: User = Depends(author), s: Session = Depends(db)):
     """Invites students by email or username (one per line); each has 48 hours to accept. Says who could not be invited and why."""
     c = need_offer(cid, u, s)
     if c.cancelled_at or c.archived_at: raise HTTPException(400, "This course is not running")
@@ -4726,6 +4752,7 @@ def join_offer(cid: int, bg: BackgroundTasks, u: User = Depends(me), s: Session 
     expire_enrolments(s); c = s.get(Course, cid)
     if not offered(c) or c.cancelled_at or c.archived_at: raise HTTPException(404, "Course not found")
     if c.ends_on and local_day(dt.datetime.utcnow()) > c.ends_on: raise HTTPException(400, "This course has ended")
+    if c.paused_at: raise HTTPException(400, "This course is paused for now. Try again when your teacher reopens it.")
     e = enrolment(s, c.id, u.id); now = dt.datetime.utcnow()
     if e and e.status in ("active", "completed"): return offer_json(c, s, u)
     if e and e.status == "suspended": raise HTTPException(400, "Your place in this course is on hold. Ask your teacher.")
@@ -4785,12 +4812,35 @@ def enrol_notes(u, s):  # the bell: a student's invitations waiting; a teacher's
     return out
 # ---- writing to students: a teacher starts a message thread with each chosen student of a course (all of them by default); the student reads and
 # ---- answers it like a question to the teacher. "Offer help" writes to the students who were stuck on a topic, without the teacher learning who they are.
-class MessageIn(BaseModel): subject: str; text: str; student_ids: list[int] = []
-def send_messages(s, c, author_u, people, subject, text, bg):
-    now = dt.datetime.utcnow()
+class MessageFile(BaseModel): name: str; data: str  # data: base64, or a data: URL
+class MessageIn(BaseModel): subject: str; text: str; student_ids: list[int] = []; file: MessageFile | None = None
+MSG_FILE_MAX = 15 * 1024 * 1024
+MSG_FILE_TYPES = {"pdf": "application/pdf", "doc": "application/msword", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                  "ppt": "application/vnd.ms-powerpoint", "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                  "xls": "application/vnd.ms-excel", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "txt": "text/plain", "csv": "text/csv",
+                  "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "zip": "application/zip"}
+def save_message_file(f):  # (stored name, shown name): checked by its extension and size, kept under an unguessable name
+    name = re.sub(r"[\\/\x00-\x1f]", "", (f.name or "").strip())[-150:] or "file"; ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if ext not in MSG_FILE_TYPES: raise HTTPException(400, "Send a PDF, Word, PowerPoint, Excel, text, CSV, ZIP or image file")
+    try: raw = base64.b64decode(f.data.split(",", 1)[-1], validate=False)
+    except Exception: raise HTTPException(400, "That file could not be read")
+    if not raw or len(raw) > MSG_FILE_MAX: raise HTTPException(400, "Keep the file under 15 MB")
+    stored = os.urandom(16).hex() + "." + ext; d = os.path.join(UPLOADS, "messages"); os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, stored), "wb") as out: out.write(raw)
+    return stored, name
+@app.get("/api/qfile/{name}")
+def message_file(name: str, n: str = ""):  # the link is the key (128 random bits), like a question's photo; always downloaded, never shown in the page
+    if not re.fullmatch(r"[0-9a-f]{32}\.[a-z]{2,4}", name): raise HTTPException(404, "Not found")
+    path = os.path.join(UPLOADS, "messages", name)
+    if not os.path.exists(path): raise HTTPException(404, "Not found")
+    shown = re.sub(r'[^\w .()-]', "_", n)[:150] or name
+    return FileResponse(path, media_type=MSG_FILE_TYPES.get(name.rsplit(".", 1)[-1], "application/octet-stream"), filename=shown,
+                        headers={"Cache-Control": "private, max-age=31536000", "X-Content-Type-Options": "nosniff"})
+def send_messages(s, c, author_u, people, subject, text, bg, file=None):
+    now = dt.datetime.utcnow(); stored, shown = file or (None, None)
     for st in people:
         q = TeacherQuestion(user_id=st.id, topic_id=None, course_id=c.id, status="answered", at=now, updated=now, subject=subject, started_by=author_u.id); s.add(q); s.flush()
-        s.add(TeacherReply(question_id=q.id, user_id=author_u.id, text=text, at=now))
+        s.add(TeacherReply(question_id=q.id, user_id=author_u.id, text=text, at=now, file=stored, file_name=shown))
     s.commit()
     for st in people: notify(s, st, "message", "A message from {teacher}", "{teacher} wrote to you about {course}: {about}. Read it in {app}.", run=bg.add_task, teacher=author_u.name, course=c.name, about=subject)
 def course_students(s, c):  # who a course's messages go to: an offered course's active students, or the program's students who see the course
@@ -4805,7 +4855,7 @@ def message_students(cid: int, b: MessageIn, bg: BackgroundTasks, u: User = Depe
     if b.student_ids: people = [x for x in people if x.id in set(b.student_ids)]
     if not people: raise HTTPException(400, "No students to write to")
     if len(people) > 500: raise HTTPException(400, "Write to at most 500 students at once")
-    send_messages(s, c, u, people, subject, text_, bg); return {"sent": len(people)}
+    send_messages(s, c, u, people, subject, text_, bg, save_message_file(b.file) if b.file else None); return {"sent": len(people)}
 @app.get("/api/courses/{cid}/students")
 def course_student_list(cid: int, u: User = Depends(author), s: Session = Depends(db)):
     c = s.get(Course, cid)

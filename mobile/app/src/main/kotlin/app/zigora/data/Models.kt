@@ -19,7 +19,7 @@ import kotlinx.serialization.json.JsonObject
                                   val learning_due_at: String? = null, val overdue: Boolean = false, val has_notes: Boolean = false)
 @Serializable data class UnitNode(val id: Int, val name: String, val archived: Boolean = false, val topics: List<TopicRef> = emptyList(), val quizzes: List<QuizRef> = emptyList())
 @Serializable data class CourseNode(val id: Int, val name: String, val archived: Boolean = false, val units: List<UnitNode> = emptyList(), val tests: List<QuizRef> = emptyList(),
-                                    val upcoming: Boolean = false, val starts_on: String? = null)  // upcoming: an offered course before its first day (locked until then)
+                                    val upcoming: Boolean = false, val starts_on: String? = null, val paused: Boolean = false)  // upcoming: before its first day; paused: by its teacher (locked meanwhile)
 @Serializable data class SemesterNode(val id: Int, val name: String, val current: Boolean = false, val courses: List<CourseNode> = emptyList())
 @Serializable data class ProgramNode(val id: Int, val name: String, val semesters: List<SemesterNode> = emptyList())
 
@@ -45,9 +45,16 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
 /** a course a teacher offers, as a student sees it in Join a course */
 @Serializable data class Offer(val id: Int, val name: String = "", val about: String = "", val starts_on: String? = null, val ends_on: String? = null, val access: String = "enroll",
-                               val state: String = "running", val teacher: String = "", val topics: Int = 0, val mine: String? = null, val enrolment: Int? = null, val expires_at: String? = null)
+                               val state: String = "running", val teacher: String = "", val topics: Int = 0, val mine: String? = null, val enrolment: Int? = null, val expires_at: String? = null,
+                               val applications: Boolean = false, val counts: Map<String, Int> = emptyMap())
+@Serializable data class RosterRow(val id: Int, val name: String = "", val who: String = "", val status: String = "", val label: String = "", val expires_at: String? = null)
+@Serializable data class Roster(val course: Offer, val items: List<RosterRow> = emptyList())
+@Serializable data class InviteOut(val invited: Int = 0, val already: List<String> = emptyList(), val not_found: List<String> = emptyList())
+@Serializable data class Sent(val sent: Int = 0)
+@Serializable data class FileRef(val url: String = "", val name: String = "file")
 @Serializable data class OfferList(val items: List<Offer> = emptyList(), val invited: List<Offer> = emptyList())
-@Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String? = null, val text: String = "", val image: String? = null, val at: String? = null)
+@Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String? = null, val text: String = "", val image: String? = null, val at: String? = null,
+                                     val file: FileRef? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
                                         val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false, val teacher: Boolean = false, val can_share: Boolean = false,
                                         val student: String? = null)
