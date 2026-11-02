@@ -31,7 +31,7 @@ const api=async(p,o={})=>{const t=localStorage.t,read=!o.method&&KEEP.test(p.spl
   catch{clearTimeout(slow);slowNote(false);const j=read&&await kept(p);if(j){offlineNote(true);return j}
     const x=new Error(navigator.onLine===false?tl("You're offline. Topics you have opened before still work."):tl("Can't reach the server. Check your internet connection and try again."));x.offline=true;offlineNote('fail');throw x}
   clearTimeout(slow);slowNote(false)
-  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(typeof j.detail==='string'?srv(j.detail):tl('Something went wrong'))
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(typeof j.detail==='string'?srv(j.detail):tl('Something went wrong')),{status:r.status})  // status: to tell refusals apart in any language
   if(read){keep(p,j);offlineNote(false)}return j}  // the server's messages are looked up like any other text
 const TEMPLATE=`program,semester,course,unit,topic,content,question_pattern,sample_content,guideline
 B.E. Mechanical Engineering,Semester 3,Thermodynamics,Unit 1: Basic concepts,First law of thermodynamics,"Energy can change form but is never created or destroyed.","2 marks: define. 13 marks: derive and solve a numerical.","Q: State the first law for a closed system.","Introduction, labelled diagram, steps, units, conclusion"
@@ -1749,9 +1749,10 @@ function StudyWizard({id,toast,back,done}){
   const move=(ui,ti,to)=>edit(p=>{const [t]=p.units[ui].topics.splice(ti,1);p.units[to].topics.push(t);p.units[to].topics.sort((a,b)=>a.from-b.from)})  // its place in the unit is where its text is in the material
   const savePlan=async()=>{const r=await api(`/study/courses/${id}/plan`,{method:'PUT',body:{units:plan.units}});setPlan(r.plan);setDirty(false)}
   const finish=async()=>{setBusy('Building your course…');try{if(dirty)await savePlan()
-      try{await api(`/study/courses/${id}/finish`,{method:'POST',body:{}})}catch(e){if(!/already has topics/.test(e.message))throw e
-        setBusy('');if(!await confirm({title:tl("Replace the course's topics?"),body:tl("Finishing again builds the topics from this outline. Progress and quiz results on the old topics are removed."),ok:tl("Replace topics"),danger:true}))return
-        setBusy('Building your course…');await api(`/study/courses/${id}/finish`,{method:'POST',body:{replace:true}})}
+      try{await api(`/study/courses/${id}/finish`,{method:'POST',body:{}})}catch(e){if(e.status!==409)throw e  // the course already has topics (the message itself may be translated)
+        setBusy('');const d=await api('/study/courses/'+id).catch(()=>c),n=d.classmates_using||0;setC(d)  // how many classmates would lose their work, as of now
+        if(!await confirm({title:tl("Replace the course's topics?"),body:tl("Finishing again builds the topics from this outline. Progress and quiz results on the old topics are removed.")+(n?' '+tl(n===1?"A classmate studies this course too: their progress and quiz results on it are removed as well.":"{n} classmates study this course too: their progress and quiz results on it are removed as well.",{n}):''),ok:tl("Replace topics"),danger:true}))return
+        setBusy('Building your course…');await api(`/study/courses/${id}/finish`,{method:'POST',body:{replace:true,classmates:n>0}})}
       toast(tl("Your course is ready"));done()}catch(e){toast(e.message)}setBusy('')}
   const words=c.sources.reduce((a,x)=>a+x.words,0)
   return <><Bar title={c.title} sub={tl("Set up · step {step}{v} of 4",{step:step,v:1})} back={back}/><div className="main">

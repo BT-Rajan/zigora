@@ -2935,5 +2935,9 @@
 "Its text ({n}) won't be in your course. To keep the text, merge it into another topic instead.": "அதன் உரை ({n}) உங்கள் பாடத்தில் இருக்காது. உரையை வைத்துக்கொள்ள, அதை வேறு தலைப்புடன் இணைக்கவும்.",
 "Move to unit…": "அலகுக்கு நகர்த்து…",
 "Move “{title}” to another unit": "“{title}” ஐ வேறு அலகுக்கு நகர்த்து",
-"Unit {v}": "அலகு {v}"
+"Unit {v}": "அலகு {v}",
+"A classmate studies this course too: their progress and quiz results on it are removed as well.": "ஒரு வகுப்புத் தோழரும் இந்தப் பாடத்தைப் படிக்கிறார்: அதில் அவரது முன்னேற்றமும் வினாடி வினா முடிவுகளும் நீக்கப்படும்.",
+"{n} classmates study this course too: their progress and quiz results on it are removed as well.": "{n} வகுப்புத் தோழர்களும் இந்தப் பாடத்தைப் படிக்கிறார்கள்: அதில் அவர்களின் முன்னேற்றமும் வினாடி வினா முடிவுகளும் நீக்கப்படும்.",
+"A classmate has progress or quiz results on this course. Finishing again removes theirs too.": "ஒரு வகுப்புத் தோழருக்கு இந்தப் பாடத்தில் முன்னேற்றம் அல்லது வினாடி வினா முடிவுகள் உள்ளன. மீண்டும் முடித்தால் அவையும் நீக்கப்படும்.",
+"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.": "{n} வகுப்புத் தோழர்களுக்கு இந்தப் பாடத்தில் முன்னேற்றம் அல்லது வினாடி வினா முடிவுகள் உள்ளன. மீண்டும் முடித்தால் அவையும் நீக்கப்படும்."
 }

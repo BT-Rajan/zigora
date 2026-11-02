@@ -2935,5 +2935,9 @@
 "Its text ({n}) won't be in your course. To keep the text, merge it into another topic instead.": "لن يكون نصه ({n}) في مقررك. للإبقاء على النص، ادمجه في موضوع آخر بدلًا من ذلك.",
 "Move to unit…": "انقل إلى وحدة…",
 "Move “{title}” to another unit": "انقل «{title}» إلى وحدة أخرى",
-"Unit {v}": "الوحدة {v}"
+"Unit {v}": "الوحدة {v}",
+"A classmate studies this course too: their progress and quiz results on it are removed as well.": "يدرس زميل هذا المقرر أيضًا: سيُحذف تقدمه ونتائج اختباراته فيه كذلك.",
+"{n} classmates study this course too: their progress and quiz results on it are removed as well.": "يدرس {n} من الزملاء هذا المقرر أيضًا: سيُحذف تقدمهم ونتائج اختباراتهم فيه كذلك.",
+"A classmate has progress or quiz results on this course. Finishing again removes theirs too.": "لدى زميل تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا.",
+"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.": "لدى {n} من الزملاء تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا."
 }

@@ -5812,7 +5812,8 @@ def study_list(u: User = Depends(me), s: Session = Depends(db)):
 def study_get(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s); mine = c.owner_id == u.id or u.role == "admin"
     out = {**study_row(c, s, u), "can_edit": mine, "notes": (c.notes or "") if mine else "", "sliced_by": c.sliced_by or "", **study_ai_status(u, s)}
-    if mine: out.update(reading=scan_state(c, s), ocr_available=ocr_ready(), sources=json.loads(c.sources or "[]"), paragraphs=len(json.loads(c.paras or "[]")), plan=plan_view(c))
+    if mine: out.update(reading=scan_state(c, s), ocr_available=ocr_ready(), sources=json.loads(c.sources or "[]"), paragraphs=len(json.loads(c.paras or "[]")), plan=plan_view(c),
+                        classmates_using=study_classmates_using(s, c))
     if c.status == "ready":
         prog = {p.topic_id: p for p in s.query(StudyProgress).filter(StudyProgress.user_id == u.id, StudyProgress.topic_id.in_(s.query(StudyTopic.id).filter_by(course_id=c.id)))}
         best = study_best(s, u.id, c.id); now = dt.datetime.utcnow()
@@ -5839,6 +5840,11 @@ def study_edit(cid: int, b: StudyCourseIn, u: User = Depends(me), s: Session = D
 @app.delete("/api/study/courses/{cid}")
 def study_delete(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s, edit=True); drop_study_content(s, c.id); s.delete(c); s.commit(); return {"ok": True}
+def study_classmates_using(s, c):  # other people with progress or quiz results on this course, which finishing it again would remove
+    tids = s.query(StudyTopic.id).filter_by(course_id=c.id)
+    who = {i for (i,) in s.query(StudyProgress.user_id).filter(StudyProgress.topic_id.in_(tids))}
+    who |= {i for (i,) in s.query(StudyQuiz.user_id).filter(or_(StudyQuiz.topic_id.in_(tids), StudyQuiz.course_id == c.id))}
+    return len(who - {c.owner_id})
 def drop_study_content(s, cid):  # units, topics and everything hanging off them (SQLite does not cascade)
     tids = [i for (i,) in s.query(StudyTopic.id).filter_by(course_id=cid)] or [0]
     qids = [i for (i,) in s.query(StudyQuiz.id).filter(or_(StudyQuiz.topic_id.in_(tids), StudyQuiz.course_id == cid))] or [0]
@@ -5986,13 +5992,17 @@ def study_preview(cid: int, start: int, end: int, u: User = Depends(me), s: Sess
     c = study_course_or_404(cid, u, s, edit=True); paras = json.loads(c.paras or "[]")
     if not 1 <= start <= end <= len(paras): raise HTTPException(400, "Out of range")
     return {"content": "\n\n".join(paras[start - 1:end])}
-class FinishIn(BaseModel): replace: bool = False
+class FinishIn(BaseModel): replace: bool = False; classmates: bool = False  # classmates: the owner was told that classmates' progress and quiz results go too
 @app.post("/api/study/courses/{cid}/finish")
 def study_finish(cid: int, b: FinishIn, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s, edit=True)
     if not c.plan: raise HTTPException(400, "Slice your material and check the preview first")
     if s.query(StudyTopic.id).filter_by(course_id=c.id).first():
         if not b.replace: raise HTTPException(409, "This course already has topics. Finishing again replaces them, with their progress and quizzes.")
+        n = study_classmates_using(s, c)
+        if n and not b.classmates:  # an older app, or a classmate started meanwhile: say so before their work goes
+            raise HTTPException(409, "A classmate has progress or quiz results on this course. Finishing again removes theirs too." if n == 1 else
+                                     f"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.")
         drop_study_content(s, c.id)
     paras = json.loads(c.paras or "[]"); n = 0
     for ui, un in enumerate(json.loads(c.plan)["units"]):

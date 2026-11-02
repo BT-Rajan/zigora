@@ -195,9 +195,12 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
             catch (e: ApiError) {
                 if (e.code != 409) throw e
                 busy = ""
-                ask = Ask(tl("Replace the course's topics?"), tl("Finishing again builds the topics from this outline. Progress and quiz results on the old topics are removed."), tl("Replace topics"), true) {
+                val n = runCatching { a.get("/study/courses/$id", StudyCourseFull.serializer()).classmates_using }.getOrDefault(0)  // how many classmates would lose their work, as of now
+                ask = Ask(tl("Replace the course's topics?"), tl("Finishing again builds the topics from this outline. Progress and quiz results on the old topics are removed.") +
+                          (if (n == 0) "" else " " + tl(if (n == 1) "A classmate studies this course too: their progress and quiz results on it are removed as well." else "{n} classmates study this course too: their progress and quiz results on it are removed as well.", "n" to n)),
+                          tl("Replace topics"), true) {
                     scope.launch { busy = "Building your course…"
-                        try { a.raw("POST", "/study/courses/$id/finish", buildJsonObject { put("replace", true) }); toast(tl("Your course is ready")); onMain(done) } catch (x: Exception) { toast(x.message.orEmpty()) }
+                        try { a.raw("POST", "/study/courses/$id/finish", buildJsonObject { put("replace", true); put("classmates", n > 0) }); toast(tl("Your course is ready")); onMain(done) } catch (x: Exception) { toast(x.message.orEmpty()) }
                         busy = "" }
                 }
             }

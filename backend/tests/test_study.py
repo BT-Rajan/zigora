@@ -141,6 +141,15 @@ def test_sharing_with_classmates_and_privacy(env, monkeypatch):
     assert env.c.put(f"/api/study/courses/{cid}", headers=mate, json={"title": "Mine now"}).status_code == 403 and env.c.delete(f"/api/study/courses/{cid}", headers=other).status_code == 404
     q = env.c.post(f"/api/study/topics/{tids[0]}/quizzes", headers=mate, json={"kind": "mcq"}).json()["id"]
     assert env.c.get(f"/api/study/quizzes/{q}", headers=env.stu).status_code == 404  # a set belongs to whoever asked for it
+    # finishing again would remove the classmate's work too: the owner is told, and the server holds back until the request says so
+    assert env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json()["classmates_using"] == 1
+    r = env.c.post(f"/api/study/courses/{cid}/finish", headers=env.stu, json={"replace": True})
+    assert r.status_code == 409 and r.json()["detail"] == "A classmate has progress or quiz results on this course. Finishing again removes theirs too."
+    with Session_() as s: assert s.query(StudyQuiz).filter_by(id=q).count() == 1  # nothing was removed
+    assert env.c.post(f"/api/study/courses/{cid}/finish", headers=env.stu, json={"replace": True, "classmates": True}).status_code == 200
+    with Session_() as s: assert s.query(StudyQuiz).filter_by(id=q).count() == 0
+    assert env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json()["classmates_using"] == 0
+    tids = [t["id"] for u in env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json()["units"] for t in u["topics"]]
     env.add_user("lone@x.com"); lone = env.login("lone@x.com"); lc = new(env, lone)
     assert env.c.put(f"/api/study/courses/{lc}", headers=lone, json={"share": "program"}).status_code == 400  # no program, nobody to share with
     assert env.c.delete(f"/api/study/courses/{cid}", headers=env.stu).status_code == 200

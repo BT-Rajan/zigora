@@ -179,7 +179,7 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class PlanOutWrap(val plan: StudyPlan? = null, val slicing: Slicing? = null)  // slicing: long material, sliced part by part in the background
 @Serializable data class STopic(val id: Int, val title: String, val summary: String = "", val status: String = "not_started", val best: Int? = null, val stars: Int = 0, val due: Boolean = false)
 @Serializable data class SUnit(val id: Int, val title: String, val topics: List<STopic> = emptyList())
-@Serializable data class StudyCourseFull(val id: Int, val title: String, val status: String = "draft", val share: String = "private", val mine: Boolean = true, val owner: String = "",
+@Serializable data class StudyCourseFull(val id: Int, val title: String, val status: String = "draft", val share: String = "private", val mine: Boolean = true, val owner: String = "", val classmates_using: Int = 0,
                                          val can_edit: Boolean = false, val notes: String = "", val sliced_by: String = "", val ai_available: Boolean = false, val ai_left: Int? = null,
                                          val ai_own_key: Boolean = false, val reading: Boolean = false, val ocr_available: Boolean = false, val sources: List<Source> = emptyList(),
                                          val paragraphs: Int = 0, val plan: StudyPlan? = null, val units: List<SUnit> = emptyList(), val reviews_due: Int = 0)
