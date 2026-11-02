@@ -95,6 +95,7 @@ fun MyMaterialScreen(cid: Int, name: String, back: () -> Unit) {
     var paste by remember { mutableStateOf<String?>(null) }
     var pick by remember { mutableStateOf<Int?>(null) }
     var confirmRemove by remember { mutableStateOf(false) }
+    var confirmSave by remember { mutableStateOf(false) }  // saving again replaces the course's notes
     val open = remember { mutableStateMapOf<Int, String>() }
     suspend fun load() { v = a.get(base, Material.serializer()) }
     LaunchedEffect(cid) { try { load() } catch (e: Exception) { snack.showSnackbar(e.message.orEmpty()); back() } }
@@ -172,7 +173,7 @@ fun MyMaterialScreen(cid: Int, name: String, back: () -> Unit) {
                         open[x.from]?.let { WebContent(it) }
                     }
                 }
-                Button(enabled = busy.isEmpty() && filed.isNotEmpty(), onClick = { run("save", res.getString(R.string.saved_open_topic)) { a.raw("POST", "$base/save") } }) {
+                Button(enabled = busy.isEmpty() && filed.isNotEmpty(), onClick = { if (m.saved_at != null) confirmSave = true else run("save", res.getString(R.string.saved_open_topic)) { a.raw("POST", "$base/save") } }) {
                     Text(stringResource(if (m.saved_at != null) R.string.save_again else R.string.save_to_topics)) }
                 m.saved_at?.let { Quiet(stringResource(R.string.last_saved_rebuild, day(it))) }
             }
@@ -183,6 +184,9 @@ fun MyMaterialScreen(cid: Int, name: String, back: () -> Unit) {
         text = { OutlinedTextField(text, { paste = it }, Modifier.fillMaxWidth(), minLines = 6, placeholder = { Text(stringResource(R.string.paste_hint)) }) },
         confirmButton = { TextButton(enabled = text.isNotBlank() && busy.isEmpty(), onClick = { run("paste", res.getString(R.string.added)) { a.raw("POST", "$base/text", buildJsonObject { put("text", text) }) }; paste = null }) { Text(stringResource(R.string.add)) } },
         dismissButton = { TextButton(onClick = { paste = null }) { Text(stringResource(R.string.cancel)) } }) }
+    if (confirmSave) AlertDialog(onDismissRequest = { confirmSave = false }, title = { Text(tl("Save again and rebuild your notes?")) }, text = { Text(tl("Your notes in every topic of this course are rebuilt from the material and matching shown here. Notes from material you removed or sections you left out are gone after this. Your progress and quiz results stay.")) },
+        confirmButton = { TextButton(onClick = { confirmSave = false; run("save", res.getString(R.string.saved_open_topic)) { a.raw("POST", "$base/save") } }) { Text(tl("Save again")) } },
+        dismissButton = { TextButton(onClick = { confirmSave = false }) { Text(stringResource(R.string.cancel)) } })
     if (confirmRemove) AlertDialog(onDismissRequest = { confirmRemove = false }, title = { Text(stringResource(R.string.remove_material_q)) }, text = { Text(stringResource(R.string.remove_material_body)) },
         confirmButton = { TextButton(onClick = { confirmRemove = false; run("del", res.getString(R.string.material_removed)) { a.raw("DELETE", base) } }) { Text(stringResource(R.string.remove)) } },
         dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text(stringResource(R.string.cancel)) } })

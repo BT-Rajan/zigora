@@ -217,7 +217,7 @@
     <string name="remove_key">إزالة المفتاح</string>
     <string name="remove_key_body">تعود إلى Lite: الحصة اليومية المجانية.</string>
     <string name="remove_key_q">إزالة مفتاحك؟</string>
-    <string name="remove_material_body">تُحذف أيضًا الملاحظات التي أنشأها في هذا المقرر، ويبقى تقدمك ونتائج اختباراتك.</string>
+    <string name="remove_material_body">تذهب كل ملاحظاتك في هذا المقرر معها، في كل موضوع، لا ملاحظات ملف واحد فقط. يبقى تقدمك ونتائج اختباراتك.</string>
     <string name="remove_material_q">إزالة موادك؟</string>
     <string name="remove_my_key">إزالة مفتاحي</string>
     <string name="remove_my_material">إزالة موادي من هذا المقرر</string>

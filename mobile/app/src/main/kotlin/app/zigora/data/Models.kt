@@ -25,7 +25,9 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class ProgramNode(val id: Int, val name: String, val semesters: List<SemesterNode> = emptyList())
 
 @Serializable data class Focus(val kind: String, val title: String, val reason: String = "", val course: String = "", val unit: String = "", val topic_id: Int? = null, val quiz_id: Int? = null, val last_read: String? = null)
-@Serializable data class Today(val streak: Int = 0, val percent: Int = 0, val topics_total: Int = 0, val topics_completed: Int = 0, val focus: List<Focus> = emptyList())
+@Serializable data class CourseDone(val id: Int, val name: String = "", val total: Int = 0, val completed: Int = 0)  // a course's topics marked learned, of all
+@Serializable data class Today(val streak: Int = 0, val percent: Int = 0, val topics_total: Int = 0, val topics_completed: Int = 0, val focus: List<Focus> = emptyList(),
+                               val courses: List<CourseDone> = emptyList())
 @Serializable data class RecallItem(val topic_id: Int, val title: String, val question: String, val answer: String)
 @Serializable data class Recall(val item: RecallItem? = null)
 
@@ -58,7 +60,7 @@ import kotlinx.serialization.json.JsonObject
                                      val file: FileRef? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
                                         val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false, val teacher: Boolean = false, val can_share: Boolean = false,
-                                        val student: String? = null)
+                                        val student: String? = null, val can_withdraw: Boolean = false)
 /** a teacher's marked model answer for a topic */
 @Serializable data class MAPart(val text: String = "", val marks: Double = 0.0)
 @Serializable data class ModelAnswer(val question: String = "", val parts: List<MAPart> = emptyList(), val total: Double = 0.0, val by: String = "")
@@ -89,7 +91,8 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Bookmarked(val bookmarked: Boolean)
 
 @Serializable data class Hit(val id: Int, val title: String, val unit: String = "", val course: String = "", val snippet: String = "", val in_title: Boolean = false)
-@Serializable data class SearchOut(val q: String = "", val results: List<Hit> = emptyList(), val confident: Boolean = false)
+@Serializable data class MineHit(val topic_id: Int, val title: String = "", val kind: String = "notes", val snippet: String = "")  // the student's own notes or a highlight's note that match
+@Serializable data class SearchOut(val q: String = "", val results: List<Hit> = emptyList(), val confident: Boolean = false, val mine: List<MineHit> = emptyList())
 @Serializable data class Answer(val text: String, val cached: Boolean = false, val support: Boolean = false, val via: String? = null)
 @Serializable data class PhotoText(val text: String = "", val ocr: Boolean = false)
 

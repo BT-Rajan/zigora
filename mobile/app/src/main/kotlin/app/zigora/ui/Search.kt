@@ -95,6 +95,14 @@ fun SearchScreen(initial: String, back: () -> Unit, openTopic: (Int) -> Unit, op
                             supportingContent = { Text(h.snippet, maxLines = 3) })
                     }
                 }
+                if (f.mine.isNotEmpty()) {  // their own words that match: only ever theirs, never sent to the AI
+                    SectionTitle(tl("Your notes"))
+                    f.mine.forEach { m ->
+                        ListItem(modifier = Modifier.clickableRounded { openTopic(m.topic_id) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            headlineContent = { Text(m.title) }, overlineContent = { Text(if (m.kind == "highlight") tl("Your highlight note") else tl("Your notes")) },
+                            supportingContent = { Text(m.snippet, maxLines = 3) })
+                    }
+                }
                 Gap(8)
                 val ans = answer
                 if (aiOff) Quiet(tl(AI_OFF))

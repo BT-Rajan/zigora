@@ -859,6 +859,8 @@ function QuestionThread({id,back,toast}){
   const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text,photo:photo||''}}));setText('');setPhoto(null)}catch(e){toast(srv(e.message))}setBusy(false)}
   const end=async()=>{if(!await confirm({title:tl("Close this question?"),body:tl("Nobody can reply after this. A new question can be asked from the topic."),ok:tl("Close it")}))return
     try{setQ(await api(`/questions/${id}/close`,{method:'POST'}))}catch(e){toast(srv(e.message))}}
+  const withdraw=async()=>{if(!await confirm({title:tl("Withdraw this question?"),body:tl("It is deleted and leaves your teacher's list. They may already have had an email about it."),ok:tl("Withdraw"),danger:true}))return
+    try{await api(`/questions/${id}/withdraw`,{method:'POST'});toast(tl("Question withdrawn"));back()}catch(e){toast(srv(e.message))}}
   const share=async on=>{if(on&&!await confirm({title:tl("Share with the class?"),body:tl("Everyone studying this topic will see the question and the answers under the topic. The student who asked is not named."),ok:tl("Share")}))return
     try{setQ(await api(`/questions/${id}/share`,{method:'POST',body:{shared:on}}));toast(on?tl("Shared with the class"):tl("No longer shared"))}catch(e){toast(srv(e.message))}}
   if(topic)return <Topic id={q.topic_id} back={()=>setTopic(false)} toast={toast} role={role}/>
@@ -871,7 +873,8 @@ function QuestionThread({id,back,toast}){
         <textarea id="tqr" rows={3} maxLength={1000} value={text} onChange={e=>setText(e.target.value)}/>
         <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
         <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):tl("Send")}</button>
-        <button className="btn ghost" onClick={end}>{tl("Close the question")}</button></>}</>}</div></>}
+        <button className="btn ghost" onClick={end}>{tl("Close the question")}</button>
+        {q.can_withdraw&&<button className="btn ghost" onClick={withdraw}>{tl("Withdraw the question")}</button>}</>}</>}</div></>}  {/* before any answer: take it back */}
 // under a topic: questions the teacher shared with the class, each with its answers; who asked is never shown
 function ClassQuestions({tid}){
   const [d,setD]=useState(null),[open,setOpen]=useState({})
@@ -1299,30 +1302,38 @@ function SearchPage({user,toast,initial}){
     <div className="search"><Search size={18}/><input type="search" aria-label={tl("Search topics")} autoFocus placeholder={tl("e.g. temporary hardness of water")} value={q} maxLength={200} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}/></div>
     <button className="btn" disabled={pend||aiBusy||typed.length<2} onClick={submit}>{pend?tl("Searching…"):tl("Search")}</button>
     {!asked&&live&&live.results.length>0&&<><h3 className="sec">{tl("Topics in your courses")}</h3>{!aiOff&&<p className="known">{tl("Press Enter to search properly. If nothing here fits, the AI answers.")}</p>}{live.results.slice(0,5).map(x=><Hit key={x.id} x={x} open={setTopic}/>)}</>}
+    {!asked&&live?.mine?.length>0&&<MineHits rows={live.mine} open={setTopic}/>}
     {!asked&&typed.length>=2&&live&&!live.results.length&&<p className="known">{aiOff?tl("Nothing in your courses matches yet."):tl("Nothing in your courses matches yet. Press Enter and the AI will answer instead.")}</p>}
     {res&&<>{res.results.length>0?<><h3 className="sec">{aiNote?tl("Possible matches in your courses"):tl("In your courses")}</h3>{<Paged rows={res.results} render={x=><Hit key={x.id} x={x} open={setTopic}/>}/>}</>
       :<p className="known" style={{marginTop:18}}>{tl("Nothing in your courses matches “{asked}”.",{asked:asked})}</p>}
+      {res.mine?.length>0&&<MineHits rows={res.mine} open={setTopic}/>}
       {aiOff&&<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>}{!aiOff&&!ai&&!aiBusy&&<button className="btn ghost" onClick={()=>askAi(asked,false)}><Sparkles size={16}/>{" "}{tl("Not what you wanted? Recheck with AI")}</button>}</>}
     {aiBusy&&<div className="qbox" aria-live="polite"><b>{tl("Asking the AI…")}</b><div className="sk"/></div>}
     {aiErr&&<div className="qbox" role="alert"><b>{tl("The AI could not answer")}</b><p className="known" style={{margin:'6px 0 0'}}>{aiErr}</p></div>}
     {ai&&!aiBusy&&<><h3 className="sec">{tl("AI answer")}</h3><div className="prose">{ai.cached&&<span className="chip">{tl("Saved answer · no tokens used")}</span>}<Md>{ai.text}</Md>{!ai.support&&<FlagLink source="search" id={ai.id} excerpt={ai.text}/>}</div>
       <p className="known">{tl("AI answers can contain mistakes. Check them against your notes and textbook.")}</p>
       <button className="btn ghost" disabled={aiBusy} onClick={()=>askAi(ai.for,true)}><Sparkles size={16}/>{" "}{tl("Not happy? Recheck with AI")}</button></>}</div></>}
+// the student's own words that match: their notes under a topic and the notes on their highlights; only ever theirs, never sent to the AI
+const MineHits=({rows,open})=><><h3 className="sec">{tl("Your notes")}</h3>{rows.map(x=><button key={x.topic_id+x.kind} className="hitrow" onClick={()=>open(x.topic_id)}>
+  <b>{x.title}<span className="chip" style={{marginLeft:8}}>{x.kind==='highlight'?tl("Your highlight note"):tl("Your notes")}</span></b>{x.snippet&&<span className="snip">{x.snippet}</span>}</button>)}</>
 function Hit({x,open}){return <button className="hitrow" onClick={()=>open(x.id)}><b>{x.title}{x.in_title&&<span className="chip" style={{marginLeft:8}}>{tl("Best match")}</span>}</b><small>{[x.program,x.semester,x.course,x.unit].filter(Boolean).join(' › ')}</small>{x.snippet&&<span className="snip">{x.snippet}</span>}</button>}
 
 // My progress: a calm mirror, not a report card. What clicked and what is worth another look (from quizzes and tests, without percentages),
 // the optional routine, test results folded away, and what the app has picked up about how they learn
 function Insights({toast,role,onRoutine}){
-  const [d,setD]=useState(null),[topic,setTopic]=useState(null),[sc,setSc]=useState(null)
-  useEffect(()=>{if(!topic)api('/me/insights').then(setD).catch(e=>toast(e.message))},[topic])
+  const [d,setD]=useState(null),[topic,setTopic]=useState(null),[sc,setSc]=useState(null),[td,setTd]=useState(null)
+  useEffect(()=>{if(!topic){api('/me/insights').then(setD).catch(e=>toast(e.message));if(role==='student')api('/me/today').then(setTd).catch(()=>{})}},[topic])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(sc)return <ScoreCourse c={sc} back={()=>setSc(null)} toast={toast} role={role}/>
   const clicked=d?.strong||[],looks=d?[...d.needs_study,...d.getting_there]:[]
   const item=a=><button key={a.topic_id||'u'+a.unit_id} className="row rowbtn" disabled={!a.topic_id} onClick={()=>setTopic(a.topic_id)}><div>{a.title}<small>{a.course}</small></div>{a.topic_id&&<ChevronRight size={18}/>}</button>
   return <><Bar title={tl("My progress")}/><div className="main">
+    {td?.courses?.length>0&&<><h3 className="sec first">{tl("Your courses")}</h3>  {/* what they marked as learned: their own word for it, not a score */}
+      <p className="known" style={{marginTop:0}}>{tl("{done} of {total} topics marked as learned. Quizzes below show how well they stuck.",{done:td.topics_completed,total:td.topics_total})}</p>
+      <Paged rows={td.courses} render={c=><div className="row" key={c.id}><div>{c.name}<small>{tl("{done} of {total} topics marked as learned",{done:c.completed,total:c.total})}{' · '}{Math.round(100*c.completed/c.total)}%</small><Bar2 v={100*c.completed/c.total}/></div></div>}/></>}
     {!d&&<Skeleton/>}
     {d&&!clicked.length&&!looks.length&&<p className="known">{tl("After you try a quiz or a test, the topics that clicked and the ones worth another look show up here.")}</p>}
-    {clicked.length>0&&<><h3 className="sec first">{tl("What clicked")}</h3><Paged rows={clicked} render={item}/></>}
+    {clicked.length>0&&<><h3 className={'sec'+(td?.courses?.length?'':' first')}>{tl("What clicked")}</h3><Paged rows={clicked} render={item}/></>}
     {looks.length>0&&<><h3 className={'sec'+(clicked.length?'':' first')}>{tl("Worth another look")}</h3><Paged rows={looks} render={item}/></>}
     <h3 className="sec">{tl("Study routine")}</h3>
     <button className="row rowbtn" onClick={onRoutine}><div>{tl("Set or change your study days")}<small>{tl("Optional. Some people like a rhythm; nothing changes unless you set one.")}</small></div><ChevronRight size={18}/></button>
@@ -1962,7 +1973,8 @@ function Topic({id:first,back,toast,role}){
   const flip=async()=>{const on=!bm;setBm(on);try{await api(`/topics/${id}/bookmark`,{method:on?'PUT':'DELETE'});toast(on?tl("Bookmarked"):tl("Bookmark removed"))}catch(e){setBm(!on);toast(e.message)}}
   const view=k=>ai[k]?<div className="prose">{ai[k].cached&&<span className="chip">{tl("Saved answer · no tokens used")}</span>}{ai[k].own_notes&&<span className="chip">{tl("Written with your own notes")}</span>}<Md>{ai[k].text}</Md><FlagLink source="topic" id={ai[k].id} topicId={id} excerpt={ai[k].text}/></div>
     :aiOk===false?<p className="known">{aiOff?tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account."):ownKey?tl("Add your own AI key under “My AI key” in the menu to use AI help."):tl("AI unavailable. Try again later.")}</p>
-    :<><button className="btn" disabled={busy} onClick={()=>ask(k)}><Sparkles size={16}/> {busy?tl("Thinking…"):k==='explain'?tl("Explain it to me"):tl("Show a sample answer")}</button>{t.my_notes&&<p className="known">{tl("Uses your own notes too. It counts toward your daily AI requests.")}</p>}{aiMsg&&<p className="known">{aiMsg}</p>}</>
+    :<>{aiMsg&&<p className="known" role="alert">{aiMsg}</p>}  {/* after a failed try: what went wrong, then the same request again */}
+      <button className="btn" disabled={busy} onClick={()=>ask(k)}><Sparkles size={16}/> {busy?tl("Thinking…"):aiMsg?tl("Try again"):k==='explain'?tl("Explain it to me"):tl("Show a sample answer")}</button>{t.my_notes&&<p className="known">{tl("Uses your own notes too. It counts toward your daily AI requests.")}</p>}</>
   return <><Bar title={t.title} sub={[t.program,t.semester,t.course,t.unit].filter(Boolean).join(' › ')} back={back} right={role!=='admin'&&<button className={'ic'+(bm?' on':'')} aria-label={bm?tl("Remove bookmark"):tl("Bookmark this topic")} aria-pressed={bm} onClick={flip}><Bookmark fill={bm?'currentColor':'none'}/></button>}/><div className="main">
     {t.can_edit&&pv&&<div className="qbox" style={{marginTop:0}}><b>{tl("Previewing as a student")}</b><p className="known" style={{margin:'4px 0 8px'}}>{tl("This is what students see: no editing buttons, and drafts show as unavailable to them.")}</p><button className="btn ghost" style={{marginTop:0}} onClick={()=>setPv(false)}>{tl("Back to editing")}</button></div>}
     {t.can_edit&&!pv&&<div className="two" style={{marginBottom:12}}><button className="btn ghost" style={{marginTop:0}} onClick={()=>setEditing(true)}><Pencil size={16}/>{" "}{tl("Edit topic")}</button>
@@ -2363,9 +2375,10 @@ function MyMaterial({cid,name,back,toast}){  // a student's own material, filed 
         <div className="sfile">{x.topic_id?<span className="chip">{names.get(x.topic_id)||tl("Topic")}</span>:<span className="chip none">{tl("Left out")}</span>}<button className="tool" disabled={!!busy} aria-expanded={pick===i} onClick={()=>setPick(pick===i?null:i)}>{pick===i?tl("Cancel"):x.topic_id?tl("Change"):tl("File it")}</button></div>
         {pick===i&&<select aria-label={tl("Topic for part {i}{v}",{i:i,v:1})} autoFocus value={x.topic_id||''} disabled={!!busy} onChange={e=>file(i,e.target.value)}><option value="">{tl("Not in the syllabus (left out)")}</option>{v.syllabus.map(u=><optgroup key={u.id} label={u.name}>{u.topics.map(tp=><option key={tp.id} value={tp.id}>{tp.title}</option>)}</optgroup>)}</select>}
         <button className="tool" onClick={()=>read(x)}>{open[x.from]!==undefined?tl("Hide"):tl("Read it")}</button>{open[x.from]!==undefined&&<div className="prose"><Md>{open[x.from]}</Md></div>}</div>}/>}
-      <button className="btn" disabled={!!busy||!filed.size} onClick={()=>run('save',()=>api(base+'/save',{method:'POST'}),'Saved. Open a topic to study your notes.')}>{v.saved_at?tl("Save again to my topics"):tl("Save to my topics")}</button>
+      <button className="btn" disabled={!!busy||!filed.size} onClick={async()=>{if(v.saved_at&&!await confirm({title:tl("Save again and rebuild your notes?"),body:tl("Your notes in every topic of this course are rebuilt from the material and matching shown here. Notes from material you removed or sections you left out are gone after this. Your progress and quiz results stay."),ok:tl("Save again")}))return  // saving again replaces the course's notes
+        run('save',()=>api(base+'/save',{method:'POST'}),'Saved. Open a topic to study your notes.')}}>{v.saved_at?tl("Save again to my topics"):tl("Save to my topics")}</button>
       {v.saved_at&&<p className="known">{tl("Last saved {n}. Saving again rebuilds your notes from this material; your progress and quiz results stay.",{n:when(v.saved_at)})}</p>}</>}
-    {v.sources.length>0&&<p style={{marginTop:28}}><button className="link" style={{color:"var(--bad)"}} disabled={!!busy} onClick={async()=>{if(await confirm({title:tl("Remove your material?"),body:tl("The notes it made in this course are removed too. Your progress and quiz results stay."),ok:tl("Remove"),danger:true}))run('del',()=>api(base,{method:'DELETE'}),'Your material was removed')}}>{tl("Remove my material from this course")}</button></p>}</div>
+    {v.sources.length>0&&<p style={{marginTop:28}}><button className="link" style={{color:"var(--bad)"}} disabled={!!busy} onClick={async()=>{if(await confirm({title:tl("Remove your material?"),body:tl("All your notes in this course go with it, in every topic, not just one file's. Your progress and quiz results stay."),ok:tl("Remove"),danger:true}))run('del',()=>api(base,{method:'DELETE'}),'Your material was removed')}}>{tl("Remove my material from this course")}</button></p>}</div>
     {paste&&<Sheet close={()=>setPaste(null)}><h3>{tl("Paste text")}</h3><textarea aria-label={tl("Text to add")} value={paste.text} onChange={e=>setPaste({text:e.target.value})} placeholder={tl("Paste your notes. Lines starting with # are headings.")}/>
       <button className="btn" disabled={!paste.text.trim()||!!busy} onClick={async()=>{await run('paste',()=>api(base+'/text',{method:'POST',body:{text:paste.text}}),'Added');setPaste(null)}}>{tl("Add")}</button></Sheet>}</>}
 

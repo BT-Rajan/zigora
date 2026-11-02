@@ -419,11 +419,11 @@ private fun AiAnswer(tid: Int, kind: String, aiOn: Boolean, label: Int, ownNotes
         FlagLink("topic", s.id, tid)
         return
     }
+    if (msg.isNotEmpty()) Quiet(msg, Modifier.padding(bottom = 8.dp))  // after a failed try: what went wrong, then the same request again
     FilledTonalButton(enabled = !busy, onClick = {
         scope.launch { busy = true; msg = ""; try { ans = a.get("/topics/$tid/ai/$kind", Step.serializer()) } catch (e: Exception) { msg = e.message.orEmpty() }; busy = false }
-    }) { Icon(Icons.Outlined.AutoAwesome, null); Text("  " + stringResource(if (busy) R.string.thinking else label)) }
+    }) { Icon(Icons.Outlined.AutoAwesome, null); Text("  " + if (busy) stringResource(R.string.thinking) else if (msg.isNotEmpty()) stringResource(R.string.try_again) else stringResource(label)) }
     if (ownNotes) Quiet(stringResource(R.string.uses_own_notes), Modifier.padding(top = 4.dp))
-    if (msg.isNotEmpty()) Quiet(msg, Modifier.padding(top = 8.dp))
 }
 
 /** the shape of a full answer: what to write, and where the marks are */
