@@ -25,6 +25,10 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -91,6 +95,23 @@ class OnboardingTest {
         see("Your account is ready"); see("program and grade"); see("You don't have to wait to start learning.")
         see("Build a course from your own notes"); see("Join a course offered by a teacher"); shot("onboarding-10-not-placed-yet")
         tap("Join a course offered by a teacher"); see("Join a course")
+    }
+
+    @Test fun aStudentInATermWithNoCoursesIsToldAndShownTwoWaysToStart() {
+        signIn("mum@x.com")  // a parent adds Tara; an admin places her in a new program whose Year 1 has no courses
+        runBlocking { app.api.raw("POST", "/guardian/students", buildJsonObject { put("students", kotlinx.serialization.json.JsonArray(listOf(
+            buildJsonObject { put("name", "Tara"); put("username", "tara.k"); put("password", "pw123456") }))) }) }
+        signIn("admin@x.com")
+        runBlocking {
+            val pid = app.api.raw("POST", "/programs", buildJsonObject { put("name", "B.Sc Physics"); put("pattern", "year"); put("terms", 1) }).jsonObject["id"]!!.jsonPrimitive.int
+            val users = app.api.raw("GET", "/admin/users?q=tara").jsonObject["items"]!!.jsonArray
+            val id = users.first { it.jsonObject["name"]!!.jsonPrimitive.content == "Tara" }.jsonObject["id"]!!.jsonPrimitive.int
+            app.api.raw("PATCH", "/admin/users/$id", buildJsonObject { put("program_id", pid); put("semester", 1) })
+        }
+        signIn("tara.k")
+        rule.setContent { ZigoraRoot(null) {} }
+        see("Courses"); rule.onAllNodesWithText("Courses").onFirst().performClick()
+        see("No courses have been added to Year 1 yet"); see("Join a course offered by a teacher"); see("Build a course from your own notes"); shot("onboarding-11-term-with-no-courses")
     }
 
     @Test fun aParentSeesTheirChildAndTheAiKey() {

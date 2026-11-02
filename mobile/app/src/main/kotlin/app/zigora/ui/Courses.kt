@@ -56,6 +56,7 @@ fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, openJoi
             Loaded(tree) { list ->
                 val courses = coursesOf(list)
                 if (courses.isEmpty() && me.self_registered && !me.placed) NotPlacedYet(me, openStudy, openJoin)
+                else if (courses.isEmpty() && me.placed) NoCoursesYet(list.flatMap { it.semesters }.lastOrNull { it.current }?.name, openStudy, openJoin)
                 else if (courses.isEmpty()) Quiet(stringResource(R.string.not_enrolled))
                 else CourseList(courses, open)
             }

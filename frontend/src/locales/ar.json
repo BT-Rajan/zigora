@@ -2891,5 +2891,8 @@
 "Your institution's admin will assign your program and grade. Your institution's courses will appear here after that.": "سيحدد مسؤول مؤسستك برنامجك وصفك. وستظهر مقررات مؤسستك هنا بعد ذلك.",
 "You don't have to wait to start learning.": "لا داعي للانتظار لتبدأ التعلّم.",
 "Join a course offered by a teacher": "انضم إلى مقرر يقدّمه معلّم",
-"Open courses, courses you can ask to join, and invitations": "مقررات مفتوحة، ومقررات يمكنك طلب الانضمام إليها، ودعوات"
+"Open courses, courses you can ask to join, and invitations": "مقررات مفتوحة، ومقررات يمكنك طلب الانضمام إليها، ودعوات",
+"No courses have been added to {term} yet. Your institution's admin will make them available when they are ready.": "لم تُضف أي مقررات إلى {term} بعد. سيتيحها مسؤول مؤسستك عندما تكون جاهزة.",
+"No courses have been added for you yet. Your institution's admin will make them available when they are ready.": "لم تُضف أي مقررات لك بعد. سيتيحها مسؤول مؤسستك عندما تكون جاهزة.",
+"In the meantime, you can join a course offered by a teacher or build a course from your own notes.": "في هذه الأثناء، يمكنك الانضمام إلى مقرر يقدّمه معلّم أو بناء مقرر من ملاحظاتك."
 }
