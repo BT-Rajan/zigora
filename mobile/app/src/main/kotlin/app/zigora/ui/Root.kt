@@ -57,6 +57,7 @@ import kotlinx.serialization.json.put
 @Serializable data class ReaderR(val id: Int)
 @Serializable data class DiagramR(val url: String)
 @Serializable data class QuestionR(val id: Int)
+@Serializable object JoinR
 @Serializable data class StudyQuizR(val id: Int, val topic: Int = 0, val own: Int = 0)  // topic: a college topic's practice; own: a topic of the student's own course
 @Serializable object StudyR
 @Serializable data class StudyCourseR(val id: Int)
@@ -87,7 +88,8 @@ fun ZigoraRoot(incoming: Incoming?, handled: () -> Unit) {
         if (user == null || user.role != "student" || user.must_change) LaunchedEffect(Unit) { app.firstScreenReady.value = true }  // Home says so itself, once it has loaded
         when {
             user == null -> SignIn { m -> app.store.userJson = json.encodeToString(Me.serializer(), m); me = m }
-            user.role == "guardian" -> GuardianHome(user) { app.store.signOut(); me = null }  // a parent or teacher who signed up: their children or students
+            user.role == "guardian" && user.relation == "teacher" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }  // a school teacher: their students and the teacher's pages
+            user.role == "guardian" -> GuardianHome(user) { app.store.signOut(); me = null }  // a parent: their children
             user.role != "student" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }  // teachers: questions, classes, struggles
             user.must_change -> ChangePassword(forced = true) { me = user.copy(must_change = false).also { app.store.userJson = json.encodeToString(Me.serializer(), it) } }
             else -> Main(user, incoming, handled, wallpaper = { wallpaper = it; app.store.wallpaper = it }, theme = { theme = it; app.store.theme = it }) {
@@ -152,9 +154,9 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
         NavHost(nav, startDestination = HomeR, modifier = Modifier.weight(1f)) {
             composable<HomeR> { HomeScreen(me, openTopic = open, openCourse = { nav.navigate(CourseR(it)) }, openQuiz = { nav.navigate(QuizR(it)) },
                                            openNotes = { nav.navigate(NotesR) }, openPhoto = { nav.navigate(PhotoR()) }, openSearch = search,
-                                           openRoutine = { nav.navigate(RoutineR) }, openSession = session, openStudy = { nav.navigate(StudyR) }, openMcq = { nav.navigate(McqR()) }, openCalendar = { nav.navigate(CalendarR) }, openProgress = { nav.navigate(ProgressR) }, openPlan = { nav.navigate(MeR) }, openClasses = { nav.navigate(ClassesR) },
+                                           openRoutine = { nav.navigate(RoutineR) }, openSession = session, openStudy = { nav.navigate(StudyR) }, openMcq = { nav.navigate(McqR()) }, openCalendar = { nav.navigate(CalendarR) }, openProgress = { nav.navigate(ProgressR) }, openPlan = { nav.navigate(MeR) }, openClasses = { nav.navigate(ClassesR) }, openJoin = { nav.navigate(JoinR) },
                                            openOwn = ownTopic, review = review) }
-            composable<CoursesR> { CoursesScreen(me, search, openStudy = { nav.navigate(StudyR) }) { nav.navigate(CourseR(it)) } }
+            composable<CoursesR> { CoursesScreen(me, search, openStudy = { nav.navigate(StudyR) }, openJoin = { nav.navigate(JoinR) }) { nav.navigate(CourseR(it)) } }
             composable<StudyR> { StudyHomeScreen(back = { nav.popBackStack() }, open = { id, wizard -> nav.navigate(if (wizard) StudyWizardR(id) else StudyCourseR(id)) },
                                                  openTopic = ownTopic, review = review) }
             composable<StudyWizardR> { e -> val id = e.toRoute<StudyWizardR>().id
@@ -167,6 +169,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
                                  quiz = { q -> nav.navigate(StudyQuizR(q.id, own = id)) }) }
             composable<SavedR> { SavedScreen(open) { nav.navigate(QuestionR(it)) } }
             composable<ClassesR> { ClassesScreen { nav.popBackStack() } }
+            composable<JoinR> { JoinScreen(back = { nav.popBackStack() }) { nav.navigate(CourseR(it)) } }
             composable<QuestionR> { QuestionScreen(it.toRoute<QuestionR>().id, back = { nav.popBackStack() }, openTopic = open) }
             composable<ProgressR> { ProgressScreen(open, openRoutine = { nav.navigate(RoutineR) }, openScores = { nav.navigate(ScoreCourseR(it)) }) }
             composable<RoutineR> { RoutineScreen { nav.popBackStack() } }

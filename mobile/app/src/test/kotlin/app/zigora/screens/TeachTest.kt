@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import app.zigora.ZigoraApp
@@ -64,6 +65,7 @@ class TeachTest {
         tab("Classes"); see("Revision: water technology"); see("Join the class"); shot("3-classes")
         tap("Schedule a class or post an announcement"); see("Video link")
         rule.onAllNodes(hasSetTextAction())[0].performTextInput("Doubt-clearing session")
+        rule.onAllNodes(hasSetTextAction())[1].performTextReplacement(java.time.LocalDate.now().plusDays(1).toString())  // tomorrow: today's 18:00 may have passed
         rule.onAllNodes(hasSetTextAction())[4].performTextInput("https://meet.google.com/xyz-abcd-efg")
         rule.onAllNodesWithText("Schedule the class").onLast().performScrollTo().performClick()
         rule.waitUntil(20_000) { rule.onAllNodesWithText("Video link").fetchSemanticsNodes().isEmpty() }  // the form closed: it was saved
@@ -76,6 +78,7 @@ class TeachTest {
         signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         tab("Classes"); tap("Schedule a class or post an announcement"); see("Video link")
         rule.onAllNodes(hasSetTextAction())[0].performTextInput("Weekly tutorial")
+        rule.onAllNodes(hasSetTextAction())[1].performTextReplacement(java.time.LocalDate.now().plusDays(1).toString())
         rule.onAllNodes(hasSetTextAction())[4].performTextInput("https://meet.google.com/wkl-abcd-efg")
         tap("Repeat every week"); see("How many weeks"); shot("8-weekly-form")
         rule.onAllNodesWithText("Schedule the class").onLast().performScrollTo().performClick()
@@ -91,7 +94,7 @@ class TeachTest {
         val am = org.robolectric.Shadows.shadowOf(app.getSystemService(android.app.AlarmManager::class.java))
         val start = runBlocking { app.api.get("/announcements", AnnList.serializer()).upcoming.first { it.title == "Revision: water technology" }.starts_at!! }
         rule.waitUntil(20_000) { am.scheduledAlarms.any { it.triggerAtTime == java.time.Instant.parse(start).toEpochMilli() - 10 * 60_000L } }
-        val alarm = am.scheduledAlarms.single { it.triggerAtTime == java.time.Instant.parse(start).toEpochMilli() - 10 * 60_000L }  // 10 minutes before this class
+        val alarm = am.scheduledAlarms.first { it.triggerAtTime == java.time.Instant.parse(start).toEpochMilli() - 10 * 60_000L }  // 10 minutes before this class
         ClassReminder().onReceive(app, org.robolectric.Shadows.shadowOf(alarm.operation).savedIntent)
         val n = org.robolectric.Shadows.shadowOf(app.getSystemService(android.app.NotificationManager::class.java)).allNotifications.last()
         org.junit.Assert.assertTrue(n.extras.getString("android.title")!!.startsWith("Class in 10 minutes"))

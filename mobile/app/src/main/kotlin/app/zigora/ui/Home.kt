@@ -86,7 +86,7 @@ fun firstName(n: String): String {  // as on the web: a title stays with the sur
 @Composable
 fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, openQuiz: (Int) -> Unit, openNotes: () -> Unit, openPhoto: () -> Unit,
                openSearch: () -> Unit, openRoutine: () -> Unit, openSession: (app.zigora.data.SessionItem) -> Unit, openStudy: () -> Unit,
-               openOwn: (Int, Int) -> Unit, review: (Int) -> Unit, openMcq: () -> Unit = {}, openCalendar: () -> Unit = {}, openProgress: () -> Unit = {}, openPlan: () -> Unit = {}, openClasses: () -> Unit = {}) {
+               openOwn: (Int, Int) -> Unit, review: (Int) -> Unit, openMcq: () -> Unit = {}, openCalendar: () -> Unit = {}, openProgress: () -> Unit = {}, openPlan: () -> Unit = {}, openClasses: () -> Unit = {}, openJoin: () -> Unit = {}) {
     val tree = rememberLoad("tree") { get("/tree", ListSerializer(ProgramNode.serializer())) }
     val zapp = app(); androidx.compose.runtime.LaunchedEffect(tree.state) { if (tree.state !is Load.Loading) zapp.firstScreenReady.value = true }
     val today = rememberLoad("today") { get("/me/today", Today.serializer()) }
@@ -115,6 +115,7 @@ fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, open
             Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 UpdateCard()
                 InvitationsCard()
+                CourseInvitesCard(openJoin)
                 NextClassCard(openClasses)
                 sess?.let { SessionCard(it, openRoutine, openSession) { n -> sess = n } }
                 if (dd != null) {  // what to do next, then this week; with a routine, today's session already lists the topics
@@ -161,6 +162,10 @@ fun CourseList(courses: List<CourseNode>, open: (Int) -> Unit) {
         val topics = c.units.flatMap { it.topics }
         val done = topics.count { it.status == "completed" }; val opened = topics.count { it.status != "not_started" }
         val i = courses.indexOf(c)
+        val soon = (c.upcoming && c.starts_on != null) || c.paused
+        val startsMsg = if (c.paused) tl("This course is paused for now. Your teacher will reopen it.") else c.starts_on?.let { tl("This course starts on {date}", "date" to day(it)) }.orEmpty()
+        if (soon) { ListRow(c.name, if (c.paused) tl("Paused") else tl("Starts on {date}", "date" to day(c.starts_on!!)), onClick = { android.widget.Toast.makeText(ctx, startsMsg, android.widget.Toast.LENGTH_SHORT).show() },
+                            leading = { RowIcon(Icons.Outlined.Lock) }, trailing = {}); return@Paged }
         ListRow(c.name,
             if (c.archived) stringResource(R.string.course_unavailable)
             else listOfNotNull(pluralStringResource(R.plurals.topics, topics.size, topics.size),

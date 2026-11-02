@@ -54,12 +54,24 @@ def test_a_username_taken_before_the_code_is_entered_stops_the_sign_up(reg):
     r = finish(reg, "mum@home.in"); assert r.status_code == 400 and "taken" in r.json()["detail"]
     with Session_() as s: assert s.query(User).filter_by(email="mum@home.in").first() is None and s.query(GuardianLink).count() == 0
 
-def test_a_teacher_signs_up_as_a_guardian_and_admins_keep_the_role(reg):
+def test_a_teacher_who_signs_up_waits_for_an_admin_and_admins_make_parents_and_teachers(reg):
     places(); assert reg.start(who="teacher", level="school", email="t@school.in", id_number="").status_code == 200
-    me = finish(reg, "t@school.in").json()["user"]; assert (me["role"], me["relation"]) == ("guardian", "teacher")
-    with Session_() as s: tid = s.query(User).filter_by(email="t@school.in").one().id
-    assert reg.c.patch(f"/api/admin/users/{tid}", headers=reg.admin, json={"name": "T. Rani", "role": "guardian"}).status_code == 200
-    with Session_() as s: assert s.get(User, tid).role == "guardian"
+    r = finish(reg, "t@school.in").json(); assert r["pending"] is True and "approval" in r["message"] and "token" not in r
+    with Session_() as s: u = s.query(User).filter_by(email="t@school.in").one(); tid = u.id; assert (u.role, u.relation, u.active, u.approval) == ("guardian", "teacher", False, "pending")
+    r = reg.c.post("/api/login", json={"email": "t@school.in", "password": "longenough1"}); assert r.status_code == 403 and "approval" in r.json()["detail"]
+    assert [x["id"] for x in reg.c.get("/api/admin/users?plan=awaiting", headers=reg.admin).json()["items"]] == [tid]
+    assert any(x["key"] == "teachers_waiting" for x in reg.c.get("/api/admin/dashboard", headers=reg.admin).json()["items"])
+    assert reg.c.post(f"/api/admin/users/{tid}/approval", headers=reg.admin, json={"approve": True}).status_code == 200
+    assert reg.c.post("/api/login", json={"email": "t@school.in", "password": "longenough1"}).status_code == 200
+    assert reg.c.post(f"/api/admin/users/{tid}/approval", headers=reg.admin, json={"approve": True}).status_code == 404  # nothing waiting now
+    assert reg.start(who="parent", level="school", email="mum2@home.in", children=[{**KID, "username": "kid.two"}]).status_code == 200  # parents need no approval
+    assert "token" in finish(reg, "mum2@home.in").json()
+    for kind in ("teacher", "parent"):
+        assert reg.c.post("/api/admin/users", headers=reg.admin, json={"name": f"A {kind}", "email": f"{kind}@school.in", "password": "pw123456", "role": kind}).status_code == 200
+        with Session_() as s: x = s.query(User).filter_by(email=f"{kind}@school.in").one(); assert (x.role, x.relation, x.level, x.active) == ("guardian", kind, "school", True)
+    assert reg.c.patch(f"/api/admin/users/{tid}", headers=reg.admin, json={"name": "T. Rani", "role": "teacher"}).status_code == 200
+    with Session_() as s: assert (s.get(User, tid).role, s.get(User, tid).relation) == ("guardian", "teacher")  # editing other details keeps the type
+    assert reg.c.post("/api/admin/users", headers=reg.admin, json={"name": "X", "email": "x@school.in", "password": "pw123456", "role": "wizard"}).status_code == 400
 
 def test_an_older_app_still_signs_up_a_student_without_the_new_fields(reg):
     assert reg.start().status_code == 200; u = finish(reg, "asha@college.edu").json()["user"]

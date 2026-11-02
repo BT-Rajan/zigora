@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,8 @@ import app.zigora.data.Me
 import app.zigora.data.QuestionPage
 import app.zigora.data.Struggles
 import kotlinx.serialization.Serializable
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.put
 
 // The teacher's side of the app (faculty and admins): students' questions to answer, classes and announcements to post, and where students
 // struggle. Everything else (courses, topics, tests, settings) stays on the web.
@@ -48,23 +51,33 @@ import kotlinx.serialization.Serializable
 @Serializable object ClassesR
 @Serializable object StrugglesR
 @Serializable object StaffMeR
+@Serializable object OffersR
+@Serializable data class OfferR(val id: Int)
+@Serializable object TeacherHomeR
 
 @Composable
 fun StaffMain(me: Me, incoming: Incoming?, handled: () -> Unit, signOut: () -> Unit) {
+    val school = me.role == "guardian"  // a school teacher: their students come first, then the teacher's pages
     val nav = rememberNavController(); val ctx = LocalContext.current
     LaunchedEffect(me.id) { AnswerWatch.schedule(ctx, true) }  // a note on the phone when a question comes in
     LaunchedEffect(incoming) {
         when (incoming) { is Incoming.Question -> nav.navigate(QuestionR(incoming.id)); is Incoming.Classes -> nav.navigate(ClassesR); null -> return@LaunchedEffect; else -> {} }
         handled()
     }
-    val tabs = listOf(Triple(InboxR, tl("Questions"), Icons.AutoMirrored.Outlined.Chat), Triple(ClassesR, tl("Classes"), Icons.Outlined.Campaign),
-                      Triple(StrugglesR, tl("Struggles"), Icons.Outlined.Insights), Triple(StaffMeR, stringResource(R.string.tab_me), Icons.Outlined.AccountCircle))
+    val tabs = (if (school) listOf(Triple(TeacherHomeR, tl("Students"), Icons.Outlined.AccountCircle)) else emptyList()) +
+               listOf(Triple(InboxR, tl("Questions"), Icons.AutoMirrored.Outlined.Chat), Triple(ClassesR, tl("Classes"), Icons.Outlined.Campaign),
+                      Triple(OffersR, tl("Courses"), Icons.Outlined.School), Triple(StrugglesR, tl("Struggles"), Icons.Outlined.Insights)) +
+               (if (school) emptyList() else listOf(Triple(StaffMeR, stringResource(R.string.tab_me), Icons.Outlined.AccountCircle)))
+    val start: Any = if (school) TeacherHomeR else InboxR
     val entry by nav.currentBackStackEntryAsState(); val dest = entry?.destination
     androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me) { NavigationSuiteScaffold(navigationSuiteItems = {
         tabs.forEach { (r, l, i) -> item(selected = dest?.hasRoute(r::class) == true, icon = { Icon(i, null) }, label = { Text(l, maxLines = 1) },
-            onClick = { nav.navigate(r) { popUpTo(InboxR) { saveState = true }; launchSingleTop = true; restoreState = true } }) }
+            onClick = { nav.navigate(r) { popUpTo(start) { saveState = true }; launchSingleTop = true; restoreState = true } }) }
     }) {
-        NavHost(nav, startDestination = InboxR) {
+        NavHost(nav, startDestination = start) {
+            composable<TeacherHomeR> { GuardianHome(me, signOut) }
+            composable<OffersR> { OfferedScreen(openCourse = { nav.navigate(OfferR(it)) }) }
+            composable<OfferR> { OfferDetailScreen(it.toRoute<OfferR>().id) { nav.popBackStack() } }
             composable<InboxR> { InboxScreen { nav.navigate(QuestionR(it)) } }
             composable<ClassesR> { ClassesScreen(null) }
             composable<StrugglesR> { StrugglesScreen { nav.navigate(TopicR(it)) } }
@@ -98,8 +111,27 @@ fun InboxScreen(open: (Int) -> Unit) {
 @Composable
 fun StrugglesScreen(openTopic: (Int) -> Unit) {
     var days by rememberSaveable { mutableIntStateOf(30) }
+    var toastText by androidx.compose.runtime.remember { mutableStateOf("") }
+    var help by androidx.compose.runtime.remember { mutableStateOf<Pair<Int, String>?>(null) }; var helpText by androidx.compose.runtime.remember { mutableStateOf("") }
+    var helpMsg by androidx.compose.runtime.remember { mutableStateOf("") }
+    val api = api(); val scope = androidx.compose.runtime.rememberCoroutineScope()
+    help?.let { (tid, name) ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { help = null }, title = { Text(tl("Offer help with {topic}", "topic" to name)) },
+            text = { androidx.compose.foundation.layout.Column {
+                Quiet(tl("Goes to every student who was stuck on this topic in this period. You won't see who they are; each can answer you in their own thread."))
+                androidx.compose.material3.OutlinedTextField(helpText, { helpText = it.take(1000) }, Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 3, label = { Text(tl("Message")) })
+                if (helpMsg.isNotEmpty()) Text(helpMsg, color = MaterialTheme.colorScheme.error)
+            } },
+            confirmButton = { androidx.compose.material3.TextButton(enabled = helpText.trim().length >= 3, onClick = { scope.launch {
+                try { val r = api.send("POST", "/topics/$tid/offer-help", kotlinx.serialization.json.buildJsonObject { put("text", helpText.trim()); put("days", days) }, app.zigora.data.Sent.serializer())
+                      help = null; helpMsg = ""; toastText = if (r.sent == 1) tl("Sent to 1 student") else tl("Sent to {n} students", "n" to r.sent) }
+                catch (e: Exception) { helpMsg = app.zigora.data.I18n.srv(e.message) }
+            } }) { Text(tl("Send")) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { help = null }) { Text(stringResource(R.string.cancel)) } })
+    }
     val l = rememberLoad("struggles", days) { get("/reports/struggles?days=$days", Struggles.serializer()) }
     Page(tl("Where students struggle"), tl("Last {n} days", "n" to days)) {
+        if (toastText.isNotEmpty()) Text(toastText, color = MaterialTheme.colorScheme.primary)
         Quiet(tl("Topics where students got stuck most: questions to you, Not clear? on a phrase, Not quite after a quick check, asking for it more simply, and flagged answers. Counts only, never names."))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(7, 30, 90).forEach { n -> FilterChip(days == n, { days = n }, { Text(tl("Last {n} days", "n" to n)) }) } }
         Loaded(l) { d ->
@@ -111,6 +143,7 @@ fun StrugglesScreen(openTopic: (Int) -> Unit) {
                 ListRow("${i + 1}. ${x.topic}", x.course + " · " + (if (x.students == 1) tl("1 student") else tl("{n} students", "n" to x.students)), onClick = { openTopic(x.topic_id) }) {
                     Text(bits, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp))
                     x.asked.forEach { q -> Quiet("“$q”", Modifier.padding(top = 2.dp)) }
+                    androidx.compose.material3.TextButton(onClick = { help = x.topic_id to x.topic; helpText = ""; helpMsg = "" }) { Text(tl("Offer help")) }
                 }
             }
         }

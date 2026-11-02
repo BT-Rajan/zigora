@@ -83,6 +83,13 @@ with Session_() as s:
     s.add(main.Announcement(course_id=hw.course_id, author_id=priya.id, kind="class", title="Revision: water technology", body="Bring your notes on hardness.", starts_at=start, minutes=45,
                             link="https://meet.google.com/abc-defg-hij", event_id=ev.id))
     s.add(main.Announcement(course_id=hw.course_id, author_id=priya.id, kind="note", title="Unit test on Friday", body="Units 1 and 2. Bring a calculator."))
+    # a course Priya offers herself, with Ravi invited (48 hours to accept)
+    py = Course(name="Python for engineers", program_id=None, semester_id=None, faculty_owner_id=priya.id, access="enroll", applications=True,
+                about="Six weeks of Python for engineering students: variables, loops, functions and a small project."); py.created_by = priya.id; s.add(py); s.flush()
+    pu = Unit(name="Week 1: Getting started", course_id=py.id, position=0, created_by=priya.id); s.add(pu); s.flush()
+    s.add(Topic(title="Variables and types", course_id=py.id, unit_id=pu.id, content="## Variables\n\nA variable is a name for a value: `x = 3`.", published=True, created_by=priya.id, position=0))
+    ravi = s.query(User).filter_by(email="ravi@gmail.com").one()
+    s.add(main.Enrolment(course_id=py.id, user_id=ravi.id, status="invited", by_id=priya.id, expires_at=_dt.datetime.utcnow() + _dt.timedelta(hours=48)))
     # buying Pro online: test keys and two offers, so a Lite student sees them (no payment is ever made here)
     for k, v in (("pay_key_id", "rzp_test_promo1234"), ("pay_key_secret", main.seal("promo_secret")), ("pay_offers", json.dumps([{"days": 30, "price": 149}, {"days": 365, "price": 999}]))):
         s.merge(main.Setting(k=k, v=v))

@@ -75,6 +75,9 @@ fun PhotoPick(photo: String?, set: (String?) -> Unit) {
 fun MsgBody(m: QuestionMsg) {
     if (m.text.isNotEmpty()) MathMd(m.text)
     m.image?.let { AsyncImage(api().base + it, tl("Photo"), Modifier.fillMaxWidth().heightIn(max = 320.dp).padding(top = 6.dp).clip(RoundedCornerShape(10.dp))) }
+    m.file?.let { f -> val ctx = LocalContext.current; val base = api().base
+        androidx.compose.material3.OutlinedButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(base + f.url))) } },
+            modifier = Modifier.padding(top = 6.dp)) { Text("📎 " + f.name + " · " + tl("Download")) } }
 }
 
 /** the question box, opened in place: what to ask, a photo if it helps, and the phrase it is about when it came from "Not clear?" */
@@ -182,7 +185,7 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
     Loaded(l) { first ->
         val t = q ?: first
         Page(t.topic, listOfNotNull(t.course, t.student, stateLabel(t.status)).filter { it.isNotEmpty() }.joinToString(" · "), back = back) {
-            TextButton(onClick = { openTopic(t.topic_id) }) { Text(tl("Open the topic")) }
+            if (t.topic_id > 0) TextButton(onClick = { openTopic(t.topic_id) }) { Text(tl("Open the topic")) }  // a teacher's message has no topic
             t.excerpt?.takeIf { it.isNotEmpty() }?.let { Quiet("“$it”") }
             if (t.shared) Quiet(if (t.teacher) tl("Shared with the class") else tl("Your teacher shared this with your class, without your name."))
             t.messages.forEach { m ->

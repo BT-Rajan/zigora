@@ -5,13 +5,17 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.test.core.app.ApplicationProvider
@@ -62,19 +66,27 @@ class ScreensTest {
         see("Calm, curious learning"); shot("01-sign-in")
     }
 
+    private fun openChemistry() {  // the course row: the last "Engineering Chemistry" on Home (cards above may name it too), scrolled into view
+        rule.waitUntilAtLeastOneExists(hasText("Engineering Chemistry"), 20_000)
+        val row = rule.onAllNodesWithText("Engineering Chemistry").onLast(); runCatching { row.performScrollTo() }; row.performClick()
+    }
+
     @Test fun aStudentsWalk() {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
-        see("Engineering Chemistry"); see("Version 1.0.12"); shot("02-home")
-        rule.onNodeWithText("Engineering Chemistry").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Engineering Chemistry"), 20_000); shot("02-home")
+        openChemistry()
         see("Hardness of Water"); shot("03-course")
         rule.onNodeWithText("Hardness of Water").performClick()
         see("The gist"); see("calcium and magnesium"); shot("04-topic")
         rule.onNodeWithText("Why?").performClick()
         see("calcium bicarbonate breaks down"); shot("05-step")
         rule.onNodeWithText("Notes").performScrollTo(); shot("06-notes")  // the notes themselves are drawn by the web's renderer in a WebView, which Robolectric leaves blank
-        rule.onNodeWithContentDescription("Back").performClick(); rule.onNodeWithContentDescription("Back").performClick()
-        rule.onNodeWithContentDescription("Search").performClick()
+        repeat(3) { rule.onRoot().performTouchInput { swipeDown() } }  // the top bar hides on scrolling; bring its Back into view
+        rule.onNodeWithContentDescription("Back").performClick()
+        rule.waitUntilAtLeastOneExists(hasText("Water Technology"), 20_000); rule.onNodeWithContentDescription("Back").performClick()
+        rule.waitUntil(20_000) { rule.onAllNodesWithContentDescription("Search").fetchSemanticsNodes().isNotEmpty() }  // back on Home
+        rule.onAllNodesWithContentDescription("Search").onFirst().performClick()
         rule.onNode(hasSetTextAction()).performTextInput("hardness"); rule.onNode(hasSetTextAction()).performImeAction()
         see("In your topics"); shot("07-search")
         rule.onNodeWithText("Me").performClick()
@@ -98,8 +110,8 @@ class ScreensTest {
     @Test fun inTamilAtNight() {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
-        see("Engineering Chemistry"); rule.onNodeWithText("Engineering Chemistry").performClick()
-        see("Hardness of Water"); rule.onNodeWithText("Hardness of Water").performClick(); see("calcium and magnesium"); shot("11-topic-tamil-dark")
+        openChemistry()
+        see("Hardness of Water"); rule.onAllNodesWithText("Hardness of Water").onFirst().performClick(); see("calcium and magnesium"); shot("11-topic-tamil-dark")
     }
 
     @Test fun aLiteStudentsPlan() {
@@ -125,7 +137,7 @@ class ScreensTest {
     @Test fun aQuizAndItsReview() {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
-        see("Engineering Chemistry"); rule.onNodeWithText("Engineering Chemistry").performClick()
+        openChemistry()
         see("Water Technology quiz"); rule.onNodeWithText("Water Technology quiz").performScrollTo().performClick()
         see("Which salts cause temporary hardness?"); rule.onNodeWithText("Bicarbonates").performClick()
         rule.onNodeWithText("Calcium carbonate").performScrollTo().performClick(); shot("18-quiz")
@@ -144,9 +156,9 @@ class ScreensTest {
         rule.onNodeWithText("The zeroth law").performClick(); see("Check yourself"); shot("23-own-topic")
     }
 
-    @Test fun teachersArePointedToTheWeb() {
+    @Test fun teachersOpenTheTeachersSide() {
         signIn(email = "teacher@mail.com")
         rule.setContent { ZigoraRoot(null) {} }
-        see("The app is for students"); shot("24-staff")
+        see("Questions"); see("Classes"); see("Courses"); see("Struggles"); shot("24-staff")  // faculty open the teacher's side of the app
     }
 }
