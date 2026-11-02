@@ -46,7 +46,7 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
 /** a course a teacher offers, as a student sees it in Join a course */
 @Serializable data class Offer(val id: Int, val name: String = "", val about: String = "", val starts_on: String? = null, val ends_on: String? = null, val access: String = "enroll",
-                               val state: String = "running", val teacher: String = "", val topics: Int = 0, val mine: String? = null, val enrolment: Int? = null, val expires_at: String? = null,
+                               val state: String = "running", val teacher: String = "", val topics: Int = 0, val mine: String? = null, val enrolment: Int? = null, val told: String? = null, val expires_at: String? = null,
                                val applications: Boolean = false, val counts: Map<String, Int> = emptyMap())
 @Serializable data class RosterRow(val id: Int, val name: String = "", val who: String = "", val status: String = "", val label: String = "", val expires_at: String? = null)
 @Serializable data class Roster(val course: Offer, val items: List<RosterRow> = emptyList())

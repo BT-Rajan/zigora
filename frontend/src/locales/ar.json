@@ -2903,5 +2903,19 @@
 "Your offered courses": "مقرراتك المقدَّمة",
 "If they don't answer in time, the request lapses and you can ask again.": "إذا لم يرد في الوقت المحدد، ينتهي الطلب ويمكنك الطلب مرة أخرى.",
 "Withdraw my request": "اسحب طلبي",
-"Request withdrawn": "سُحب الطلب"
+"Request withdrawn": "سُحب الطلب",
+"Your request to join {course} was declined": "رُفض طلبك للانضمام إلى {course}",
+"You were released from {course}": "أُخرجت من {course}",
+"Your request to join {course} lapsed": "انتهت مهلة طلبك للانضمام إلى {course}",
+"Your invitation to {course} lapsed": "انتهت مهلة دعوتك إلى {course}",
+"Your teacher accepted your request": "قبل معلّمك طلبك",
+"You can ask again later": "يمكنك الطلب مرة أخرى لاحقًا",
+"Ask your teacher if you are not sure why": "اسأل معلّمك إن لم تكن متأكدًا من السبب",
+"You can still look back at it": "لا يزال بإمكانك الرجوع إليه",
+"Your teacher didn't answer within 48 hours. You can ask again.": "لم يرد معلّمك خلال 48 ساعة. يمكنك الطلب مرة أخرى.",
+"It wasn't answered within 48 hours": "لم يُرد عليها خلال 48 ساعة",
+"Your last request lapsed because your teacher didn't answer within 48 hours. You can ask again.": "انتهت مهلة طلبك الأخير لأن معلّمك لم يرد خلال 48 ساعة. يمكنك الطلب مرة أخرى.",
+"Your invitation lapsed after 48 hours. You can still ask to join.": "انتهت مهلة دعوتك بعد 48 ساعة. لا يزال بإمكانك طلب الانضمام.",
+"Your teacher couldn't take you last time. You can ask again.": "لم يتمكن معلّمك من قبولك في المرة السابقة. يمكنك الطلب مرة أخرى.",
+"This course is paused for now. Your request stays open and your teacher can still answer it.": "هذا المقرر موقوف مؤقتًا. يبقى طلبك قائمًا ويمكن لمعلّمك الرد عليه."
 }

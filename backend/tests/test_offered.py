@@ -178,3 +178,18 @@ def test_a_student_withdraws_a_request_and_can_ask_again(env):
     assert env.c.post(f"/api/enrolments/{e}", headers=env.stu, json={"action": "withdraw"}).json()["mine"] == "cancelled"
     assert env.c.get(f"/api/offered/{c['id']}/roster", headers=env.fac).json()["course"]["counts"].get("applied", 0) == 0  # the teacher no longer has it to decide
     assert env.c.post(f"/api/offered/{c['id']}/join", headers=env.stu).json()["mine"] == "applied"  # and they can ask again
+
+def test_the_bell_tells_a_student_what_happened_to_their_request(env):
+    setup(env); c = offer(env)
+    bell = lambda: [n["text"] for n in env.c.get("/api/me/notifications", headers=env.stu).json()["items"] if c["name"] in n["text"]]
+    env.c.post(f"/api/offered/{c['id']}/join", headers=env.stu)
+    e = [x for x in env.c.get("/api/offered/catalog", headers=env.stu).json()["items"] if x["id"] == c["id"]][0]["enrolment"]
+    assert env.c.post(f"/api/enrolments/{e}", headers=env.fac, json={"action": "decline"}).status_code == 200
+    assert bell() == [f"Your request to join {c['name']} was declined"]
+    env.c.post(f"/api/offered/{c['id']}/join", headers=env.stu); assert bell() == []  # asking again clears it
+    with Session_() as s: s.query(Enrolment).filter_by(id=e).update({"expires_at": dt.datetime.utcnow() - dt.timedelta(minutes=1)}); s.commit()
+    assert bell() == [f"Your request to join {c['name']} lapsed"]
+    env.c.post(f"/api/offered/{c['id']}/join", headers=env.stu); env.c.post(f"/api/enrolments/{e}", headers=env.fac, json={"action": "approve"})
+    assert bell() == [f"You're in: {c['name']}"]
+    with Session_() as s: s.query(Enrolment).filter_by(id=e).update({"decided_at": dt.datetime.utcnow() - dt.timedelta(days=8)}); s.commit()
+    assert bell() == []  # a week later it has gone

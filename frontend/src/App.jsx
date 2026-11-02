@@ -1081,6 +1081,7 @@ function WriteStudents({cid,toast}){
     {ppl&&!ppl.length&&<p className="known">{tl("No students on this course yet.")}</p>}
     <button className="btn" disabled={busy||!ppl?.length||f.subject.trim().length<3||f.text.trim().length<3} onClick={send}>{tl("Send")}</button></div>}
 // ---- for students: courses they are invited to (accept within 48 hours), and courses they can join or ask to join
+const TOLD_BEFORE={lapsed_request:"Your last request lapsed because your teacher didn't answer within 48 hours. You can ask again.",lapsed_invite:"Your invitation lapsed after 48 hours. You can still ask to join.",decline:"Your teacher couldn't take you last time. You can ask again."}  // why a course they were waiting on is back in the list
 function JoinPage({toast,openCourse}){
   const confirm=useConfirm(),[d,setD]=useState(null),[busy,setBusy]=useState(0)
   const load=()=>api('/offered/catalog').then(setD).catch(e=>toast(e.message));useEffect(()=>{load()},[])
@@ -1093,10 +1094,10 @@ function JoinPage({toast,openCourse}){
   const card=c=><div key={c.id} className="qbox"><div className="wtop" style={{display:'flex',justifyContent:'space-between',gap:8}}><b>{c.name}</b><OfferChip c={c}/></div>
         <small className="known" style={{display:'block'}}>{c.teacher} · {offerDates(c)} · {pl(c.topics,'topic')}</small>{c.about&&<div className="prose flat"><Md>{c.about}</Md></div>}
         {c.mine==='active'||c.mine==='completed'?<div className="two">{c.state!=='paused'&&<button className="btn ghost" onClick={()=>openCourse(c.id)}>{tl("Open")}</button>}{c.mine==='active'&&<button className="btn ghost" disabled={busy===c.id} onClick={()=>leave(c)}>{tl("Leave the course")}</button>}</div>
-          :c.mine==='applied'?<><p className="known">{tl("You asked to join. Your teacher has 48 hours to decide.")}{c.expires_at?' ('+hoursLeft(c.expires_at)+')':''} {tl("If they don't answer in time, the request lapses and you can ask again.")}</p>
+          :c.mine==='applied'?<>{c.state==='paused'&&<p className="known">{tl("This course is paused for now. Your request stays open and your teacher can still answer it.")}</p>}<p className="known">{tl("You asked to join. Your teacher has 48 hours to decide.")}{c.expires_at?' ('+hoursLeft(c.expires_at)+')':''} {tl("If they don't answer in time, the request lapses and you can ask again.")}</p>
             <button className="btn ghost" disabled={busy===c.id} onClick={()=>withdraw(c)}>{tl("Withdraw my request")}</button></>
           :c.mine==='suspended'?<p className="known">{tl("Your place is on hold. Ask your teacher.")}</p>
-          :<button className="btn" disabled={busy===c.id} onClick={()=>join(c)}>{c.access==='open'?tl("Join"):tl("Ask to join")}</button>}</div>
+          :<>{TOLD_BEFORE[c.told]&&<p className="known">{tl(TOLD_BEFORE[c.told])}</p>}<button className="btn" disabled={busy===c.id} onClick={()=>join(c)}>{c.access==='open'?tl("Join"):tl("Ask to join")}</button></>}</div>
   return <><Bar title={tl("Join a course")}/><div className="main">
     {!d?<Skeleton/>:<>{d.invited.length>0&&<><h3 className="sec first">{tl("You're invited")}</h3>{d.invited.map(c=><div key={c.id} className="qbox"><b>{c.name}</b><small className="known" style={{display:'block'}}>{c.teacher} · {offerDates(c)} · {hoursLeft(c.expires_at)}</small>
         {c.about&&<div className="prose flat"><Md>{c.about}</Md></div>}<div className="two"><button className="btn" disabled={busy===c.id} onClick={()=>answer(c,'accept')}>{tl("Accept")}</button><button className="btn ghost" disabled={busy===c.id} onClick={()=>answer(c,'decline')}>{tl("Decline")}</button></div></div>)}</>}
