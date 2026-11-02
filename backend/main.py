@@ -4157,19 +4157,24 @@ async def ai(tid: int, kind: str, u: User = Depends(me), s: Session = Depends(db
     f = full(t, s); prompt = in_lang(u, prompt_for(s, kind) + (CHECK_LEVEL.get(you["level"], "") if you and kind == "check" else ""))
     if you and kind in PICKS + ("simpler",): s.add(StepLog(user_id=u.id, topic_id=tid, kind=kind)); s.commit()  # a step the student chose to open
     extra = {"you": {**you, "question_first": question_first(u, t, s)}} if you and kind == "gist" else {"level": you["level"]} if you and kind == "check" else {}
-    mine = my_notes(s, u.id, tid) if u.role == "student" and kind in ("explain", "answer") else None
-    if not mine and not words_of(f["content"], f["content_format"]).strip() and not (kind in EXAM_KINDS and (t.sample_content or t.question_pattern or t.guideline)):
+    has_text = bool(words_of(f["content"], f["content_format"]).strip())
+    # the student's own notes go to the AI for Explain and Sample answer; and, on a topic with no notes of its own, for the gist and the steps too
+    mine = my_notes(s, u.id, tid) if u.role == "student" and (kind in ("explain", "answer") or (kind in STEPS and not has_text)) else None
+    if not mine and not has_text and not (kind in EXAM_KINDS and (t.sample_content or t.question_pattern or t.guideline)):
         raise HTTPException(400, EMPTY_TOPIC)  # nothing to explain from but the topic's name: the AI would make it up
     if mine:  # the student's own notes are private: the answer is written for them alone and never shared. It goes to the AI once; after that the kept copy is shown and nothing is sent.
         key_or_fail(u, s); ch = hashlib.sha256("|".join(["own", topic_hash(t, kind, prompt), mine]).encode()).hexdigest()
         hit = s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind=kind, chash=ch).first()
-        if hit: return {"text": hit.text, "cached": True, "own_notes": True}
-        text = await study_ask(u, s, "t_" + kind, prompt, topic_msg(f, kind, mine), max_tokens=None, topic_id=tid)  # kinds fit the 10-character column
+        step = {"data": step_reply(kind, hit.text)} if hit and kind in STEPS else {}
+        if hit: return {"text": hit.text, "cached": True, "own_notes": True, **step, **extra}
+        text = await study_ask(u, s, "t_" + kind, prompt, topic_msg(f, kind, mine), max_tokens=STEPS.get(kind), topic_id=tid)  # kinds fit the 10-character column
+        data = step_reply(kind, text) if kind in STEPS else None
+        if kind in STEPS and data is None: raise HTTPException(502, "The AI's answer could not be read. Try again.")  # not kept, so the next try asks again
         try:
             s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind=kind).delete()  # an answer for older notes is no use now
             s.add(PrivateAnswer(user_id=u.id, topic_id=tid, kind=kind, chash=ch, text=text)); s.commit()
         except Exception: s.rollback()
-        return {"text": text, "cached": False, "own_notes": True}
+        return {"text": text, "cached": False, "own_notes": True, **({"data": data} if kind in STEPS else {}), **extra}
     ch = topic_hash(t, kind, prompt)
     key = key_or_fail(u, s)
     hit = s.query(AICache).filter_by(topic_id=tid, kind=kind, chash=ch).first()

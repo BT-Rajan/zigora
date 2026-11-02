@@ -1977,7 +1977,7 @@ function Topic({id:first,back,toast,role}){
     {cp&&<CopySheet kind="topic" id={id} title={t.title} toast={toast} close={()=>setCp(false)}/>}
     {hist&&<HistorySheet tid={id} toast={toast} close={()=>setHist(false)} done={()=>{setHist(false);setV(v+1)}}/>}
     {t.can_edit&&!t.published&&<p className="known" style={{marginTop:0}}>{tl("Draft · students cannot see it")}</p>}
-    {aiOk&&t.content&&<TopicSteps id={id} student={role==='student'} diagram={pv&&t.diagram?'on':t.diagram}/>}  {/* no gist from a topic's name alone */}
+    {aiOk&&(t.content||t.my_notes)&&<TopicSteps id={id} student={role==='student'} diagram={pv&&t.diagram?'on':t.diagram}/>}  {/* no gist from a topic's name alone: from its notes, or the student's own */}
     {aiOff?<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>:<Tabs label={tl("Topic sections")} items={[['notes',tl("Notes")],['explain',tl("Explain")],['answer',tl("Sample answer")]]} value={tab} onChange={setTab}/>}
     {known.length>0&&tab==='explain'&&<p className="known">{tl("You’ve already covered:")}{" "}{known.join(', ')}</p>}
     {tab==='notes'&&t.content&&<button className="btn lead" onClick={()=>setReading(true)}><Maximize2 size={16}/> {t.content_format==='interactive'?tl("Open the interactive page"):tl("Read in full screen")}</button>}
@@ -2021,7 +2021,7 @@ function StepCard({id,rid,k,d,student,onSimpler}){
 // in a unit the question comes first with the gist one tap away. Every reply is a few lines and saved for everyone; the notes stay the reference
 function TopicSteps({id,student,diagram}){
   const [g,setG]=useState(null),[you,setYou]=useState(null),[err,setErr]=useState(''),[trail,setTrail]=useState([]),[busy,setBusy]=useState(''),[open,setOpen]=useState(false)
-  const [gid,setGid]=useState(null),[dia,setDia]=useState({busy:false,url:'',msg:''})
+  const [gid,setGid]=useState(null),[own,setOwn]=useState(false),[dia,setDia]=useState({busy:false,url:'',msg:''})
   // the topic's diagram, when its teacher turned one on: drawn by the AI once, then shared; on Lite the server says it comes with Pro
   const diagramOpen=async()=>{setDia({busy:true,url:'',msg:''});try{const u=(await api(`/topics/${id}/diagram`)).frame_url,off=`./diagram-offline/${id}`
     try{const r=await fetch(at(u));if(!r.ok)throw 0;const h=await r.text()  // kept for offline, with the frame's own sandbox rules
@@ -2029,9 +2029,9 @@ function TopicSteps({id,student,diagram}){
       setDia({busy:false,url:at(u),msg:''})}
     catch{const k=await caches.match(new URL(off,location.href).href,{cacheName:'zg-frames'}).catch(()=>null);setDia(k?{busy:false,url:off,msg:''}:{busy:false,url:'',msg:tl("You're offline. Topics you have opened before still work.")})}}
     catch(e){setDia({busy:false,url:'',msg:e.message})}}
-  useEffect(()=>{setG(null);setYou(null);setOpen(false);setErr('');setTrail([]);api(`/topics/${id}/ai/gist`).then(r=>{setG(r.data);setGid(r.id);setYou(r.you||null)}).catch(e=>setErr(e.message))},[id])
+  useEffect(()=>{setG(null);setYou(null);setOpen(false);setErr('');setTrail([]);api(`/topics/${id}/ai/gist`).then(r=>{setG(r.data);setGid(r.id);setYou(r.you||null);setOwn(!!r.own_notes)}).catch(e=>setErr(e.message))},[id])
   const step=async k=>{setBusy(k);setErr('');try{const r=await api(`/topics/${id}/ai/${k}`);setTrail(x=>[...x.filter(y=>y.k!==k),{k,d:r.data,rid:r.id,raw:r.text}])}catch(e){setErr(e.message)}setBusy('')}
-  const again=()=>{setErr('');api(`/topics/${id}/ai/gist`).then(r=>{setG(r.data);setGid(r.id);setYou(r.you||null)}).catch(e=>setErr(e.message))}
+  const again=()=>{setErr('');api(`/topics/${id}/ai/gist`).then(r=>{setG(r.data);setGid(r.id);setYou(r.you||null);setOwn(!!r.own_notes)}).catch(e=>setErr(e.message))}
   if(err&&!g)return <section className="gist" role="status"><h3>{tl("The gist didn't load.")}</h3><p className="known" style={{margin:'4px 0 8px'}}>{srv(err)} {tl("The notes below are all here.")}</p>
     <button className="btn ghost" onClick={again}>{tl("Try again")}</button></section>  // never a silent gap; the notes stay the reference
   const order=you?.order||STEP_KINDS.map(x=>x[0]),left=order.filter(k=>!trail.some(x=>x.k===k)).map(k=>[k,STEP_LABEL(k)])
@@ -2040,7 +2040,7 @@ function TopicSteps({id,student,diagram}){
     {!g?<Skeleton rows={2}/>:qFirst?<><h3>{tl("A question first")}<small>{tl("then the gist")}</small></h3><Hook q={g.hook} a={g.hook_answer}/>
         <button className="link" style={{marginTop:10}} onClick={()=>setOpen(true)}>{tl("Show the gist")}</button></>
       :<><h3>{tl("The gist")}<small>{tl("about 30 seconds")}</small></h3>
-        <ul>{(g.points||[]).map((x,i)=><li key={i}><Md>{x}</Md></li>)}</ul>
+        {own&&<span className="chip">{tl("Written with your own notes")}</span>}<ul>{(g.points||[]).map((x,i)=><li key={i}><Md>{x}</Md></li>)}</ul>
         {g.hook&&!open&&<Hook q={g.hook} a={g.hook_answer}/>}<FlagLink source="topic" id={gid} topicId={id}/></>}
     {g&&<>{trail.map(x=><StepCard key={x.k} id={id} rid={x.rid} k={x.k} d={x.d} student={student} onSimpler={trail.some(y=>y.k==='simpler')?null:()=>step('simpler')}/>)}
       {err&&<p className="known" role="alert">{err}</p>}
