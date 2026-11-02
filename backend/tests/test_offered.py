@@ -159,3 +159,13 @@ def test_a_student_leaves_and_a_teacher_pauses_and_sends_material(env, monkeypat
     e = env.c.get("/api/offered/catalog", headers=env.stu).json()["items"][0]["enrolment"]
     assert env.c.post(f"/api/enrolments/{e}", headers=env.stu, json={"action": "leave"}).json()["mine"] == "released"
     assert env.c.get(f"/api/topics/{t['id']}", headers=env.stu).status_code == 403
+
+def test_a_student_on_an_invitation_only_course_still_finds_it_to_open_or_leave(env):
+    setup(env); c = offer(env, applications=False)  # students I accept, no requests: only invited students ever see it
+    cat = lambda: [x for x in env.c.get("/api/offered/catalog", headers=env.ann).json()["items"] if x["id"] == c["id"]]
+    assert cat() == []
+    env.c.post(f"/api/offered/{c['id']}/invite", headers=env.fac, json={"who": ["ann@x.com"]})
+    eid = cat()[0]["enrolment"]; env.c.post(f"/api/enrolments/{eid}", headers=env.ann, json={"action": "accept"})
+    assert cat()[0]["mine"] == "active"  # still listed once accepted, so Leave is reachable
+    assert env.c.post(f"/api/enrolments/{eid}", headers=env.ann, json={"action": "leave"}).json()["mine"] == "released"
+    assert cat() == []  # gone once they have left

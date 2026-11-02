@@ -1088,17 +1088,19 @@ function JoinPage({toast,openCourse}){
   const answer=async(c,action)=>{setBusy(c.id);try{await api('/enrolments/'+c.enrolment,{method:'POST',body:{action}});toast(action==='accept'?tl("You're in. It is in your courses."):tl("Declined"));load()}catch(e){toast(srv(e.message))}setBusy(0)}
   const leave=async c=>{if(!await confirm({title:tl("Leave {course}?",{course:c.name}),body:tl("It goes from your courses. Your work so far is kept; you can ask to join again later."),ok:tl("Leave"),danger:true}))return
     setBusy(c.id);try{await api('/enrolments/'+c.enrolment,{method:'POST',body:{action:'leave'}});toast(tl("You have left the course"));load()}catch(e){toast(srv(e.message))}setBusy(0)}
-  const others=d?d.items.filter(x=>x.mine!=='invited'):[]
-  return <><Bar title={tl("Join a course")}/><div className="main">
-    {!d?<Skeleton/>:<>{d.invited.length>0&&<><h3 className="sec first">{tl("You're invited")}</h3>{d.invited.map(c=><div key={c.id} className="qbox"><b>{c.name}</b><small className="known" style={{display:'block'}}>{c.teacher} · {offerDates(c)} · {hoursLeft(c.expires_at)}</small>
-        {c.about&&<div className="prose flat"><Md>{c.about}</Md></div>}<div className="two"><button className="btn" disabled={busy===c.id} onClick={()=>answer(c,'accept')}>{tl("Accept")}</button><button className="btn ghost" disabled={busy===c.id} onClick={()=>answer(c,'decline')}>{tl("Decline")}</button></div></div>)}</>}
-      <h3 className="sec">{tl("Courses you can join")}</h3>
-      {!others.length?<p className="known">{tl("No courses are open to join right now.")}</p>:others.map(c=><div key={c.id} className="qbox"><div className="wtop" style={{display:'flex',justifyContent:'space-between',gap:8}}><b>{c.name}</b><OfferChip c={c}/></div>
+  const ON=['active','completed','suspended','applied'],mine=d?d.items.filter(x=>ON.includes(x.mine)):[],others=d?d.items.filter(x=>x.mine!=='invited'&&!ON.includes(x.mine)):[]  // the courses they are on (or asked for) apart from the ones they could join
+  const card=c=><div key={c.id} className="qbox"><div className="wtop" style={{display:'flex',justifyContent:'space-between',gap:8}}><b>{c.name}</b><OfferChip c={c}/></div>
         <small className="known" style={{display:'block'}}>{c.teacher} · {offerDates(c)} · {pl(c.topics,'topic')}</small>{c.about&&<div className="prose flat"><Md>{c.about}</Md></div>}
         {c.mine==='active'||c.mine==='completed'?<div className="two">{c.state!=='paused'&&<button className="btn ghost" onClick={()=>openCourse(c.id)}>{tl("Open")}</button>}{c.mine==='active'&&<button className="btn ghost" disabled={busy===c.id} onClick={()=>leave(c)}>{tl("Leave the course")}</button>}</div>
           :c.mine==='applied'?<p className="known">{tl("You asked to join. Your teacher has 48 hours to decide.")}{c.expires_at?' ('+hoursLeft(c.expires_at)+')':''}</p>
           :c.mine==='suspended'?<p className="known">{tl("Your place is on hold. Ask your teacher.")}</p>
-          :<button className="btn" disabled={busy===c.id} onClick={()=>join(c)}>{c.access==='open'?tl("Join"):tl("Ask to join")}</button>}</div>)}</>}</div></>}
+          :<button className="btn" disabled={busy===c.id} onClick={()=>join(c)}>{c.access==='open'?tl("Join"):tl("Ask to join")}</button>}</div>
+  return <><Bar title={tl("Join a course")}/><div className="main">
+    {!d?<Skeleton/>:<>{d.invited.length>0&&<><h3 className="sec first">{tl("You're invited")}</h3>{d.invited.map(c=><div key={c.id} className="qbox"><b>{c.name}</b><small className="known" style={{display:'block'}}>{c.teacher} · {offerDates(c)} · {hoursLeft(c.expires_at)}</small>
+        {c.about&&<div className="prose flat"><Md>{c.about}</Md></div>}<div className="two"><button className="btn" disabled={busy===c.id} onClick={()=>answer(c,'accept')}>{tl("Accept")}</button><button className="btn ghost" disabled={busy===c.id} onClick={()=>answer(c,'decline')}>{tl("Decline")}</button></div></div>)}</>}
+      {mine.length>0&&<><h3 className={'sec'+(d.invited.length?'':' first')}>{tl("Your offered courses")}</h3><Paged rows={mine} render={card}/></>}
+      <h3 className={'sec'+(d.invited.length||mine.length?'':' first')}>{tl("Courses you can join")}</h3>
+      {!others.length?<p className="known">{tl("No courses are open to join right now.")}</p>:<Paged rows={others} render={card}/>}</>}</div></>}
 // ---- moving a class: a new date, time, length or link; students and parents are told
 function MoveClass({x,close,done,toast}){
   const s0=new Date(x.starts_at),[f,setF]=useState({day:ymd(s0),at:s0.toTimeString().slice(0,5),minutes:x.minutes||60,link:x.link||''}),[busy,setBusy]=useState(false)
