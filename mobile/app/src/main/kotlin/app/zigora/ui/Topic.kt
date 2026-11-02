@@ -75,6 +75,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import app.zigora.R
+import app.zigora.data.I18n
 import app.zigora.data.AiStatus
 import app.zigora.data.Bookmarked
 import app.zigora.data.Learning
@@ -226,7 +227,14 @@ private fun Steps(id: Int, student: Boolean, diagram: String? = null, openDiagra
     val a = api(); val scope = rememberCoroutineScope()
     val gist = rememberLoad("gist", id) { get("/topics/$id/ai/gist", Step.serializer()) }
     val g = (gist.state as? Load.Ok)?.value
-    if (gist.state is Load.Failed) return // without AI the page is the notes
+    (gist.state as? Load.Failed)?.let { f ->  // never a silent gap: say it didn't load, keep the notes below, and offer another try
+        Column(Modifier.padding(vertical = 8.dp)) {
+            Text(tl("The gist didn't load."), style = MaterialTheme.typography.titleSmall)
+            Quiet(I18n.srv(f.message) + " " + tl("The notes below are all here."))
+            TextButton(onClick = gist.reload) { Text(tl("Try again")) }
+        }
+        return
+    }
     val trail = remember(id) { mutableStateListOf<Triple<String, JsonObject, Int?>>() }
     var busy by remember(id) { mutableStateOf("") }
     var err by remember(id) { mutableStateOf("") }

@@ -2007,7 +2007,9 @@ function TopicSteps({id,student,diagram}){
     catch(e){setDia({busy:false,url:'',msg:e.message})}}
   useEffect(()=>{setG(null);setYou(null);setOpen(false);setErr('');setTrail([]);api(`/topics/${id}/ai/gist`).then(r=>{setG(r.data);setGid(r.id);setYou(r.you||null)}).catch(e=>setErr(e.message))},[id])
   const step=async k=>{setBusy(k);setErr('');try{const r=await api(`/topics/${id}/ai/${k}`);setTrail(x=>[...x.filter(y=>y.k!==k),{k,d:r.data,rid:r.id,raw:r.text}])}catch(e){setErr(e.message)}setBusy('')}
-  if(err&&!g)return null  // without AI the page is the notes, as before
+  const again=()=>{setErr('');api(`/topics/${id}/ai/gist`).then(r=>{setG(r.data);setGid(r.id);setYou(r.you||null)}).catch(e=>setErr(e.message))}
+  if(err&&!g)return <section className="gist" role="status"><h3>{tl("The gist didn't load.")}</h3><p className="known" style={{margin:'4px 0 8px'}}>{srv(err)} {tl("The notes below are all here.")}</p>
+    <button className="btn ghost" onClick={again}>{tl("Try again")}</button></section>  // never a silent gap; the notes stay the reference
   const order=you?.order||STEP_KINDS.map(x=>x[0]),left=order.filter(k=>!trail.some(x=>x.k===k)).map(k=>[k,STEP_LABEL(k)])
   const qFirst=you?.question_first&&!open&&g?.hook
   return <section className="gist" aria-label={tl("The gist")} aria-busy={!g}>
