@@ -258,3 +258,14 @@ fun NotPlacedYet(me: Me, openStudy: () -> Unit, openJoin: () -> Unit) {
     ListRow(tl("Join a course offered by a teacher"), tl("Open courses, courses you can ask to join, and invitations"), onClick = openJoin,
             leading = { RowIcon(Icons.Outlined.Add) })
 }
+
+/** A student placed in a term that has no courses yet: they're on their way, and two ways to start meanwhile (web: the same on the term's page). */
+@Composable
+fun NoCoursesYet(term: String?, openStudy: () -> Unit, openJoin: () -> Unit) {
+    Quiet(if (term != null) tl("No courses have been added to {term} yet. Your institution's admin will make them available when they are ready.", "term" to term)
+          else tl("No courses have been added for you yet. Your institution's admin will make them available when they are ready."))
+    Text(tl("In the meantime, you can join a course offered by a teacher or build a course from your own notes."), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+    ListRow(tl("Join a course offered by a teacher"), tl("Open courses, courses you can ask to join, and invitations"), onClick = openJoin, leading = { RowIcon(Icons.Outlined.Add) })
+    ListRow(tl("Build a course from your own notes"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
+            leading = { RowIcon(Icons.Outlined.AutoStories) })
+}

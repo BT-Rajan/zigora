@@ -104,7 +104,7 @@ export default function App(){
     {page==='home'&&student&&<Dashboard user={user} toast={toast} onOpen={openIn} onStudy={openStudy} onRoutine={()=>go('routine')} onCalendar={()=>go('calendar')} onGo={go}/>}
     {page==='routine'&&student&&<RoutinePage toast={toast} done={()=>go('home')}/>}
     {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')} onGo={go}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go(p==='awaiting'?'parents':'students')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
-    {page==='search'&&<SearchPage key={findQ.n} initial={findQ.q} user={user} toast={toast}/>}{page==='learn'&&<Learn key={String(start)} start={start} user={user} toast={toast} appName={name}/>}
+    {page==='search'&&<SearchPage key={findQ.n} initial={findQ.q} user={user} toast={toast}/>}{page==='learn'&&<Learn key={String(start)} start={start} user={user} toast={toast} appName={name} onGo={go} onStudy={openStudy}/>}
     {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}
     {page==='build'&&user.role==='student'&&<StudyHome key={JSON.stringify(studyStart)} start={studyStart} toast={toast}/>}
     {page==='bookmarks'&&!admin&&<Bookmarks toast={toast} role={user.role}/>}{page==='highlights'&&!admin&&<MyHighlights toast={toast} role={user.role}/>}
@@ -566,7 +566,13 @@ function ArchiveSheet({a,close,done,toast}){  // archive or restore one item; ar
       :tl("This brings back the {v} and everything that was archived along with it. Anything you archived on its own inside it stays archived until you restore that too.",{v:ONE[a.kind]})}</p>
     <button className={'btn'+(a.on?' danger':'')} disabled={busy} onClick={go}>{busy?tl("Working…"):a.on?tl("Archive"):tl("Restore")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
 const ArchPill=({x})=>x.archived?<span className="pill off sm">{x.archived_self?tl("Archived"):tl("Archived with its parent")}</span>:null
-function Learn({user,toast,appName,start}){
+// a term a student is in, with no courses yet: they're on their way, and two ways to start meanwhile
+function NoCoursesYet({term,onGo,onStudy}){
+  return <><p className="known">{tl("No courses have been added to {term} yet. Your institution's admin will make them available when they are ready.",{term})}</p>
+    <p style={{margin:'4px 0 8px'}}><b>{tl("In the meantime, you can join a course offered by a teacher or build a course from your own notes.")}</b></p>
+    {onGo&&<div className="card"><button className="hit" onClick={()=>onGo('join')}><span className="dot" style={{background:'var(--acc)'}}><Plus size={18}/></span><div><b>{tl("Join a course offered by a teacher")}</b><span>{tl("Open courses, courses you can ask to join, and invitations")}</span></div><ChevronRight size={18}/></button></div>}
+    {onStudy&&<div className="card"><button className="hit" onClick={()=>onStudy(null)}><span className="dot" style={{background:'var(--acc)'}}><Upload size={18}/></span><div><b>{tl("Build a course from your own notes")}</b><span>{tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews")}</span></div><ChevronRight size={18}/></button></div>}</>}
+function Learn({user,toast,appName,start,onGo,onStudy}){
   const confirm=useConfirm()
   const isAdmin=user.role==='admin',staff=user.role!=='student'
   const [mat,setMat]=useState(false),[rev,setRev]=useState(null)
@@ -632,7 +638,8 @@ function Learn({user,toast,appName,start}){
       {<Paged rows={unit.quizzes} render={(q,i)=><div key={q.id} className="card"><button className="hit" onClick={()=>setQz(q.id)}><span className="dot" style={{background:COL[(i+3)%5]}}>?</span><div><b>{q.title}</b><span>{q.questions}{" "}{tl("questions · pass {pass_percent}%",{pass_percent:q.pass_percent})}{q.best!=null?tl(" · best {best}%",{best:q.best}):''}{q.published?'':tl(" · Draft")}</span></div>{q.best!=null&&q.best>=q.pass_percent&&<span className="marks"><Check size={16}/></span>}</button>
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,unit_id:unit.id,unitTopics:unit.topics.map(t=>({id:t.id,title:t.title}))})}><Pencil size={16}/></button></>}</div>}/>}
       {mayEdit&&<button className="btn ghost" onClick={()=>setQe({unit_id:unit.id,unitTopics:unit.topics.map(t=>({id:t.id,title:t.title}))})}>{tl("Add quiz")}</button>}</>}
-    {!list.length&&<p className="known">{(mayEdit&&co)||isAdmin?tl("Nothing here yet. Use the button above to add it."):!nav.length&&user.role==='student'?tl("You are not enrolled in a program yet. Ask your admin to add you to one."):tl("Nothing here yet. Your admin will add it soon.")}</p>}</div>
+    {user.role==='student'&&sem&&!co&&!prog?.offered&&!sem.courses.length&&<NoCoursesYet term={sem.name} onGo={onGo} onStudy={onStudy}/>}
+    {!list.length&&!(user.role==='student'&&sem&&!co&&!prog?.offered)&&<p className="known">{(mayEdit&&co)||isAdmin?tl("Nothing here yet. Use the button above to add it."):!nav.length&&user.role==='student'?tl("You are not enrolled in a program yet. Ask your admin to add you to one."):tl("Nothing here yet. Your admin will add it soon.")}</p>}</div>
    {arch&&<ArchiveSheet a={arch} toast={toast} close={()=>setArch(null)} done={()=>setArch(null)}/>}
    {copy&&<CopySheet {...copy} toast={toast} close={()=>{setCopy(null);load()}}/>}{bulk&&<BulkTopics unit={bulk} toast={toast} close={()=>setBulk(null)} done={()=>{setBulk(null);load()}}/>}
    {del&&<Sheet close={()=>setDel(null)}><h3>{del.unlink?tl("Remove"):tl("Delete")} “{del.n}”{del.unlink?tl(" from this {v}",{v:(prog?.term||'semester').toLowerCase()}):''}?</h3>
