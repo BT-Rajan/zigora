@@ -72,10 +72,9 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                     }
                 }
             }
-            SectionTitle(tl("Courses you can join"))
-            val others = d.items.filter { it.mine != "invited" }
-            if (others.isEmpty()) Quiet(tl("No courses are open to join right now."))
-            others.forEach { c ->
+            val on = setOf("active", "completed", "suspended", "applied")  // the courses they are on (or asked for), apart from the ones they could join
+            val mine = d.items.filter { it.mine in on }; val others = d.items.filter { it.mine != "invited" && it.mine !in on }
+            val card = @Composable { c: Offer ->
                 Panel {
                     Text(c.name, style = MaterialTheme.typography.titleMedium)
                     Quiet(listOf(c.teacher, datesOf(c), pl(c.topics, "topic")).filter { it.isNotEmpty() }.joinToString(" · "))
@@ -94,6 +93,9 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                     }
                 }
             }
+            if (mine.isNotEmpty()) { SectionTitle(tl("Your offered courses")); Paged(mine, "mine") { card(it) } }
+            SectionTitle(tl("Courses you can join"))
+            if (others.isEmpty()) Quiet(tl("No courses are open to join right now.")) else Paged(others, "others") { card(it) }
         }
     }
 }

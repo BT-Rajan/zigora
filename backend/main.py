@@ -4773,7 +4773,8 @@ def catalog(u: User = Depends(me), s: Session = Depends(db)):
     expire_enrolments(s); today = local_day(dt.datetime.utcnow())
     cs = s.query(Course).filter(Course.access.in_(("enroll", "open")), Course.archived_at.is_(None), Course.cancelled_at.is_(None)).order_by(Course.name).all()
     mine = {e.course_id: e for e in s.query(Enrolment).filter(Enrolment.user_id == u.id)}
-    out = [offer_json(c, s, u) for c in cs if (mine.get(c.id) and mine[c.id].status == "invited") or ((c.access == "open" or c.applications) and not (c.ends_on and today > c.ends_on))]
+    on = lambda c: mine.get(c.id) and mine[c.id].status in ("invited", "applied", "active", "suspended", "completed")  # every course they are on or waiting for, so they can always open or leave it
+    out = [offer_json(c, s, u) for c in cs if on(c) or ((c.access == "open" or c.applications) and not (c.ends_on and today > c.ends_on))]
     return {"items": out, "invited": [x for x in out if x["mine"] == "invited"]}
 @app.post("/api/offered/{cid}/join")
 def join_offer(cid: int, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
