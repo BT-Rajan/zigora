@@ -193,3 +193,17 @@ def test_the_bell_tells_a_student_what_happened_to_their_request(env):
     assert bell() == [f"You're in: {c['name']}"]
     with Session_() as s: s.query(Enrolment).filter_by(id=e).update({"decided_at": dt.datetime.utcnow() - dt.timedelta(days=8)}); s.commit()
     assert bell() == []  # a week later it has gone
+
+def test_a_declined_or_lapsed_invitation_stays_visible_and_the_teacher_hears_of_a_decline(env, monkeypatch):
+    setup(env); c = offer(env, applications=False)  # by invitation only
+    mails = []; monkeypatch.setattr(main, "notify", lambda s, u, kind, subject, *a, **k: mails.append((u.email, subject)))
+    cat = lambda: [x for x in env.c.get("/api/offered/catalog", headers=env.ann).json()["items"] if x["id"] == c["id"]]
+    env.c.post(f"/api/offered/{c['id']}/invite", headers=env.fac, json={"who": ["ann@x.com"]})
+    e = cat()[0]["enrolment"]; env.c.post(f"/api/enrolments/{e}", headers=env.ann, json={"action": "decline"})
+    x = cat()[0]; assert (x["mine"], x["told"], x["applications"]) == ("declined", "declined_by_me", False)  # still shown, so the page can say to ask the teacher
+    assert ("fac@x.com", "{name} declined {course}") in mails
+    env.c.post(f"/api/offered/{c['id']}/invite", headers=env.fac, json={"who": ["ann@x.com"]})
+    with Session_() as s: s.query(Enrolment).filter_by(id=e).update({"expires_at": dt.datetime.utcnow() - dt.timedelta(minutes=1)}); s.commit()
+    x = cat()[0]; assert (x["mine"], x["told"]) == ("expired", "lapsed_invite")
+    with Session_() as s: s.query(Enrolment).filter_by(id=e).update({"decided_at": dt.datetime.utcnow() - dt.timedelta(days=8)}); s.commit()
+    assert cat() == []  # after a week it has gone

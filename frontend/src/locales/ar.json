@@ -2917,5 +2917,11 @@
 "Your last request lapsed because your teacher didn't answer within 48 hours. You can ask again.": "انتهت مهلة طلبك الأخير لأن معلّمك لم يرد خلال 48 ساعة. يمكنك الطلب مرة أخرى.",
 "Your invitation lapsed after 48 hours. You can still ask to join.": "انتهت مهلة دعوتك بعد 48 ساعة. لا يزال بإمكانك طلب الانضمام.",
 "Your teacher couldn't take you last time. You can ask again.": "لم يتمكن معلّمك من قبولك في المرة السابقة. يمكنك الطلب مرة أخرى.",
-"This course is paused for now. Your request stays open and your teacher can still answer it.": "هذا المقرر موقوف مؤقتًا. يبقى طلبك قائمًا ويمكن لمعلّمك الرد عليه."
+"This course is paused for now. Your request stays open and your teacher can still answer it.": "هذا المقرر موقوف مؤقتًا. يبقى طلبك قائمًا ويمكن لمعلّمك الرد عليه.",
+"Your invitation lapsed after 48 hours. This course is by invitation only, so ask your teacher for a new one.": "انتهت مهلة دعوتك بعد 48 ساعة. هذا المقرر بالدعوة فقط، فاطلب من معلّمك دعوة جديدة.",
+"You declined the invitation. You can still ask to join.": "رفضت الدعوة. لا يزال بإمكانك طلب الانضمام.",
+"You declined the invitation. This course is by invitation only, so ask your teacher if you change your mind.": "رفضت الدعوة. هذا المقرر بالدعوة فقط، فاطلب من معلّمك إن غيّرت رأيك.",
+"This course is paused for now. If you accept, you can open it once your teacher reopens it.": "هذا المقرر موقوف مؤقتًا. إذا قبلت، يمكنك فتحه عندما يعيد معلّمك فتحه.",
+"{name} declined {course}": "رفض {name} {course}",
+"{name} declined your invitation to the course {course}. You can invite them again if you like.": "رفض {name} دعوتك إلى المقرر {course}. يمكنك دعوته مرة أخرى إن أردت."
 }

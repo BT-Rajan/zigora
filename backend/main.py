@@ -4763,13 +4763,17 @@ def enrol_action(eid: int, b: EnrolDo, bg: BackgroundTasks, u: User = Depends(me
     if e.status not in allowed: raise HTTPException(400, "That no longer applies: " + ENROL_LABEL.get(e.status, e.status).lower())
     if not teach and b.action == "accept" and (c.cancelled_at or c.archived_at): raise HTTPException(400, "This course is not running")
     if b.action in ("accept", "approve", "retain") and course_ended(c): raise HTTPException(400, "This course has ended")
-    e.status, e.decided_at, e.by_id, e.told = to, dt.datetime.utcnow(), u.id if teach else e.by_id, b.action if teach else None; s.commit()
+    e.status, e.decided_at, e.by_id = to, dt.datetime.utcnow(), u.id if teach else e.by_id
+    e.told = b.action if teach else "declined_by_me" if b.action == "decline" else None; s.commit()  # declined_by_me: kept so Join a course can say what to do next
     st = s.get(User, e.user_id)
     if teach and b.action in ENROL_TELL:
         subj, body = ENROL_TELL[b.action]; notify(s, st, "enrol", subj, body, run=bg.add_task, course=c.name, teacher=u.name)
     elif not teach and b.action == "accept" and c.faculty_owner_id:
         t = s.get(User, c.faculty_owner_id)
         if t: notify(s, t, "enrol", "{name} joined {course}", "{name} accepted your invitation to the course {course}.", run=bg.add_task, name=st.name, course=c.name)
+    elif not teach and b.action == "decline" and c.faculty_owner_id:  # so the teacher knows without keeping the course's page open
+        t = s.get(User, c.faculty_owner_id)
+        if t: notify(s, t, "enrol", "{name} declined {course}", "{name} declined your invitation to the course {course}. You can invite them again if you like.", run=bg.add_task, name=st.name, course=c.name)
     return roster_row(e, st, s) if teach else {**offer_json(c, s, u)}
 @app.get("/api/offered/catalog")
 def catalog(u: User = Depends(me), s: Session = Depends(db)):
@@ -4777,7 +4781,9 @@ def catalog(u: User = Depends(me), s: Session = Depends(db)):
     expire_enrolments(s); today = local_day(dt.datetime.utcnow())
     cs = s.query(Course).filter(Course.access.in_(("enroll", "open")), Course.archived_at.is_(None), Course.cancelled_at.is_(None)).order_by(Course.name).all()
     mine = {e.course_id: e for e in s.query(Enrolment).filter(Enrolment.user_id == u.id)}
-    on = lambda c: mine.get(c.id) and mine[c.id].status in ("invited", "applied", "active", "suspended", "completed")  # every course they are on or waiting for, so they can always open or leave it
+    since = dt.datetime.utcnow() - dt.timedelta(days=ENROL_TOLD_DAYS)
+    gone = lambda e: e.status in ("expired", "declined") and e.told in ("lapsed_invite", "declined_by_me") and e.decided_at and e.decided_at >= since  # an invitation they let lapse or declined lately: shown, with what to do next
+    on = lambda c: mine.get(c.id) and (mine[c.id].status in ("invited", "applied", "active", "suspended", "completed") or gone(mine[c.id]))  # every course they are on or waiting for, so they can always open or leave it
     out = [offer_json(c, s, u) for c in cs if on(c) or ((c.access == "open" or c.applications) and not (c.ends_on and today > c.ends_on))]
     return {"items": out, "invited": [x for x in out if x["mine"] == "invited"]}
 @app.post("/api/offered/{cid}/join")

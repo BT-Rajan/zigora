@@ -66,6 +66,7 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                         Text(c.name, style = MaterialTheme.typography.titleMedium)
                         Quiet(listOf(c.teacher, datesOf(c), hoursLeft(c.expires_at)).filter { it.isNotEmpty() }.joinToString(" · "))
                         if (c.about.isNotEmpty()) MathMd(c.about)
+                        if (c.state == "paused") Quiet(tl("This course is paused for now. If you accept, you can open it once your teacher reopens it."), Modifier.padding(top = 8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                             Button(enabled = busy != c.id, onClick = { run(c) { a.raw("POST", "/enrolments/${c.enrolment}", buildJsonObject { put("action", "accept") }); msg = tl("You're in. It is in your courses.") } }) { Text(tl("Accept")) }
                             OutlinedButton(enabled = busy != c.id, onClick = { run(c) { a.raw("POST", "/enrolments/${c.enrolment}", buildJsonObject { put("action", "decline") }) } }) { Text(tl("Decline")) }
@@ -74,7 +75,8 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                 }
             }
             val on = setOf("active", "completed", "suspended", "applied")  // the courses they are on (or asked for), apart from the ones they could join
-            val mine = d.items.filter { it.mine in on }; val others = d.items.filter { it.mine != "invited" && it.mine !in on }
+            val isMine = { c: Offer -> c.mine in on || (c.access != "open" && !c.applications && c.told != null) }  // an invitation-only course they declined or let lapse: it can't be joined
+            val mine = d.items.filter(isMine); val others = d.items.filter { it.mine != "invited" && !isMine(it) }
             val card = @Composable { c: Offer ->
                 Panel {
                     Text(c.name, style = MaterialTheme.typography.titleMedium)
@@ -94,12 +96,14 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                         }
                         "suspended" -> Quiet(tl("Your place is on hold. Ask your teacher."), Modifier.padding(top = 8.dp))
                         else -> Column {
-                          when (c.told) {  // why a course they were waiting on is back in the list
+                          val joinable = c.access == "open" || c.applications  // an invitation-only course: only a new invitation brings them in
+                          when (c.told) {  // why a course they were waiting on is in the list
                             "lapsed_request" -> Quiet(tl("Your last request lapsed because your teacher didn't answer within 48 hours. You can ask again."), Modifier.padding(top = 8.dp))
-                            "lapsed_invite" -> Quiet(tl("Your invitation lapsed after 48 hours. You can still ask to join."), Modifier.padding(top = 8.dp))
+                            "lapsed_invite" -> Quiet(tl(if (joinable) "Your invitation lapsed after 48 hours. You can still ask to join." else "Your invitation lapsed after 48 hours. This course is by invitation only, so ask your teacher for a new one."), Modifier.padding(top = 8.dp))
+                            "declined_by_me" -> Quiet(tl(if (joinable) "You declined the invitation. You can still ask to join." else "You declined the invitation. This course is by invitation only, so ask your teacher if you change your mind."), Modifier.padding(top = 8.dp))
                             "decline" -> Quiet(tl("Your teacher couldn't take you last time. You can ask again."), Modifier.padding(top = 8.dp))
                           }
-                          Button(enabled = busy != c.id, modifier = Modifier.padding(top = 8.dp), onClick = { run(c) {
+                          if (joinable) Button(enabled = busy != c.id, modifier = Modifier.padding(top = 8.dp), onClick = { run(c) {
                             val r = a.send("POST", "/offered/${c.id}/join", null, Offer.serializer())
                             msg = if (r.mine == "active") tl("You're in. It is in your courses.") else tl("Asked. Your teacher has 48 hours to decide.")
                         } }) { Text(if (c.access == "open") tl("Join") else tl("Ask to join")) }
