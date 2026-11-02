@@ -1,6 +1,7 @@
 package app.zigora.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -84,7 +85,12 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                             if (c.state != "paused") OutlinedButton(onClick = { openCourse(c.id) }) { Text(tl("Open")) }
                             if (c.mine == "active") androidx.compose.material3.TextButton(enabled = busy != c.id, onClick = { leaving = c }) { Text(tl("Leave the course")) }
                         }
-                        "applied" -> Quiet(tl("You asked to join. Your teacher has 48 hours to decide.") + " (" + hoursLeft(c.expires_at) + ")", Modifier.padding(top = 8.dp))
+                        "applied" -> Column(Modifier.padding(top = 8.dp)) {
+                            Quiet(tl("You asked to join. Your teacher has 48 hours to decide.") + " (" + hoursLeft(c.expires_at) + ") " + tl("If they don't answer in time, the request lapses and you can ask again."))
+                            androidx.compose.material3.TextButton(enabled = busy != c.id, onClick = { run(c) {
+                                a.raw("POST", "/enrolments/${c.enrolment}", buildJsonObject { put("action", "withdraw") }); msg = tl("Request withdrawn")
+                            } }) { Text(tl("Withdraw my request")) }
+                        }
                         "suspended" -> Quiet(tl("Your place is on hold. Ask your teacher."), Modifier.padding(top = 8.dp))
                         else -> Button(enabled = busy != c.id, modifier = Modifier.padding(top = 8.dp), onClick = { run(c) {
                             val r = a.send("POST", "/offered/${c.id}/join", null, Offer.serializer())

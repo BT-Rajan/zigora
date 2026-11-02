@@ -169,3 +169,12 @@ def test_a_student_on_an_invitation_only_course_still_finds_it_to_open_or_leave(
     assert cat()[0]["mine"] == "active"  # still listed once accepted, so Leave is reachable
     assert env.c.post(f"/api/enrolments/{eid}", headers=env.ann, json={"action": "leave"}).json()["mine"] == "released"
     assert cat() == []  # gone once they have left
+
+def test_a_student_withdraws_a_request_and_can_ask_again(env):
+    setup(env); c = offer(env)  # students I accept, requests welcome
+    assert env.c.post(f"/api/offered/{c['id']}/join", headers=env.stu).json()["mine"] == "applied"
+    mine = lambda: [x for x in env.c.get("/api/offered/catalog", headers=env.stu).json()["items"] if x["id"] == c["id"]][0]
+    e = mine()["enrolment"]
+    assert env.c.post(f"/api/enrolments/{e}", headers=env.stu, json={"action": "withdraw"}).json()["mine"] == "cancelled"
+    assert env.c.get(f"/api/offered/{c['id']}/roster", headers=env.fac).json()["course"]["counts"].get("applied", 0) == 0  # the teacher no longer has it to decide
+    assert env.c.post(f"/api/offered/{c['id']}/join", headers=env.stu).json()["mine"] == "applied"  # and they can ask again

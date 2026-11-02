@@ -2900,5 +2900,8 @@
 "This topic has no notes yet": "لا توجد ملاحظات لهذا الموضوع بعد",
 "Bring your own notes for this course. They are filed under its topics, for you only, and you study them here.": "أحضر ملاحظاتك لهذا المقرر. تُرتَّب تحت مواضيعه، لك وحدك، وتدرسها هنا.",
 "This topic has no notes yet. Bring your own notes for it: they are filed under the course's topics, for you only.": "لا توجد ملاحظات لهذا الموضوع بعد. أحضر ملاحظاتك له: تُرتَّب تحت مواضيع المقرر، لك وحدك.",
-"Your offered courses": "مقرراتك المقدَّمة"
+"Your offered courses": "مقرراتك المقدَّمة",
+"If they don't answer in time, the request lapses and you can ask again.": "إذا لم يرد في الوقت المحدد، ينتهي الطلب ويمكنك الطلب مرة أخرى.",
+"Withdraw my request": "اسحب طلبي",
+"Request withdrawn": "سُحب الطلب"
 }
