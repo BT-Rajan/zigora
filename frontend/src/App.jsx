@@ -150,7 +150,7 @@ function Login({onIn,toast,msg,appName,logo,canReset,canReg,googleId}){  // two 
     if(r.token){localStorage.t=r.token;onIn(r.user)}else if(r.new){setGsign(r);setMode('register')}}catch(e){toast(e.message)}setB(false)}  // an existing account just signs in, from either tab
   const go=async()=>{setB(true);try{const r=await api('/login',{method:'POST',body:f});localStorage.t=r.token;onIn(r.user)}catch(e){toast(e.message)}setB(false)}
   const forgot=async()=>{setB(true);try{setSent((await api('/forgot',{method:'POST',body:{email:f.email}})).message)}catch(e){toast(e.message)}setB(false)}
-  if(mode==='register')return <Register onIn={onIn} toast={toast} msg={msg} appName={appName} logo={logo} google={gsign} back={()=>{setMode('up');setGsign(null)}}/>
+  if(mode==='register')return <Register onIn={onIn} toast={toast} msg={msg} appName={appName} logo={logo} google={gsign} back={()=>{setMode('up');setGsign(null)}} signIn={()=>{setMode('in');setGsign(null)}}/>
   if(mode==='forgot')return <div className="login"><Lockup logo={logo} name={appName}/><h1>{tl("Forgot your password?")}</h1>{sent?<p>{sent}</p>:<><p>{tl("Enter your account email and we will send a link to choose a new one.")}</p><p className="known">{tl("Sign in with a username? Ask your parent or teacher to set a new password for you.")}</p>
     <label>{tl("Email")}</label><input type="email" autoComplete="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})} onKeyDown={e=>e.key==='Enter'&&forgot()}/>
     <button className="btn" disabled={b||!f.email} onClick={forgot}>{tl("Send reset link")}</button></>}
@@ -177,7 +177,7 @@ function Place({opts,level,v,set,id}){  // a program of the chosen level and one
   return <><label htmlFor={id+'p'}>{level==='school'?tl("School board or program"):tl("Program")}</label>
     <select id={id+'p'} value={v.program_id} onChange={e=>set({program_id:e.target.value,semester:''})}><option value="">{tl("Not listed: my admin will place me")}</option>{ps.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>
     {p&&<><label htmlFor={id+'t'}>{tl(p.term)}</label><select id={id+'t'} value={v.semester} onChange={e=>set({semester:e.target.value})}><option value="">{tl("Choose")}</option>{p.terms.map(n=><option key={n} value={n}>{tl(p.term)} {n}</option>)}</select></>}</>}
-function Register({onIn,toast,msg,appName,logo,back,google}){  // school or college, then who is signing up, then the details; a code by email confirms it (none after Google, which checked the email)
+function Register({onIn,toast,msg,appName,logo,back,signIn,google}){  // school or college, then who is signing up, then the details; a code by email confirms it (none after Google, which checked the email)
   const [level,setLevel]=useState(''),[who,setWho]=useState(''),[opts,setOpts]=useState({school:[],college:[]})
   const [f,setF]=useState({name:google?.name||'',institution:'',id_number:'',email:google?.email||'',phone:'',password:'',program_id:'',semester:''}),[kids,setKids]=useState([{...KID}])
   const [stage,setStage]=useState('level'),[code,setCode]=useState(''),[b,setB]=useState(false),[wait,setWait]=useState(0),[info,setInfo]=useState(''),[st,setSt]=useState({domains:[]}),[waiting,setWaiting]=useState('')
@@ -200,7 +200,8 @@ function Register({onIn,toast,msg,appName,logo,back,google}){  // school or coll
     <label htmlFor="otp">{tl("6-digit code")}</label><input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,''))} onKeyDown={e=>e.key==='Enter'&&code.length===6&&verify()} style={{letterSpacing:'.4em',fontSize:22,textAlign:'center'}}/>
     <button className="btn" disabled={b||code.length!==6} onClick={verify}>{tl("Verify and create my account")}</button>
     <button className="btn ghost" disabled={wait>0} onClick={resend}>{wait>0?tl("Send a new code in {wait}s",{wait:wait}):tl("Send a new code")}</button>
-    <button className="btn ghost" onClick={()=>{setStage('form');setCode('')}}>{tl("Change my details")}</button>{foot}</div>
+    <button className="btn ghost" onClick={()=>{setStage('form');setCode('')}}>{tl("Change my details")}</button>
+    <button className="btn ghost" onClick={signIn}>{tl("Back to sign in")}</button>{foot}</div>
   if(stage==='level')return <div className="login">{head}<h1>{tl("Create an account")}</h1><p>{tl("Who is studying?")}</p>
     <button className="btn choice" onClick={()=>{setLevel('school');setStage('who')}}><b>{tl("A school student")}</b><small>{tl("Grade 1 to Grade 12")}</small></button>
     <button className="btn choice" onClick={()=>{setLevel('college');setStage('who')}}><b>{tl("A college student")}</b><small>{tl("College or university")}</small></button>
