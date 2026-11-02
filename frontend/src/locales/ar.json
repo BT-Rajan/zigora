@@ -2924,5 +2924,6 @@
 "This course is paused for now. If you accept, you can open it once your teacher reopens it.": "هذا المقرر موقوف مؤقتًا. إذا قبلت، يمكنك فتحه عندما يعيد معلّمك فتحه.",
 "{name} declined {course}": "رفض {name} {course}",
 "{name} declined your invitation to the course {course}. You can invite them again if you like.": "رفض {name} دعوتك إلى المقرر {course}. يمكنك دعوته مرة أخرى إن أردت.",
-"This course is paused for now. Your place is kept, and your teacher will reopen it.": "هذا المقرر موقوف مؤقتًا. مكانك محفوظ، وسيعيد معلّمك فتحه."
+"This course is paused for now. Your place is kept, and your teacher will reopen it.": "هذا المقرر موقوف مؤقتًا. مكانك محفوظ، وسيعيد معلّمك فتحه.",
+"No courses are open to join right now. You can ask your teacher for an invitation, or start learning now by building a course from your own notes.": "لا توجد مقررات مفتوحة للانضمام حاليًا. يمكنك طلب دعوة من معلّمك، أو البدء بالتعلّم الآن ببناء مقرر من ملاحظاتك."
 }

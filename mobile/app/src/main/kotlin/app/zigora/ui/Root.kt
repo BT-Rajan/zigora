@@ -169,7 +169,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
                                  quiz = { q -> nav.navigate(StudyQuizR(q.id, own = id)) }) }
             composable<SavedR> { SavedScreen(open) { nav.navigate(QuestionR(it)) } }
             composable<ClassesR> { ClassesScreen { nav.popBackStack() } }
-            composable<JoinR> { JoinScreen(back = { nav.popBackStack() }) { nav.navigate(CourseR(it)) } }
+            composable<JoinR> { JoinScreen(back = { nav.popBackStack() }, openStudy = { nav.navigate(StudyR) }) { nav.navigate(CourseR(it)) } }
             composable<QuestionR> { QuestionScreen(it.toRoute<QuestionR>().id, back = { nav.popBackStack() }, openTopic = open) }
             composable<ProgressR> { ProgressScreen(open, openRoutine = { nav.navigate(RoutineR) }, openScores = { nav.navigate(ScoreCourseR(it)) }) }
             composable<RoutineR> { RoutineScreen { nav.popBackStack() } }
