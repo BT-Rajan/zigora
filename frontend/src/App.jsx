@@ -1740,9 +1740,13 @@ function StudyWizard({id,toast,back,done}){
   const flat=plan?plan.units.flatMap((u,ui)=>u.topics.map((t,ti)=>({...t,ui,ti}))):[]
   const edit=f=>{const p=JSON.parse(JSON.stringify(plan));f(p);p.units=p.units.filter(u=>u.topics.length);setPlan(p);setDirty(true)}
   const rename=(ui,ti,v)=>edit(p=>{if(ti==null)p.units[ui].title=v;else p.units[ui].topics[ti].title=v})
-  const merge=(ui,ti)=>edit(p=>{const all=p.units.flatMap((u,a)=>u.topics.map((t,b)=>[a,b])),k=all.findIndex(([a,b])=>a===ui&&b===ti),[na,nb]=all[k+1],nx=p.units[na].topics[nb]
-    const t=p.units[ui].topics[ti];t.to=nx.to;t.words=(t.words||0)+(nx.words||0);p.units[na].topics.splice(nb,1)})
-  const remove=(ui,ti)=>edit(p=>{p.units[ui].topics.splice(ti,1)})
+  // the topic that comes right after this one in the material, wherever it now sits (topics can move between units)
+  const after=(p,ui,ti)=>{const t=p.units[ui].topics[ti];let hit=null;p.units.forEach((u,a)=>u.topics.forEach((x,b)=>{if(x.from>t.to&&(!hit||x.from<p.units[hit[0]].topics[hit[1]].from))hit=[a,b]}));return hit}
+  const merge=(ui,ti)=>edit(p=>{const [na,nb]=after(p,ui,ti),nx=p.units[na].topics[nb],t=p.units[ui].topics[ti];t.to=nx.to;t.words=(t.words||0)+(nx.words||0);p.units[na].topics.splice(nb,1)})
+  const remove=async(ui,ti)=>{const t=plan.units[ui].topics[ti]
+    if(await confirm({title:tl("Remove “{title}”?",{title:t.title}),body:tl("Its text ({n}) won't be in your course. To keep the text, merge it into another topic instead.",{n:pl(t.words||0,'word')}),ok:tl("Remove"),danger:true}))
+      edit(p=>{p.units[ui].topics.splice(ti,1)})}
+  const move=(ui,ti,to)=>edit(p=>{const [t]=p.units[ui].topics.splice(ti,1);p.units[to].topics.push(t);p.units[to].topics.sort((a,b)=>a.from-b.from)})  // its place in the unit is where its text is in the material
   const savePlan=async()=>{const r=await api(`/study/courses/${id}/plan`,{method:'PUT',body:{units:plan.units}});setPlan(r.plan);setDirty(false)}
   const finish=async()=>{setBusy('Building your course…');try{if(dirty)await savePlan()
       try{await api(`/study/courses/${id}/finish`,{method:'POST',body:{}})}catch(e){if(!/already has topics/.test(e.message))throw e
@@ -1769,13 +1773,15 @@ function StudyWizard({id,toast,back,done}){
       <button className={'btn'+(c.ai_available&&c.ai_left!==0?' ghost':'')} disabled={!!busy} onClick={()=>slice('headings')}>{tl("Slice by headings instead (no AI)")}</button>
       <button className="btn ghost" onClick={()=>setStep(1)}>{tl("Back to material")}</button></>}
     {step===3&&plan&&<>
-      <h3 className="sec first">{tl("Check the outline")}</h3><p className="known" style={{marginTop:0}}>{pl(plan.units.length,'unit')}{tl(", {n}{v}. Rename anything, merge a topic into the next one, or remove one you don't need. Not right? Change the notes and slice again.",{n:pl(flat.length,'topic'),v:c.sliced_by==='headings'?tl(' · sliced by headings'):''})}</p>
+      <h3 className="sec first">{tl("Check the outline")}</h3><p className="known" style={{marginTop:0}}>{pl(plan.units.length,'unit')}{tl(", {n}{v}. Rename anything, merge a topic into the next one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.",{n:pl(flat.length,'topic'),v:c.sliced_by==='headings'?tl(' · sliced by headings'):''})}</p>
       {plan.units.map((u,ui)=><section key={ui} className="qbox"><label className="sr" htmlFor={'u'+ui}>{tl("Unit {v} title",{v:ui+1})}</label><input id={'u'+ui} className="utitle" value={u.title} onChange={e=>rename(ui,null,e.target.value)}/>
-        {u.topics.map((t,ti)=>{const last=ui===plan.units.length-1&&ti===u.topics.length-1
+        {u.topics.map((t,ti)=>{const last=!after(plan,ui,ti)
           return <div key={t.from} className="ptopic"><label className="sr" htmlFor={`t${ui}-${ti}`}>{tl("Topic title")}</label><input id={`t${ui}-${ti}`} value={t.title} onChange={e=>rename(ui,ti,e.target.value)}/>
             <small className="known">{t.summary?t.summary+' · ':''}{pl(t.words||0,'word')}</small><p className="excerpt">{t.excerpt}{t.excerpt&&t.excerpt.length>=280?'…':''}</p>
             <div className="acts"><button className="tool" onClick={async()=>{try{setPeek({title:t.title,...(await api(`/study/courses/${id}/preview?start=${t.from}&end=${t.to}`))})}catch(e){toast(e.message)}}}>{tl("Read it all")}</button>
-              {!last&&<button className="tool" onClick={()=>merge(ui,ti)}>{tl("Merge with next")}</button>}{flat.length>1&&<button className="tool" onClick={()=>remove(ui,ti)}>{tl("Remove")}</button>}</div></div>})}</section>)}
+              {!last&&<button className="tool" onClick={()=>merge(ui,ti)}>{tl("Merge with next")}</button>}{flat.length>1&&<button className="tool" onClick={()=>remove(ui,ti)}>{tl("Remove")}</button>}
+              {plan.units.length>1&&<select className="tool" style={{width:'auto',border:0}} aria-label={tl("Move “{title}” to another unit",{title:t.title})} value="" onChange={e=>move(ui,ti,+e.target.value)}>
+                <option value="" disabled>{tl("Move to unit…")}</option>{plan.units.map((x,k)=>k!==ui&&<option key={k} value={k}>{tl("Unit {v}",{v:k+1})}{x.title?': '+x.title:''}</option>)}</select>}</div></div>})}</section>)}
       <h3 className="sec">{tl("Slice it differently")}</h3><label htmlFor="nts2">{tl("Notes for the AI")}</label><textarea id="nts2" value={notes} onChange={e=>setNotes(e.target.value)} placeholder={tl(NOTES_HINT)}/>
       <div className="two"><button className="btn ghost" disabled={!!busy} onClick={()=>slice('ai')}><Sparkles size={16}/>{" "}{tl("Slice again with AI")}</button><button className="btn ghost" disabled={!!busy} onClick={()=>setStep(1)}>{tl("Change material")}</button></div>
       <button className="btn" disabled={!!busy} onClick={finish}><Check size={16}/>{" "}{tl("Finish: build my course")}</button>

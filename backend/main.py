@@ -5964,17 +5964,22 @@ def study_slicing(cid: int, u: User = Depends(me), s: Session = Depends(db)):
 class PlanIn(BaseModel): units: list[dict]
 @app.put("/api/study/courses/{cid}/plan")
 def study_plan(cid: int, b: PlanIn, u: User = Depends(me), s: Session = Depends(db)):
-    """The preview after the student renamed, merged or removed topics. Topics stay in order and never overlap; removed topics leave their paragraphs out."""
-    c = study_course_or_404(cid, u, s, edit=True); n = len(json.loads(c.paras or "[]")); last, units = 0, []
+    """The preview after the student renamed, merged, removed or moved topics. A topic may move to another unit, where it takes its place by where its text is in
+    the material; no two topics share a paragraph, so nothing is repeated. Removed topics leave their paragraphs out."""
+    c = study_course_or_404(cid, u, s, edit=True); n = len(json.loads(c.paras or "[]")); units = []
     for un in b.units:
         topics = []
         for t in un.get("topics") or []:
             try: f, to = int(t["from"]), int(t["to"])
             except (KeyError, TypeError, ValueError): raise HTTPException(400, "Each topic needs its first and last paragraph")
-            if not (last < f <= to <= n): raise HTTPException(400, "Topics must stay in order without overlapping")
-            last = to; topics.append({"title": (str(t.get("title") or "").strip() or "Untitled topic")[:200], "summary": str(t.get("summary") or "")[:300], "from": f, "to": to})
-        if topics: units.append({"title": (str(un.get("title") or "").strip() or "Untitled unit")[:200], "topics": topics})
+            if not 1 <= f <= to <= n: raise HTTPException(400, "Topics must stay in order without overlapping")
+            topics.append({"title": (str(t.get("title") or "").strip() or "Untitled topic")[:200], "summary": str(t.get("summary") or "")[:300], "from": f, "to": to})
+        if topics: units.append({"title": (str(un.get("title") or "").strip() or "Untitled unit")[:200], "topics": sorted(topics, key=lambda t: t["from"])})
     if not units: raise HTTPException(400, "Keep at least one topic")
+    last = 0
+    for t in sorted((t for un in units for t in un["topics"]), key=lambda t: t["from"]):
+        if t["from"] <= last: raise HTTPException(400, "Topics must stay in order without overlapping")
+        last = t["to"]
     c.plan = json.dumps({"units": units}, ensure_ascii=False); touch(c); s.commit(); return {"plan": plan_view(c)}
 @app.get("/api/study/courses/{cid}/preview")
 def study_preview(cid: int, start: int, end: int, u: User = Depends(me), s: Session = Depends(db)):  # the full text of a planned topic

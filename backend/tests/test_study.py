@@ -82,6 +82,14 @@ def test_wizard_slices_previews_adjusts_and_finishes(env, monkeypatch):
     edited = [{"title": "Hard water", "topics": [{"title": "Hardness and boiling", "from": 1, "to": 3}]}, plan["units"][1]]
     assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": edited}).status_code == 200
     assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": [{"title": "x", "topics": [{"from": 2, "to": 5}, {"from": 4, "to": 7}]}]}).status_code == 400
+    # a topic moved to another unit takes its place there by where its text is; no paragraph may be in two topics
+    moved = [{"title": "Hard water", "topics": [{"title": "What it is", "from": 1, "to": 2}]},
+             {"title": "Treatment", "topics": [{"title": "Membranes", "from": 7, "to": 7}, {"title": "Boiling", "from": 3, "to": 3}, {"title": "Softening", "from": 4, "to": 6}]}]
+    p = env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": moved}).json()["plan"]
+    assert [[t["title"] for t in u["topics"]] for u in p["units"]] == [["What it is"], ["Boiling", "Softening", "Membranes"]]
+    clash = [{"title": "A", "topics": [{"from": 4, "to": 6}]}, {"title": "B", "topics": [{"from": 1, "to": 2}, {"from": 5, "to": 5}]}]
+    assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": clash}).status_code == 400
+    assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": [{"title": "x", "topics": [{"from": 0, "to": 1}]}]}).status_code == 400
     h = env.c.post(f"/api/study/courses/{cid}/slice", headers=env.stu, json={"method": "headings"}).json()["plan"]
     assert [u["title"] for u in h["units"]] == ["Hard water", "Treatment"]
     env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": edited})

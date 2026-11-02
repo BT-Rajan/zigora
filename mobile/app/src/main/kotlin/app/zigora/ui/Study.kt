@@ -3,6 +3,7 @@ package app.zigora.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,8 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -136,7 +139,7 @@ fun StudyHomeScreen(back: () -> Unit, open: (Int, Boolean) -> Unit, openTopic: (
 private val STEPS = listOf("Name", "Material", "Slice", "Preview")
 private const val NOTES_HINT = "Optional. For example: \"One topic per verse\", \"Keep the vocabulary table in one topic\", \"Units should follow the chapters\", \"Make topics very short\"."
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
     val a = api(); val scope = rememberCoroutineScope(); val toast = rememberToast(); val ctx = LocalContext.current
@@ -256,31 +259,48 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
             else -> plan?.let { p ->
                 val flat = p.units.flatMap { it.topics }
                 SectionTitle(tl("Check the outline"))
-                Quiet(pl(p.units.size, "unit") + tl(", {n}{v}. Rename anything, merge a topic into the next one, or remove one you don't need. Not right? Change the notes and slice again.",
+                Quiet(pl(p.units.size, "unit") + tl(", {n}{v}. Rename anything, merge a topic into the next one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.",
                                                     "n" to pl(flat.size, "topic"), "v" to if (cc.sliced_by == "headings") tl(" · sliced by headings") else ""))
                 p.units.forEachIndexed { ui, u ->
                     Panel {
                         OutlinedTextField(u.title, { v -> edit { it[ui] = it[ui].copy(title = v) } }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(tl("Unit {v} title", "v" to ui + 1)) },
                                           textStyle = MaterialTheme.typography.titleMedium)
                         u.topics.forEachIndexed { ti, t ->
-                            val last = ui == p.units.size - 1 && ti == u.topics.size - 1
+                            val last = flat.none { it.from > t.to }  // nothing comes after it in the material
                             Column(Modifier.padding(top = 10.dp)) {
                                 OutlinedTextField(t.title, { v -> edit { it[ui] = it[ui].copy(topics = it[ui].topics.toMutableList().also { l -> l[ti] = l[ti].copy(title = v) }) } },
                                                   Modifier.fillMaxWidth(), singleLine = true, label = { Text(tl("Topic title")) })
                                 Quiet((if (t.summary.isNotEmpty()) t.summary + " · " else "") + pl(t.words, "word"))
                                 if (t.excerpt.isNotEmpty()) Text(t.excerpt + if (t.excerpt.length >= 280) "…" else "", style = MaterialTheme.typography.bodySmall, maxLines = 4)
-                                Row {
+                                androidx.compose.foundation.layout.FlowRow {
                                     TextButton(onClick = { scope.launch {
                                         try { val r = a.raw("GET", "/study/courses/$id/preview?start=${t.from}&end=${t.to}") as JsonObject
                                               peek = t.title to ((r["content"] as? JsonPrimitive)?.content.orEmpty()) } catch (e: Exception) { toast(e.message.orEmpty()) }
                                     } }) { Text(tl("Read it all")) }
-                                    if (!last) TextButton(onClick = { edit { us ->  // this topic takes in the next one, wherever that is
-                                        val pos = us.flatMapIndexed { a2, x -> x.topics.indices.map { b -> a2 to b } }; val k = pos.indexOf(ui to ti); val (na, nb) = pos[k + 1]
+                                    if (!last) TextButton(onClick = { edit { us ->  // this topic takes in the one right after it in the material, wherever that sits now
+                                        val (na, nb) = us.flatMapIndexed { a2, x -> x.topics.indices.map { b -> a2 to b } }.filter { (a2, b) -> us[a2].topics[b].from > t.to }
+                                            .minBy { (a2, b) -> us[a2].topics[b].from }
                                         val nx = us[na].topics[nb]
                                         us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l[ti] = l[ti].copy(to = nx.to, words = l[ti].words + nx.words) })
                                         us[na] = us[na].copy(topics = us[na].topics.toMutableList().also { l -> l.removeAt(nb) })
                                     } }) { Text(tl("Merge with next")) }
-                                    if (flat.size > 1) TextButton(onClick = { edit { us -> us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l.removeAt(ti) }) } }) { Text(tl("Remove")) }
+                                    if (flat.size > 1) TextButton(onClick = {
+                                        ask = Ask(tl("Remove “{title}”?", "title" to t.title), tl("Its text ({n}) won't be in your course. To keep the text, merge it into another topic instead.", "n" to pl(t.words, "word")),
+                                                  tl("Remove"), danger = true) { edit { us -> us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l.removeAt(ti) }) } }
+                                    }) { Text(tl("Remove")) }
+                                    if (p.units.size > 1) Box {
+                                        var menu by remember { mutableStateOf(false) }
+                                        TextButton(onClick = { menu = true }) { Text(tl("Move to unit…")) }
+                                        DropdownMenu(menu, { menu = false }) {
+                                            p.units.forEachIndexed { k, x -> if (k != ui) DropdownMenuItem(text = { Text(tl("Unit {v}", "v" to k + 1) + if (x.title.isNotEmpty()) ": " + x.title else "") }, onClick = {
+                                                menu = false
+                                                edit { us ->  // its place in the unit is where its text is in the material
+                                                    us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l.removeAt(ti) })
+                                                    us[k] = us[k].copy(topics = (us[k].topics + t).sortedBy { it.from })
+                                                }
+                                            }) }
+                                        }
+                                    }
                                 }
                             }
                         }
