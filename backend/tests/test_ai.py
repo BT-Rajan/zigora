@@ -57,3 +57,12 @@ def test_key_test_button_and_env_fallback(env, monkeypatch):
     assert env.c.post("/api/admin/ai/test", headers=env.admin).json()["ok"] is True
     FakeClient.mode = "401"; r = env.c.post("/api/admin/ai/test", headers=env.admin).json(); assert r["ok"] is False and "invalid" in r["message"]
     assert env.c.post("/api/admin/ai/test", headers=env.stu).status_code == 403
+
+def test_an_empty_topic_asks_for_own_notes_and_sends_nothing_to_the_ai(env, monkeypatch):
+    t = setup(env, monkeypatch, "sk-test-1234")
+    with Session_() as s: x = s.get(main.Topic, t); x.content, x.sample_content, x.question_pattern, x.guideline = "", None, None, None; s.commit()
+    for kind in ("gist", "why", "explain", "answer"):
+        r = env.c.get(f"/api/topics/{t}/ai/{kind}", headers=env.stu); assert r.status_code == 400 and r.json()["detail"] == main.EMPTY_TOPIC, kind
+    assert FakeClient.calls == 0
+    with Session_() as s: x = s.get(main.Topic, t); x.content = "Hard water carries calcium and magnesium salts."; s.commit()
+    assert env.c.get(f"/api/topics/{t}/ai/explain", headers=env.stu).status_code == 200

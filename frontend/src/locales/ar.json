@@ -2896,5 +2896,8 @@
 "No courses have been added for you yet. Your institution's admin will make them available when they are ready.": "لم تُضف أي مقررات لك بعد. سيتيحها مسؤول مؤسستك عندما تكون جاهزة.",
 "In the meantime, you can join a course offered by a teacher or build a course from your own notes.": "في هذه الأثناء، يمكنك الانضمام إلى مقرر يقدّمه معلّم أو بناء مقرر من ملاحظاتك.",
 "The gist didn't load.": "لم يُحمَّل الملخص.",
-"The notes below are all here.": "الملاحظات أدناه كلها هنا."
+"The notes below are all here.": "الملاحظات أدناه كلها هنا.",
+"This topic has no notes yet": "لا توجد ملاحظات لهذا الموضوع بعد",
+"Bring your own notes for this course. They are filed under its topics, for you only, and you study them here.": "أحضر ملاحظاتك لهذا المقرر. تُرتَّب تحت مواضيعه، لك وحدك، وتدرسها هنا.",
+"This topic has no notes yet. Bring your own notes for it: they are filed under the course's topics, for you only.": "لا توجد ملاحظات لهذا الموضوع بعد. أحضر ملاحظاتك له: تُرتَّب تحت مواضيع المقرر، لك وحدك."
 }

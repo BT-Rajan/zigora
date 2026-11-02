@@ -4116,6 +4116,7 @@ async def ask_ai(u, s, key, system, msg, max_tokens=None, timeout=60, kind="othe
         if key.own and code: raise HTTPException(503, f"{name} refused the key ({code}). Check it, or the {name} balance, under AI key in the menu.")
         if key.own: raise HTTPException(503, f"{name} did not answer. Try again in a moment.")
         raise ai_down(u, f"{name} refused the request ({code}). Check the key, model name and balance under AI config." if code else f"{name} did not answer.")
+EMPTY_TOPIC = "This topic has no notes yet. Bring your own notes for it: they are filed under the course's topics, for you only."
 def topic_msg(f, kind, mine=None):  # what the AI is told about a topic
     body = words_of(f["content"], f["content_format"])  # the AI gets the words of an HTML topic, not its tags or scripts
     return (f"Program: {f['program']}\nSemester: {f['semester']}\nCourse: {f['course']}\nUnit: {f['unit']}\nTopic: {f['title']}\n\nTopic content:\n{body}\n\n"
@@ -4155,6 +4156,8 @@ async def ai(tid: int, kind: str, u: User = Depends(me), s: Session = Depends(db
     if you and kind in PICKS + ("simpler",): s.add(StepLog(user_id=u.id, topic_id=tid, kind=kind)); s.commit()  # a step the student chose to open
     extra = {"you": {**you, "question_first": question_first(u, t, s)}} if you and kind == "gist" else {"level": you["level"]} if you and kind == "check" else {}
     mine = my_notes(s, u.id, tid) if u.role == "student" and kind in ("explain", "answer") else None
+    if not mine and not words_of(f["content"], f["content_format"]).strip() and not (kind in EXAM_KINDS and (t.sample_content or t.question_pattern or t.guideline)):
+        raise HTTPException(400, EMPTY_TOPIC)  # nothing to explain from but the topic's name: the AI would make it up
     if mine:  # the student's own notes are private: the answer is written for them alone and never shared. It goes to the AI once; after that the kept copy is shown and nothing is sent.
         key_or_fail(u, s); ch = hashlib.sha256("|".join(["own", topic_hash(t, kind, prompt), mine]).encode()).hexdigest()
         hit = s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind=kind, chash=ch).first()
