@@ -5391,9 +5391,32 @@ def search(q: str = "", limit: int = 10, u: User = Depends(me), s: Session = Dep
     scored.sort(key=lambda x: (-x[0], x[3].title)); top = scored[:max(1, min(limit, 25))]
     sems = {x.id: x for x in s.query(Semester).filter(Semester.id.in_({x[5].semester_id for x in top if x[5].semester_id} or {0}))}
     progs = {x.id: x.name for x in s.query(Program).filter(Program.id.in_({x[5].program_id for x in top} or {0}))}
-    return {"q": q, "terms": terms, "confident": any(near or (full_ and len(terms) > 1) for _, near, full_, *_ in scored),  # a lone word found only inside some notes is not a confident match
+    mine = my_note_hits(s, u, terms, need)
+    return {"q": q, "terms": terms, "mine": mine,
+            "confident": any(near or (full_ and len(terms) > 1) for _, near, full_, *_ in scored) or any(m["all"] for m in mine),  # a lone word found only inside some notes is not a confident match
             "results": [{"id": t.id, "title": t.title, "unit": un.name, "course": co.name, "program": progs.get(co.program_id, ""), "semester": sems[co.semester_id].name if co.semester_id in sems else "",
                          "snippet": snippet(body, terms), "score": sc, "in_title": near} for sc, near, _, t, un, co, body in top]}
+def my_note_hits(s, u, terms, need, n=5):
+    """The student's own words that match: their notes filed under a topic, and the notes they wrote on highlights. Only ever theirs, only on
+    topics they can still open, and never sent to the AI."""
+    if u.role != "student": return []
+    like = lambda col, t: func.lower(col).like(f"%{t}%"); found = {}
+    for kind, col, rows in (("notes", TopicNote.content, s.query(TopicNote.topic_id, TopicNote.content).filter(TopicNote.user_id == u.id)),
+                            ("highlight", Highlight.note, s.query(Highlight.topic_id, Highlight.note).filter(Highlight.user_id == u.id, Highlight.note.isnot(None)))):
+        for tid, text in rows.filter(or_(*[like(col, t) for t in terms])).limit(200):
+            body = plain(text); hit = [t for t in terms if t in body.lower()]
+            if len(hit) < need: continue
+            k = (tid, kind); score = len(hit)
+            if k not in found or score > found[k][0]: found[k] = (score, len(hit) == len(terms), body)
+    out = []
+    for (tid, kind), (score, full_, body) in sorted(found.items(), key=lambda x: -x[1][0]):
+        t = s.get(Topic, tid)
+        if not t or topic_off(s, t) or t.published is False: continue
+        try: check_topic_access(u, t, s)
+        except HTTPException: continue
+        out.append({"topic_id": tid, "title": t.title, "kind": kind, "snippet": snippet(body, terms), "all": full_})
+        if len(out) >= n: break
+    return out
 class SearchAIIn(BaseModel): q: str; refresh: bool = False
 @app.post("/api/search/ai")
 async def search_ai(b: SearchAIIn, u: User = Depends(me), s: Session = Depends(db)):

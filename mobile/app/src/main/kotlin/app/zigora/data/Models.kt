@@ -89,7 +89,8 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Bookmarked(val bookmarked: Boolean)
 
 @Serializable data class Hit(val id: Int, val title: String, val unit: String = "", val course: String = "", val snippet: String = "", val in_title: Boolean = false)
-@Serializable data class SearchOut(val q: String = "", val results: List<Hit> = emptyList(), val confident: Boolean = false)
+@Serializable data class MineHit(val topic_id: Int, val title: String = "", val kind: String = "notes", val snippet: String = "")  // the student's own notes or a highlight's note that match
+@Serializable data class SearchOut(val q: String = "", val results: List<Hit> = emptyList(), val confident: Boolean = false, val mine: List<MineHit> = emptyList())
 @Serializable data class Answer(val text: String, val cached: Boolean = false, val support: Boolean = false, val via: String? = null)
 @Serializable data class PhotoText(val text: String = "", val ocr: Boolean = false)
 

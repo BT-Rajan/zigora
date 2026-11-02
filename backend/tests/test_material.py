@@ -178,3 +178,18 @@ def test_a_topic_with_only_own_notes_gets_its_gist_and_steps_from_them_privately
     with Session_() as s: x = s.get(Topic, h); x.content = "Hard water carries calcium and magnesium salts."; s.commit()
     n = len(FakeAI.calls); r = env.c.get(f"/api/topics/{h}/ai/gist", headers=env.stu).json()  # once the topic has notes of its own, the gist is the shared one again
     assert not r.get("own_notes") and "Boiling removes temporary hardness" not in FakeAI.calls[-1][1] and len(FakeAI.calls) == n + 1
+
+def test_search_finds_the_students_own_notes_and_highlight_notes_and_only_theirs(env, monkeypatch):
+    i = setup(env, monkeypatch); h = i["t"]["Hardness of water"]; env.add_user("stu2@x.com", program=i["prog"]["Mech"], semester=1); s2 = env.login("stu2@x.com")
+    env.c.post(url(i, "/text"), headers=env.stu, json={"text": NOTES}); env.c.post(url(i, "/match"), headers=env.stu, json={"method": "headings"}); env.c.post(url(i, "/save"), headers=env.stu)
+    with Session_() as s:
+        from main import Highlight
+        uid = s.query(User).filter_by(email="stu@x.com").one().id
+        s.add(Highlight(user_id=uid, topic_id=i["t"]["Rusting"], text="Iron", note="Galvanised zinc coating stops it")); s.commit()
+    r = env.c.get("/api/search?q=magnesium salts", headers=env.stu).json()  # only in the student's own notes: the topics have titles, no content
+    assert r["results"] == [] and r["mine"][0]["topic_id"] == h and r["mine"][0]["kind"] == "notes" and "magnesium" in r["mine"][0]["snippet"].lower() and r["confident"]
+    r = env.c.get("/api/search?q=zinc coating", headers=env.stu).json(); assert [(m["title"], m["kind"]) for m in r["mine"]] == [("Rusting", "highlight")]
+    assert env.c.get("/api/search?q=magnesium salts", headers=s2).json()["mine"] == []  # a classmate never finds someone else's notes
+    assert env.c.get("/api/search?q=magnesium salts", headers=env.admin).json()["mine"] == []  # nor do staff
+    with Session_() as s: s.get(Topic, h).published = False; s.commit()
+    assert env.c.get("/api/search?q=magnesium salts", headers=env.stu).json()["mine"] == []  # a topic they can't open any more

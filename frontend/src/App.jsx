@@ -1302,15 +1302,20 @@ function SearchPage({user,toast,initial}){
     <div className="search"><Search size={18}/><input type="search" aria-label={tl("Search topics")} autoFocus placeholder={tl("e.g. temporary hardness of water")} value={q} maxLength={200} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}/></div>
     <button className="btn" disabled={pend||aiBusy||typed.length<2} onClick={submit}>{pend?tl("Searching…"):tl("Search")}</button>
     {!asked&&live&&live.results.length>0&&<><h3 className="sec">{tl("Topics in your courses")}</h3>{!aiOff&&<p className="known">{tl("Press Enter to search properly. If nothing here fits, the AI answers.")}</p>}{live.results.slice(0,5).map(x=><Hit key={x.id} x={x} open={setTopic}/>)}</>}
+    {!asked&&live?.mine?.length>0&&<MineHits rows={live.mine} open={setTopic}/>}
     {!asked&&typed.length>=2&&live&&!live.results.length&&<p className="known">{aiOff?tl("Nothing in your courses matches yet."):tl("Nothing in your courses matches yet. Press Enter and the AI will answer instead.")}</p>}
     {res&&<>{res.results.length>0?<><h3 className="sec">{aiNote?tl("Possible matches in your courses"):tl("In your courses")}</h3>{<Paged rows={res.results} render={x=><Hit key={x.id} x={x} open={setTopic}/>}/>}</>
       :<p className="known" style={{marginTop:18}}>{tl("Nothing in your courses matches “{asked}”.",{asked:asked})}</p>}
+      {res.mine?.length>0&&<MineHits rows={res.mine} open={setTopic}/>}
       {aiOff&&<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>}{!aiOff&&!ai&&!aiBusy&&<button className="btn ghost" onClick={()=>askAi(asked,false)}><Sparkles size={16}/>{" "}{tl("Not what you wanted? Recheck with AI")}</button>}</>}
     {aiBusy&&<div className="qbox" aria-live="polite"><b>{tl("Asking the AI…")}</b><div className="sk"/></div>}
     {aiErr&&<div className="qbox" role="alert"><b>{tl("The AI could not answer")}</b><p className="known" style={{margin:'6px 0 0'}}>{aiErr}</p></div>}
     {ai&&!aiBusy&&<><h3 className="sec">{tl("AI answer")}</h3><div className="prose">{ai.cached&&<span className="chip">{tl("Saved answer · no tokens used")}</span>}<Md>{ai.text}</Md>{!ai.support&&<FlagLink source="search" id={ai.id} excerpt={ai.text}/>}</div>
       <p className="known">{tl("AI answers can contain mistakes. Check them against your notes and textbook.")}</p>
       <button className="btn ghost" disabled={aiBusy} onClick={()=>askAi(ai.for,true)}><Sparkles size={16}/>{" "}{tl("Not happy? Recheck with AI")}</button></>}</div></>}
+// the student's own words that match: their notes under a topic and the notes on their highlights; only ever theirs, never sent to the AI
+const MineHits=({rows,open})=><><h3 className="sec">{tl("Your notes")}</h3>{rows.map(x=><button key={x.topic_id+x.kind} className="hitrow" onClick={()=>open(x.topic_id)}>
+  <b>{x.title}<span className="chip" style={{marginLeft:8}}>{x.kind==='highlight'?tl("Your highlight note"):tl("Your notes")}</span></b>{x.snippet&&<span className="snip">{x.snippet}</span>}</button>)}</>
 function Hit({x,open}){return <button className="hitrow" onClick={()=>open(x.id)}><b>{x.title}{x.in_title&&<span className="chip" style={{marginLeft:8}}>{tl("Best match")}</span>}</b><small>{[x.program,x.semester,x.course,x.unit].filter(Boolean).join(' › ')}</small>{x.snippet&&<span className="snip">{x.snippet}</span>}</button>}
 
 // My progress: a calm mirror, not a report card. What clicked and what is worth another look (from quizzes and tests, without percentages),
