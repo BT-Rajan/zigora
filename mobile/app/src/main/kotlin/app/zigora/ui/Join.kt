@@ -83,9 +83,12 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                     Quiet(listOf(c.teacher, datesOf(c), pl(c.topics, "topic")).filter { it.isNotEmpty() }.joinToString(" · "))
                     if (c.about.isNotEmpty()) MathMd(c.about)
                     when (c.mine) {
-                        "active", "completed" -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        "active", "completed" -> Column {
+                          if (c.state == "paused") Quiet(tl("This course is paused for now. Your place is kept, and your teacher will reopen it."), Modifier.padding(top = 8.dp))
+                          Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
                             if (c.state != "paused") OutlinedButton(onClick = { openCourse(c.id) }) { Text(tl("Open")) }
                             if (c.mine == "active") androidx.compose.material3.TextButton(enabled = busy != c.id, onClick = { leaving = c }) { Text(tl("Leave the course")) }
+                          }
                         }
                         "applied" -> Column(Modifier.padding(top = 8.dp)) {
                             if (c.state == "paused") Quiet(tl("This course is paused for now. Your request stays open and your teacher can still answer it."))
