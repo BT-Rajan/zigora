@@ -2923,5 +2923,6 @@
 "You declined the invitation. This course is by invitation only, so ask your teacher if you change your mind.": "நீங்கள் அழைப்பை நிராகரித்தீர்கள். இது அழைப்பின் மூலம் மட்டுமே சேரும் பாடநெறி; மனம் மாறினால் உங்கள் ஆசிரியரிடம் கேளுங்கள்.",
 "This course is paused for now. If you accept, you can open it once your teacher reopens it.": "இந்தப் பாடநெறி இப்போது இடைநிறுத்தத்தில் உள்ளது. ஏற்றுக்கொண்டால், ஆசிரியர் மீண்டும் திறந்ததும் அதைத் திறக்கலாம்.",
 "{name} declined {course}": "{name} {course} ஐ நிராகரித்தார்",
-"{name} declined your invitation to the course {course}. You can invite them again if you like.": "{name} உங்கள் {course} பாடநெறி அழைப்பை நிராகரித்தார். விரும்பினால் மீண்டும் அழைக்கலாம்."
+"{name} declined your invitation to the course {course}. You can invite them again if you like.": "{name} உங்கள் {course} பாடநெறி அழைப்பை நிராகரித்தார். விரும்பினால் மீண்டும் அழைக்கலாம்.",
+"This course is paused for now. Your place is kept, and your teacher will reopen it.": "இந்தப் பாடநெறி இப்போது இடைநிறுத்தத்தில் உள்ளது. உங்கள் இடம் வைக்கப்பட்டுள்ளது; உங்கள் ஆசிரியர் மீண்டும் திறப்பார்."
 }

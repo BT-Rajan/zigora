@@ -2923,5 +2923,6 @@
 "You declined the invitation. This course is by invitation only, so ask your teacher if you change your mind.": "رفضت الدعوة. هذا المقرر بالدعوة فقط، فاطلب من معلّمك إن غيّرت رأيك.",
 "This course is paused for now. If you accept, you can open it once your teacher reopens it.": "هذا المقرر موقوف مؤقتًا. إذا قبلت، يمكنك فتحه عندما يعيد معلّمك فتحه.",
 "{name} declined {course}": "رفض {name} {course}",
-"{name} declined your invitation to the course {course}. You can invite them again if you like.": "رفض {name} دعوتك إلى المقرر {course}. يمكنك دعوته مرة أخرى إن أردت."
+"{name} declined your invitation to the course {course}. You can invite them again if you like.": "رفض {name} دعوتك إلى المقرر {course}. يمكنك دعوته مرة أخرى إن أردت.",
+"This course is paused for now. Your place is kept, and your teacher will reopen it.": "هذا المقرر موقوف مؤقتًا. مكانك محفوظ، وسيعيد معلّمك فتحه."
 }
