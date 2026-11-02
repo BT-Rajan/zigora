@@ -621,14 +621,27 @@ def signup_open(s): return reg_open(s) or google_signup(s)
 def allowed_domains(s): return [d for d in re.split(r"[,\s]+", setting(s, "allowed_domains").lower()) if d]
 PHONE = re.compile(r"\+?[0-9][0-9 ()\-]{5,24}[0-9]")
 IDNUM = re.compile(r"[A-Za-z0-9][A-Za-z0-9 ./_\-]{0,58}[A-Za-z0-9]|[A-Za-z0-9]")
-def deliver_otp(email, name, code, exists=False, lang="en"):  # lang: the one the sign-up screen was in
+MAIL_RETRY_SECONDS = 2  # a failed code email is tried once more after this, before the person is told it could not be sent
+def deliver_otp(email, name, code, exists=False, lang="en"):  # lang: the one the sign-up screen was in. True when the email went out
+    for attempt in (1, 2):
+        if attempt == 2: time.sleep(MAIL_RETRY_SECONDS)
+        if send_otp(email, name, code, exists, lang): return True
+    return False
+def send_otp(email, name, code, exists, lang):
     try:
         if exists: send_mail(email, mt(lang, "Your {app} account", app=APP_NAME), kind="account", lang=lang, body=letter(lang, name, mt(lang,
             "Someone tried to register {email} on {app}, but that email already has an account. If it was you, sign in, or use \"Forgot your password?\" on the sign-in page. If it was not you, ignore this message.", email=email, app=APP_NAME)))
         else: send_mail(email, mt(lang, "Your {app} verification code: {code}", app=APP_NAME, code=code), kind="code", lang=lang, body=letter(lang, name,
             mt(lang, "Your verification code is {code}. It works for {minutes} minutes. Enter it in the app to finish creating your {app} account.", code=code, minutes=OTP_MINUTES, app=APP_NAME),
             mt(lang, "If you did not ask for this, ignore this message; no account is created without the code.")))
-    except MailError: pass  # recorded in the email log
+    except MailError: return False  # recorded in the email log for the admin; the person only learns it could not be sent
+    return True
+NOT_SENT = "We couldn't send your verification code. Please try again. If the problem continues, you can return to sign-in and try later."
+def code_reply(email, sent):  # the same answer for an address with an account and one without; only whether the email went out differs
+    return {"ok": True, "email": email, "sent": True, "message": f"We sent a 6-digit code to {email}. It works for {OTP_MINUTES} minutes."} if sent else \
+           {"ok": True, "email": email, "sent": False, "message": NOT_SENT}
+def notices_sent(s, email, minutes=10):  # emails about an existing account sent to this address lately, so the form can't be used to flood an inbox
+    return s.query(func.count(MailLog.id)).filter(MailLog.to == email, MailLog.kind == "account", MailLog.at >= dt.datetime.utcnow() - dt.timedelta(minutes=minutes)).scalar()
 class ChildIn(BaseModel): name: str; username: str; password: str; program_id: int | None = None; semester: int | None = None
 class RegisterIn(BaseModel):  # who and level are new: an older app sends neither and gets the old student sign-up
     name: str; institution: str = ""; id_number: str = ""; email: str; phone: str; password: str
@@ -695,10 +708,11 @@ def register_start(b: RegisterIn, request: Request, bg: BackgroundTasks, s: Sess
     name, inst, idn, email, phone = clean_registration(b, s); ip, now = client_ip(request), dt.datetime.utcnow()
     if s.query(func.count(PendingRegistration.id)).filter(PendingRegistration.ip == ip, PendingRegistration.last_sent_at >= now - dt.timedelta(hours=1)).scalar() >= 15:
         raise HTTPException(429, "Too many attempts from this network. Please try again in an hour.")
-    reply = {"ok": True, "email": email, "message": f"We sent a 6-digit code to {email}. It works for {OTP_MINUTES} minutes."}
     if s.query(User.id).filter_by(email=email).first():  # the same answer as a new address, so nobody can use this form to find out who has an account
-        if s.query(func.count(PendingRegistration.id)).filter(PendingRegistration.ip == ip, PendingRegistration.last_sent_at >= now - dt.timedelta(minutes=1)).scalar() < 3: bg.add_task(deliver_otp, email, name, "", True, ui_lang(b.lang))
-        return reply
+        sent = True  # sent here and now, like a code, so the answer (and its timing) matches a new address, delivery failure included
+        if s.query(func.count(PendingRegistration.id)).filter(PendingRegistration.ip == ip, PendingRegistration.last_sent_at >= now - dt.timedelta(minutes=1)).scalar() < 3 and notices_sent(s, email) < 3:
+            s.close(); sent = deliver_otp(email, name, "", True, ui_lang(b.lang))
+        return code_reply(email, sent)
     if idn and same_id(s, inst, idn): raise HTTPException(400, "An account already exists for that institution ID. Sign in, or ask your admin.")
     pid, sem = check_place(s, b.level, b.program_id, b.semester) if b.who == "student" and b.level else (None, None)
     kids = clean_children(b, s)
@@ -710,8 +724,14 @@ def register_start(b: RegisterIn, request: Request, bg: BackgroundTasks, s: Sess
     else: p = PendingRegistration(email=email, sends=1, created_at=now); s.add(p)
     p.name, p.institution, p.id_number, p.phone, p.pw = name, inst, idn, phone, hp(b.password)
     p.who, p.level, p.program_id, p.semester, p.children = b.who, b.level, pid, sem, json.dumps(kids) if kids else None; p.code_hash = otp_hash(email, code); p.attempts = 0; p.ip = ip; p.last_sent_at = now
-    p.expires_at = now + dt.timedelta(minutes=OTP_MINUTES); s.commit(); bg.add_task(deliver_otp, email, name, code, False, ui_lang(b.lang))
-    return reply
+    p.expires_at = now + dt.timedelta(minutes=OTP_MINUTES); s.commit(); pid_ = p.id; s.close()
+    sent = deliver_otp(email, name, code, False, ui_lang(b.lang))  # sent while the request waits, so the screen never claims a code that didn't go out
+    if not sent: unsent(pid_)
+    return code_reply(email, sent)
+def unsent(pid):  # a code that didn't go out doesn't hold back the next try: no cooldown wait (the daily limit on codes still counts it)
+    with Session_() as s:
+        p = s.get(PendingRegistration, pid)
+        if p: p.last_sent_at = dt.datetime.utcnow() - dt.timedelta(seconds=OTP_COOLDOWN); s.commit()
 class VerifyIn(BaseModel): email: str; code: str; lang: str = ""  # the screen's language becomes the new account's
 def ui_lang(v): return v if v in ("ta", "ar") else "en"
 @app.post("/api/register/verify")
@@ -780,12 +800,19 @@ def register_google(b: GoogleSignupIn, bg: BackgroundTasks, s: Session = Depends
 @app.post("/api/register/resend")
 def register_resend(b: ForgotIn, request: Request, bg: BackgroundTasks, s: Session = Depends(db)):
     email, now = b.email.strip().lower()[:190], dt.datetime.utcnow(); p = s.query(PendingRegistration).filter_by(email=email).first()
-    reply = {"ok": True, "message": f"If a registration is waiting for {email}, a new code is on its way."}
-    if not reg_open(s) or not p: return reply
+    reply = {"ok": True, "sent": True, "message": f"If a registration is waiting for {email}, a new code is on its way."}
+    if not reg_open(s): return reply
+    if not p:  # an address with an account gets its notice again, as at the start, so the answer matches a new address's
+        if s.query(User.id).filter_by(email=email).first() and notices_sent(s, email) < 3:
+            name = s.query(User.name).filter_by(email=email).scalar(); s.close()
+            if not deliver_otp(email, name, "", True, ui_lang(b.lang)): return {**reply, "sent": False, "message": NOT_SENT}
+        return reply
     if (now - p.last_sent_at).total_seconds() < OTP_COOLDOWN: raise HTTPException(429, "Wait a moment before asking for another code.")
     if p.sends >= OTP_MAX_SENDS: raise HTTPException(429, "Too many codes were requested for this email. Please try again tomorrow.")
     code = f"{secrets.randbelow(10 ** 6):06d}"; p.code_hash = otp_hash(email, code); p.attempts = 0; p.sends += 1; p.last_sent_at = now; p.expires_at = now + dt.timedelta(minutes=OTP_MINUTES); s.commit()
-    bg.add_task(deliver_otp, email, p.name, code, False, ui_lang(b.lang)); return reply
+    pid_, name = p.id, p.name; s.close()
+    if deliver_otp(email, name, code, False, ui_lang(b.lang)): return reply
+    unsent(pid_); return {**reply, "sent": False, "message": NOT_SENT}
 @app.get("/manifest.json")
 @app.get("/app/manifest.json")  # served dynamically so the installed app carries APP_NAME (the app lives under /app/)
 def manifest():

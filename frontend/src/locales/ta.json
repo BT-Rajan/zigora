@@ -2879,5 +2879,11 @@
 "{course} is paused": "{course} இடைநிறுத்தப்பட்டது",
 "{teacher} paused the course {course} for now. Your place is kept; you will be told when it reopens.": "{teacher} {course} பாடநெறியை இப்போதைக்கு இடைநிறுத்தினார். உங்கள் இடம் வைக்கப்படும்; மீண்டும் திறக்கும்போது தெரிவிக்கப்படும்.",
 "{course} is open again": "{course} மீண்டும் திறந்துள்ளது",
-"{teacher} reopened the course {course}. Carry on where you left off on {app}.": "{teacher} {course} பாடநெறியை மீண்டும் திறந்தார். {app}-இல் விட்ட இடத்திலிருந்து தொடருங்கள்."
+"{teacher} reopened the course {course}. Carry on where you left off on {app}.": "{teacher} {course} பாடநெறியை மீண்டும் திறந்தார். {app}-இல் விட்ட இடத்திலிருந்து தொடருங்கள்.",
+"We sent a 6-digit code to {email}. It works for {minutes} minutes.": "{email} முகவரிக்கு 6 இலக்கக் குறியீட்டை அனுப்பினோம். இது {minutes} நிமிடங்கள் செல்லுபடியாகும்.",
+"We couldn't send your verification code": "உங்கள் சரிபார்ப்புக் குறியீட்டை அனுப்ப முடியவில்லை",
+"Please try again. If the problem continues, you can return to sign-in and try later.": "மீண்டும் முயலுங்கள். சிக்கல் தொடர்ந்தால், உள்நுழைவுக்குத் திரும்பி பிறகு முயலலாம்.",
+"It didn't go through this time either. Wait a moment and try again.": "இந்த முறையும் அனுப்ப முடியவில்லை. சிறிது நேரம் கழித்து மீண்டும் முயலுங்கள்.",
+"Try sending the code again": "குறியீட்டை மீண்டும் அனுப்ப முயலுங்கள்",
+"We couldn't send your verification code. Please try again. If the problem continues, you can return to sign-in and try later.": "உங்கள் சரிபார்ப்புக் குறியீட்டை அனுப்ப முடியவில்லை. மீண்டும் முயலுங்கள். சிக்கல் தொடர்ந்தால், உள்நுழைவுக்குத் திரும்பி பிறகு முயலலாம்."
 }

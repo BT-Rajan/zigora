@@ -54,6 +54,7 @@ import app.zigora.data.LoginOut
 import app.zigora.data.I18n
 import app.zigora.data.Me
 import app.zigora.data.Msg
+import app.zigora.data.CodeOut
 import app.zigora.data.ProgOpts
 import app.zigora.data.RegStatus
 import kotlinx.coroutines.launch
@@ -90,6 +91,7 @@ fun SignIn(done: (Me) -> Unit) {
     var opts by remember { mutableStateOf(ProgOpts()) }
     var code by rememberSaveable { mutableStateOf("") }
     var wait by rememberSaveable { mutableIntStateOf(0) }
+    var unsent by rememberSaveable { mutableIntStateOf(0) }  // tries in a row whose code email could not be sent
     LaunchedEffect(wait) { if (wait > 0) { kotlinx.coroutines.delay(1000); wait-- } }
 
     suspend fun check(): Boolean {
@@ -108,6 +110,10 @@ fun SignIn(done: (Me) -> Unit) {
         if (editing && !check()) { busy = false; return@launch }
         try { block() } catch (e: Exception) { msg = e.message.orEmpty() }
         busy = false
+    }
+    fun sentOrNot(r: CodeOut) {  // the code screen, or what to do when its email could not be sent
+        if (!r.sent) { unsent++; wait = 0 }
+        else { unsent = 0; wait = 30; info = tl("We sent a 6-digit code to {email}. It works for {minutes} minutes.", "email" to email.trim().lowercase(), "minutes" to "10") }
     }
     fun go() = act {
         val r = app.api.send("POST", "/login", buildJsonObject { put("email", email.trim()); put("password", pw) }, LoginOut.serializer())
@@ -240,13 +246,13 @@ fun SignIn(done: (Me) -> Unit) {
                             signedUp(r)
                         } }) { Text(tl("Create my account")) }
                         else Button(enabled = !busy && ok, modifier = Modifier.fillMaxWidth(), onClick = { act {
-                            info = app.api.send("POST", "/register/start", buildJsonObject {
+                            val r = app.api.send("POST", "/register/start", buildJsonObject {
                                 put("name", reg[0]); put("institution", if (who == "parent") "" else reg[1]); put("id_number", if (who == "student") reg[2] else ""); put("email", email.trim()); put("phone", reg[3]); put("password", pw)
                                 put("level", level); put("who", who); put("program_id", if (who == "student") prog else null); put("semester", if (who == "student") sem else null)
                                 put("children", studentsJson(if (who == "parent") kids else emptyList()))
                                 put("lang", app.resources.configuration.locales[0].language)  // the code's email comes in the app's language
-                            }, Msg.serializer()).message
-                            code = ""; wait = 30; mode = "code"
+                            }, CodeOut.serializer())
+                            code = ""; sentOrNot(r); mode = "code"
                         } }) { Text(stringResource(R.string.send_me_code)) }
                         TextButton(onClick = { mode = "who"; msg = "" }, modifier = Modifier.fillMaxWidth()) { Text(tl("Back")) }
                     }
@@ -256,7 +262,16 @@ fun SignIn(done: (Me) -> Unit) {
                         Quiet(tl("Your admin checks every teacher account. You can sign in once it is approved."))
                         TextButton(onClick = { mode = "in"; msg = "" }, modifier = Modifier.fillMaxWidth()) { Text(tl("Back to sign in")) }
                     }
-                    "code" -> {
+                    "code" -> if (unsent > 0) {  // never claim a code that didn't go out
+                        Text(tl("We couldn't send your verification code"), style = MaterialTheme.typography.titleLarge)
+                        Text(tl("Please try again. If the problem continues, you can return to sign-in and try later."))
+                        if (unsent > 1) Quiet(tl("It didn't go through this time either. Wait a moment and try again."))
+                        error()
+                        Button(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = { act {
+                            val r = app.api.send("POST", "/register/resend", buildJsonObject { put("email", email.trim()); put("lang", app.resources.configuration.locales[0].language) }, CodeOut.serializer()); code = ""; sentOrNot(r)
+                        } }) { Text(if (busy) tl("Sending…") else tl("Try sending the code again")) }
+                        TextButton(onClick = { mode = "in"; code = ""; msg = ""; info = ""; unsent = 0 }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.back_to_sign_in)) }
+                    } else {
                         Text(stringResource(R.string.enter_code), style = MaterialTheme.typography.titleLarge)
                         Text(info)
                         OutlinedTextField(code, { code = it.filter(Char::isDigit).take(6) }, Modifier.fillMaxWidth().semantics { contentType = ContentType.SmsOtpCode },
@@ -267,7 +282,8 @@ fun SignIn(done: (Me) -> Unit) {
                             signedUp(app.api.send("POST", "/register/verify", buildJsonObject { put("email", email.trim()); put("code", code); put("lang", app.resources.configuration.locales[0].language) }, kotlinx.serialization.json.JsonObject.serializer()))
                         } }) { Text(stringResource(R.string.verify_create)) }
                         TextButton(enabled = wait == 0, modifier = Modifier.fillMaxWidth(), onClick = { act {
-                            app.api.raw("POST", "/register/resend", buildJsonObject { put("email", email.trim()); put("lang", app.resources.configuration.locales[0].language) }); wait = 30; code = ""; info = app.getString(R.string.new_code_coming)
+                            val r = app.api.send("POST", "/register/resend", buildJsonObject { put("email", email.trim()); put("lang", app.resources.configuration.locales[0].language) }, CodeOut.serializer()); code = ""; sentOrNot(r)
+                            if (r.sent) info = app.getString(R.string.new_code_coming)
                         } }) { Text(if (wait > 0) stringResource(R.string.new_code_in, wait) else stringResource(R.string.send_new_code)) }
                         TextButton(onClick = { mode = "form"; code = ""; msg = "" }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.change_my_details)) }
                         TextButton(onClick = { mode = "in"; code = ""; msg = ""; info = "" }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.back_to_sign_in)) }  // never a dead end, and it says nothing about whether the email has an account

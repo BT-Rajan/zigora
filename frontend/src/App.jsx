@@ -180,7 +180,7 @@ function Place({opts,level,v,set,id}){  // a program of the chosen level and one
 function Register({onIn,toast,msg,appName,logo,back,signIn,google}){  // school or college, then who is signing up, then the details; a code by email confirms it (none after Google, which checked the email)
   const [level,setLevel]=useState(''),[who,setWho]=useState(''),[opts,setOpts]=useState({school:[],college:[]})
   const [f,setF]=useState({name:google?.name||'',institution:'',id_number:'',email:google?.email||'',phone:'',password:'',program_id:'',semester:''}),[kids,setKids]=useState([{...KID}])
-  const [stage,setStage]=useState('level'),[code,setCode]=useState(''),[b,setB]=useState(false),[wait,setWait]=useState(0),[info,setInfo]=useState(''),[st,setSt]=useState({domains:[]}),[waiting,setWaiting]=useState('')
+  const [stage,setStage]=useState('level'),[code,setCode]=useState(''),[b,setB]=useState(false),[wait,setWait]=useState(0),[info,setInfo]=useState(''),[unsent,setUnsent]=useState(0),[st,setSt]=useState({domains:[]}),[waiting,setWaiting]=useState('')
   useEffect(()=>{api('/register/status').then(setSt).catch(()=>{});api('/register/options').then(setOpts).catch(()=>{})},[])
   useEffect(()=>{if(wait<=0)return;const t=setTimeout(()=>setWait(wait-1),1000);return()=>clearTimeout(t)},[wait])
   const set=k=>e=>setF({...f,[k]:e.target.value}),setKid=(i,o)=>setKids(kids.map((k,j)=>j===i?{...k,...o}:k))
@@ -191,11 +191,16 @@ function Register({onIn,toast,msg,appName,logo,back,signIn,google}){  // school 
     children:who==='parent'?kids.map(k=>({...k,program_id:num(k.program_id),semester:num(k.semester)})):[]})
   const signedUp=r=>{if(r.pending){setWaiting(r.message);return}localStorage.t=r.token;onIn(r.user)}  // a teacher waits for an admin's approval
   const start=async()=>{setB(true);try{if(google){signedUp(await api('/register/google',{method:'POST',body:{...body(),ticket:google.ticket}}))}
-    else{const r=await api('/register/start',{method:'POST',body:body()});setInfo(r.message);setStage('code');setWait(30)}}catch(e){toast(e.message)}setB(false)}
+    else{const r=await api('/register/start',{method:'POST',body:body()});sentOrNot(r);setStage('code')}}catch(e){toast(e.message)}setB(false)}
+  const sentOrNot=r=>{if(r.sent===false){setUnsent(n=>n+1);setWait(0)}else{setUnsent(0);setInfo(tl("We sent a 6-digit code to {email}. It works for {minutes} minutes.",{email:f.email.trim().toLowerCase(),minutes:10}));setWait(30)}}  // never claim a code that didn't go out
   const verify=async()=>{setB(true);try{signedUp(await api('/register/verify',{method:'POST',body:{email:f.email,code,lang:getLang()}}))}catch(e){toast(e.message)}setB(false)}
-  const resend=async()=>{try{await api('/register/resend',{method:'POST',body:{email:f.email,lang:getLang()}});toast(tl("A new code is on its way"));setWait(30);setCode('')}catch(e){toast(e.message)}}
+  const resend=async()=>{setB(true);try{const r=await api('/register/resend',{method:'POST',body:{email:f.email,lang:getLang()}});sentOrNot(r);setCode('');if(r.sent!==false)toast(tl("A new code is on its way"))}catch(e){toast(e.message)}setB(false)}
   const head=<Lockup logo={logo} name={appName}/>,foot=<Toast msg={msg}/>
   if(waiting)return <div className="login">{head}<h1>{tl("Thank you for signing up")}</h1><p>{srv(waiting)}</p><p className="known">{tl("Your admin checks every teacher account. You can sign in once it is approved.")}</p><button className="btn ghost" onClick={back}>{tl("Back to sign in")}</button>{foot}</div>
+  if(stage==='code'&&unsent)return <div className="login">{head}<h1>{tl("We couldn't send your verification code")}</h1><p>{tl("Please try again. If the problem continues, you can return to sign-in and try later.")}</p>
+    {unsent>1&&<p className="known" role="status">{tl("It didn't go through this time either. Wait a moment and try again.")}</p>}
+    <button className="btn" disabled={b} onClick={resend}>{b?tl("Sending…"):tl("Try sending the code again")}</button>
+    <button className="btn ghost" onClick={signIn}>{tl("Back to sign in")}</button>{foot}</div>
   if(stage==='code')return <div className="login">{head}<h1>{tl("Enter the code")}</h1><p>{info}</p>
     <label htmlFor="otp">{tl("6-digit code")}</label><input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,''))} onKeyDown={e=>e.key==='Enter'&&code.length===6&&verify()} style={{letterSpacing:'.4em',fontSize:22,textAlign:'center'}}/>
     <button className="btn" disabled={b||code.length!==6} onClick={verify}>{tl("Verify and create my account")}</button>
