@@ -217,7 +217,7 @@
     <string name="remove_key">விசையை நீக்கு</string>
     <string name="remove_key_body">நீங்கள் மீண்டும் Lite-க்கு: இலவச தினசரி அளவு.</string>
     <string name="remove_key_q">உங்கள் விசையை நீக்கவா?</string>
-    <string name="remove_material_body">இந்தப் பாடத்தில் அது உருவாக்கிய குறிப்புகளும் நீக்கப்படும். உங்கள் முன்னேற்றமும் வினாடி வினா முடிவுகளும் அப்படியே இருக்கும்.</string>
+    <string name="remove_material_body">இந்தப் பாடத்தில் உள்ள உங்கள் எல்லாக் குறிப்புகளும் அதனுடன் போய்விடும், ஒவ்வொரு தலைப்பிலும், ஒரு கோப்பினுடையது மட்டுமல்ல. உங்கள் முன்னேற்றமும் வினாடி வினா முடிவுகளும் இருக்கும்.</string>
     <string name="remove_material_q">உங்கள் பாடப்பொருளை நீக்கவா?</string>
     <string name="remove_my_key">எனது விசையை நீக்கு</string>
     <string name="remove_my_material">இந்தப் பாடத்திலிருந்து எனது பாடப்பொருளை நீக்கு</string>

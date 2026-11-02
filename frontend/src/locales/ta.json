@@ -2948,5 +2948,9 @@
 "Withdraw the question": "கேள்வியைத் திரும்பப் பெறு",
 "Only the student who asked can withdraw a question": "கேட்ட மாணவர் மட்டுமே கேள்வியைத் திரும்பப் பெற முடியும்",
 "Your teacher has answered, so it can't be withdrawn. You can close it instead.": "உங்கள் ஆசிரியர் பதிலளித்துவிட்டார், எனவே அதைத் திரும்பப் பெற முடியாது. அதற்குப் பதிலாக மூடலாம்.",
-"Your highlight note": "உங்கள் சிறப்புக் குறிப்பு"
+"Your highlight note": "உங்கள் சிறப்புக் குறிப்பு",
+"Save again and rebuild your notes?": "மீண்டும் சேமித்து உங்கள் குறிப்புகளை மீண்டும் உருவாக்கவா?",
+"Your notes in every topic of this course are rebuilt from the material and matching shown here. Notes from material you removed or sections you left out are gone after this. Your progress and quiz results stay.": "இந்தப் பாடத்தின் ஒவ்வொரு தலைப்பிலும் உள்ள உங்கள் குறிப்புகள் இங்கே காட்டப்படும் பொருள் மற்றும் பொருத்தத்திலிருந்து மீண்டும் உருவாக்கப்படும். நீங்கள் நீக்கிய பொருளிலிருந்தோ விட்டுவிட்ட பகுதிகளிலிருந்தோ வந்த குறிப்புகள் இதன் பிறகு இருக்காது. உங்கள் முன்னேற்றமும் வினாடி வினா முடிவுகளும் இருக்கும்.",
+"All your notes in this course go with it, in every topic, not just one file's. Your progress and quiz results stay.": "இந்தப் பாடத்தில் உள்ள உங்கள் எல்லாக் குறிப்புகளும் அதனுடன் போய்விடும், ஒவ்வொரு தலைப்பிலும், ஒரு கோப்பினுடையது மட்டுமல்ல. உங்கள் முன்னேற்றமும் வினாடி வினா முடிவுகளும் இருக்கும்.",
+"Save again": "மீண்டும் சேமி"
 }

@@ -2948,5 +2948,9 @@
 "Withdraw the question": "اسحب السؤال",
 "Only the student who asked can withdraw a question": "يمكن للطالب الذي سأل فقط سحب السؤال",
 "Your teacher has answered, so it can't be withdrawn. You can close it instead.": "أجاب معلمك، لذا لا يمكن سحبه. يمكنك إغلاقه بدلًا من ذلك.",
-"Your highlight note": "ملاحظتك على التظليل"
+"Your highlight note": "ملاحظتك على التظليل",
+"Save again and rebuild your notes?": "هل تحفظ مجددًا وتعيد بناء ملاحظاتك؟",
+"Your notes in every topic of this course are rebuilt from the material and matching shown here. Notes from material you removed or sections you left out are gone after this. Your progress and quiz results stay.": "تُعاد بناء ملاحظاتك في كل موضوع من هذا المقرر من المادة والمطابقة المعروضة هنا. تختفي بعد ذلك الملاحظات المأخوذة من مادة حذفتها أو أقسام تركتها. يبقى تقدمك ونتائج اختباراتك.",
+"All your notes in this course go with it, in every topic, not just one file's. Your progress and quiz results stay.": "تذهب كل ملاحظاتك في هذا المقرر معها، في كل موضوع، لا ملاحظات ملف واحد فقط. يبقى تقدمك ونتائج اختباراتك.",
+"Save again": "احفظ مجددًا"
 }
