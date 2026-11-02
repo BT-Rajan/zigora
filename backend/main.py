@@ -249,6 +249,7 @@ class Enrolment(Base):  # one student's place in an offered course
     status = Column(String(10), index=True)  # invited, applied, active, suspended, completed, released, declined, expired, cancelled
     by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)  # who invited, or decided
     at = Column(DateTime, default=dt.datetime.utcnow); expires_at = Column(DateTime, nullable=True); decided_at = Column(DateTime, nullable=True)
+    told = Column(String(16), nullable=True)  # what last happened to it that the student didn't do themselves (a teacher's decision, a lapse, the course ending): shown in their bell
     __table_args__ = (UniqueConstraint("course_id", "user_id"),)
 class TeacherQuestion(Base):  # a student's question to the teacher of a topic's course: a short thread the student and the course's owner (or an admin) write in
     __tablename__ = "teacher_questions"
@@ -973,7 +974,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                   ("about", "TEXT NULL"), ("starts_on", "DATE NULL"), ("ends_on", "DATE NULL"), ("cancelled_at", "DATETIME NULL"), ("repeat_of", "INTEGER NULL"),
                   ("start_told", "DATETIME NULL"), ("end_told", "DATETIME NULL"), ("paused_at", "DATETIME NULL"))]
                   + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))]
-                  + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)])]
+                  + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)]),
+              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL"))]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -4620,7 +4622,9 @@ def offer_state(c, today=None):
     if c.ends_on and today > c.ends_on: return "ended"
     return "running"
 def expire_enrolments(s):  # invitations and requests nobody answered within 48 hours lapse
-    n = s.query(Enrolment).filter(Enrolment.status.in_(("invited", "applied")), Enrolment.expires_at < dt.datetime.utcnow()).update({"status": "expired"}, synchronize_session=False)
+    n = 0
+    for was, told in (("applied", "lapsed_request"), ("invited", "lapsed_invite")):  # the student is told in the bell which of theirs lapsed
+        n += s.query(Enrolment).filter(Enrolment.status == was, Enrolment.expires_at < dt.datetime.utcnow()).update({"status": "expired", "told": told, "decided_at": Enrolment.expires_at}, synchronize_session=False)
     if n: s.commit()
 def offer_json(c, s, u=None):
     counts = dict(s.query(Enrolment.status, func.count(Enrolment.id)).filter(Enrolment.course_id == c.id).group_by(Enrolment.status).all())
@@ -4628,7 +4632,7 @@ def offer_json(c, s, u=None):
     mine = enrolment(s, c.id, u.id) if u is not None else None
     return {"id": c.id, "name": c.name, "about": c.about or "", "starts_on": c.starts_on.isoformat() if c.starts_on else None, "ends_on": c.ends_on.isoformat() if c.ends_on else None,
             "access": c.access, "applications": bool(c.applications), "state": offer_state(c), "teacher": owner.name if owner else "", "counts": counts,
-            "topics": live_topic_ids(s, [c.id]).count(), "mine": mine.status if mine else None, "enrolment": mine.id if mine else None, "expires_at": utc_iso(mine.expires_at) if mine and mine.status in ("invited", "applied") else None,
+            "topics": live_topic_ids(s, [c.id]).count(), "mine": mine.status if mine else None, "enrolment": mine.id if mine else None, "told": mine.told if mine else None, "expires_at": utc_iso(mine.expires_at) if mine and mine.status in ("invited", "applied") else None,
             "repeat_of": c.repeat_of}
 def need_offer(cid, u, s):
     c = s.get(Course, cid)
@@ -4708,7 +4712,7 @@ def invite_one(s, c, st, by, bg):  # 1 when an invitation went out
     e = enrolment(s, c.id, st.id)
     if e and e.status in ("active", "invited", "suspended", "completed"): return 0
     now = dt.datetime.utcnow()
-    if e: e.status, e.by_id, e.at, e.expires_at, e.decided_at = "invited", by.id, now, now + dt.timedelta(hours=ENROL_HOURS), None
+    if e: e.status, e.by_id, e.at, e.expires_at, e.decided_at, e.told = "invited", by.id, now, now + dt.timedelta(hours=ENROL_HOURS), None, None
     else: s.add(Enrolment(course_id=c.id, user_id=st.id, status="invited", by_id=by.id, at=now, expires_at=now + dt.timedelta(hours=ENROL_HOURS)))
     notify(s, st, "invite", "{teacher} invited you to {course}", "{teacher} invited you to join the course {course} on {app}. Open {app} within 48 hours to accept.",
            "{teacher} invited {name} to join the course {course} on {app}. {name} can accept within 48 hours.", run=bg.add_task, teacher=by.name, course=c.name, name=st.name)
@@ -4759,7 +4763,7 @@ def enrol_action(eid: int, b: EnrolDo, bg: BackgroundTasks, u: User = Depends(me
     if e.status not in allowed: raise HTTPException(400, "That no longer applies: " + ENROL_LABEL.get(e.status, e.status).lower())
     if not teach and b.action == "accept" and (c.cancelled_at or c.archived_at): raise HTTPException(400, "This course is not running")
     if b.action in ("accept", "approve", "retain") and course_ended(c): raise HTTPException(400, "This course has ended")
-    e.status, e.decided_at, e.by_id = to, dt.datetime.utcnow(), u.id if teach else e.by_id; s.commit()
+    e.status, e.decided_at, e.by_id, e.told = to, dt.datetime.utcnow(), u.id if teach else e.by_id, b.action if teach else None; s.commit()
     st = s.get(User, e.user_id)
     if teach and b.action in ENROL_TELL:
         subj, body = ENROL_TELL[b.action]; notify(s, st, "enrol", subj, body, run=bg.add_task, course=c.name, teacher=u.name)
@@ -4798,6 +4802,7 @@ def join_offer(cid: int, bg: BackgroundTasks, u: User = Depends(me), s: Session 
         t = s.get(User, c.faculty_owner_id) if c.faculty_owner_id else None
         if t: notify(s, t, "enrol", "{name} asks to join {course}", "{name} asks to join your course {course} on {app}. Decide within 48 hours: open the course's students to accept or decline.", run=bg.add_task, name=u.name, course=c.name)
     else: raise HTTPException(403, "This course is by invitation only")
+    if e: e.told = None  # an older decision or lapse no longer stands
     s.commit(); return offer_json(c, s, u)
 def course_dates(now=None):
     """An offered course's dates at work, run every half hour: the day before it starts its students (and those invited) and its teacher are
@@ -4818,7 +4823,7 @@ def course_dates(now=None):
         for c in live.filter(Course.ends_on < today).all():
             ending = offer_students(s, c)
             if not ending and not s.query(Enrolment.id).filter(Enrolment.course_id == c.id, Enrolment.status.in_(("invited", "applied"))).first(): continue
-            s.query(Enrolment).filter(Enrolment.course_id == c.id, Enrolment.status == "active").update({"status": "completed", "decided_at": now}, synchronize_session=False)
+            s.query(Enrolment).filter(Enrolment.course_id == c.id, Enrolment.status == "active").update({"status": "completed", "decided_at": now, "told": "complete"}, synchronize_session=False)
             s.query(Enrolment).filter(Enrolment.course_id == c.id, Enrolment.status.in_(("invited", "applied"))).update({"status": "expired"}, synchronize_session=False)
             s.commit(); done += 1
             for st in ending: notify(s, st, "course", "Course completed: {course}", "The course {course} on {app} has ended and is marked completed for you. Well done. You can still look back at it.", course=c.name)
@@ -4828,11 +4833,20 @@ def class_in_course(c, d0, d1=None):  # a class of an offered course falls withi
     if not offered(c): return
     if c.starts_on and d0 < c.starts_on: raise HTTPException(400, f"The course starts on {c.starts_on.isoformat()}: choose a day from then")
     if c.ends_on and (d1 or d0) > c.ends_on: raise HTTPException(400, f"The course ends on {c.ends_on.isoformat()}: choose a day before then")
+ENROL_TOLD_DAYS = 7
+ENROL_BELL = {"approve": ("You're in: {course}", "Your teacher accepted your request"), "decline": ("Your request to join {course} was declined", "You can ask again later"),
+              "suspend": ("Your place in {course} is on hold", "Ask your teacher if you are not sure why"), "retain": ("Your place in {course} is back", ""),
+              "release": ("You were released from {course}", ""), "complete": ("Course completed: {course}", "You can still look back at it"),
+              "lapsed_request": ("Your request to join {course} lapsed", "Your teacher didn't answer within 48 hours. You can ask again."),
+              "lapsed_invite": ("Your invitation to {course} lapsed", "It wasn't answered within 48 hours")}
 def enrol_notes(u, s):  # the bell: a student's invitations waiting; a teacher's requests waiting
     expire_enrolments(s); out = []
     if u.role == "student":
         for e, c in s.query(Enrolment, Course).join(Course, Course.id == Enrolment.course_id).filter(Enrolment.user_id == u.id, Enrolment.status == "invited", Course.cancelled_at.is_(None)):
             out.append({"key": f"inv-course:{e.id}:{int(e.at.timestamp())}", "text": f"You're invited to {c.name}", "sub": "Accept within 48 hours"})
+        since = dt.datetime.utcnow() - dt.timedelta(days=ENROL_TOLD_DAYS)  # what happened to their places lately: a teacher's decision, a lapse, the course ending
+        for e, c in s.query(Enrolment, Course).join(Course, Course.id == Enrolment.course_id).filter(Enrolment.user_id == u.id, Enrolment.told.isnot(None), Enrolment.decided_at >= since, Course.cancelled_at.is_(None)):
+            if e.told in ENROL_BELL: out.append({"key": f"told:{e.id}:{e.told}:{int(e.decided_at.timestamp())}", "text": ENROL_BELL[e.told][0].replace("{course}", c.name), "sub": ENROL_BELL[e.told][1]})
         today = local_day(dt.datetime.utcnow())
         for c in s.query(Course).join(Enrolment, Enrolment.course_id == Course.id).filter(Enrolment.user_id == u.id, Enrolment.status == "active", Course.cancelled_at.is_(None)):
             if c.starts_on and 0 <= (c.starts_on - today).days <= 1: out.append({"key": f"cstart:{c.id}", "text": f"{c.name} starts {'today' if c.starts_on == today else 'tomorrow'}", "sub": ""})

@@ -2903,5 +2903,19 @@
 "Your offered courses": "உங்கள் வழங்கப்பட்ட பாடநெறிகள்",
 "If they don't answer in time, the request lapses and you can ask again.": "அவர்கள் நேரத்தில் பதிலளிக்காவிட்டால், கோரிக்கை காலாவதியாகும்; நீங்கள் மீண்டும் கேட்கலாம்.",
 "Withdraw my request": "என் கோரிக்கையைத் திரும்பப் பெறு",
-"Request withdrawn": "கோரிக்கை திரும்பப் பெறப்பட்டது"
+"Request withdrawn": "கோரிக்கை திரும்பப் பெறப்பட்டது",
+"Your request to join {course} was declined": "{course} இல் சேர உங்கள் கோரிக்கை நிராகரிக்கப்பட்டது",
+"You were released from {course}": "{course} இலிருந்து விடுவிக்கப்பட்டீர்கள்",
+"Your request to join {course} lapsed": "{course} இல் சேர உங்கள் கோரிக்கை காலாவதியானது",
+"Your invitation to {course} lapsed": "{course} க்கான உங்கள் அழைப்பு காலாவதியானது",
+"Your teacher accepted your request": "உங்கள் ஆசிரியர் கோரிக்கையை ஏற்றார்",
+"You can ask again later": "பிறகு மீண்டும் கேட்கலாம்",
+"Ask your teacher if you are not sure why": "காரணம் தெரியாவிட்டால் உங்கள் ஆசிரியரிடம் கேளுங்கள்",
+"You can still look back at it": "நீங்கள் இன்னும் அதைத் திரும்பிப் பார்க்கலாம்",
+"Your teacher didn't answer within 48 hours. You can ask again.": "உங்கள் ஆசிரியர் 48 மணி நேரத்தில் பதிலளிக்கவில்லை. மீண்டும் கேட்கலாம்.",
+"It wasn't answered within 48 hours": "48 மணி நேரத்தில் பதிலளிக்கப்படவில்லை",
+"Your last request lapsed because your teacher didn't answer within 48 hours. You can ask again.": "உங்கள் ஆசிரியர் 48 மணி நேரத்தில் பதிலளிக்காததால் கடைசி கோரிக்கை காலாவதியானது. மீண்டும் கேட்கலாம்.",
+"Your invitation lapsed after 48 hours. You can still ask to join.": "48 மணி நேரத்திற்குப் பிறகு உங்கள் அழைப்பு காலாவதியானது. நீங்கள் இன்னும் சேரக் கேட்கலாம்.",
+"Your teacher couldn't take you last time. You can ask again.": "கடந்த முறை உங்கள் ஆசிரியரால் உங்களைச் சேர்க்க முடியவில்லை. மீண்டும் கேட்கலாம்.",
+"This course is paused for now. Your request stays open and your teacher can still answer it.": "இந்தப் பாடநெறி இப்போது இடைநிறுத்தத்தில் உள்ளது. உங்கள் கோரிக்கை திறந்தே இருக்கும்; ஆசிரியர் இன்னும் பதிலளிக்கலாம்."
 }

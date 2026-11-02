@@ -242,5 +242,37 @@
 [
 "^The course ends on (?<date>[0-9-]+): choose a day before then$",
 "The course ends on {date}: choose a day before then"
+],
+[
+"^You're in: (?<course>.+)$",
+"You're in: {course}"
+],
+[
+"^Your request to join (?<course>.+) was declined$",
+"Your request to join {course} was declined"
+],
+[
+"^Your place in (?<course>.+) is on hold$",
+"Your place in {course} is on hold"
+],
+[
+"^Your place in (?<course>.+) is back$",
+"Your place in {course} is back"
+],
+[
+"^You were released from (?<course>.+)$",
+"You were released from {course}"
+],
+[
+"^Course completed: (?<course>.+)$",
+"Course completed: {course}"
+],
+[
+"^Your request to join (?<course>.+) lapsed$",
+"Your request to join {course} lapsed"
+],
+[
+"^Your invitation to (?<course>.+) lapsed$",
+"Your invitation to {course} lapsed"
 ]
 ]

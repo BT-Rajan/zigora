@@ -86,16 +86,24 @@ fun JoinScreen(back: () -> Unit, openCourse: (Int) -> Unit) {
                             if (c.mine == "active") androidx.compose.material3.TextButton(enabled = busy != c.id, onClick = { leaving = c }) { Text(tl("Leave the course")) }
                         }
                         "applied" -> Column(Modifier.padding(top = 8.dp)) {
+                            if (c.state == "paused") Quiet(tl("This course is paused for now. Your request stays open and your teacher can still answer it."))
                             Quiet(tl("You asked to join. Your teacher has 48 hours to decide.") + " (" + hoursLeft(c.expires_at) + ") " + tl("If they don't answer in time, the request lapses and you can ask again."))
                             androidx.compose.material3.TextButton(enabled = busy != c.id, onClick = { run(c) {
                                 a.raw("POST", "/enrolments/${c.enrolment}", buildJsonObject { put("action", "withdraw") }); msg = tl("Request withdrawn")
                             } }) { Text(tl("Withdraw my request")) }
                         }
                         "suspended" -> Quiet(tl("Your place is on hold. Ask your teacher."), Modifier.padding(top = 8.dp))
-                        else -> Button(enabled = busy != c.id, modifier = Modifier.padding(top = 8.dp), onClick = { run(c) {
+                        else -> Column {
+                          when (c.told) {  // why a course they were waiting on is back in the list
+                            "lapsed_request" -> Quiet(tl("Your last request lapsed because your teacher didn't answer within 48 hours. You can ask again."), Modifier.padding(top = 8.dp))
+                            "lapsed_invite" -> Quiet(tl("Your invitation lapsed after 48 hours. You can still ask to join."), Modifier.padding(top = 8.dp))
+                            "decline" -> Quiet(tl("Your teacher couldn't take you last time. You can ask again."), Modifier.padding(top = 8.dp))
+                          }
+                          Button(enabled = busy != c.id, modifier = Modifier.padding(top = 8.dp), onClick = { run(c) {
                             val r = a.send("POST", "/offered/${c.id}/join", null, Offer.serializer())
                             msg = if (r.mine == "active") tl("You're in. It is in your courses.") else tl("Asked. Your teacher has 48 hours to decide.")
                         } }) { Text(if (c.access == "open") tl("Join") else tl("Ask to join")) }
+                        }
                     }
                 }
             }
