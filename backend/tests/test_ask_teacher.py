@@ -97,3 +97,20 @@ def test_similar_shared_answers_show_while_a_student_writes(env):
     got = sim("how does boiling remove hardness"); assert len(got) == 1 and got[0]["messages"][1]["text"].startswith("Bicarbonates") and got[0]["messages"][0]["who"] is None
     assert sim("ion exchange resin regeneration") == [] and sim("why") == []
     assert env.c.get(f"/api/topics/{i['topic']['Limits']}/similar", headers=other, params={"q": "boiling hardness"}).status_code == 403
+
+def test_a_student_withdraws_a_question_before_it_is_answered(env):
+    t = setup(env); q = ask(env, t, excerpt="temporary hardness").json(); assert q["can_withdraw"] is True
+    assert env.c.post(f"/api/questions/{q['id']}/withdraw", headers=env.fac).status_code == 403  # only the student who asked
+    assert env.c.post(f"/api/questions/{q['id']}/withdraw", headers=env.stu).json() == {"ok": True}
+    assert env.c.get("/api/questions", headers=env.fac).json()["total"] == 0 and env.c.get("/api/questions?status=all", headers=env.fac).json()["total"] == 0  # gone from the teacher's list
+    assert not any(i["key"].startswith("questions:") for i in env.c.get("/api/me/notifications", headers=env.fac).json()["items"])
+    assert env.c.get("/api/me/questions", headers=env.stu).json()["items"] == [] and env.c.get(f"/api/questions/{q['id']}", headers=env.stu).status_code == 404
+    with Session_() as s:
+        from main import TeacherReply
+        x = s.get(TeacherQuestion, q["id"]); assert x.status == "withdrawn" and x.excerpt is None and s.query(TeacherReply).filter_by(question_id=x.id).count() == 0  # its words are gone
+    for _ in range(9): assert ask(env, t).status_code == 200
+    assert ask(env, t).status_code == 429  # a withdrawn question still counts toward the day's ten
+    a = env.c.get("/api/me/questions", headers=env.stu).json()["items"][0]["id"]
+    env.c.post(f"/api/questions/{a}/replies", headers=env.fac, json={"text": "Bicarbonates only."})
+    assert env.c.get(f"/api/questions/{a}", headers=env.stu).json()["can_withdraw"] is False
+    r = env.c.post(f"/api/questions/{a}/withdraw", headers=env.stu); assert r.status_code == 400 and "close it" in r.json()["detail"]  # answered: close it instead

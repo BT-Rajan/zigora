@@ -256,7 +256,7 @@ class TeacherQuestion(Base):  # a student's question to the teacher of a topic's
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), index=True); course_id = Column(Integer, nullable=True, index=True)
     excerpt = Column(Text, nullable=True)  # the passage they asked about, when they asked from a highlight
-    status = Column(String(10), default="waiting", index=True)  # waiting (for the teacher), answered, closed
+    status = Column(String(10), default="waiting", index=True)  # waiting (for the teacher), answered, closed; withdrawn: taken back before an answer, its words gone
     at = Column(DateTime, default=dt.datetime.utcnow); updated = Column(DateTime, default=dt.datetime.utcnow); seen = Column(DateTime, nullable=True)  # seen: when the student last read it
     shared = Column(Boolean, default=False)  # the teacher shared it with the class: everyone on the topic reads it, without who asked
     subject = Column(String(200), nullable=True); started_by = Column(Integer, nullable=True)  # a message the teacher started (no topic): its subject and who wrote it
@@ -4273,11 +4273,12 @@ def tq_teachers(s, cid):  # who answers: the course's owner, else every admin
     owner = s.get(User, co.faculty_owner_id) if co and co.faculty_owner_id else None
     return [owner] if owner and owner.active else s.query(User).filter(User.role == "admin", User.active == True).all()  # noqa: E712
 def tq_for(u, s):  # the questions this person answers: their own courses' (admins: every course)
-    q = s.query(TeacherQuestion)
+    q = s.query(TeacherQuestion).filter(TeacherQuestion.status != "withdrawn")
     if u.role != "admin": q = q.join(Course, Course.id == TeacherQuestion.course_id).filter(Course.faculty_owner_id == u.id)
     return q
 def tq_mine(qid, u, s):  # (question, as the teacher?) when this person may read and write in it
     q = s.get(TeacherQuestion, qid)
+    if q and q.status == "withdrawn": q = None  # gone for both sides
     if q and q.user_id == u.id: return q, False
     if q and can_edit(u, q.course_id, s): return q, True
     raise HTTPException(404, "Question not found")
@@ -4342,7 +4343,7 @@ def tq_last(s, ids):
 @app.get("/api/me/questions")
 def my_questions(u: User = Depends(me), s: Session = Depends(db)):
     rows = s.query(TeacherQuestion, Topic, Course).outerjoin(Topic, Topic.id == TeacherQuestion.topic_id).outerjoin(Course, Course.id == TeacherQuestion.course_id) \
-        .filter(TeacherQuestion.user_id == u.id).order_by(TeacherQuestion.updated.desc()).limit(100).all()
+        .filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status != "withdrawn").order_by(TeacherQuestion.updated.desc()).limit(100).all()
     last = tq_last(s, [q.id for q, _, _ in rows])
     return {"items": [{**tq_row(q, t, c, last.get(q.id)), "unread": q.status == "answered" and (q.seen is None or q.seen < q.updated)} for q, t, c in rows]}
 @app.get("/api/questions")
@@ -4362,7 +4363,7 @@ def tq_json(q, u, s):
     asker = s.get(User, q.user_id); teach = q.user_id != u.id
     msgs = tq_msgs(s, q, u, (asker.name if asker else ""))
     return {**tq_row(q, t, c, msgs[-1]["text"] if msgs else "", asker.name if teach and asker else None), "excerpt": q.excerpt, "messages": msgs, "teacher": teach, "shared": bool(q.shared),
-            "can_share": teach and any(m["teacher"] for m in msgs)}
+            "can_share": teach and any(m["teacher"] for m in msgs), "can_withdraw": not teach and not q.started_by and not any(m["teacher"] for m in msgs)}
 def tq_msgs(s, q, u, asker_name):  # asker_name None: the class's view, where the student who asked is not named
     return [{"id": r.id, "mine": r.user_id == u.id, "teacher": r.user_id != q.user_id, "who": (w.name if w else "") if r.user_id != q.user_id else asker_name,
              "text": r.text, "image": f"/api/qimg/{r.image}" if r.image else None, "at": utc_iso(r.at),
@@ -4403,6 +4404,20 @@ def reply_question(qid: int, b: ReplyIn, bg: BackgroundTasks, u: User = Depends(
     if teach and asker:
         notify(s, asker, "answer", "Your teacher answered on {app}", "{teacher} answered your question about {topic}. Open {app} to read it.", run=bg.add_task, teacher=u.name, topic=t.title if t else "")
     return tq_json(q, u, s)
+@app.post("/api/questions/{qid}/withdraw")
+def withdraw_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
+    """The student takes a question back before any teacher has answered: its words and photos are deleted and it leaves the teacher's list.
+    The row stays, empty, so it still counts toward the day's questions (asking and taking back can't flood a teacher's inbox)."""
+    q, teach = tq_mine(qid, u, s)
+    if teach or q.started_by: raise HTTPException(403, "Only the student who asked can withdraw a question")
+    if s.query(TeacherReply.id).filter(TeacherReply.question_id == q.id, TeacherReply.user_id != q.user_id).first():
+        raise HTTPException(400, "Your teacher has answered, so it can't be withdrawn. You can close it instead.")
+    for (img,) in s.query(TeacherReply.image).filter(TeacherReply.question_id == q.id, TeacherReply.image.isnot(None)):
+        try: os.remove(os.path.join(UPLOADS, "questions", img))
+        except OSError: pass
+    s.query(TeacherReply).filter_by(question_id=q.id).delete()
+    q.status, q.excerpt, q.shared, q.updated = "withdrawn", None, False, dt.datetime.utcnow(); s.commit()
+    return {"ok": True}
 @app.post("/api/questions/{qid}/close")
 def close_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
     q, _ = tq_mine(qid, u, s); q.status = "closed"; q.updated = dt.datetime.utcnow(); s.commit(); return tq_json(q, u, s)
@@ -4448,7 +4463,7 @@ def struggles(days: int = 30, course_id: int = 0, u: User = Depends(author), s: 
     if not topics: return {"days": days, "items": [], "courses": [{"id": c.id, "name": c.name} for c in live_courses(u, s)]}
     rows = defaultdict(lambda: {"questions": 0, "doubts": 0, "not_quite": 0, "simpler": 0, "flags": 0, "students": set()})
     ids = list(topics)
-    for tid, uid in s.query(TeacherQuestion.topic_id, TeacherQuestion.user_id).filter(TeacherQuestion.topic_id.in_(ids), TeacherQuestion.at >= since): rows[tid]["questions"] += 1; rows[tid]["students"].add(uid)
+    for tid, uid in s.query(TeacherQuestion.topic_id, TeacherQuestion.user_id).filter(TeacherQuestion.topic_id.in_(ids), TeacherQuestion.at >= since, TeacherQuestion.status != "withdrawn"): rows[tid]["questions"] += 1; rows[tid]["students"].add(uid)
     for tid, uid, kind, out in s.query(StepLog.topic_id, StepLog.user_id, StepLog.kind, StepLog.outcome).filter(StepLog.topic_id.in_(ids), StepLog.at >= since, StepLog.kind.in_(("doubt", "check", "simpler"))):
         if kind == "doubt": rows[tid]["doubts"] += 1
         elif kind == "simpler": rows[tid]["simpler"] += 1
@@ -4925,7 +4940,7 @@ def offer_help(tid: int, b: HelpIn, bg: BackgroundTasks, u: User = Depends(autho
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
     cid = topic_course_id(t, s); need_edit(u, cid, s); text_ = tq_text(b.text); since = dt.datetime.utcnow() - dt.timedelta(days=min(max(b.days, 7), 180))
-    ids = {i for (i,) in s.query(TeacherQuestion.user_id).filter(TeacherQuestion.topic_id == tid, TeacherQuestion.at >= since)}
+    ids = {i for (i,) in s.query(TeacherQuestion.user_id).filter(TeacherQuestion.topic_id == tid, TeacherQuestion.at >= since, TeacherQuestion.status != "withdrawn")}
     ids |= {i for i, k, o in s.query(StepLog.user_id, StepLog.kind, StepLog.outcome).filter(StepLog.topic_id == tid, StepLog.at >= since, StepLog.kind.in_(("doubt", "check", "simpler"))) if k != "check" or o == "not_yet"}
     ids |= {i for (i,) in s.query(AIFlag.user_id).filter(AIFlag.topic_id == tid, AIFlag.at >= since)}
     people = [x for x in s.query(User).filter(User.id.in_(ids or {0}), User.role == "student", User.active == True)]  # noqa: E712

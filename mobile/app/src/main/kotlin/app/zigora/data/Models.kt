@@ -58,7 +58,7 @@ import kotlinx.serialization.json.JsonObject
                                      val file: FileRef? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
                                         val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false, val teacher: Boolean = false, val can_share: Boolean = false,
-                                        val student: String? = null)
+                                        val student: String? = null, val can_withdraw: Boolean = false)
 /** a teacher's marked model answer for a topic */
 @Serializable data class MAPart(val text: String = "", val marks: Double = 0.0)
 @Serializable data class ModelAnswer(val question: String = "", val parts: List<MAPart> = emptyList(), val total: Double = 0.0, val by: String = "")

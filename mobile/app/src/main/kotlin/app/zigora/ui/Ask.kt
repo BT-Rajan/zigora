@@ -174,7 +174,7 @@ fun MyQuestions(openQuestion: (Int) -> Unit, sub: (String) -> Unit) {
 /** one question's thread: the student's messages on one side, the teacher's on the other; they can reply until it is closed */
 @Composable
 fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
-    val a = api(); val scope = rememberCoroutineScope()
+    val a = api(); val scope = rememberCoroutineScope(); val toast = rememberToast()
     val l = rememberLoad("question", id) { get("/questions/$id", QuestionThread.serializer()) }
     var q by remember(id) { mutableStateOf<QuestionThread?>(null) }
     var text by remember { mutableStateOf("") }
@@ -182,6 +182,7 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
     var closing by remember { mutableStateOf(false) }
+    var withdrawing by remember { mutableStateOf(false) }
     Loaded(l) { first ->
         val t = q ?: first
         Page(t.topic, listOfNotNull(t.course, t.student, stateLabel(t.status)).filter { it.isNotEmpty() }.joinToString(" · "), back = back) {
@@ -217,6 +218,7 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                     } }) { Text(if (busy) tl("Sending…") else if (t.teacher) tl("Send answer") else tl("Send")) }
                     OutlinedButton(onClick = { closing = true }) { Text(tl("Close the question")) }
                 }
+                if (t.can_withdraw) TextButton(onClick = { withdrawing = true }) { Text(tl("Withdraw the question")) }  // before any answer: take it back
             }
         }
         if (closing) AlertDialog(onDismissRequest = { closing = false }, title = { Text(tl("Close this question?")) },
@@ -225,5 +227,11 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                 try { q = a.send("POST", "/questions/$id/close", null, QuestionThread.serializer()) } catch (e: Exception) { err = I18n.srv(e.message) }
             } }) { Text(tl("Close it")) } },
             dismissButton = { TextButton(onClick = { closing = false }) { Text(stringResource(R.string.cancel)) } })
+        if (withdrawing) AlertDialog(onDismissRequest = { withdrawing = false }, title = { Text(tl("Withdraw this question?")) },
+            text = { Text(tl("It is deleted and leaves your teacher's list. They may already have had an email about it.")) },
+            confirmButton = { TextButton(onClick = { withdrawing = false; scope.launch {
+                try { a.raw("POST", "/questions/$id/withdraw"); toast(tl("Question withdrawn")); onMain(back) } catch (e: Exception) { err = I18n.srv(e.message) }
+            } }) { Text(tl("Withdraw"), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { withdrawing = false }) { Text(stringResource(R.string.cancel)) } })
     }
 }

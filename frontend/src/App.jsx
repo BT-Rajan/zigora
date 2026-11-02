@@ -859,6 +859,8 @@ function QuestionThread({id,back,toast}){
   const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text,photo:photo||''}}));setText('');setPhoto(null)}catch(e){toast(srv(e.message))}setBusy(false)}
   const end=async()=>{if(!await confirm({title:tl("Close this question?"),body:tl("Nobody can reply after this. A new question can be asked from the topic."),ok:tl("Close it")}))return
     try{setQ(await api(`/questions/${id}/close`,{method:'POST'}))}catch(e){toast(srv(e.message))}}
+  const withdraw=async()=>{if(!await confirm({title:tl("Withdraw this question?"),body:tl("It is deleted and leaves your teacher's list. They may already have had an email about it."),ok:tl("Withdraw"),danger:true}))return
+    try{await api(`/questions/${id}/withdraw`,{method:'POST'});toast(tl("Question withdrawn"));back()}catch(e){toast(srv(e.message))}}
   const share=async on=>{if(on&&!await confirm({title:tl("Share with the class?"),body:tl("Everyone studying this topic will see the question and the answers under the topic. The student who asked is not named."),ok:tl("Share")}))return
     try{setQ(await api(`/questions/${id}/share`,{method:'POST',body:{shared:on}}));toast(on?tl("Shared with the class"):tl("No longer shared"))}catch(e){toast(srv(e.message))}}
   if(topic)return <Topic id={q.topic_id} back={()=>setTopic(false)} toast={toast} role={role}/>
@@ -871,7 +873,8 @@ function QuestionThread({id,back,toast}){
         <textarea id="tqr" rows={3} maxLength={1000} value={text} onChange={e=>setText(e.target.value)}/>
         <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
         <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):tl("Send")}</button>
-        <button className="btn ghost" onClick={end}>{tl("Close the question")}</button></>}</>}</div></>}
+        <button className="btn ghost" onClick={end}>{tl("Close the question")}</button>
+        {q.can_withdraw&&<button className="btn ghost" onClick={withdraw}>{tl("Withdraw the question")}</button>}</>}</>}</div></>}  {/* before any answer: take it back */}
 // under a topic: questions the teacher shared with the class, each with its answers; who asked is never shown
 function ClassQuestions({tid}){
   const [d,setD]=useState(null),[open,setOpen]=useState({})

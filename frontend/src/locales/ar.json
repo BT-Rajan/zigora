@@ -2941,5 +2941,11 @@
 "A classmate has progress or quiz results on this course. Finishing again removes theirs too.": "لدى زميل تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا.",
 "{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.": "لدى {n} من الزملاء تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا.",
 "That was the last topic of this course.": "كان هذا آخر موضوع في هذا المقرر.",
-"Back to the course": "العودة إلى المقرر"
+"Back to the course": "العودة إلى المقرر",
+"Withdraw this question?": "هل تسحب هذا السؤال؟",
+"It is deleted and leaves your teacher's list. They may already have had an email about it.": "يُحذف ويختفي من قائمة معلمك. ربما وصله بريد عنه بالفعل.",
+"Question withdrawn": "سُحب السؤال",
+"Withdraw the question": "اسحب السؤال",
+"Only the student who asked can withdraw a question": "يمكن للطالب الذي سأل فقط سحب السؤال",
+"Your teacher has answered, so it can't be withdrawn. You can close it instead.": "أجاب معلمك، لذا لا يمكن سحبه. يمكنك إغلاقه بدلًا من ذلك."
 }
