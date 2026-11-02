@@ -378,7 +378,7 @@ Off by default. Turn it on under Settings > Self-registration. It also needs ema
 - The code email is sent while the person waits, and tried once more if it fails. If it still fails, the screen says the code could not be sent (never that it was), with **Try sending the code again** (no 30-second wait after a failure) and **Back to sign in**. The reason stays in the email log for the admin. An address that already has an account gets the same answer, delivery failure included, so the form still can't be used to find out who is registered.
 - The sign-up form gives the same answer whether or not an email already has an account (an existing address gets a notice by email), and an institution + ID number can only be used once.
 - Optional "only these email domains" (for example `college.edu`) limits who can register.
-- They arrive with no program or semester. Find them in Users (marked "Self-registered"; search by name, email, ID or phone), then use Select several > Move.
+- They arrive with no program or semester. Until they are placed, Home (and My courses in the app) says the admin will assign their program and term, and that they don't have to wait: **Build a course from your own notes** and **Join a course offered by a teacher** are right there. Find them in Users (marked "Self-registered"; search by name, email, ID or phone), then use Select several > Move.
 - **AI uses their own key.** Self-registered people never use the shared admin key. They add a DeepSeek key under "My AI key"; it is checked with DeepSeek, then stored encrypted (derived from `JWT_SECRET`, so changing that secret means they add their key again). Until they do, AI shows as off for them.
 
 ### AI plans for self-registered people

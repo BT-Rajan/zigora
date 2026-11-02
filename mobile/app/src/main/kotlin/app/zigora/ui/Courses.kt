@@ -55,7 +55,8 @@ fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, openJoi
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(16.dp)) {
             Loaded(tree) { list ->
                 val courses = coursesOf(list)
-                if (courses.isEmpty()) Quiet(stringResource(if (me.self_registered && !me.placed) R.string.not_placed else R.string.not_enrolled))
+                if (courses.isEmpty() && me.self_registered && !me.placed) NotPlacedYet(me, openStudy, openJoin)
+                else if (courses.isEmpty()) Quiet(stringResource(R.string.not_enrolled))
                 else CourseList(courses, open)
             }
             Gap(16)

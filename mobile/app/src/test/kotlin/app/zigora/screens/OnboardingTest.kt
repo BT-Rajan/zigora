@@ -82,6 +82,17 @@ class OnboardingTest {
         tap("Back to sign in"); see("Email or username")
     }
 
+    @Test fun aStudentNotPlacedYetIsShownTwoWaysToStart() {
+        signIn("mum@x.com")  // a parent adds a child with no grade: they sign in unplaced
+        runBlocking { app.api.raw("POST", "/guardian/students", kotlinx.serialization.json.buildJsonObject { put("students", kotlinx.serialization.json.JsonArray(listOf(
+            buildJsonObject { put("name", "Nila"); put("username", "nila.r"); put("password", "pw123456") }))) }) }
+        signIn("nila.r")
+        rule.setContent { ZigoraRoot(null) {} }
+        see("Your account is ready"); see("program and grade"); see("You don't have to wait to start learning.")
+        see("Build a course from your own notes"); see("Join a course offered by a teacher"); shot("onboarding-10-not-placed-yet")
+        tap("Join a course offered by a teacher"); see("Join a course")
+    }
+
     @Test fun aParentSeesTheirChildAndTheAiKey() {
         signIn("mum@x.com")
         rule.setContent { ZigoraRoot(null) {} }

@@ -1190,7 +1190,7 @@ function ThisWeek({d,onGo}){
     <span className="wweek" aria-label={tl("Studied on {n} of the last 7 days",{n:d.week.filter(Boolean).length})}>{d.week.map((on,i)=><span key={i} className={on?'on':''} aria-hidden="true">{days[i]}</span>)}</span>
     <small className="known">{tl("Topics learned this week: {n}",{n:d.completed_this_week})} · {tl("{p}% of your topics learned",{p:d.percent})}</small></button>}
 function Dashboard({user,toast,onOpen,onStudy,onRoutine,onCalendar,onGo}){
-  const [sme,setSme]=useState(null);useEffect(()=>{api('/study/me').then(setSme).catch(()=>{})},[])
+  const unplaced=user.self_registered&&!user.placed,[sme,setSme]=useState(null);useEffect(()=>{api('/study/me').then(setSme).catch(()=>{})},[])
   const [tree,setTree]=useState(null),[today,setToday]=useState(null),[topic,setTopic]=useState(null),[sess,setSess]=useState(null)
   const [dd,setDd]=useState(null)
   useEffect(()=>{if(topic)return;api('/tree').then(setTree).catch(e=>toast(e.message));api('/me/today').then(setToday).catch(()=>{});api('/me/dashboard').then(setDd).catch(()=>{})},[topic,toast])
@@ -1209,9 +1209,14 @@ function Dashboard({user,toast,onOpen,onStudy,onRoutine,onCalendar,onGo}){
     <RecallCard open={setTopic}/>
     <ComingUp onAll={onCalendar}/>
     {sme&&sme.courses>0&&<><h3 className="sec">{tl("Your own courses")}</h3><LearnCard me={sme} compact onContinue={n=>onStudy({id:n.course_id,topic:n.topic_id})} onReview={cid=>onStudy({review:cid})}/></>}
-    {sme&&!sme.courses&&tree&&!courses.length&&<button className="row rowbtn" onClick={()=>onStudy(null)}><span className="dot" style={{background:'var(--acc)'}}><Upload size={18}/></span><div>{tl("Build a course from your own notes")}<small>{tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews")}</small></div><ChevronRight size={18}/></button>}
+    {sme&&!sme.courses&&tree&&!courses.length&&!unplaced&&<div className="card"><button className="hit" onClick={()=>onStudy(null)}><span className="dot" style={{background:'var(--acc)'}}><Upload size={18}/></span><div><b>{tl("Build a course from your own notes")}</b><span>{tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews")}</span></div><ChevronRight size={18}/></button></div>}
     {!tree&&<><div className="sk"/><div className="sk"/></>}
-    {tree&&!courses.length&&<p className="known">{user.self_registered&&!user.placed?tl("Your account is ready. An admin will place you in your program and semester or year, and your courses will appear here."):tl("You are not enrolled in a course yet. Ask your admin to add you to one.")}</p>}
+    {tree&&!courses.length&&unplaced&&<><h3 className="sec">{tl("Your account is ready")}</h3>  {/* placement is the admin's; two ways in meanwhile */}
+      <p className="known" style={{marginTop:0}}>{user.level==='school'?tl("Your institution's admin will assign your program and grade. Your institution's courses will appear here after that."):tl("Your institution's admin will assign your program and semester or year. Your institution's courses will appear here after that.")}</p>
+      <p style={{margin:'4px 0 8px'}}><b>{tl("You don't have to wait to start learning.")}</b></p>
+      <div className="card"><button className="hit" onClick={()=>onStudy(null)}><span className="dot" style={{background:'var(--acc)'}}><Upload size={18}/></span><div><b>{tl("Build a course from your own notes")}</b><span>{tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews")}</span></div><ChevronRight size={18}/></button></div>
+      <div className="card"><button className="hit" onClick={()=>onGo('join')}><span className="dot" style={{background:'var(--acc)'}}><Plus size={18}/></span><div><b>{tl("Join a course offered by a teacher")}</b><span>{tl("Open courses, courses you can ask to join, and invitations")}</span></div><ChevronRight size={18}/></button></div></>}
+    {tree&&!courses.length&&!unplaced&&<p className="known">{tl("You are not enrolled in a course yet. Ask your admin to add you to one.")}</p>}
     {courses.length>0&&<><h3 className="sec">{tl("My courses")}</h3><Paged rows={courses} render={({p,s,c,topics},i)=>{const done=topics.filter(t=>t.status==='completed').length,opened=topics.filter(t=>t.status!=='not_started').length
       if(c.archived)return <div key={c.id} className="card" style={{opacity:.7}}><button className="hit" onClick={()=>toast(tl("This course is unavailable right now"))} aria-label={tl("{name}, unavailable right now",{name:c.name})}><span className="dot" style={{background:'var(--mut)'}}><Lock size={18}/></span><div><b>{c.name}</b><span>{tl("Unavailable right now")}</span></div></button></div>
       return <div key={c.id} className="card"><button className="hit" onClick={()=>onOpen([p.id,s.id,c.id])}><span className="dot" style={{background:COL[i%5]}}>{c.name[0]}</span><div><b>{c.name}</b><span>{pl(topics.length,'topic')}{opened?' · '+tl("{n} opened",{n:opened}):''}{done?' · '+tl("{n} learned",{n:done}):''}</span></div><ChevronRight size={18}/></button></div>}}/></>}
