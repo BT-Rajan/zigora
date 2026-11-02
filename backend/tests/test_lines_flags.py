@@ -71,3 +71,23 @@ def test_a_flagged_step_reads_as_text_not_json(env, monkeypatch):
     t = setup(env, monkeypatch); h = hl(env, t); e = env.c.post(f"/api/me/highlights/{h['id']}/explain", headers=env.stu).json()["explain"]
     env.c.post("/api/ai/flag", headers=env.stu, json={"source": "topic", "id": e["id"], "topic_id": t})
     assert env.c.get("/api/flags", headers=env.admin).json()["items"][0]["excerpt"] == "It means the salts stay dissolved."
+
+def test_students_report_a_problem_with_a_topics_notes_and_its_teacher_sees_it_without_their_name(env, monkeypatch):
+    t = setup(env, monkeypatch)
+    with Session_() as s:
+        fac = s.query(User).filter_by(email="fac@x.com").one().id; s.query(Course).filter(Course.id == s.get(Topic, t).course_id).update({"faculty_owner_id": fac}); s.commit()
+    note = lambda kind, h=None, reason="": env.c.post("/api/ai/flag", headers=h or env.stu, json={"source": "notes", "topic_id": t, "kind": kind, "reason": reason})
+    assert note("boring").status_code == 400 and note("missing").json() == {"ok": True}
+    note("missing"); note("incorrect", reason="The formula for hardness is wrong"); note("incorrect", h=env.admin)  # twice the same: counted once
+    r = env.c.get("/api/flags", headers=env.fac).json(); by = {f["kind"]: f for f in r["items"]}
+    assert r["total"] == 2 and by["missing"]["count"] == 1 and by["incorrect"]["count"] == 2 and by["incorrect"]["reasons"] == ["The formula for hardness is wrong"]
+    assert all(f["source"] == "notes" and f["topic"] == "Water" for f in r["items"]) and "stu@x.com" not in json.dumps(r)
+    assert env.c.post(f"/api/flags/{by['missing']['id']}/resolve", headers=env.fac, json={"action": "rewrite"}).status_code == 400  # there is no saved answer to write again
+    assert env.c.post(f"/api/flags/{by['incorrect']['id']}/resolve", headers=env.fac, json={"action": "fixed"}).json()["closed"] == 2
+    assert [f["kind"] for f in env.c.get("/api/flags", headers=env.fac).json()["items"]] == ["missing"]  # each problem closes on its own
+
+def test_a_topic_says_when_it_has_nothing_to_study(env, monkeypatch):
+    t = setup(env, monkeypatch)
+    assert env.c.get(f"/api/topics/{t}", headers=env.admin).json()["empty"] is False
+    with Session_() as s: s.get(Topic, t).content = "  "; s.commit()
+    assert env.c.get(f"/api/topics/{t}", headers=env.admin).json()["empty"] is True

@@ -2202,7 +2202,7 @@ def admin_dashboard(u: User = Depends(admin), s: Session = Depends(db)):
     flags = flags_for(u, s); nf = flags.count()
     if nf:
         oldest = flags.order_by(AIFlag.at).first().at; days = (now - oldest).days
-        add(nf, "content", "now" if days >= FLAG_OLD_DAYS else "soon", "flags", "Flagged AI answers to check: {n}, the oldest from {days} days ago" if days else "Flagged AI answers to check: {n}",
+        add(nf, "content", "now" if days >= FLAG_OLD_DAYS else "soon", "flags", "Student reports to check: {n}, the oldest from {days} days ago" if days else "Student reports to check: {n}",  # flagged AI answers and problems with notes
             "flags", {"days": days})
     waiting = tq_for(u, s).filter(TeacherQuestion.status == "waiting"); nq = waiting.count()
     if nq:
@@ -3427,7 +3427,9 @@ def topic(tid: int, u: User = Depends(me), s: Session = Depends(db)):
     p = s.query(Progress).filter_by(user_id=u.id, topic_id=tid).first()
     edit = can_edit(u, topic_course_id(t, s), s)
     frame = {"frame_url": f"/api/topics/{tid}/frame?t={frame_pass(u, tid)}"} if fmt_of(t) == "interactive" else {}
-    return {**full(t, s), **frame, "diagram": diagram_state(u, t, s), "ask": ask_state(u), "model_answer": model_answer_json(s, tid), **learning_state(t.learning_due_at, p, dt.datetime.utcnow()), "my_notes": my_notes(s, u.id, tid), "can_edit": edit, "nav": topic_neighbours(t, edit, s), "bookmarked": s.query(Bookmark).filter_by(user_id=u.id, topic_id=tid).first() is not None}
+    return {**full(t, s), **frame, "diagram": diagram_state(u, t, s), "ask": ask_state(u), "model_answer": model_answer_json(s, tid), **learning_state(t.learning_due_at, p, dt.datetime.utcnow()), "my_notes": my_notes(s, u.id, tid), "can_edit": edit, "empty": topic_empty(t), "nav": topic_neighbours(t, edit, s), "bookmarked": s.query(Bookmark).filter_by(user_id=u.id, topic_id=tid).first() is not None}
+def topic_empty(t):  # nothing a student can study: no words in its notes (an interactive page counts as content, whatever it says)
+    fmt = fmt_of(t); return not (t.content or "").strip() if fmt == "interactive" else not words_of(t.content, fmt).strip()
 # ---- interactive topics run in a sandboxed frame; highlights are saved per person ----
 # The page gets an opaque origin (CSP sandbox without allow-same-origin), so its scripts can't read the app's sign-in, call the API as the reader or
 # touch the app's page. It talks to the app only through postMessage, and the app accepts just the highlight messages below.
@@ -4207,11 +4209,16 @@ class FlagIn(BaseModel): source: str; id: int | None = None; topic_id: int | Non
 FLAG_DAILY = 20
 @app.post("/api/ai/flag")
 def flag_ai(b: FlagIn, u: User = Depends(me), s: Session = Depends(db)):
-    if b.source not in ("topic", "search", "photo"): raise HTTPException(400, "Unknown source")
+    if b.source not in ("topic", "search", "photo", "notes"): raise HTTPException(400, "Unknown source")
     if s.query(func.count(AIFlag.id)).filter(AIFlag.user_id == u.id, AIFlag.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= FLAG_DAILY:
         raise HTTPException(429, "Thanks, that's plenty of reports for today.")
     excerpt, kind, tid = (b.excerpt or "")[:600], (b.kind or "")[:10], None
-    if b.source == "topic":
+    if b.source == "notes":  # the topic's own notes, not an AI answer: missing, incomplete, incorrect, or about a different topic
+        if b.kind not in NOTE_PROBLEMS: raise HTTPException(400, "Choose missing, incomplete, incorrect or wrong topic")
+        t = s.get(Topic, b.topic_id or 0)
+        if not t: raise HTTPException(404, "Topic not found")
+        check_topic_access(u, t, s); tid, kind, b.id, excerpt = t.id, b.kind, t.id, ""
+    elif b.source == "topic":
         t = s.get(Topic, b.topic_id or 0)
         if not t: raise HTTPException(404, "Topic not found")
         check_topic_access(u, t, s); tid = t.id
@@ -4223,9 +4230,10 @@ def flag_ai(b: FlagIn, u: User = Depends(me), s: Session = Depends(db)):
         row = s.get(SearchAnswer, b.id) if b.id else None
         if row: excerpt, kind = row.text[:600], "search"
         kind = "search"
-    if b.id and s.query(AIFlag).filter_by(user_id=u.id, source=b.source, ref=b.id, status="open").first(): return {"ok": True}  # already reported
+    if b.id and s.query(AIFlag).filter_by(user_id=u.id, source=b.source, ref=b.id, kind=kind, status="open").first(): return {"ok": True}  # already reported
     s.add(AIFlag(user_id=u.id, topic_id=tid, source=b.source, kind=kind, ref=b.id, excerpt=excerpt, reason=(b.reason or "").strip()[:300] or None)); s.commit()
     return {"ok": True}
+NOTE_PROBLEMS = ("missing", "incomplete", "incorrect", "wrong")  # what a student can report about a topic's notes
 def readable(kind, text):  # a saved step reply (JSON) as plain lines, for a teacher reading a flag
     d = step_reply(kind, text) if kind in STEPS else None
     if not d: return text
@@ -4240,7 +4248,7 @@ def list_flags(limit: int = 10, offset: int = 0, u: User = Depends(staff), s: Se
     """Open flags, one row per reply flagged (with how many students flagged it and what they said), newest first."""
     groups = {}
     for f in flags_for(u, s).order_by(AIFlag.id.desc()).all():
-        g = groups.setdefault((f.source, f.ref or -f.id), {"id": f.id, "source": f.source, "kind": f.kind, "topic_id": f.topic_id, "excerpt": f.excerpt, "reasons": [], "count": 0, "at": f.at.isoformat() + "Z"})
+        g = groups.setdefault((f.source, f.ref or -f.id, f.kind if f.source == "notes" else ""), {"id": f.id, "source": f.source, "kind": f.kind, "topic_id": f.topic_id, "excerpt": f.excerpt, "reasons": [], "count": 0, "at": f.at.isoformat() + "Z"})
         g["count"] += 1
         if f.reason and len(g["reasons"]) < 5: g["reasons"].append(f.reason)
     items = list(groups.values()); page = items[max(offset, 0):max(offset, 0) + min(max(limit, 1), 50)]
@@ -4253,12 +4261,13 @@ def resolve_flag(fid: int, b: FlagDo, u: User = Depends(staff), s: Session = Dep
     """'rewrite' drops the saved reply so the next request writes it again; 'keep' lets it stand. Either closes every flag on that reply."""
     f = flags_for(u, s).filter(AIFlag.id == fid).first()
     if not f: raise HTTPException(404, "Flag not found")
-    if b.action not in ("rewrite", "keep"): raise HTTPException(400, "Choose rewrite or keep")
+    if b.action not in (("fixed", "keep") if f.source == "notes" else ("rewrite", "keep")): raise HTTPException(400, "Choose rewrite or keep")  # notes: the teacher fixed them, or they stand
     same = s.query(AIFlag).filter(AIFlag.source == f.source, AIFlag.ref == f.ref, AIFlag.status == "open") if f.ref else s.query(AIFlag).filter(AIFlag.id == f.id)
+    if f.source == "notes": same = same.filter(AIFlag.kind == f.kind)  # each problem reported about a topic's notes is closed on its own
     if b.action == "rewrite" and f.ref:
         if f.source == "topic": s.query(AICache).filter(AICache.id == f.ref).delete(synchronize_session=False)
         else: s.query(SearchAnswer).filter(SearchAnswer.id == f.ref).delete(synchronize_session=False)
-    n = same.update({"status": "fixed" if b.action == "rewrite" else "kept"}, synchronize_session=False); s.commit()
+    n = same.update({"status": "kept" if b.action == "keep" else "fixed"}, synchronize_session=False); s.commit()
     return {"ok": True, "closed": n}
 # ---- ask the teacher: a student asks the teacher of a topic's course a question (from the topic, or from a passage they highlighted). The course's
 # ---- owner, or an admin when it has none, answers in a short thread. Unlike a flag it is not anonymous: a teacher answers a person.

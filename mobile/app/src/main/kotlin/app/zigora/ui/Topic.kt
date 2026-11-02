@@ -118,6 +118,7 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
     var upNext by remember(id) { mutableStateOf<List<SessionItem>?>(null) }
     var practising by remember { mutableStateOf("") }
     var asking by remember { mutableStateOf(false) }
+    var reporting by remember { mutableStateOf(false) }
     LaunchedEffect(id) { runCatching { known = a.send("POST", "/topics/$id/read", null, ReadOut.serializer()).known } } // opening a topic starts it; it never completes it
     LearnClock()
     val scroll = TopAppBarDefaults.enterAlwaysScrollBehavior()
@@ -152,7 +153,9 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
                     if (t.ask == "pro") { Icon(Icons.Outlined.Lock, null, Modifier.size(16.dp)); Text(" " + tl("Ask my teacher") + " · " + tl("Pro")) } else Text(tl("Ask my teacher"))
                 }
                 if (asking) AskTeacherBox(id) { sent -> asking = false; if (sent) scope.launch { snack.showSnackbar(tl("Sent. Your teacher's answer will be in My questions.")) } }  // the Per topic way in; the bank needs no AI
-                if (student && aiOn) {
+                if (student) TextButton(onClick = { reporting = true }) { Text(tl("Report a problem with these notes")) }
+                if (reporting) NotesReport(id, close = { reporting = false }) { scope.launch { snack.showSnackbar(tl("Thanks. Your teacher will check the notes.")) } }
+                if (student && aiOn && (!t.empty || t.my_notes != null)) {  // nothing to ask about: no notes, theirs or the teacher's
                     SectionTitle(stringResource(R.string.test_yourself))
                     androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  // buttons go to a new line rather than squeeze their text
                         listOf("mcq" to R.string.five_quick, "quiz" to R.string.full_quiz_10).forEach { (k, l) ->
@@ -437,4 +440,30 @@ private fun Outline(tid: Int, aiOn: Boolean) {
         d.list("points").forEachIndexed { i, p -> Row(Modifier.padding(top = 6.dp)) { Text("${i + 1}.  "); Md(p) } }
         if (d.str("marks").isNotEmpty()) Quiet(stringResource(R.string.marks, d.str("marks")), Modifier.padding(top = 8.dp))
     }
+}
+
+/** a student tells the topic's teacher its notes have a problem; who sent it is never shown */
+@Composable
+private fun NotesReport(tid: Int, close: () -> Unit, sent: () -> Unit) {
+    val a = api(); val scope = rememberCoroutineScope()
+    var kind by remember { mutableStateOf("") }
+    var why by remember { mutableStateOf("") }
+    var err by remember { mutableStateOf("") }
+    val problems = listOf("missing" to tl("The notes are missing"), "incomplete" to tl("The notes are incomplete"),
+                          "incorrect" to tl("Something in the notes is wrong"), "wrong" to tl("The notes are about a different topic"))
+    androidx.compose.material3.AlertDialog(onDismissRequest = close, title = { Text(tl("Report a problem with these notes")) }, text = {
+        androidx.compose.foundation.layout.Column {
+            Quiet(tl("Your teacher sees what you report, never who sent it."))
+            problems.forEach { (k, l) ->
+                Row(Modifier.fillMaxWidth().clickableRounded { kind = k }, verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.RadioButton(selected = kind == k, onClick = { kind = k }); Text(l)
+                }
+            }
+            androidx.compose.material3.OutlinedTextField(why, { if (it.length <= 300) why = it }, Modifier.fillMaxWidth(), label = { Text(tl("What's the problem? (optional)")) })
+            if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
+        }
+    }, confirmButton = { TextButton(enabled = kind.isNotEmpty(), onClick = { scope.launch {
+        try { a.raw("POST", "/ai/flag", buildJsonObject { put("source", "notes"); put("topic_id", tid); put("kind", kind); put("reason", why.trim()) }); close(); sent() }
+        catch (e: Exception) { err = e.message.orEmpty() }
+    } }) { Text(tl("Send")) } }, dismissButton = { TextButton(onClick = close) { Text(tl("Cancel")) } })
 }
