@@ -1086,13 +1086,15 @@ function JoinPage({toast,openCourse}){
   const load=()=>api('/offered/catalog').then(setD).catch(e=>toast(e.message));useEffect(()=>{load()},[])
   const join=async c=>{setBusy(c.id);try{const r=await api(`/offered/${c.id}/join`,{method:'POST'});toast(r.mine==='active'?tl("You're in. It is in your courses."):tl("Asked. Your teacher has 48 hours to decide."));load()}catch(e){toast(srv(e.message))}setBusy(0)}
   const answer=async(c,action)=>{setBusy(c.id);try{await api('/enrolments/'+c.enrolment,{method:'POST',body:{action}});toast(action==='accept'?tl("You're in. It is in your courses."):tl("Declined"));load()}catch(e){toast(srv(e.message))}setBusy(0)}
+  const withdraw=async c=>{setBusy(c.id);try{await api('/enrolments/'+c.enrolment,{method:'POST',body:{action:'withdraw'}});toast(tl("Request withdrawn"));load()}catch(e){toast(srv(e.message))}setBusy(0)}
   const leave=async c=>{if(!await confirm({title:tl("Leave {course}?",{course:c.name}),body:tl("It goes from your courses. Your work so far is kept; you can ask to join again later."),ok:tl("Leave"),danger:true}))return
     setBusy(c.id);try{await api('/enrolments/'+c.enrolment,{method:'POST',body:{action:'leave'}});toast(tl("You have left the course"));load()}catch(e){toast(srv(e.message))}setBusy(0)}
   const ON=['active','completed','suspended','applied'],mine=d?d.items.filter(x=>ON.includes(x.mine)):[],others=d?d.items.filter(x=>x.mine!=='invited'&&!ON.includes(x.mine)):[]  // the courses they are on (or asked for) apart from the ones they could join
   const card=c=><div key={c.id} className="qbox"><div className="wtop" style={{display:'flex',justifyContent:'space-between',gap:8}}><b>{c.name}</b><OfferChip c={c}/></div>
         <small className="known" style={{display:'block'}}>{c.teacher} · {offerDates(c)} · {pl(c.topics,'topic')}</small>{c.about&&<div className="prose flat"><Md>{c.about}</Md></div>}
         {c.mine==='active'||c.mine==='completed'?<div className="two">{c.state!=='paused'&&<button className="btn ghost" onClick={()=>openCourse(c.id)}>{tl("Open")}</button>}{c.mine==='active'&&<button className="btn ghost" disabled={busy===c.id} onClick={()=>leave(c)}>{tl("Leave the course")}</button>}</div>
-          :c.mine==='applied'?<p className="known">{tl("You asked to join. Your teacher has 48 hours to decide.")}{c.expires_at?' ('+hoursLeft(c.expires_at)+')':''}</p>
+          :c.mine==='applied'?<><p className="known">{tl("You asked to join. Your teacher has 48 hours to decide.")}{c.expires_at?' ('+hoursLeft(c.expires_at)+')':''} {tl("If they don't answer in time, the request lapses and you can ask again.")}</p>
+            <button className="btn ghost" disabled={busy===c.id} onClick={()=>withdraw(c)}>{tl("Withdraw my request")}</button></>
           :c.mine==='suspended'?<p className="known">{tl("Your place is on hold. Ask your teacher.")}</p>
           :<button className="btn" disabled={busy===c.id} onClick={()=>join(c)}>{c.access==='open'?tl("Join"):tl("Ask to join")}</button>}</div>
   return <><Bar title={tl("Join a course")}/><div className="main">
