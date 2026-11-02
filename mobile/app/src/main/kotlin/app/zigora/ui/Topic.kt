@@ -142,7 +142,7 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
             Loaded(topic) { t ->
                 val aiOn = (ai.state as? Load.Ok)?.value?.available == true
                 val aiOff = (ai.state as? Load.Ok)?.value?.off == true  // no parent's or teacher's key: the notes only
-                if (aiOn) Steps(id, student, t.diagram, openDiagram)
+                if (aiOn && !t.content.isNullOrBlank()) Steps(id, student, t.diagram, openDiagram)  // no gist from a topic's name alone
                 Body(t, me, aiOn, aiOff, known, openReader = { openReader(id) }, openMaterial = { openMaterial(t.course_id, t.course) })
                 if (student) OutlinedButton(onClick = { openMcq(id) }, modifier = Modifier.fillMaxWidth()) { Text(tl("MCQ practice on this topic")) }
                 ClassQuestionsList(id)
@@ -381,12 +381,17 @@ private fun Notes(t: TopicFull, me: Me, aiOn: Boolean, openReader: () -> Unit, o
         when {
             inter && content.isNotEmpty() -> Quiet(stringResource(R.string.interactive_note_long))
             content.isNotEmpty() -> tr.takeIf { mine }?.let { WebContent(it.content, it.format) } ?: WebContent(content, t.content_format)
+            t.my_notes == null && me.role == "student" -> {
+                Text(tl("This topic has no notes yet"), style = MaterialTheme.typography.titleSmall)
+                Quiet(tl("Bring your own notes for this course. They are filed under its topics, for you only, and you study them here."))
+                Button(onClick = openMaterial, modifier = Modifier.padding(top = 8.dp)) { Text(tl("Bring your own notes")) }
+            }
             t.my_notes == null -> Quiet(stringResource(R.string.no_notes_yet))
         }
         t.my_notes?.let { SectionTitle(stringResource(R.string.your_notes)); WebContent(it) }
         t.question_pattern?.takeIf { it.isNotBlank() }?.let { SectionTitle(stringResource(R.string.question_pattern)); WebContent(it) }
         t.guideline?.takeIf { it.isNotBlank() }?.let { SectionTitle(stringResource(R.string.answer_guideline)); WebContent(it) }
-        if (me.role == "student") TextButton(onClick = openMaterial) { Text(stringResource(if (t.my_notes != null) R.string.update_your_notes else R.string.add_your_notes)) }
+        if (me.role == "student" && (content.isNotEmpty() || t.my_notes != null)) TextButton(onClick = openMaterial) { Text(stringResource(if (t.my_notes != null) R.string.update_your_notes else R.string.add_your_notes)) }
     }
     // the reader's highlights in this topic, as under the web's notes
     val hl = rememberLoad("tophl", t.id) { get("/topics/${t.id}/highlights", Highlights.serializer()).items }

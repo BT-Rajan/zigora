@@ -145,8 +145,9 @@ def test_explain_uses_the_students_own_notes_privately(env, monkeypatch):
     n = len(FakeAI.calls); again = env.c.get(f"/api/topics/{h}/ai/explain", headers=env.stu).json()  # the second look shows the kept copy: nothing is sent, nothing is counted
     assert again["own_notes"] and again["cached"] and again["text"] == r["text"] and len(FakeAI.calls) == n
     with Session_() as s: assert s.query(StudyAICall).filter_by(kind="t_explain").count() == 1 and s.query(main.PrivateAnswer).count() == 1
-    r = env.c.get(f"/api/topics/{h}/ai/explain", headers=s2).json(); assert "own_notes" not in r and "Boiling removes" not in FakeAI.calls[-1][1]  # a classmate without notes gets the shared answer
-    with Session_() as s: assert s.query(main.AICache).count() == 1
+    n = len(FakeAI.calls); r = env.c.get(f"/api/topics/{h}/ai/explain", headers=s2)  # a classmate without notes, on a topic with no staff notes: asked to bring theirs
+    assert r.status_code == 400 and r.json()["detail"] == main.EMPTY_TOPIC and len(FakeAI.calls) == n
+    with Session_() as s: assert s.query(main.AICache).count() == 0
 
 def test_a_topic_moved_to_another_course_leaves_the_old_filing_and_keeps_its_note(env, monkeypatch):
     i = setup(env, monkeypatch); r = i["t"]["Rusting"]
