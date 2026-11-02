@@ -5542,9 +5542,9 @@ def study_ai_left(u, s):  # AI requests left today for own-course help; None whe
     if is_staff(u) or (u.self_registered and u.ai_key): return None
     return max(0, STUDY_AI_DAILY - s.query(func.count(StudyAICall.id)).filter(StudyAICall.user_id == u.id, StudyAICall.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar())
 def study_ai_status(u, s): return {"ai_available": bool(key_for(u, s)), "ai_left": study_ai_left(u, s), "ai_own_key": bool(u.self_registered) and not school_learner(u), "ai_off": ai_off(u, s)}
-def study_ai_key(u, s):
+def study_ai_key(u, s, count=True):  # count=False: the request was already counted (slicing long material counts once, before its parts)
     key = key_or_fail(u, s)
-    if not (u.self_registered and u.ai_key) and not is_staff(u):
+    if count and not (u.self_registered and u.ai_key) and not is_staff(u):
         if s.query(func.count(StudyAICall.id)).filter(StudyAICall.user_id == u.id, StudyAICall.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= STUDY_AI_DAILY:
             raise HTTPException(429, f"You have used today's {STUDY_AI_DAILY} AI requests for your own courses. Try again tomorrow.")
     return key
@@ -5892,13 +5892,75 @@ async def study_slice(cid: int, b: SliceIn, u: User = Depends(me), s: Session = 
     c.notes = b.notes.strip()[:4000]
     if b.method == "headings": plan, by = headings_plan(paras), "headings"
     elif b.method == "ai":
-        msg = (f"Course: {c.title}" + (f" ({c.subject})" if c.subject else "") + (f"\n\nThe student's instructions:\n{c.notes}" if c.notes else "") +
-               f"\n\nThe material has {len(paras)} paragraphs:\n\n" + slice_view(paras))
-        plan, by = normalise_plan(ai_json(await study_ask(u, s, "slice", STUDY_PROMPTS["slice"], msg)), len(paras)), "ai"
-        if not plan: raise HTTPException(502, "The AI did not return a usable outline. Try again, or slice by headings.")
+        parts = slice_parts(paras)
+        if len(parts) > 1:  # long material: sliced part by part in the background (several AI calls can outlast a proxy's timeout); the page asks how it is going
+            if SLICING.get(cid, {}).get("running"): return {"slicing": slicing_view(cid)}
+            study_ai_key(u, s)  # out of AI requests or without a key: say so now, not after the student waits
+            s.commit(); SLICING[cid] = {"running": True, "done": 0, "of": len(parts), "error": ""}
+            threading.Thread(target=lambda: asyncio.run(slice_long(cid, u.id)), daemon=True).start()  # its own thread: it outlives this request
+            return {"slicing": slicing_view(cid)}
+        plan, by = slice_part(c, paras, await study_ask(u, s, "slice", STUDY_PROMPTS["slice"], slice_msg(c, paras))), "ai"
+        if not plan: raise HTTPException(502, NO_OUTLINE)
     else: raise HTTPException(400, "method must be ai or headings")
     c.plan, c.sliced_by = json.dumps(plan, ensure_ascii=False), by; touch(c); s.commit()
     return {"plan": plan_view(c), "sliced_by": by}
+NO_OUTLINE = "The AI did not return a usable outline. Try again, or slice by headings."
+def slice_msg(c, paras):
+    return (f"Course: {c.title}" + (f" ({c.subject})" if c.subject else "") + (f"\n\nThe student's instructions:\n{c.notes}" if c.notes else "") +
+            f"\n\nThe material has {len(paras)} paragraphs:\n\n" + slice_view(paras))
+def slice_part(c, paras, text):  # an outline from the AI's reply; one that can't be read points to slicing by headings too
+    try: raw = ai_json(text)
+    except HTTPException: raise HTTPException(502, "The AI's answer could not be read. Try again, or slice by headings.")
+    return normalise_plan(raw, len(paras))
+def slice_parts(paras, size=None):
+    """Material longer than one AI request takes, as runs of whole paragraphs [start, end) of about `size` characters each. A run ends at a heading
+    when one falls in its last third, so parts tend to follow the material's own chapters."""
+    size = size or SLICE_BUDGET; out, start, total = [], 0, 0
+    for i, p in enumerate(paras):
+        if total and total + len(p) > size:
+            cut = next((j for j in range(i, start, -1) if paras[j].startswith("#") and sum(len(x) for x in paras[start:j]) >= size * 2 // 3), i)
+            out.append((start, cut)); start = cut; total = sum(len(x) for x in paras[start:i])
+        total += len(p)
+    out.append((start, len(paras))); return out
+SLICING = {}  # study course id -> how slicing long material in the background is going: {"running", "done", "of", "error"}
+def slicing_view(cid): x = SLICING.get(cid) or {}; return {"running": bool(x.get("running")), "done": x.get("done", 0), "of": x.get("of", 0), "error": x.get("error", "")}
+async def slice_long(cid, uid):
+    """Slices long material one part at a time and joins the outlines in order: numbering carries on across parts, and a unit that runs on into
+    the next part (the same title on both sides) stays one unit. It counts as one AI request for the student, however many parts it takes."""
+    st = SLICING[cid]
+    with Session_() as s:
+        u, c = s.get(User, uid), s.get(StudyCourse, cid); paras = json.loads(c.paras or "[]"); stamp = c.paras
+        call = StudyAICall(user_id=uid, kind="slice"); s.add(call); s.commit(); call_id = call.id
+        try:
+            key, units = study_ai_key(u, s, count=False), []
+            for k, (a, z) in enumerate(slice_parts(paras), 1):
+                part = paras[a:z]
+                text, _ = await ask_ai(u, s, key, STUDY_PROMPTS["slice"], slice_msg(c, part) + f"\n\n(This is part {k} of {st['of']} of the material.)",
+                                       max_tokens=8000, timeout=120, kind="slice")
+                plan = slice_part(c, part, text)
+                if not plan: raise HTTPException(502, NO_OUTLINE)
+                for un in plan["units"]:
+                    for t in un["topics"]: t["from"] += a; t["to"] += a
+                    if units and units[-1]["title"].strip().lower() == un["title"].strip().lower(): units[-1]["topics"] += un["topics"]
+                    else: units.append(un)
+                st["done"] = k
+            s.refresh(c)
+            if c.paras != stamp: raise HTTPException(409, "Your material changed while it was being sliced. Slice it again.")
+            c.plan, c.sliced_by = json.dumps({"units": units}, ensure_ascii=False), "ai"; touch(c); s.commit(); SLICING.pop(cid, None)
+        except Exception as e:  # the request is given back, and the page shows what went wrong
+            s.rollback()
+            try: s.query(StudyAICall).filter(StudyAICall.id == call_id).delete(synchronize_session=False); s.commit()
+            except Exception: s.rollback()
+            st.update(running=False, error=e.detail if isinstance(e, HTTPException) else AI_DOWN)
+            if not isinstance(e, HTTPException): log.warning("slicing course %s failed: %s", cid, type(e).__name__)
+@app.get("/api/study/courses/{cid}/slicing")
+def study_slicing(cid: int, u: User = Depends(me), s: Session = Depends(db)):
+    """How slicing long material is going; once it has finished, the outline. An error is shown once."""
+    c = study_course_or_404(cid, u, s, edit=True); x = slicing_view(cid)
+    if x["running"]: return {"slicing": x}
+    if x["error"]: SLICING.pop(cid, None); raise HTTPException(502 if "outline" in x["error"] or "AI" in x["error"] else 409, x["error"])
+    if not c.plan: raise HTTPException(409, "Slicing stopped before it finished. Slice it again.")  # e.g. the server restarted meanwhile
+    return {"plan": plan_view(c), "sliced_by": c.sliced_by}
 class PlanIn(BaseModel): units: list[dict]
 @app.put("/api/study/courses/{cid}/plan")
 def study_plan(cid: int, b: PlanIn, u: User = Depends(me), s: Session = Depends(db)):

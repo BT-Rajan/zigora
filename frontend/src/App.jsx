@@ -1731,7 +1731,11 @@ function StudyWizard({id,toast,back,done}){
   const paste=async()=>{setBusy('Adding…');try{const r=await api(`/study/courses/${id}/text`,{method:'POST',body:{text}});setText('');toast(tl("{n} added",{n:pl(r.words,'word')}))}catch(e){toast(e.message)}setBusy('');load(1)}
   const dropSrc=async i=>{if(!await confirm({title:tl("Remove this material?"),body:tl("Its text is taken out of the course. Any outline already made is cleared."),ok:tl("Remove"),danger:true}))return;try{await api(`/study/courses/${id}/sources/${i}`,{method:'DELETE'});load(1)}catch(e){toast(e.message)}}
   const slice=async method=>{if(dirty&&!await confirm({title:tl("Slice again?"),body:tl("Your renames, merges and removals in the current outline are replaced."),ok:tl("Slice again")}))return
-    setBusy(method==='ai'?'The AI is reading your material and slicing it. This can take a minute…':'Slicing by headings…');try{const r=await api(`/study/courses/${id}/slice`,{method:'POST',body:{notes,method}});setPlan(r.plan);setDirty(false);setStep(3);window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy('')}
+    setBusy(method==='ai'?'The AI is reading your material and slicing it. This can take a minute…':'Slicing by headings…')
+    try{let r=await api(`/study/courses/${id}/slice`,{method:'POST',body:{notes,method}})
+      while(r.slicing){setBusy(tl("Long material is sliced part by part: {done} of {of} done. This can take a few minutes.",{done:r.slicing.done,of:r.slicing.of}))  // long material: in the background, a part at a time
+        await new Promise(ok=>setTimeout(ok,3000));r=await api(`/study/courses/${id}/slicing`)}
+      setPlan(r.plan);setDirty(false);setStep(3);window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy('')}
   // preview edits stay on this screen until Finish (or Save outline) sends them
   const flat=plan?plan.units.flatMap((u,ui)=>u.topics.map((t,ti)=>({...t,ui,ti}))):[]
   const edit=f=>{const p=JSON.parse(JSON.stringify(plan));f(p);p.units=p.units.filter(u=>u.topics.length);setPlan(p);setDirty(true)}

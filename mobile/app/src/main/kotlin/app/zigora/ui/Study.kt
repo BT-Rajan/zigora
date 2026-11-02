@@ -171,7 +171,11 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
     fun slice(method: String) {
         val go = { scope.launch {
             busy = if (method == "ai") "The AI is reading your material and slicing it. This can take a minute…" else "Slicing by headings…"
-            try { val r = a.send("POST", "/study/courses/$id/slice", buildJsonObject { put("notes", notes); put("method", method) }, PlanOutWrap.serializer())
+            try { var r = a.send("POST", "/study/courses/$id/slice", buildJsonObject { put("notes", notes); put("method", method) }, PlanOutWrap.serializer())
+                  while (r.slicing != null) {  // long material: sliced in the background, a part at a time
+                      busy = tl("Long material is sliced part by part: {done} of {of} done. This can take a few minutes.", "done" to r.slicing!!.done, "of" to r.slicing!!.of)
+                      kotlinx.coroutines.delay(3000); r = a.send("GET", "/study/courses/$id/slicing", null, PlanOutWrap.serializer())
+                  }
                   plan = r.plan; dirty = false; step = 3; scroll.scrollTo(0) } catch (e: Exception) { toast(e.message.orEmpty()) }
             busy = ""
         }; Unit }
