@@ -802,29 +802,39 @@ function StaffHome({user,toast,open,goUsers,goSettings}){
   return <><Bar title={tl(hi,{name:firstName(user.name)})} sub={admin?tl("Across the whole college"):tl("Your courses")}/><div className="main">
     {!o&&<><div className="sk"/><div className="sk"/><div className="sk"/></>}
     {o&&<div className="stats">{stats.map(([n,l0,k])=>{const l=tl(l0);return <button className="stat" key={l0} style={{textAlign:'start',width:'100%'}} onClick={()=>setList(k)} aria-label={tl("{v} {l}. Show the list",{v:(n??0).toLocaleString(),l:l})}><b>{(n??0).toLocaleString()}</b>{l}</button>})}</div>}
-    {flags>0&&<button className="card flagcard" style={{textAlign:'start',width:'100%'}} onClick={()=>setFp(true)}><span className="dot" style={{background:'var(--coral)'}}><Flag size={18}/></span><div style={{flex:1}}><b>{tl(flags===1?'1 AI answer flagged by students':'{n} AI answers flagged by students',{n:flags})}</b><span>{tl("Check it, then have it written again or let it stand")}</span></div><ChevronRight size={18}/></button>}
+    {flags>0&&<button className="card flagcard" style={{textAlign:'start',width:'100%'}} onClick={()=>setFp(true)}><span className="dot" style={{background:'var(--coral)'}}><Flag size={18}/></span><div style={{flex:1}}><b>{tl(flags===1?'1 student report to check':'{n} student reports to check',{n:flags})}</b><span>{tl("Flagged AI answers and problems with topic notes")}</span></div><ChevronRight size={18}/></button>}
     {o&&<><h3 className="sec">{tl("Needs attention")}</h3>
       {o.attention.length?<Paged rows={o.attention} render={x=><button key={x.kind} className="card" style={{textAlign:'start'}} onClick={()=>x.kind==='questions'?setQp(true):x.kind==='more_ai'&&goUsers?goUsers('asked'):setList(ATTN_GO[x.kind]||'drafts')}><div style={{flex:1}}><b>{srv(x.text)}</b></div><ChevronRight size={18}/></button>}/>
         :<p className="known">{tl("Nothing needs your attention right now.")}</p>}</>}
     {o&&!o.courses&&!admin&&<p className="known">{tl("No course is assigned to you yet. An admin makes you the owner of a course.")}</p>}
     {o?.courses>0&&<><h3 className="sec">{admin?tl("Courses"):tl("Your courses")}</h3><CourseReports toast={toast} onOpen={setRep}/></>}
   </div></>}
+// a student tells the topic's teacher its notes have a problem; like "This looks wrong?", who sent it is never shown
+const NOTE_PROBLEM={missing:'The notes are missing',incomplete:'The notes are incomplete',incorrect:'Something in the notes is wrong',wrong:'The notes are about a different topic'}
+function NotesReport({tid,close,toast}){
+  const [kind,setKind]=useState(''),[why,setWhy]=useState(''),[busy,setBusy]=useState(false)
+  const send=async()=>{setBusy(true);try{await api('/ai/flag',{method:'POST',body:{source:'notes',topic_id:tid,kind,reason:why.trim()}});toast(tl("Thanks. Your teacher will check the notes."));close()}catch(e){toast(e.message)}setBusy(false)}
+  return <Sheet close={close}><h3>{tl("Report a problem with these notes")}</h3><p className="known" style={{marginTop:0}}>{tl("Your teacher sees what you report, never who sent it.")}</p>
+    {Object.entries(NOTE_PROBLEM).map(([k,l])=><label key={k} className="row" style={{gap:10}}><input type="radio" name="np" checked={kind===k} onChange={()=>setKind(k)}/>{tl(l)}</label>)}
+    <label htmlFor="npw">{tl("What's the problem? (optional)")}</label><textarea id="npw" rows={2} maxLength={300} value={why} onChange={e=>setWhy(e.target.value)}/>
+    <button className="btn" disabled={busy||!kind} onClick={send}>{tl("Send")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
 // AI replies students flagged as looking wrong, on this person's topics (all of them for admins), never with who flagged them
-const FLAG_KIND={gist:'The gist',why:'Why?',example:'Example',exam:'Exam angle',check:'Quick check',simpler:'More simply',outline:'Answer outline',explain:'Explain',answer:'Sample answer',line:'Highlight explanation',search:'Search answer',photo:'Photo answer'}
+const FLAG_KIND={...NOTE_PROBLEM,gist:'The gist',why:'Why?',example:'Example',exam:'Exam angle',check:'Quick check',simpler:'More simply',outline:'Answer outline',explain:'Explain',answer:'Sample answer',line:'Highlight explanation',search:'Search answer',photo:'Photo answer'}
 function FlagsPage({toast,back}){
   const confirm=useConfirm(),[t,setT]=useState(null)
   const {items,total,page,setPage,ready,reload}=usePaged(o=>`/flags?limit=${PAGE}&offset=${o}`,[],toast)
   const act=async(f,action)=>{if(action==='rewrite'&&!await confirm({title:tl("Have it written again?"),body:tl("The saved answer is dropped, and the next student who asks gets a new one (that uses AI tokens)."),ok:tl("Write it again")}))return
-    try{await api(`/flags/${f.id}/resolve`,{method:'POST',body:{action}});toast(action==='rewrite'?tl("It will be written again"):tl("Left as it is"));reload()}catch(e){toast(e.message)}}
+    try{await api(`/flags/${f.id}/resolve`,{method:'POST',body:{action}});toast(action==='rewrite'?tl("It will be written again"):action==='fixed'?tl("Marked as fixed"):tl("Left as it is"));reload()}catch(e){toast(e.message)}}
   if(t)return <Topic id={t} back={()=>setT(null)} toast={toast} role="faculty"/>
-  return <><Bar title={tl("Flagged AI answers")} sub={ready?pl(total,'answer'):''} back={back}/><div className="main">
-    <p className="known" style={{marginTop:0}}>{tl("Students flagged these AI answers as looking wrong. Who flagged them is never shown.")}</p>
+  return <><Bar title={tl("Student reports")} sub={ready?pl(total,'report'):''} back={back}/><div className="main">
+    <p className="known" style={{marginTop:0}}>{tl("Students flagged these AI answers as looking wrong, or reported a problem with a topic's notes. Who flagged them is never shown.")}</p>
     {!ready?<Skeleton/>:!items.length?<p className="known">{tl("Nothing is flagged right now.")}</p>:items.map(f=><div key={f.id} className="qbox flagrow">
       <small className="steplab">{tl(FLAG_KIND[f.kind]||f.kind)}{f.topic?' · '+f.topic+(f.course?' · '+f.course:''):''}</small>
       <div className="flagex"><Md>{f.excerpt||''}</Md></div>
       <p className="known" style={{margin:'6px 0'}}>{tl(f.count===1?'Flagged by 1 student':'Flagged by {n} students',{n:f.count})}{f.reasons.length>0&&':'}</p>
       {f.reasons.length>0&&<ul className="flagwhy">{f.reasons.map((r,i)=><li key={i}>“{r}”</li>)}</ul>}
-      <div className="tools">{f.source==='topic'&&f.topic_id&&<button onClick={()=>setT(f.topic_id)}>{tl("Open the topic")}</button>}<button onClick={()=>act(f,'rewrite')}>{tl("Write it again")}</button><button onClick={()=>act(f,'keep')}>{tl("It's fine")}</button></div></div>)}
+      <div className="tools">{(f.source==='topic'||f.source==='notes')&&f.topic_id&&<button onClick={()=>setT(f.topic_id)}>{tl("Open the topic")}</button>}
+        {f.source==='notes'?<button onClick={()=>act(f,'fixed')}>{tl("I've fixed the notes")}</button>:<button onClick={()=>act(f,'rewrite')}>{tl("Write it again")}</button>}<button onClick={()=>act(f,'keep')}>{tl("It's fine")}</button></div></div>)}
     <Pager page={page} total={total} onPage={setPage}/></div></>}
 // ---- ask the teacher: a student's question about a topic goes to the teacher of its course (an admin when it has none), who answers in a
 // ---- short thread. Unlike "This looks wrong?" it is not anonymous: the teacher sees who asked
@@ -1948,7 +1958,7 @@ function Topic({id:first,back,toast,role}){
   const confirm=useConfirm()
   const {aiOff}=useContext(Ctx)
   useLearnClock()  // a lite person's learning minutes
-  const [mcq,setMcq]=useState(false),[practice,setPractice]=useState(null),[checking,setChecking]=useState(''),[reading,setReading]=useState(false),[hls,setHls]=useState([]),[tr,setTr]=useState(null)
+  const [mcq,setMcq]=useState(false),[report,setReport]=useState(false),[practice,setPractice]=useState(null),[checking,setChecking]=useState(''),[reading,setReading]=useState(false),[hls,setHls]=useState([]),[tr,setTr]=useState(null)
   useEffect(()=>{setTr(null)},[first])
   const [id,setId]=useState(first),[editing,setEditing]=useState(false),[v,setV]=useState(0),[t,setT]=useState(null),[tab,setTab]=useState('notes'),[known,setKnown]=useState([]),[ai,setAi]=useState({}),[aiOk,setAiOk]=useState(null),[ownKey,setOwnKey]=useState(false),[aiMsg,setAiMsg]=useState(''),[busy,setBusy]=useState(false),[bm,setBm]=useState(false),[pv,setPv]=useState(false),[hist,setHist]=useState(false),[cp,setCp]=useState(false),[gone,setGone]=useState('')
   const [mat,setMat]=useState(false),[askT,setAskT]=useState(false),[upNext,setUpNext]=useState(null),opened=useRef(false),jump=nid=>{opened.current=false;setUpNext(null);setGone('');setT(null);setTab('notes');setAi({});setAiMsg('');setKnown([]);setEditing(false);setId(nid);window.scrollTo(0,0)},learn=r=>setT(p=>({...p,status:r.status,overdue:r.overdue,late:r.late,completed_at:r.completed_at}))
@@ -1978,7 +1988,8 @@ function Topic({id:first,back,toast,role}){
   return <><Bar title={t.title} sub={[t.program,t.semester,t.course,t.unit].filter(Boolean).join(' › ')} back={back} right={role!=='admin'&&<button className={'ic'+(bm?' on':'')} aria-label={bm?tl("Remove bookmark"):tl("Bookmark this topic")} aria-pressed={bm} onClick={flip}><Bookmark fill={bm?'currentColor':'none'}/></button>}/><div className="main">
     {t.can_edit&&pv&&<div className="qbox" style={{marginTop:0}}><b>{tl("Previewing as a student")}</b><p className="known" style={{margin:'4px 0 8px'}}>{tl("This is what students see: no editing buttons, and drafts show as unavailable to them.")}</p><button className="btn ghost" style={{marginTop:0}} onClick={()=>setPv(false)}>{tl("Back to editing")}</button></div>}
     {t.can_edit&&!pv&&<div className="two" style={{marginBottom:12}}><button className="btn ghost" style={{marginTop:0}} onClick={()=>setEditing(true)}><Pencil size={16}/>{" "}{tl("Edit topic")}</button>
-      <button className="btn ghost" style={{marginTop:0}} onClick={async()=>{try{await api(`/topics/${id}/publish`,{method:'PUT',body:{published:!t.published}});toast(t.published?tl("Moved to drafts"):tl("Published"));setV(v+1)}catch(e){toast(e.message)}}}>{t.published?<><EyeOff size={16}/>{" "}{tl("Unpublish")}</>:<><Eye size={16}/>{" "}{tl("Publish")}</>}</button></div>}
+      <button className="btn ghost" style={{marginTop:0}} onClick={async()=>{if(!t.published&&t.empty&&!await confirm({title:tl("Publish a topic with no notes?"),body:tl("Students will see that it has no notes yet and can only bring their own. Add its notes first, or publish it anyway."),ok:tl("Publish anyway")}))return  // nothing to study yet
+        try{await api(`/topics/${id}/publish`,{method:'PUT',body:{published:!t.published}});toast(t.published?tl("Moved to drafts"):tl("Published"));setV(v+1)}catch(e){toast(e.message)}}}>{t.published?<><EyeOff size={16}/>{" "}{tl("Unpublish")}</>:<><Eye size={16}/>{" "}{tl("Publish")}</>}</button></div>}
     {role!=='student'&&<div className="qbox" style={{marginTop:0}}><div className="row"><div>{t.learning_due_at?when(t.learning_due_at):tl("No deadline")}<small>{tl("Learn by")}</small></div></div></div>}
     {upNext&&<div className="qbox" role="status"><b>{tl("Today's session · {length} of {length2} done",{length:upNext.items.filter(x=>x.done).length,length2:upNext.items.length})}</b>
       {!upNext.next?<p className="known" style={{margin:'4px 0 0'}}>{tl("That's today's session done. See you next study day.")}</p>
@@ -1999,7 +2010,7 @@ function Topic({id:first,back,toast,role}){
     {tab==='explain'&&view('explain')}{(tab==='answer'||(aiOff&&tab==='notes'))&&<ModelAnswer t={t} canEdit={!!t.can_edit&&!pv} toast={toast} onSaved={m=>setT(p=>({...p,model_answer:m}))}/>}{tab==='answer'&&(aiOk===false?view('answer'):<><Outline id={id}/>{ai.answer?view('answer'):<button className="btn ghost" disabled={busy} onClick={()=>ask('answer')}>{busy?tl("Thinking…"):tl("Show the full sample answer")}</button>}{!ai.answer&&aiMsg&&<p className="known">{aiMsg}</p>}</>)}
     {reading&&<Reader t={t} auto={role==='student'} toast={toast} onList={setHls} close={()=>setReading(false)}/>}
     {role!=='guardian'&&t.published!==false&&<button className="btn ghost" onClick={()=>setMcq(true)}><ListChecks size={16}/>{" "}{tl("MCQ practice on this topic")}</button>}
-    {role==='student'&&aiOk!==false&&<><h3 className="sec">{tl("Want to test yourself?")}</h3><div className="two"><button className="btn ghost" disabled={!!checking} onClick={()=>practise('mcq')}><ClipboardList size={16}/> {checking==='mcq'?tl("Writing questions…"):tl("5 quick questions")}</button><button className="btn ghost" disabled={!!checking} onClick={()=>practise('quiz')}><Target size={16}/> {checking==='quiz'?tl("Writing the quiz…"):tl("Full quiz · 10")}</button></div>
+    {role==='student'&&aiOk!==false&&(!t.empty||t.my_notes)&&<><h3 className="sec">{tl("Want to test yourself?")}</h3><div className="two"><button className="btn ghost" disabled={!!checking} onClick={()=>practise('mcq')}><ClipboardList size={16}/> {checking==='mcq'?tl("Writing questions…"):tl("5 quick questions")}</button><button className="btn ghost" disabled={!!checking} onClick={()=>practise('quiz')}><Target size={16}/> {checking==='quiz'?tl("Writing the quiz…"):tl("Full quiz · 10")}</button></div>
       <p className="known" style={{marginTop:4}}>{tl("New questions from this topic's notes each time. 5 quick questions: the answer right after each one. Full quiz: scored at the end.")}</p></>}
     {role==='student'&&<div className="mine"><span>{t.learning_due_at&&<>{tl("Your teacher's date")}: {day(t.learning_due_at)} · </>}{t.status==='completed'?tl("You marked this as learned"):tl("Not marked as learned yet")}</span>
       {t.status==='completed'?<button className="link" onClick={()=>setDone(false)}>{tl("Undo")}</button>:<button className="link" onClick={()=>setDone(true)}>{tl("I've learned this")}</button>}
@@ -2007,6 +2018,8 @@ function Topic({id:first,back,toast,role}){
     {t.published!==false&&<ClassQuestions tid={t.id}/>}
     {t.ask&&t.published!==false&&<button className={'btn ghost'+(t.ask==='pro'?' locked':'')} onClick={()=>t.ask==='pro'?toast(tl("Asking your teacher comes with Pro. See AI help on your profile.")):setAskT(true)}>{t.ask==='pro'?<Lock size={16}/>:<MessageCircle size={16}/>}{" "}{tl("Ask my teacher")}{t.ask==='pro'&&<span className="pill sm">{tl("Pro")}</span>}</button>}
     {askT&&<AskTeacher tid={t.id} close={()=>setAskT(false)} toast={toast}/>}
+    {role==='student'&&t.published!==false&&<p><button className="link" onClick={()=>setReport(true)}><Flag size={14}/>{" "}{tl("Report a problem with these notes")}</button></p>}
+    {report&&<NotesReport tid={t.id} close={()=>setReport(false)} toast={toast}/>}
     {t.nav&&t.nav.total>1&&<nav className="pager" aria-label={tl("Topics in this unit")}><button className="btn ghost" disabled={!t.nav.prev} onClick={()=>jump(t.nav.prev.id)} aria-label={t.nav.prev?tl("Previous topic: {title}",{title:t.nav.prev.title}):tl("No previous topic")}><ChevronLeft size={18}/><span>{t.nav.prev?t.nav.prev.title:tl("Previous")}</span></button>
       <small>{t.nav.position}{" "}{tl("of")}{" "}{t.nav.total}</small>
       <button className={'btn'+(t.nav.next?'':' ghost')} disabled={!t.nav.next} onClick={()=>jump(t.nav.next.id)} aria-label={t.nav.next?tl("Next topic: {title}",{title:t.nav.next.title}):tl("No next topic")}><span>{t.nav.next?t.nav.next.title:tl("Next")}</span><ChevronRight size={18}/></button></nav>}</div></>}
