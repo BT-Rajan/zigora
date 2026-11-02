@@ -70,7 +70,7 @@ class OnboardingTest {
     @Test fun aParentSeesTheirChildAndTheAiKey() {
         signIn("mum@x.com")
         rule.setContent { ZigoraRoot(null) {} }
-        see("Your children"); see("Kavin"); see("Signs in as kavin"); shot("onboarding-05-parent-home")
+        see("Your children"); see("Kavin"); see("Each child signs in with their own username"); shot("onboarding-05-parent-home")
         assertTrue("the parent's AI panel says off", !none("Add an AI key"))
         tap("Kavin"); see("topics learned"); see("Forgot their password?"); shot("onboarding-06-child-progress")
     }

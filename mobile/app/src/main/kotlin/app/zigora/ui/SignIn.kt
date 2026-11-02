@@ -270,6 +270,7 @@ fun SignIn(done: (Me) -> Unit) {
                             app.api.raw("POST", "/register/resend", buildJsonObject { put("email", email.trim()); put("lang", app.resources.configuration.locales[0].language) }); wait = 30; code = ""; info = app.getString(R.string.new_code_coming)
                         } }) { Text(if (wait > 0) stringResource(R.string.new_code_in, wait) else stringResource(R.string.send_new_code)) }
                         TextButton(onClick = { mode = "form"; code = ""; msg = "" }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.change_my_details)) }
+                        TextButton(onClick = { mode = "in"; code = ""; msg = ""; info = "" }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.back_to_sign_in)) }  // never a dead end, and it says nothing about whether the email has an account
                     }
                     else -> {
                         Text(if (canRegister && !editing) tl("Welcome back.") else stringResource(R.string.signin_lead), Modifier.fillMaxWidth().padding(bottom = 8.dp), style = MaterialTheme.typography.bodyLarge,
