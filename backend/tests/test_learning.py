@@ -147,3 +147,13 @@ def test_migration_adds_no_deadlines_or_completions(env):
     with Session_() as s:
         assert all(t.learning_due_at is None for t in s.query(Topic)) and all(p.completed_at is None for p in s.query(Progress))
     assert state(env, env.stu, i["water"])["status"] == "in_progress" and "0012_learning_deadlines" in main.applied_migrations()
+
+def test_today_says_how_many_topics_are_marked_learned_in_each_course(env):
+    i = setup(env); w = i["water"]
+    before = {c["name"]: c for c in env.c.get("/api/me/today", headers=env.stu).json()["courses"]}
+    assert before and all(c["completed"] == 0 and c["total"] > 0 for c in before.values())
+    env.c.put(f"/api/topics/{w}/complete", headers=env.stu)
+    d = env.c.get("/api/me/today", headers=env.stu).json(); after = {c["name"]: c for c in d["courses"]}
+    assert sum(c["completed"] for c in after.values()) == 1 == d["topics_completed"] and sum(c["total"] for c in after.values()) == d["topics_total"]  # the courses add up to the overall count
+    env.c.delete(f"/api/topics/{w}/complete", headers=env.stu)
+    assert sum(c["completed"] for c in env.c.get("/api/me/today", headers=env.stu).json()["courses"]) == 0  # undo counts too

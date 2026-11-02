@@ -3729,11 +3729,11 @@ def my_today(u: User = Depends(me), s: Session = Depends(db)):
             for c in sm["courses"]:
                 if c["id"] not in seen: seen.add(c["id"]); courses.append((p, sm, c))
     weak = {a["topic_id"]: a for a in my_insights(u, s)["needs_study"] if a.get("topic_id")}
-    cand, topics_total, topics_done, bests = {}, 0, 0, []
+    cand, topics_total, topics_done, bests, per = {}, 0, 0, [], []
     def offer(prio, key, item):
         if key not in cand or cand[key][0] < prio: cand[key] = (prio, item)
     for p, sm, c in courses:
-        first_new = None
+        first_new = None; n0, d0 = topics_total, topics_done
         for q in c.get("tests", []):  # course tests, like unit quizzes
             if not q["published"] or not q["questions"]: continue
             base = {"course": c["name"], "unit": "", "nav": [p["id"], sm["id"], c["id"]]}
@@ -3759,13 +3759,14 @@ def my_today(u: User = Depends(me), s: Session = Depends(db)):
                 if t["status"] == "in_progress": offer(50, ("t", t["id"]), {**it, "kind": "resume", "reason": "You started this. Pick up where you left off", "last_read": t["last_read"]})
                 elif first_new is None: first_new = (t, it)
         if first_new: offer(30, ("t", first_new[0]["id"]), {**first_new[1], "kind": "next", "reason": "Start the next topic"})
+        if topics_total > n0 and not c.get("archived"): per.append({"id": c["id"], "name": c["name"], "total": topics_total - n0, "completed": topics_done - d0})  # each course: topics marked learned of all
     focus = [i for _, i in sorted(cand.values(), key=lambda x: (-x[0], x[1].get("last_read") or ""))][:4]
     for i in focus: i.pop("last_read", None)
     in7 = [d for d in days if d > today - dt.timedelta(days=7)]
     done7 = s.query(func.count(Progress.id)).filter(Progress.user_id == u.id, Progress.completed_at >= now - dt.timedelta(days=7)).scalar()
     return {"streak": streak, "active_today": today in days, "week": week, "active_days_week": len(in7), "completed_this_week": done7,
             "topics_total": topics_total, "topics_completed": topics_done, "percent": round(100 * topics_done / topics_total) if topics_total else 0,
-            "quiz_average": round(sum(bests) / len(bests)) if bests else None, "focus": focus}
+            "quiz_average": round(sum(bests) / len(bests)) if bests else None, "focus": focus, "courses": per}
 # ---- redo: a student starts a topic, or a whole course, over. Its progress is set aside (ProgressHistory), so it reads "not started" again
 # ---- everywhere; quiz attempts and scores stay as they are, and the days they studied still count toward their streak.
 def set_aside(s, uid, tids):

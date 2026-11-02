@@ -25,7 +25,9 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class ProgramNode(val id: Int, val name: String, val semesters: List<SemesterNode> = emptyList())
 
 @Serializable data class Focus(val kind: String, val title: String, val reason: String = "", val course: String = "", val unit: String = "", val topic_id: Int? = null, val quiz_id: Int? = null, val last_read: String? = null)
-@Serializable data class Today(val streak: Int = 0, val percent: Int = 0, val topics_total: Int = 0, val topics_completed: Int = 0, val focus: List<Focus> = emptyList())
+@Serializable data class CourseDone(val id: Int, val name: String = "", val total: Int = 0, val completed: Int = 0)  // a course's topics marked learned, of all
+@Serializable data class Today(val streak: Int = 0, val percent: Int = 0, val topics_total: Int = 0, val topics_completed: Int = 0, val focus: List<Focus> = emptyList(),
+                               val courses: List<CourseDone> = emptyList())
 @Serializable data class RecallItem(val topic_id: Int, val title: String, val question: String, val answer: String)
 @Serializable data class Recall(val item: RecallItem? = null)
 

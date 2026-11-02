@@ -222,7 +222,15 @@ private fun MyHighlights(openTopic: (Int) -> Unit, sub: (String) -> Unit) {
 @Composable
 fun ProgressScreen(openTopic: (Int) -> Unit, openRoutine: () -> Unit, openScores: (Int) -> Unit) {
     val d = rememberLoad("insights") { get("/me/insights", Insights.serializer()) }
+    val td = (rememberLoad("today-courses") { runCatching { get("/me/today", app.zigora.data.Today.serializer()) }.getOrNull() }.state as? Load.Ok)?.value
     Page(tl("My progress")) {
+        td?.takeIf { it.courses.isNotEmpty() }?.let { t ->  // what they marked as learned: their own word for it, not a score
+            SectionTitle(tl("Your courses"))
+            Quiet(tl("{done} of {total} topics marked as learned. Quizzes below show how well they stuck.", "done" to t.topics_completed, "total" to t.topics_total))
+            Paged(t.courses, key = "courses") { c ->
+                RowLink(c.name, tl("{done} of {total} topics marked as learned", "done" to c.completed, "total" to c.total) + " · ${100 * c.completed / c.total}%", null) { ScoreBar(100 * c.completed / c.total) }
+            }
+        }
         Loaded(d) { x ->
             val clicked = x.strong; val looks = x.needs_study + x.getting_there
             val item = @Composable { ar: app.zigora.data.Area -> RowLink(ar.title, ar.course, ar.topic_id?.let { { openTopic(it) } }) }

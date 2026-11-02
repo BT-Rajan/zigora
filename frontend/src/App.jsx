@@ -1321,16 +1321,19 @@ function Hit({x,open}){return <button className="hitrow" onClick={()=>open(x.id)
 // My progress: a calm mirror, not a report card. What clicked and what is worth another look (from quizzes and tests, without percentages),
 // the optional routine, test results folded away, and what the app has picked up about how they learn
 function Insights({toast,role,onRoutine}){
-  const [d,setD]=useState(null),[topic,setTopic]=useState(null),[sc,setSc]=useState(null)
-  useEffect(()=>{if(!topic)api('/me/insights').then(setD).catch(e=>toast(e.message))},[topic])
+  const [d,setD]=useState(null),[topic,setTopic]=useState(null),[sc,setSc]=useState(null),[td,setTd]=useState(null)
+  useEffect(()=>{if(!topic){api('/me/insights').then(setD).catch(e=>toast(e.message));if(role==='student')api('/me/today').then(setTd).catch(()=>{})}},[topic])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(sc)return <ScoreCourse c={sc} back={()=>setSc(null)} toast={toast} role={role}/>
   const clicked=d?.strong||[],looks=d?[...d.needs_study,...d.getting_there]:[]
   const item=a=><button key={a.topic_id||'u'+a.unit_id} className="row rowbtn" disabled={!a.topic_id} onClick={()=>setTopic(a.topic_id)}><div>{a.title}<small>{a.course}</small></div>{a.topic_id&&<ChevronRight size={18}/>}</button>
   return <><Bar title={tl("My progress")}/><div className="main">
+    {td?.courses?.length>0&&<><h3 className="sec first">{tl("Your courses")}</h3>  {/* what they marked as learned: their own word for it, not a score */}
+      <p className="known" style={{marginTop:0}}>{tl("{done} of {total} topics marked as learned. Quizzes below show how well they stuck.",{done:td.topics_completed,total:td.topics_total})}</p>
+      <Paged rows={td.courses} render={c=><div className="row" key={c.id}><div>{c.name}<small>{tl("{done} of {total} topics marked as learned",{done:c.completed,total:c.total})}{' · '}{Math.round(100*c.completed/c.total)}%</small><Bar2 v={100*c.completed/c.total}/></div></div>}/></>}
     {!d&&<Skeleton/>}
     {d&&!clicked.length&&!looks.length&&<p className="known">{tl("After you try a quiz or a test, the topics that clicked and the ones worth another look show up here.")}</p>}
-    {clicked.length>0&&<><h3 className="sec first">{tl("What clicked")}</h3><Paged rows={clicked} render={item}/></>}
+    {clicked.length>0&&<><h3 className={'sec'+(td?.courses?.length?'':' first')}>{tl("What clicked")}</h3><Paged rows={clicked} render={item}/></>}
     {looks.length>0&&<><h3 className={'sec'+(clicked.length?'':' first')}>{tl("Worth another look")}</h3><Paged rows={looks} render={item}/></>}
     <h3 className="sec">{tl("Study routine")}</h3>
     <button className="row rowbtn" onClick={onRoutine}><div>{tl("Set or change your study days")}<small>{tl("Optional. Some people like a rhythm; nothing changes unless you set one.")}</small></div><ChevronRight size={18}/></button>

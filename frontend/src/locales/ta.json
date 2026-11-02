@@ -2952,5 +2952,7 @@
 "Save again and rebuild your notes?": "மீண்டும் சேமித்து உங்கள் குறிப்புகளை மீண்டும் உருவாக்கவா?",
 "Your notes in every topic of this course are rebuilt from the material and matching shown here. Notes from material you removed or sections you left out are gone after this. Your progress and quiz results stay.": "இந்தப் பாடத்தின் ஒவ்வொரு தலைப்பிலும் உள்ள உங்கள் குறிப்புகள் இங்கே காட்டப்படும் பொருள் மற்றும் பொருத்தத்திலிருந்து மீண்டும் உருவாக்கப்படும். நீங்கள் நீக்கிய பொருளிலிருந்தோ விட்டுவிட்ட பகுதிகளிலிருந்தோ வந்த குறிப்புகள் இதன் பிறகு இருக்காது. உங்கள் முன்னேற்றமும் வினாடி வினா முடிவுகளும் இருக்கும்.",
 "All your notes in this course go with it, in every topic, not just one file's. Your progress and quiz results stay.": "இந்தப் பாடத்தில் உள்ள உங்கள் எல்லாக் குறிப்புகளும் அதனுடன் போய்விடும், ஒவ்வொரு தலைப்பிலும், ஒரு கோப்பினுடையது மட்டுமல்ல. உங்கள் முன்னேற்றமும் வினாடி வினா முடிவுகளும் இருக்கும்.",
-"Save again": "மீண்டும் சேமி"
+"Save again": "மீண்டும் சேமி",
+"{done} of {total} topics marked as learned. Quizzes below show how well they stuck.": "{total} தலைப்புகளில் {done} கற்றதாகக் குறிக்கப்பட்டன. அவை எவ்வளவு நினைவில் நின்றன என்பதைக் கீழே உள்ள வினாடி வினாக்கள் காட்டும்.",
+"{done} of {total} topics marked as learned": "{total} தலைப்புகளில் {done} கற்றதாகக் குறிக்கப்பட்டன"
 }
