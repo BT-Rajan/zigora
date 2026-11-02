@@ -454,7 +454,11 @@ fun StudyTopicScreen(id: Int, back: () -> Unit, go: (Int) -> Unit, quiz: (StudyQ
                 try { a.raw("PUT", "/study/topics/$id/progress", buildJsonObject { put("completed", on) }); completed = on
                       toast(if (on) tl("Marked as completed") else tl("Marked as not completed")) } catch (e: Exception) { toast(e.message.orEmpty()) }
             }; Unit }
-            if (isDone) OutlinedButton(onClick = { mark(false) }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(tl("Mark as not completed")) }
+            if (isDone) {  // where to go now; nothing else is marked
+                x.next?.let { n -> Button(onClick = { go(n.id) }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(tl("Next topic: {title}", "title" to n.title) + " ›") } }
+                    ?: run { Quiet(tl("That was the last topic of this course.")); Button(onClick = back, modifier = Modifier.fillMaxWidth()) { Text(tl("Back to the course")) } }
+                OutlinedButton(onClick = { mark(false) }, Modifier.fillMaxWidth()) { Text(tl("Mark as not completed")) }
+            }
             else Button(onClick = { mark(true) }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Icon(Icons.Filled.Check, null); Text("  " + tl("Mark as completed")) }
             Row(Modifier.fillMaxWidth()) {
                 x.prev?.let { p -> TextButton(onClick = { go(p.id) }) { Text("‹ " + tl("Previous")) } }

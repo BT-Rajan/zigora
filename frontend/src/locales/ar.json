@@ -2939,5 +2939,7 @@
 "A classmate studies this course too: their progress and quiz results on it are removed as well.": "يدرس زميل هذا المقرر أيضًا: سيُحذف تقدمه ونتائج اختباراته فيه كذلك.",
 "{n} classmates study this course too: their progress and quiz results on it are removed as well.": "يدرس {n} من الزملاء هذا المقرر أيضًا: سيُحذف تقدمهم ونتائج اختباراتهم فيه كذلك.",
 "A classmate has progress or quiz results on this course. Finishing again removes theirs too.": "لدى زميل تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا.",
-"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.": "لدى {n} من الزملاء تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا."
+"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.": "لدى {n} من الزملاء تقدم أو نتائج اختبارات في هذا المقرر. إنهاء الإعداد مجددًا يحذفها أيضًا.",
+"That was the last topic of this course.": "كان هذا آخر موضوع في هذا المقرر.",
+"Back to the course": "العودة إلى المقرر"
 }
