@@ -100,6 +100,7 @@ fun McqHomeScreen(topic: Int, back: () -> Unit, play: (Int) -> Unit) {
             val t = c?.topics?.firstOrNull { it.id == tid }
             val pool = if (perTopic) t?.questions ?: 0 else c?.questions ?: h.courses.sumOf { it.questions }
             val ready = !perTopic || t != null; val left = (h.quota.left ?: 1) > 0
+            val notes = if (perTopic) t?.notes == true else (c?.topics ?: h.courses.flatMap { it.topics }).any { it.notes }  // an AI set is written from the topics' notes
             val go = { source: String -> scope.launch {
                 busy = source
                 try {
@@ -114,10 +115,11 @@ fun McqHomeScreen(topic: Int, back: () -> Unit, play: (Int) -> Unit) {
             } }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(enabled = busy.isEmpty() && ready && pool >= h.min && left, onClick = { go("bank") }) { Text(if (busy == "bank") tl("Starting…") else tl("Questions from the bank")) }
-                if (h.ai) OutlinedButton(enabled = busy.isEmpty() && ready && left, onClick = { go("ai") }) { Text(if (busy == "ai") tl("Writing questions…") else tl("A new AI set")) }
+                if (h.ai) OutlinedButton(enabled = busy.isEmpty() && ready && left && notes, onClick = { go("ai") }) { Text(if (busy == "ai") tl("Writing questions…") else tl("A new AI set")) }
             }
-            Quiet((if (ready && pool < h.min) tl("Not enough published questions here yet.") else tl(if (pool == 1) "{n} published question to draw from." else "{n} published questions to draw from.", "n" to pool))
+            Quiet((if (ready && pool < h.min) tl("Not enough published questions here yet: a set needs at least {min}.", "min" to h.min) else tl(if (pool == 1) "{n} published question to draw from." else "{n} published questions to draw from.", "n" to pool))
                   + " " + tl("A set counts when it starts."))
+            if (h.ai && ready && !notes) Quiet(if (perTopic) tl("This topic has no notes yet, so the AI can't write questions for it.") else tl("These topics have no notes yet, so the AI can't write questions for them."))
         }
         (hist.state as? Load.Ok)?.value?.takeIf { it.total > 0 }?.let { hs ->
             SectionTitle(tl("Your sets"))

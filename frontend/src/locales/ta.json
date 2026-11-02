@@ -2977,5 +2977,8 @@
 "Flagged AI answers and problems with topic notes": "குறிக்கப்பட்ட AI பதில்களும் தலைப்புக் குறிப்புகளில் உள்ள பிரச்சினைகளும்",
 "Student reports": "மாணவர் புகார்கள்",
 "{n} report": "{n} புகார்",
-"{n} reports": "{n} புகார்கள்"
+"{n} reports": "{n} புகார்கள்",
+"Not enough published questions here yet: a set needs at least {min}.": "இங்கே இன்னும் போதுமான வெளியிடப்பட்ட கேள்விகள் இல்லை: ஒரு தொகுப்புக்குக் குறைந்தது {min} தேவை.",
+"This topic has no notes yet, so the AI can't write questions for it.": "இந்தத் தலைப்பில் இன்னும் குறிப்புகள் இல்லை, எனவே AI இதற்குக் கேள்விகள் எழுத முடியாது.",
+"These topics have no notes yet, so the AI can't write questions for them.": "இந்தத் தலைப்புகளில் இன்னும் குறிப்புகள் இல்லை, எனவே AI இவற்றுக்குக் கேள்விகள் எழுத முடியாது."
 }

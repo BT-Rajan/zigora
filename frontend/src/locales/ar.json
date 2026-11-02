@@ -2977,5 +2977,8 @@
 "Flagged AI answers and problems with topic notes": "إجابات ذكاء اصطناعي مُشار إليها ومشكلات في ملاحظات المواضيع",
 "Student reports": "بلاغات الطلاب",
 "{n} report": "{n} بلاغ",
-"{n} reports": "{n} بلاغات"
+"{n} reports": "{n} بلاغات",
+"Not enough published questions here yet: a set needs at least {min}.": "لا توجد أسئلة منشورة كافية هنا بعد: تحتاج المجموعة {min} على الأقل.",
+"This topic has no notes yet, so the AI can't write questions for it.": "لا توجد ملاحظات لهذا الموضوع بعد، لذا لا يستطيع الذكاء الاصطناعي كتابة أسئلة له.",
+"These topics have no notes yet, so the AI can't write questions for them.": "لا توجد ملاحظات لهذه المواضيع بعد، لذا لا يستطيع الذكاء الاصطناعي كتابة أسئلة لها."
 }

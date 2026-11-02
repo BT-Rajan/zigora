@@ -7164,8 +7164,9 @@ def mcq_home(u: User = Depends(mcq_user), s: Session = Depends(db)):
     courses = mcq_courses(u, s); tids = [t["id"] for c in courses for t in c["topics"]]
     counts = dict(s.query(McqItem.topic_id, func.count(McqItem.id)).filter(McqItem.topic_id.in_(tids or [0]), McqItem.status == "published").group_by(McqItem.topic_id).all())
     stats = mcq_topic_stats(s, u.id, tids)
+    empty = {t.id for t in s.query(Topic).filter(Topic.id.in_(tids or [0])) if topic_empty(t)}
     for c in courses:
-        for t in c["topics"]: t["questions"] = counts.get(t["id"], 0); t["stats"] = stats.get(t["id"])
+        for t in c["topics"]: t["questions"] = counts.get(t["id"], 0); t["stats"] = stats.get(t["id"]); t["notes"] = t["id"] not in empty  # notes: an AI set has something to be written from
         c["questions"] = sum(t["questions"] for t in c["topics"])
     op = s.query(McqAttempt).filter_by(user_id=u.id, status="open").first()
     return {"quota": mcq_quota(u, s), "ai": bool(key_for(u, s)) and not ai_off(u, s), "size": MCQ_SIZE, "min": MCQ_MIN_SET, "max": MCQ_MAX_SIZE,
