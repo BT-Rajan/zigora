@@ -216,3 +216,36 @@ def test_gaps_quizzes_on_staff_topics_fixing_topics_flags_and_ai_left(env, monke
         s.commit()
     rv = env.c.post(f"/api/study/courses/{cid}/review", headers=env.stu).json(); assert [x["text"] for x in rv["questions"]] == ["Q4?"]
     me = env.c.get("/api/study/me", headers=env.stu).json(); assert me["ai_available"] is True and me["ai_left"] == main.STUDY_AI_DAILY - 3  # practice on Water, the slice, one quick check
+
+def test_long_material_is_sliced_part_by_part_in_the_background_and_counts_once(env, monkeypatch):
+    setup(env, monkeypatch); cid = new(env); monkeypatch.setattr(main, "SLICE_BUDGET", 120)  # every few paragraphs make a part
+    env.c.post(f"/api/study/courses/{cid}/text", headers=env.stu, json={"text": TEXT + "\n\n" + TEXT})
+    with Session_() as s: n = len(json.loads(s.get(StudyCourse, cid).paras)); used = s.query(main.StudyAICall).count()
+    parts = main.slice_parts(json.loads(Session_().get(StudyCourse, cid).paras)); assert len(parts) > 1 and parts[0][0] == 0 and parts[-1][1] == n
+    assert all(a < z for a, z in parts) and all(parts[i][1] == parts[i + 1][0] for i in range(len(parts) - 1))  # whole paragraphs, in order, nothing missed
+    r = env.c.post(f"/api/study/courses/{cid}/slice", headers=env.stu, json={}).json(); assert r["slicing"]["of"] == len(parts)
+    import time
+    for _ in range(100):
+        x = env.c.get(f"/api/study/courses/{cid}/slicing", headers=env.stu).json()
+        if "plan" in x: break
+        time.sleep(0.05)
+    tops = [t for u in x["plan"]["units"] for t in u["topics"]]
+    assert tops[0]["from"] == 1 and tops[-1]["to"] == n and all(tops[i]["to"] + 1 == tops[i + 1]["from"] for i in range(len(tops) - 1))  # numbering carries on across parts
+    assert len(FakeAI.calls) == len(parts) and all(f"of {len(parts)} of the material" in c[1] for c in FakeAI.calls)
+    with Session_() as s: assert s.query(main.StudyAICall).count() == used + 1  # one request, however many parts
+
+def test_a_failed_part_says_so_once_and_gives_the_request_back(env, monkeypatch):
+    setup(env, monkeypatch); cid = new(env); monkeypatch.setattr(main, "SLICE_BUDGET", 120)
+    env.c.post(f"/api/study/courses/{cid}/text", headers=env.stu, json={"text": TEXT + "\n\n" + TEXT})
+    async def junk(k, messages, **kw): return "Sorry, here is half an outline: {\"units\": [", 5
+    monkeypatch.setattr(main, "chat", junk)
+    with Session_() as s: used = s.query(main.StudyAICall).count()
+    assert "slicing" in env.c.post(f"/api/study/courses/{cid}/slice", headers=env.stu, json={}).json()
+    import time
+    for _ in range(100):
+        r = env.c.get(f"/api/study/courses/{cid}/slicing", headers=env.stu)
+        if r.status_code != 200: break
+        time.sleep(0.05)
+    assert r.status_code == 502 and "slice by headings" in r.json()["detail"]
+    assert env.c.get(f"/api/study/courses/{cid}/slicing", headers=env.stu).status_code == 409  # said once; after that, nothing is running and there is no outline
+    with Session_() as s: assert s.query(main.StudyAICall).count() == used

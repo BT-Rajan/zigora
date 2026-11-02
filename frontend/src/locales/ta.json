@@ -2925,5 +2925,9 @@
 "{name} declined {course}": "{name} {course} ஐ நிராகரித்தார்",
 "{name} declined your invitation to the course {course}. You can invite them again if you like.": "{name} உங்கள் {course} பாடநெறி அழைப்பை நிராகரித்தார். விரும்பினால் மீண்டும் அழைக்கலாம்.",
 "This course is paused for now. Your place is kept, and your teacher will reopen it.": "இந்தப் பாடநெறி இப்போது இடைநிறுத்தத்தில் உள்ளது. உங்கள் இடம் வைக்கப்பட்டுள்ளது; உங்கள் ஆசிரியர் மீண்டும் திறப்பார்.",
-"No courses are open to join right now. You can ask your teacher for an invitation, or start learning now by building a course from your own notes.": "இப்போது சேரத் திறந்த பாடநெறிகள் இல்லை. உங்கள் ஆசிரியரிடம் அழைப்பு கேட்கலாம், அல்லது உங்கள் சொந்தக் குறிப்புகளிலிருந்து பாடநெறியை உருவாக்கி இப்போதே கற்கத் தொடங்கலாம்."
+"No courses are open to join right now. You can ask your teacher for an invitation, or start learning now by building a course from your own notes.": "இப்போது சேரத் திறந்த பாடநெறிகள் இல்லை. உங்கள் ஆசிரியரிடம் அழைப்பு கேட்கலாம், அல்லது உங்கள் சொந்தக் குறிப்புகளிலிருந்து பாடநெறியை உருவாக்கி இப்போதே கற்கத் தொடங்கலாம்.",
+"Long material is sliced part by part: {done} of {of} done. This can take a few minutes.": "நீண்ட பாடப்பொருள் பகுதி பகுதியாகப் பிரிக்கப்படுகிறது: {of} இல் {done} முடிந்தது. இதற்குச் சில நிமிடங்கள் ஆகலாம்.",
+"The AI's answer could not be read. Try again, or slice by headings.": "செயற்கை நுண்ணறிவின் பதிலைப் படிக்க முடியவில்லை. மீண்டும் முயலுங்கள், அல்லது தலைப்புகளின்படி பிரியுங்கள்.",
+"Your material changed while it was being sliced. Slice it again.": "பிரிக்கும்போது உங்கள் பாடப்பொருள் மாறியது. மீண்டும் பிரியுங்கள்.",
+"Slicing stopped before it finished. Slice it again.": "பிரித்தல் முடிவதற்குள் நின்றது. மீண்டும் பிரியுங்கள்."
 }
