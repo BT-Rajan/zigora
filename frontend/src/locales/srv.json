@@ -290,5 +290,9 @@
 [
 "^This test opens on (?<when>.+)\\.$",
 "This test opens on {when}."
+],
+[
+"^You have used today's (?<n>\\d+) explanations\\. Ask again tomorrow\\.$",
+"You have used today's {n} explanations. Ask again tomorrow."
 ]
 ]

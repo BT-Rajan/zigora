@@ -3955,6 +3955,15 @@ STEP_RULES = ("You help a busy engineering student learn one topic in small step
 STEPS = {"gist": 350, "why": 300, "example": 300, "exam": 400, "check": 250, "outline": 400, "simpler": 250, "line": 250}  # the kinds that answer in JSON, and their token limits
 EXAM_KINDS = ("answer", "exam", "outline")  # the kinds that also get the question pattern, answer guideline and sample content
 PROMPTS = {  # the built-in prompts; an admin can replace any of them under Settings (stored as prompt_<kind>)
+ "revision": ("You write a revision sheet for a student who has already studied this topic and wants to revise it quickly, not learn it again. "
+              "Use only what the topic's notes (and the question pattern and answer guideline, when given) say; if you add anything they do not contain, "
+              "end that item with \"(beyond the notes)\". Be accurate, short and concrete. Write maths as $...$. Reply with only a JSON object with exactly "
+              "these keys (the keys stay in English): {\"concepts\": [2 to 6 of {\"title\": \"a short name\", \"point\": \"the idea in one line, at most 20 words\", "
+              "\"detail\": \"at most 45 words: how it works and why it matters\"}], \"definitions\": [up to 6 of {\"term\": \"...\", \"meaning\": \"at most 25 words\"}], "
+              "\"formulas\": [up to 6 of {\"formula\": \"$...$\", \"meaning\": \"what the symbols are and when it applies, at most 30 words\"}] (empty if the topic has none), "
+              "\"facts\": [up to 6 key facts or relationships, at most 20 words each], \"mistakes\": [up to 4 common mistakes students make, at most 20 words each], "
+              "\"examples\": [up to 3 of {\"title\": \"...\", \"text\": \"at most 50 words\"}], \"likely\": [up to 4 typical exam questions on this topic, "
+              "with marks in brackets when the question pattern gives them]}"),
  "explain": ("You are a warm, sharp engineering tutor for a busy student with little time. Explain the topic in at most 150 words: one line on why it matters, "
              "the core idea in 2 to 4 short steps, and one tiny example. Use Markdown, plain short sentences, no greeting and no recap. Stay accurate. "
              "Use a small Markdown table only when a comparison is clearer that way: a header row, a separator row, and every row on its own line."),
@@ -4324,6 +4333,97 @@ def my_learning(u: User = Depends(me), s: Session = Depends(db)): return learner
 @app.delete("/api/me/learning/steps")
 def forget_learning(u: User = Depends(me), s: Session = Depends(db)):
     n = s.query(StepLog).filter_by(user_id=u.id).delete(); s.commit(); return {"ok": True, "cleared": n}
+# ---- revision sheets (S34): one sheet per topic version and language, written once and shared (or, from a student's own notes, kept for them);
+# ---- shown three ways (quick, detailed, exam) from the same answer, with a "your focus" box built from the student's own results, never sent to the AI
+REVISION_TOKENS = 1800
+def revision_sheet(text):  # the sheet's JSON, tidied; None when the AI did not keep to it
+    try: d = ai_json(text)
+    except HTTPException: return None
+    if not isinstance(d, dict): return None
+    def objs(k, keys, n): return [{f: str(x.get(f) or "").strip() for f in keys} for x in (d.get(k) or []) if isinstance(x, dict) and str(x.get(keys[0]) or "").strip()][:n]
+    def strs(k, n): return [str(x).strip() for x in (d.get(k) or []) if isinstance(x, (str, int, float)) and str(x).strip()][:n]
+    out = {"concepts": objs("concepts", ("title", "point", "detail"), 6), "definitions": objs("definitions", ("term", "meaning"), 6), "formulas": objs("formulas", ("formula", "meaning"), 6),
+           "facts": strs("facts", 6), "mistakes": strs("mistakes", 4), "examples": objs("examples", ("title", "text"), 3), "likely": strs("likely", 4)}
+    return out if out["concepts"] else None
+def revision_focus(u, t, s):  # what this student got wrong on the topic, the passages they marked, quick checks not yet had, and their MCQ standing
+    if u.role != "student": return None
+    wrong = []
+    for (snap,) in s.query(McqAttemptItem.snapshot).join(McqAttempt, McqAttempt.id == McqAttemptItem.attempt_id).filter(
+            McqAttempt.user_id == u.id, McqAttempt.status == "submitted", McqAttemptItem.topic_id == t.id, McqAttemptItem.ok == False).order_by(McqAttemptItem.id.desc()).limit(20):  # noqa: E712
+        wrong.append(json.loads(snap).get("text", ""))
+    for a in s.query(Attempt).filter(Attempt.user_id == u.id, Attempt.snapshot.isnot(None)).order_by(Attempt.id.desc()).limit(30):
+        for d, x in zip(json.loads(a.detail or "[]"), json.loads(a.snapshot)):
+            if x and x.get("topic_id") == t.id and not d[1]: wrong.append(x.get("text", ""))
+    wrong = list(dict.fromkeys(w for w in wrong if w))[:6]
+    marked = [h.text[:200] for h in s.query(Highlight).filter_by(user_id=u.id, topic_id=t.id).order_by(Highlight.id.desc()).limit(5)]
+    not_yet = s.query(func.count(StepLog.id)).filter(StepLog.user_id == u.id, StepLog.topic_id == t.id, StepLog.kind == "check", StepLog.outcome == "not_yet").scalar() or 0
+    st = mcq_topic_stats(s, u.id, [t.id]).get(t.id)
+    return {"wrong": wrong, "marked": marked, "not_yet": not_yet, "standing": {**st, "status": area_status(st["percent"])} if st else None}
+@app.get("/api/topics/{tid}/revision")
+async def revision(tid: int, make: bool = False, u: User = Depends(me), s: Session = Depends(db)):
+    """A topic's revision sheet. Opening it never asks the AI: the sheet comes back when it was written before (for this version of the topic and this
+    language), and is written only when the student asks for it (make=1)."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s)
+    f = full(t, s); prompt = in_lang(u, prompt_for(s, "revision")); has_text = bool(words_of(f["content"], f["content_format"]).strip())
+    mine = my_notes(s, u.id, tid) if u.role == "student" and not has_text else None
+    last = s.query(func.max(StepLog.at)).filter(StepLog.user_id == u.id, StepLog.topic_id == tid, StepLog.kind == "revised").scalar()
+    extra = {"focus": revision_focus(u, t, s), "revised_at": utc_iso(last), "own_notes": bool(mine)}
+    if not has_text and not mine: return {"sheet": None, "empty": True, **extra}
+    key_or_fail(u, s)  # without a key AI is off, even for a saved sheet (as for every AI answer)
+    if mine:
+        ch = hashlib.sha256("|".join(["own", topic_hash(t, "revision", prompt), mine]).encode()).hexdigest()
+        hit = s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind="revision", chash=ch).first()
+    else:
+        ch = topic_hash(t, "revision", prompt); hit = s.query(AICache).filter_by(topic_id=tid, kind="revision", chash=ch).first()
+    if hit:
+        if not mine: hit.hits += 1; s.commit()
+        return {"sheet": revision_sheet(hit.text), "cached": True, **extra}
+    if not make: return {"sheet": None, **extra}
+    if mine:
+        key_or_fail(u, s); text = await study_ask(u, s, "t_revision", prompt, topic_msg(f, "exam", mine), max_tokens=REVISION_TOKENS, topic_id=tid); tokens = 0
+    else:
+        key = key_or_fail(u, s); text, tokens = await ask_ai(u, s, key, prompt, topic_msg(f, "exam"), max_tokens=REVISION_TOKENS, kind="topic_revision", topic_id=tid)
+    sheet = revision_sheet(text)
+    if not sheet: raise HTTPException(502, "The AI's answer could not be read. Try again.")  # not kept, so the next try asks again
+    try:
+        if mine:
+            s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind="revision").delete()  # a sheet from older notes is no use now
+            s.add(PrivateAnswer(user_id=u.id, topic_id=tid, kind="revision", chash=ch, text=text))
+        else: s.add(AICache(topic_id=tid, kind="revision", chash=ch, text=text, tokens=tokens))
+        s.commit()
+    except Exception: s.rollback()  # another tap kept the same sheet a moment ago
+    return {"sheet": sheet, "cached": False, **extra}
+@app.post("/api/topics/{tid}/revised")
+def mark_revised(tid: int, u: User = Depends(me), s: Session = Depends(db)):  # "I've revised this": kept for the student (and for when to revise again, S35)
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s); now = dt.datetime.utcnow(); s.add(StepLog(user_id=u.id, topic_id=tid, kind="revised", at=now)); s.commit()
+    return {"revised_at": utc_iso(now)}
+class ExplainIn(BaseModel): text: str
+@app.post("/api/topics/{tid}/explain")
+async def explain_passage(tid: int, b: ExplainIn, u: User = Depends(me), s: Session = Depends(db)):
+    """Explain this: what a passage of the topic (a line of its revision sheet, say) means. The same prompt, saved answers and daily limit as a highlight."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s); text = " ".join((b.text or "").split())[:600]
+    if len(text) < 2: raise HTTPException(400, "Choose something to explain")
+    prompt = in_lang(u, prompt_for(s, "line")); key = key_or_fail(u, s)
+    got = line_saved(s, t, u, text, prompt)
+    if got: return {"explain": got}
+    if not is_staff(u) and s.query(func.count(StepLog.id)).filter(StepLog.user_id == u.id, StepLog.kind == "line", StepLog.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= LINE_DAILY:
+        raise HTTPException(429, f"You have used today's {LINE_DAILY} explanations. Ask again tomorrow.")
+    f = full(t, s)
+    msg = f"Program: {f['program']}\nSemester: {f['semester']}\nCourse: {f['course']}\nTopic: {f['title']}\n\nThe passage the student wants explained:\n{text}"
+    reply, tokens = await ask_ai(u, s, key, prompt, msg, max_tokens=STEPS["line"], kind="line", topic_id=t.id)
+    d = step_reply("line", reply)
+    if not d: raise HTTPException(502, "The AI's answer could not be read. Try again.")
+    if not is_staff(u): s.add(StepLog(user_id=u.id, topic_id=t.id, kind="line"))
+    row = AICache(topic_id=t.id, kind="line", chash=line_hash(t, prompt, text), text=reply, tokens=tokens, author_id=author_of(u))
+    try: s.add(row); s.commit()
+    except Exception: s.rollback(); row = None
+    return {"explain": {"id": row.id if row else None, "text": d["text"]}}
 # ---- "this looks wrong": a student flags an AI reply; the topic's teachers see it (never who sent it) and write it again or let it stand ----
 class FlagIn(BaseModel): source: str; id: int | None = None; topic_id: int | None = None; kind: str = ""; excerpt: str = ""; reason: str = ""
 FLAG_DAILY = 20

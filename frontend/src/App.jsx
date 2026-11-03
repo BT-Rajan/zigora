@@ -1379,6 +1379,42 @@ function AdaptCard({toast}){
     {(taps>0||d.checks>0)&&<button className="btn ghost" onClick={reset}>{tl("Start fresh")}</button>}</div></>}
 
 const uploadImg=async f=>{const r=await fetch(ROOT+'/api/uploads',{method:'POST',headers:{'Content-Type':f.type||'application/octet-stream',Authorization:'Bearer '+localStorage.t},body:f}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(tl(j.detail||'Upload failed'));return j.url}
+// a topic's revision sheet (S34): written once when asked for, shown three ways from the same sheet; "your focus" comes from the student's own results
+const REV_FORMATS=[['quick','Quick'],['detailed','Detailed'],['exam','Exam']]
+function TopicRevision({id,toast}){
+  const [d,setD]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState(''),[fmt,setFmt]=useState('quick'),[ex,setEx]=useState({})
+  const load=make=>api(`/topics/${id}/revision${make?'?make=1':''}`).then(setD)
+  useEffect(()=>{setD(null);load().catch(e=>setErr(e.message))},[id])
+  const make=async()=>{setBusy(true);setErr('');try{await load(true)}catch(e){setErr(e.message)}setBusy(false)}
+  const revised=async()=>{try{const r=await api(`/topics/${id}/revised`,{method:'POST'});setD(x=>({...x,revised_at:r.revised_at}));toast(tl("Marked as revised"))}catch(e){toast(e.message)}}
+  const explain=async(k,text)=>{setEx(x=>({...x,[k]:{busy:true}}));try{const r=await api(`/topics/${id}/explain`,{method:'POST',body:{text}});setEx(x=>({...x,[k]:{text:r.explain.text}}))}catch(e){setEx(x=>({...x,[k]:{err:e.message}}))}}
+  if(!d)return err?<p className="known">{err}</p>:<Skeleton rows={3}/>
+  const Line=({k,text,children})=><div className="revline">{children}<button className="tool" disabled={ex[k]?.busy} onClick={()=>explain(k,text)}>{ex[k]?.busy?tl("Thinking…"):tl("Explain this")}</button>
+    {ex[k]?.text&&<div className="known prose"><Md>{ex[k].text}</Md></div>}{ex[k]?.err&&<p className="known">{ex[k].err}</p>}</div>
+  const sh=d.sheet,f=d.focus,Sec=({title,show,children})=>show?<div className="qbox"><b>{title}</b>{children}</div>:null
+  const ideas=detail=>sh.concepts.map((c,i)=><Line key={'c'+i} k={'c'+i} text={c.title+': '+c.point}><div className="prose"><Md>{`**${c.title}**: ${c.point}`+(detail&&c.detail?`\n\n${c.detail}`:'')}</Md></div></Line>)
+  const formulas=meaning=>sh.formulas.map((x,i)=><Line key={'f'+i} k={'f'+i} text={x.formula+' '+x.meaning}><div className="prose"><Md>{x.formula+(meaning&&x.meaning?' · '+x.meaning:'')}</Md></div></Line>)
+  const defs=sh&&sh.definitions.map((x,i)=><Line key={'d'+i} k={'d'+i} text={x.term+': '+x.meaning}><div className="prose"><Md>{`**${x.term}**: ${x.meaning}`}</Md></div></Line>)
+  const list=(L,p)=>L.map((x,i)=><Line key={p+i} k={p+i} text={x}><div className="prose"><Md>{x}</Md></div></Line>)
+  const focus=f&&(f.wrong.length||f.marked.length||f.not_yet||f.standing)
+  return <>
+    {focus&&<div className="qbox area needs_study"><b>{tl("Your focus")}</b>
+      {f.standing&&<p className="known">{tl("Your MCQs on this topic: {correct} of {total} right · {percent}%",{correct:f.standing.correct,total:f.standing.answered,percent:f.standing.percent})}</p>}
+      {f.wrong.length>0&&<><small className="known">{tl("Questions you got wrong")}</small><ul>{f.wrong.map((w,i)=><li key={i} className="prose"><Md>{w}</Md></li>)}</ul></>}
+      {f.marked.length>0&&<><small className="known">{tl("Passages you highlighted")}</small><ul>{f.marked.map((w,i)=><li key={i}>{w}</li>)}</ul></>}
+      {f.not_yet>0&&<p className="known">{tl("You said \"Not quite\" on {n} quick checks here.",{n:f.not_yet})}</p>}</div>}
+    {d.empty?<p className="known">{tl("This topic has no notes yet, so there is nothing to revise from.")}</p>
+    :!sh?<div className="qbox"><p className="known" style={{marginTop:0}}>{tl("A one-screen summary of what matters in this topic, with a detailed and an exam view.")}</p>
+      <button className="btn" disabled={busy} onClick={make}>{busy?tl("Writing…"):tl("Write my revision sheet")}</button>{err&&<p className="known">{err}{" "}<button className="tool" onClick={make}>{tl("Try again")}</button></p>}</div>
+    :<><div className="seg" role="group" aria-label={tl("How much to show")} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>{REV_FORMATS.map(([k,l])=><button key={k} className={fmt===k?'on':''} aria-pressed={fmt===k} onClick={()=>setFmt(k)}>{tl(l)}</button>)}</div>
+      {d.own_notes&&<p className="known">{tl("Written from your own notes, for you only.")}</p>}
+      {fmt==='quick'&&<><Sec title={tl("Key ideas")} show>{ideas(false)}</Sec><Sec title={tl("Formulas")} show={sh.formulas.length>0}>{formulas(false)}</Sec><Sec title={tl("Watch out for")} show={sh.mistakes.length>0}>{list(sh.mistakes.slice(0,3),'m')}</Sec></>}
+      {fmt==='detailed'&&<><Sec title={tl("Key ideas")} show>{ideas(true)}</Sec><Sec title={tl("Definitions")} show={sh.definitions.length>0}>{defs}</Sec><Sec title={tl("Formulas")} show={sh.formulas.length>0}>{formulas(true)}</Sec>
+        <Sec title={tl("Key facts")} show={sh.facts.length>0}>{list(sh.facts,'k')}</Sec><Sec title={tl("Examples")} show={sh.examples.length>0}>{sh.examples.map((x,i)=><Line key={'e'+i} k={'e'+i} text={x.title+': '+x.text}><div className="prose"><Md>{`**${x.title}**: ${x.text}`}</Md></div></Line>)}</Sec>
+        <Sec title={tl("Common mistakes")} show={sh.mistakes.length>0}>{list(sh.mistakes,'m')}</Sec></>}
+      {fmt==='exam'&&<><Sec title={tl("Definitions")} show={sh.definitions.length>0}>{defs}</Sec><Sec title={tl("Formulas")} show={sh.formulas.length>0}>{formulas(true)}</Sec>
+        <Sec title={tl("Likely questions")} show={sh.likely.length>0}>{list(sh.likely,'l')}</Sec><Sec title={tl("Common mistakes")} show={sh.mistakes.length>0}>{list(sh.mistakes,'m')}</Sec></>}
+      <button className="btn ghost" onClick={revised}>{tl("Mark as revised")}</button>{d.revised_at&&<p className="known">{tl("Last revised {when}",{when:when(d.revised_at)})}</p>}</>}</>}
 // one image place on a question or an answer: shows the image, the file the CSV asked for, or a small "Add image" button
 function ImgSlot({url,need,label,onSet,toast,small}){
   const ref=useRef(),[busy,setBusy]=useState(false)
@@ -2056,13 +2092,14 @@ function Topic({id:first,back,toast,role}){
     {hist&&<HistorySheet tid={id} toast={toast} close={()=>setHist(false)} done={()=>{setHist(false);setV(v+1)}}/>}
     {t.can_edit&&!t.published&&<p className="known" style={{marginTop:0}}>{tl("Draft · students cannot see it")}</p>}
     {aiOk&&(t.content||t.my_notes)&&<TopicSteps id={id} student={role==='student'} diagram={pv&&t.diagram?'on':t.diagram}/>}  {/* no gist from a topic's name alone: from its notes, or the student's own */}
-    {aiOff?<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>:<Tabs label={tl("Topic sections")} items={[['notes',tl("Notes")],['explain',tl("Explain")],['answer',tl("Sample answer")]]} value={tab} onChange={setTab}/>}
+    {aiOff?<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>:<Tabs label={tl("Topic sections")} items={[['notes',tl("Notes")],['explain',tl("Explain")],['answer',tl("Sample answer")],['revise',tl("Revise")]]} value={tab} onChange={setTab}/>}
     {known.length>0&&tab==='explain'&&<p className="known">{tl("You’ve already covered:")}{" "}{known.join(', ')}</p>}
     {tab==='notes'&&t.content&&<button className="btn lead" onClick={()=>setReading(true)}><Maximize2 size={16}/> {t.content_format==='interactive'?tl("Open the interactive page"):tl("Read in full screen")}</button>}
     {tab==='notes'&&<NotesLang t={t} aiOk={aiOk} tr={tr} setTr={setTr}/>}
     {tab==='notes'&&<div className="prose">{t.content?(t.content_format==='interactive'?<p className="known" style={{margin:0}}>{tl("This topic is an interactive page. Open it above to use it and highlight its text.")}</p>:<Body text={tr?.on&&tr.content?tr.content:t.content} format={t.content_format}/>):!t.my_notes&&(role==='student'?<div className="qbox" style={{marginTop:0}}><b>{tl("This topic has no notes yet")}</b><p className="known" style={{margin:'4px 0 8px'}}>{tl("Bring your own notes for this course. They are filed under its topics, for you only, and you study them here.")}</p><button className="btn" onClick={()=>setMat(true)}><FileText size={16}/>{" "}{tl("Bring your own notes")}</button></div>:<Md>{tl("No notes yet.")}</Md>)}{t.my_notes&&<>{t.content&&<h3>{tl("Your notes")}</h3>}{!t.content&&<span className="chip">{tl("Your notes")}</span>}<Md>{t.my_notes}</Md></>}{t.question_pattern&&<><h3>{tl("Question pattern")}</h3><Md>{t.question_pattern}</Md></>}{t.guideline&&<><h3>{tl("Answer guideline")}</h3><Md>{t.guideline}</Md></>}{role==='student'&&(t.content||t.my_notes)&&<button className="tool" onClick={()=>setMat(true)}><FileText size={14}/> {t.my_notes?tl("Update your notes for this course"):tl("Add your own notes for this topic")}</button>}</div>}
     {tab==='notes'&&hls.length>0&&<><h3 className="sec">{tl("Your highlights ({length})",{length:hls.length})}</h3>{<Paged rows={hls} render={h=><HlItem key={h.id} h={{...h,tid:id}} toast={toast} onSaved={r=>setHls(l=>l.map(x=>x.id===r.id?r:x))} onDrop={()=>dropHl(h)}/>}/>}</>}
     {tab==='explain'&&view('explain')}{(tab==='answer'||(aiOff&&tab==='notes'))&&<ModelAnswer t={t} canEdit={!!t.can_edit&&!pv} toast={toast} onSaved={m=>setT(p=>({...p,model_answer:m}))}/>}{tab==='answer'&&(aiOk===false?view('answer'):<><Outline id={id}/>{ai.answer?view('answer'):<button className="btn ghost" disabled={busy} onClick={()=>ask('answer')}>{busy?tl("Thinking…"):tl("Show the full sample answer")}</button>}{!ai.answer&&aiMsg&&<p className="known">{aiMsg}</p>}</>)}
+    {tab==='revise'&&!aiOff&&<TopicRevision id={id} toast={toast}/>}
     {reading&&<Reader t={t} auto={role==='student'} toast={toast} onList={setHls} close={()=>setReading(false)}/>}
     {role!=='guardian'&&t.published!==false&&<button className="btn ghost" onClick={()=>setMcq(true)}><ListChecks size={16}/>{" "}{tl("MCQ practice on this topic")}</button>}
     {role==='student'&&aiOk!==false&&(!t.empty||t.my_notes)&&<><h3 className="sec">{tl("Want to test yourself?")}</h3><div className="two"><button className="btn ghost" disabled={!!checking} onClick={()=>practise('mcq')}><ClipboardList size={16}/> {checking==='mcq'?tl("Writing questions…"):tl("5 quick questions")}</button><button className="btn ghost" disabled={!!checking} onClick={()=>practise('quiz')}><Target size={16}/> {checking==='quiz'?tl("Writing the quiz…"):tl("Full quiz · 10")}</button></div>
