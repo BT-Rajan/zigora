@@ -9,7 +9,7 @@ from tests.test_guardian import guardian, link
 
 def test_a_parent_sees_scores_strong_and_weak_topics_and_study_activity(env):
     i, unit = setup(env); q, t = two_topic_quiz(env, unit); sid = me_id("stu@x.com")
-    take(env, env.stu, q, [0, 0, 1, 1, 0])  # Water 2 of 2, Boilers 1 of 3
+    for _ in range(3): take(env, env.stu, q, [0, 0, 1, 1, 0])  # Water 2 of 2, Boilers 1 of 3, three times: enough to judge (S38)
     today = main.local_day(dt.datetime.utcnow())
     with Session_() as s:
         for n in (0, 1, 2, 10, 40): s.merge(ActivityDay(user_id=sid, day=today - dt.timedelta(days=n), reads=1))

@@ -42,7 +42,9 @@ def test_weak_quiz_areas_and_retakes_are_suggested(env):
     i = setup(env); unit = i["unit"][i["course"]["Chem"]]
     q = env.c.post("/api/quizzes", headers=env.admin, json={"unit_id": unit, "title": "Chem quiz", "published": True, "pass_percent": 80}).json()["id"]
     env.c.put(f"/api/quizzes/{q}/questions", headers=env.admin, json={"questions": [{**x, "topic_id": i["topic"]["Fuels"]} for x in QS]})
-    env.c.post(f"/api/quizzes/{q}/attempt", headers=env.stu, json={"answers": [1, 1]})  # 0%
+    env.c.post(f"/api/quizzes/{q}/attempt", headers=env.stu, json={"answers": [1, 1]})  # 0% once: not enough to call Fuels weak (S38)
+    assert "weak" not in {f["kind"] for f in plan(env)["focus"]}
+    for _ in range(2): env.c.post(f"/api/quizzes/{q}/attempt", headers=env.stu, json={"answers": [1, 1]})  # 0 of 6 over three sittings
     p = plan(env); k = {f["kind"]: f for f in p["focus"]}
     assert k["weak"]["title"] == "Fuels" and "0%" in k["weak"]["reason"] and k["quiz_retake"]["reason"] == "Best so far 0%, pass mark 80%" and p["quiz_average"] == 0
     env.c.post(f"/api/quizzes/{q}/attempt", headers=env.stu, json={"answers": [0, 0]})

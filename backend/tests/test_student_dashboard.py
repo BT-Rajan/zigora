@@ -10,7 +10,7 @@ def dash(env, h=None): return env.c.get("/api/me/dashboard", headers=h or env.st
 
 def test_next_steps_an_exam_with_weak_topics_and_this_week(env):
     i, unit = setup(env); q, t = two_topic_quiz(env, unit); sid = me_id("stu@x.com"); today = main.local_day(dt.datetime.utcnow())
-    take(env, env.stu, q, [0, 0, 1, 1, 1])  # Boilers 0 of 3: a weak topic, and the quiz is below its pass mark
+    for _ in range(2): take(env, env.stu, q, [0, 0, 1, 1, 1])  # Boilers 0 of 3, twice: a weak topic (enough evidence, S38), and the quiz is below its pass mark
     with Session_() as s: s.add(CalendarEvent(title="Chemistry test", kind="test", day=today + dt.timedelta(days=2), scope="user", user_id=sid)); s.commit()
     d = dash(env); by = {x["key"]: x for x in d["items"]}
     assert by["exam"]["vars"] == {"title": "Chemistry test", "date": (today + dt.timedelta(days=2)).isoformat(), "n": 1} and by["exam"]["action"] == "progress" and by["exam"]["level"] == "now"
