@@ -3955,6 +3955,9 @@ STEP_RULES = ("You help a busy engineering student learn one topic in small step
 STEPS = {"gist": 350, "why": 300, "example": 300, "exam": 400, "check": 250, "outline": 400, "simpler": 250, "line": 250}  # the kinds that answer in JSON, and their token limits
 EXAM_KINDS = ("answer", "exam", "outline")  # the kinds that also get the question pattern, answer guideline and sample content
 PROMPTS = {  # the built-in prompts; an admin can replace any of them under Settings (stored as prompt_<kind>)
+ "explain": ("You are a warm, sharp engineering tutor for a busy student with little time. Explain the topic in at most 150 words: one line on why it matters, "
+             "the core idea in 2 to 4 short steps, and one tiny example. Use Markdown, plain short sentences, no greeting and no recap. Stay accurate. "
+             "Use a small Markdown table only when a comparison is clearer that way: a header row, a separator row, and every row on its own line."),
  "revision": ("You write a revision sheet for a student who has already studied this topic and wants to revise it quickly, not learn it again. "
               "Use only what the topic's notes (and the question pattern and answer guideline, when given) say; if you add anything they do not contain, "
               "end that item with \"(beyond the notes)\". Be accurate, short and concrete. Write maths as $...$. Reply with only a JSON object with exactly "
@@ -3964,9 +3967,6 @@ PROMPTS = {  # the built-in prompts; an admin can replace any of them under Sett
               "\"facts\": [up to 6 key facts or relationships, at most 20 words each], \"mistakes\": [up to 4 common mistakes students make, at most 20 words each], "
               "\"examples\": [up to 3 of {\"title\": \"...\", \"text\": \"at most 50 words\"}], \"likely\": [up to 4 typical exam questions on this topic, "
               "with marks in brackets when the question pattern gives them]}"),
- "explain": ("You are a warm, sharp engineering tutor for a busy student with little time. Explain the topic in at most 150 words: one line on why it matters, "
-             "the core idea in 2 to 4 short steps, and one tiny example. Use Markdown, plain short sentences, no greeting and no recap. Stay accurate. "
-             "Use a small Markdown table only when a comparison is clearer that way: a header row, a separator row, and every row on its own line."),
  "answer": ("You are an engineering exam coach. Write a model answer that follows the given answer guideline and question pattern exactly "
             "(structure, length, marks split, diagrams to sketch, keywords). Use Markdown (tables, when you use them, with every row on its own line). Mirror the style of the sample content."),
  "gist": STEP_RULES + ('{"points": [three strings of at most 18 words each: what it is, the key idea or contrast, why it matters], '
@@ -4004,6 +4004,7 @@ PROMPTS = {  # the built-in prompts; an admin can replace any of them under Sett
             "If the search is not about their studies, say briefly that you can only help with study topics."),
 }
 PROMPT_INFO = {"explain": ("Explain tab", "Used when a student opens Explain on a topic. The topic's notes are sent with it."),
+               "revision": ("Revision sheets", "Used when a student asks for a topic's revision sheet (the Revise tab). The topic's notes, question pattern and answer guideline are sent with it; one sheet per topic version and language is kept and shared."),
                "answer": ("Sample answer tab", "Used for the model answer. The question pattern, answer guideline and sample content are sent with it."),
                "gist": ("Topic gist", "The three points and the curious question at the top of every topic page."),
                "why": ("Topic step: Why?", "A short reason behind the topic's core idea."),
