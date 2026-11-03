@@ -215,7 +215,9 @@ class Attempt(Base):
     id = Column(Integer, primary_key=True); quiz_id = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), index=True); user_id = Column(Integer, ForeignKey("users.id"), index=True)
     score = Column(Integer); total = Column(Integer); percent = Column(Integer); at = Column(DateTime, default=dt.datetime.utcnow)
     detail = Column(Text, nullable=True)  # JSON [[question_id, 1 or 0, chosen index or null], ...] (older rows have no chosen index) so strengths and weak areas can be worked out; null on attempts made before this existed
-    snapshot = Column(Text().with_variant(_mysql_dialect.MEDIUMTEXT(), "mysql", "mariadb"), nullable=True)  # JSON list, in detail's order: each question as the student saw it (null where it was gone before copies were kept)
+    snapshot = Column(Text().with_variant(_mysql_dialect.MEDIUMTEXT(), "mysql", "mariadb"), nullable=True)
+    request_id = Column(String(64), nullable=True)  # the app's id for this submission: sent again (a double tap, a retry after a lost reply), it gets the same attempt back
+    __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_quiz_attempts_user_request"),)  # JSON list, in detail's order: each question as the student saw it (null where it was gone before copies were kept)
 class Progress(Base):  # one row per student and topic, made when they first open it. No row = not started; completed_at null = in progress
     __tablename__ = "progress"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id")); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"))
@@ -948,6 +950,10 @@ def attempt_question_copies(c):  # quiz_attempts.snapshot, filled for past attem
             try: ids = [d[0] for d in json.loads(detail)]
             except (ValueError, TypeError, IndexError, KeyError): continue  # unreadable: left as it is
             c.execute(text("UPDATE quiz_attempts SET snapshot = :v WHERE id = :i AND snapshot IS NULL"), {"v": json.dumps([qs.get(i) for i in ids], ensure_ascii=False), "i": aid})
+def attempt_request_id(c):  # quiz_attempts.request_id, one per person and submission; past attempts have none (any number may)
+    _addcol("quiz_attempts", "request_id", "VARCHAR(64) NULL")(c); ins = inspect(c)
+    if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("quiz_attempts") + ins.get_unique_constraints("quiz_attempts")):
+        c.execute(text("CREATE UNIQUE INDEX uq_quiz_attempts_user_request ON quiz_attempts (user_id, request_id)"))
 MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")), ("0002_subjects_semester_id", _addcol("subjects", "semester_id", "INT NULL")),
               ("0003_users_program_id", _addcol("users", "program_id", "INT NULL")), ("0004_users_semester", _addcol("users", "semester", "INT NULL")),
               ("0005_users_must_change", _addcol("users", "must_change", "TINYINT(1) NOT NULL DEFAULT 0")), ("0006_topics_published", _addcol("topics", "published", "TINYINT(1) NOT NULL DEFAULT 1")),
@@ -986,7 +992,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                   ("start_told", "DATETIME NULL"), ("end_told", "DATETIME NULL"), ("paused_at", "DATETIME NULL"))]
                   + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))]
                   + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)]),
-              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL")), ("0043_attempt_question_copies", attempt_question_copies)]
+              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL")), ("0043_attempt_question_copies", attempt_question_copies),
+              ("0044_attempt_request_id", attempt_request_id)]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -2637,7 +2644,7 @@ class QuestionIn(BaseModel):
     text: str; options: list[str]; correct: int; explanation: str = ""; topic_id: int | None = None; id: int | None = None  # id: the saved question this edits
     area: str = ""; image: str = ""; option_images: list[str] = []  # images are urls from POST /api/uploads
 class QuestionsIn(BaseModel): questions: list[QuestionIn]
-class AttemptIn(BaseModel): answers: list[int | None]
+class AttemptIn(BaseModel): answers: list[int | None]; request_id: str = ""  # request_id: made by the app once per sitting of the test, kept on retries
 def quiz_or_404(qid, s):
     q = s.get(Quiz, qid)
     if not q: raise HTTPException(404, "Quiz not found")
@@ -2900,24 +2907,44 @@ def course_topics(cid, s):
     return [{"id": t.id, "title": t.title, "unit": un.name} for un in units for t in by[un.id]]
 @app.post("/api/quizzes/{qid}/attempt")
 def attempt_quiz(qid: int, b: AttemptIn, u: User = Depends(me), s: Session = Depends(db)):
+    """Marks one sitting of a quiz on the server. The same request_id sent again (a double tap, a retry after a lost reply) gets the same attempt and
+    result back instead of a new one; a person's submissions are taken one at a time, so two at once can't both pass the attempt limit."""
     q = quiz_or_404(qid, s); cid = quiz_course_id(q, s)
     if not q.published and not (u.role == "admin" or can_edit(u, cid, s)): raise HTTPException(404, "Quiz not found")
     check_course_access(u, cid, s)
     if not can_edit(u, cid, s): quiz_unit_open(q, s)
-    if u.role == "student": quiz_attempt_allowed(s, u, qid)
+    rid = re.sub(r"[^A-Za-z0-9_-]", "", b.request_id or "")[:64] or None; uid, role = u.id, u.role
+    def again():  # this submission, if it was already taken
+        at = s.query(Attempt).filter_by(user_id=uid, request_id=rid).first() if rid else None
+        if at and at.quiz_id != qid: raise HTTPException(409, "That submission was for another quiz")
+        return at
+    if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+    s.rollback()  # end the reads so far, so what follows sees every attempt saved before this one
+    s.execute(text("UPDATE users SET id = id WHERE id = :u"), {"u": uid})  # this person's lock until the commit: another submission of theirs waits here
+    if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+    if role == "student": quiz_attempt_allowed(s, u, qid)
     qs = s.query(Question).filter_by(quiz_id=qid).order_by(Question.pos, Question.id).all()
     if not qs: raise HTTPException(400, "This quiz has no questions yet")
     if len(b.answers) != len(qs): raise HTTPException(400, "Answer every question or leave it blank")
     if any(a is not None and not 0 <= a < len(json.loads(x.options)) for a, x in zip(b.answers, qs)): raise HTTPException(400, "One of the answers is not a choice of its question")
+    oks = [a == x.correct for a, x in zip(b.answers, qs)]
+    score = sum(oks); pct = round(100 * score / len(qs))
+    detail = [[x.id, int(ok), a] for x, ok, a in zip(qs, oks, b.answers)]
+    at = Attempt(quiz_id=qid, user_id=uid, score=score, total=len(qs), percent=pct, detail=json.dumps(detail), request_id=rid,
+                 snapshot=json.dumps([question_snap(x) for x in qs], ensure_ascii=False)); s.add(at)
+    try: s.commit()
+    except IntegrityError:  # the same submission, saved by another request just now: theirs stands
+        s.rollback()
+        if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+        raise
+    return attempt_reply(at, q, u, cid, s)
+def attempt_reply(at, q, u, cid, s, already=False):  # one attempt's result as it was marked, from its own copy of the questions
     key = u.role == "admin" or can_edit(u, cid, s) or bool(q.reveal)  # the answer key goes back only to people who can edit the quiz, or to everyone when the quiz reveals it
-    results = [{"chosen": a, "ok": a == x.correct, **({"correct": x.correct, "explanation": x.explanation} if key else {})} for a, x in zip(b.answers, qs)]
-    score = sum(r["ok"] for r in results); pct = round(100 * score / len(qs))
-    detail = [[x.id, int(r["ok"]), a] for x, r, a in zip(qs, results, b.answers)]
-    at = Attempt(quiz_id=qid, user_id=u.id, score=score, total=len(qs), percent=pct, detail=json.dumps(detail),
-                 snapshot=json.dumps([question_snap(x) for x in qs], ensure_ascii=False)); s.add(at); s.commit()
-    areas = areas_for([(u.id, q, {x.id: x for x in qs}, detail)], s, is_staff(u), u.id)
-    return {"attempt_id": at.id, "score": score, "total": len(qs), "percent": pct, "passed": pct >= q.pass_percent, "pass_percent": q.pass_percent, "reveal": key, "results": results, "areas": areas,
-            "summary": area_summary(areas)}
+    detail = json.loads(at.detail); snap = json.loads(at.snapshot) if at.snapshot else [None] * len(detail)
+    results = [{"chosen": d[2] if len(d) > 2 else None, "ok": bool(d[1]), **({"correct": x["correct"], "explanation": x["explanation"]} if key and x else {})} for d, x in zip(detail, snap)]
+    areas = areas_for([(at.user_id, q, attempt_questions(at, {}), detail)], s, is_staff(u), at.user_id)
+    return {"attempt_id": at.id, "score": at.score, "total": at.total, "percent": at.percent, "passed": at.percent >= q.pass_percent, "pass_percent": q.pass_percent, "reveal": key,
+            "results": results, "areas": areas, "summary": area_summary(areas), **({"already": True} if already else {})}
 
 # ---- MCQ tests from a CSV: parse and preview, then the questions are saved with PUT /api/quizzes/{id}/questions ----
 class QuizCsvIn(BaseModel): csv: str; unit_id: int = 0; course_id: int = 0

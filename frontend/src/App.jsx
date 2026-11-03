@@ -1376,14 +1376,14 @@ const QImg=({src,alt})=>src?<img className="qimg" src={at(src)} alt={alt} loadin
 const OptBody=({text,img,k})=><span className="obody">{img&&<img src={at(img)} alt={tl("Answer {k}",{k:LET[k]})}/>}{text?<Md>{text}</Md>:!img&&<span>—</span>}</span>
 const LET='ABCDEF'
 function QuizPlay({id,back,toast,role}){
-  const [q,setQ]=useState(null),[ans,setAns]=useState([]),[res,setRes]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(null),[view,setView]=useState(null)
-  const start=d=>{setQ(d);setAns(d.questions.map(()=>null));setRes(null)}
+  const [q,setQ]=useState(null),[ans,setAns]=useState([]),[res,setRes]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(null),[view,setView]=useState(null),[sit,setSit]=useState('')
+  const start=d=>{setQ(d);setAns(d.questions.map(()=>null));setRes(null);setSit(rid())}  // sit: this sitting's id, sent with every try of its submit so a retry is never a second attempt
   useEffect(()=>{api('/quizzes/'+id).then(start).catch(e=>{toast(e.message);back()})},[id])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(view)return view.kind==='attempt'?<AttemptView id={view.id} back={()=>setView(null)} toast={toast} role={role}/>:view.kind==='mine'?<MyAttempts quiz={id} back={()=>setView(null)} toast={toast} role={role}/>:<QuizResults id={id} back={()=>setView(null)} toast={toast} role={role}/>
   if(!q)return <><Bar title={tl("Quiz")} back={back}/><div className="main"><Skeleton/></div></>
   const left=ans.filter(a=>a===null).length
-  const submit=async()=>{setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
+  const submit=async()=>{setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans,request_id:sit}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
   return <><Bar title={q.title} sub={tl("{length} questions · pass mark {pass_percent}%{v}",{length:q.questions.length,pass_percent:q.pass_percent,v:q.kind==='course'?' · course test':''})} back={back}/><div className="main">
     {!res&&q.can_edit&&<button className="btn ghost" style={{marginTop:0}} onClick={()=>setView({kind:'results'})}><BarChart3 size={16}/>{" "}{tl("Results and scores")}</button>}
     {!res&&q.attempts>0&&<p className="known" style={{marginTop:0}}>{tl("You have tried this {n}. Best {best}% · latest {latest}%.",{n:pl(q.attempts,'time'),best:q.best,latest:q.latest})}{" "}<button className="tool" onClick={()=>setView({kind:'mine'})}>{tl("See your attempts")}</button></p>}

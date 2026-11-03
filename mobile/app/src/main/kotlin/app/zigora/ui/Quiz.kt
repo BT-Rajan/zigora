@@ -31,6 +31,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** a teacher's quiz or test, as on the web: every question on one page, then the score, what to revisit, and each answer right or wrong */
 @Composable
@@ -41,6 +42,7 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
     val q = (quiz.state as? Load.Ok)?.value
     val picks = remember(q) { mutableStateListOf<Int?>().apply { repeat(q?.questions?.size ?: 0) { add(null) } } }
     var out by remember(q) { mutableStateOf<AttemptOut?>(null) }
+    val sitting = androidx.compose.runtime.saveable.rememberSaveable(id, tick) { java.util.UUID.randomUUID().toString() }  // sent with every try of this sitting's submit, so a retry is never a second attempt
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf("") }
     val scroll = rememberScrollState()
@@ -82,7 +84,7 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
                 Button(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = { scope.launch {
                     busy = true; msg = ""
                     try {
-                        val body = buildJsonObject { put("answers", JsonArray(picks.map { it?.let(::JsonPrimitive) ?: JsonNull })) }
+                        val body = buildJsonObject { put("answers", JsonArray(picks.map { it?.let(::JsonPrimitive) ?: JsonNull })); put("request_id", sitting) }
                         out = a.send("POST", "/quizzes/$id/attempt", body, AttemptOut.serializer()); scroll.scrollTo(0)
                     } catch (e: Exception) { msg = e.message.orEmpty() }
                     busy = false
