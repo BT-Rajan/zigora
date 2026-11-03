@@ -38,6 +38,7 @@ def test_csv_preview_reads_answers_topics_areas_and_image_names(env):
     assert q2["topic_id"] == i["topic"]["Boilers"]  # a topic from another unit of the course
     assert (q3["correct"], q3["topic_id"], q3["area"], q3["options"]) == (0, None, "Titration", ["ppm", "pH"])  # answer given as text; unknown topic becomes an area
     assert any("Titration" in w for w in r["warnings"]) and (q4["correct"], q4["area"]) == (1, "Arithmetic")
+    assert (q1["topic_name"], q3["topic_name"], q4["topic_name"]) == ("Hardness", "Titration", "")  # as the file wrote it: matched, not matched, none
     assert r["images_needed"] == ["boiler.png", "left.PNG", "right.png"]
     assert parse(env, cid, "foo,bar\n1,2\n").status_code == 400
     assert parse(env, cid, h=env.stu).status_code == 403 and parse(env, i["course"]["Workshop"]).status_code == 403  # not their course

@@ -96,6 +96,10 @@ def test_students_and_staff_practise_and_only_owners_and_admins_manage(env):
     assert start(env, env.stu, topic_id=i["draft"]).status_code == 404  # drafts are not practised
     h = env.c.get("/api/mcq/home", headers=env.stu).json(); assert [c["name"] for c in h["courses"]] == ["Chem"] and h["courses"][0]["questions"] == 6
     assert [t["title"] for t in h["courses"][0]["topics"]] == ["Water hardness", "Corrosion"]
+    assert all(t["notes"] for t in h["courses"][0]["topics"])
+    with Session_() as s: s.query(Topic).filter_by(title="Corrosion").update({"content": ""}); s.commit()
+    assert [t["notes"] for t in env.c.get("/api/mcq/home", headers=env.stu).json()["courses"][0]["topics"]] == [True, False]  # no notes: nothing for an AI set to be written from
+    with Session_() as s: s.query(Topic).filter_by(title="Corrosion").update({"content": RUST}); s.commit()
     r = start(env, env.fac, topic_id=i["water"]); assert r.status_code == 200  # faculty try sets too; no limit, as with the rest of their AI
     assert submit(env, env.fac, r.json()["id"]).status_code == 200 and env.c.get("/api/mcq/home", headers=env.fac).json()["quota"]["tier"] == "none"
 

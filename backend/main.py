@@ -2964,7 +2964,7 @@ def parse_quiz_csv(b: QuizCsvIn, u: User = Depends(author), s: Session = Depends
             else:
                 warnings.append(f"Row {n}: no topic called \"{tname}\" in this {'unit' if b.unit_id else 'course'}, so it is grouped as the area \"{tname[:150]}\"")
                 area = area or tname[:150]
-        out.append({"row": n, "text": text, "options": [o[0] for o in opts], "correct": k, "explanation": cell(r, "explanation"), "topic_id": tid, "topic": ttitle, "area": area,
+        out.append({"row": n, "text": text, "options": [o[0] for o in opts], "correct": k, "explanation": cell(r, "explanation"), "topic_id": tid, "topic": ttitle, "topic_name": tname, "area": area,  # topic_name: as the file wrote it, matched or not
                     "image": qimg, "image_name": qname, "option_images": [o[1] for o in opts], "option_image_names": [o[2] for o in opts]})
     names = sorted({x["image_name"] for x in out if x["image_name"]} | {m for x in out for m in x["option_image_names"] if m}, key=str.lower)
     return {"questions": out, "count": len(out), "errors": errors[:200], "error_count": len(errors), "warnings": warnings[:200], "images_needed": names}
@@ -7164,8 +7164,9 @@ def mcq_home(u: User = Depends(mcq_user), s: Session = Depends(db)):
     courses = mcq_courses(u, s); tids = [t["id"] for c in courses for t in c["topics"]]
     counts = dict(s.query(McqItem.topic_id, func.count(McqItem.id)).filter(McqItem.topic_id.in_(tids or [0]), McqItem.status == "published").group_by(McqItem.topic_id).all())
     stats = mcq_topic_stats(s, u.id, tids)
+    empty = {t.id for t in s.query(Topic).filter(Topic.id.in_(tids or [0])) if topic_empty(t)}
     for c in courses:
-        for t in c["topics"]: t["questions"] = counts.get(t["id"], 0); t["stats"] = stats.get(t["id"])
+        for t in c["topics"]: t["questions"] = counts.get(t["id"], 0); t["stats"] = stats.get(t["id"]); t["notes"] = t["id"] not in empty  # notes: an AI set has something to be written from
         c["questions"] = sum(t["questions"] for t in c["topics"])
     op = s.query(McqAttempt).filter_by(user_id=u.id, status="open").first()
     return {"quota": mcq_quota(u, s), "ai": bool(key_for(u, s)) and not ai_off(u, s), "size": MCQ_SIZE, "min": MCQ_MIN_SET, "max": MCQ_MAX_SIZE,

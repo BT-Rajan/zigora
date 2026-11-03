@@ -1456,6 +1456,7 @@ function McqHome({toast,topic,back,openTopic}){  // topic: the Per topic way in,
   if(!h)return <><Bar title={tl("MCQ practice")} back={back}/><div className="main"><Skeleton/></div></>
   const c=h.courses.find(x=>String(x.id)===String(course)),topics=c?c.topics:h.courses.flatMap(x=>x.topics),t=topics.find(x=>String(x.id)===String(tid))
   const pool=tab==='topic'?(t?t.questions:0):c?c.questions:h.courses.reduce((a,x)=>a+x.questions,0),ready=tab==='practice'||!!t
+  const notes=tab==='topic'?!!t?.notes:topics.some(x=>x.notes)  // an AI set is written from the topics' notes: none, nothing to write from
   const go=async source=>{setBusy(source);try{const r=await api('/mcq/attempts',{method:'POST',body:{mode:tab,source,size:Number(size),request_id:rid(),...(tab==='topic'?{topic_id:Number(tid)}:course?{course_id:Number(course)}:{})}})
     if(r.resumed)toast(tl("You have a set in progress. Here it is."));setPlay(r.id)}catch(e){toast(e.message);load()}setBusy('')}
   const drop=async()=>{if(!await confirm({title:tl("Leave this set?"),body:tl("It ends without a score. The set it used is not given back."),ok:tl("Leave it"),danger:true}))return
@@ -1473,8 +1474,9 @@ function McqHome({toast,topic,back,openTopic}){  // topic: the Per topic way in,
       {topics.map(x=><option key={x.id} value={x.id}>{x.title}{' · '+pl(x.questions,'question')}{x.stats?' · '+tl("you {p}%",{p:x.stats.percent}):''}</option>)}</select></>}
     <label htmlFor="mcqn">{tl("Questions in the set")}</label><select id="mcqn" value={size} onChange={e=>setSize(e.target.value)}>{MCQ_SIZES.filter(x=>x<=h.max).map(x=><option key={x} value={x}>{x}</option>)}</select>
     <div className="two"><button className="btn" disabled={!!busy||!ready||pool<h.min||h.quota.left===0} onClick={()=>go('bank')}><ClipboardList size={16}/>{" "}{busy==='bank'?tl("Starting…"):tl("Questions from the bank")}</button>
-      {h.ai&&<button className="btn ghost" disabled={!!busy||!ready||h.quota.left===0} onClick={()=>go('ai')}><Sparkles size={16}/>{" "}{busy==='ai'?tl("Writing questions…"):tl("A new AI set")}</button>}</div>
-    <p className="known">{ready&&pool<h.min?tl("Not enough published questions here yet."):tl(pool===1?"{n} published question to draw from.":"{n} published questions to draw from.",{n:pool})}{" "}{tab==='practice'&&h.ai?tl("A new AI set looks at the topics you find hardest."):''}{" "}{tl("A set counts when it starts.")}</p></>}
+      {h.ai&&<button className="btn ghost" disabled={!!busy||!ready||!notes||h.quota.left===0} onClick={()=>go('ai')}><Sparkles size={16}/>{" "}{busy==='ai'?tl("Writing questions…"):tl("A new AI set")}</button>}</div>
+    <p className="known">{ready&&pool<h.min?tl("Not enough published questions here yet: a set needs at least {min}.",{min:h.min}):tl(pool===1?"{n} published question to draw from.":"{n} published questions to draw from.",{n:pool})}{" "}{tab==='practice'&&h.ai&&notes?tl("A new AI set looks at the topics you find hardest."):''}{" "}{tl("A set counts when it starts.")}</p>
+    {h.ai&&ready&&!notes&&<p className="known">{tab==='topic'?tl("This topic has no notes yet, so the AI can't write questions for it."):tl("These topics have no notes yet, so the AI can't write questions for them.")}</p>}</>}
     {hist.total>0&&<><h3 className="sec">{tl("Your sets")}</h3>{hist.items.map(a=><button key={a.id} className="row rowbtn" onClick={()=>a.status==='submitted'&&setPlay(a.id)} disabled={a.status!=='submitted'}>
       <div>{a.topic||a.course||tl("All my courses")}<small>{when(a.at)} · {a.mode==='topic'?tl("Per topic"):tl("Practice")} · {a.source==='ai'?tl("AI set"):tl("Bank")}</small></div>
       <span className="chip">{a.status==='submitted'?`${a.score}/${a.total} · ${a.percent}%`:tl("Left")}</span></button>)}<Pager page={hist.page} total={hist.total} onPage={hist.setPage}/></>}
@@ -1511,8 +1513,9 @@ function McqBank({toast}){
   const list=usePaged(o=>`/mcq/items?limit=${PAGE}&offset=${o}`+(cid?'&course_id='+cid:'')+(tid?'&topic_id='+tid:'')+(st?'&status='+st:'')+(q?'&q='+encodeURIComponent(q):''),[cid,tid,st,q,n],toast)
   const [waiting,setWaiting]=useState(0),scope=(cid?'&course_id='+cid:'')+(tid?'&topic_id='+tid:'')
   useEffect(()=>{api('/mcq/items?status=review&limit=1'+scope).then(r=>setWaiting(r.total)).catch(()=>{})},[cid,tid,n])  // AI questions from students' sets collect here
-  const reviewAll=async action=>{const pub=action==='publish'
-    if(!await confirm({title:pub?tl("Publish all {n} waiting questions?",{n:waiting}):tl("Dismiss all {n} waiting questions?",{n:waiting}),
+  const reviewAll=async action=>{const pub=action==='publish',co=courses.find(x=>String(x.id)===String(cid)),tp=co?.topics.find(x=>String(x.id)===String(tid))
+    const where=tp?co.name+' › '+tp.title:co?co.name:tl("all your courses")  // what the count covers, so nobody publishes more than they meant to
+    if(!await confirm({title:waiting===1?tl(pub?"Publish the 1 waiting question in {where}?":"Dismiss the 1 waiting question in {where}?",{where}):tl(pub?"Publish all {n} waiting questions in {where}?":"Dismiss all {n} waiting questions in {where}?",{n:waiting,where}),
       body:pub?tl("Students get them in new sets from now on. Check a few first: the AI writes them from the topic's notes."):tl("They are removed. Any that a student already had in a set are retired instead, so the student's result keeps it."),ok:pub?tl("Publish all"):tl("Dismiss all"),danger:!pub}))return
     try{const r=await api('/mcq/items/review',{method:'POST',body:{action,course_id:Number(cid)||0,topic_id:Number(tid)||0}});toast(pub?tl("{n} published",{n:r.published}):tl("{n} dismissed",{n:r.retired+r.deleted}));setN(n+1)}catch(e){toast(e.message)}}
   if(!courses)return <><Bar title={tl("MCQ bank")}/><div className="main"><Skeleton/></div></>
@@ -1568,16 +1571,26 @@ function McqItemSheet({x,topics,close,done,toast}){  // a new question (x has on
       <div><label htmlFor="mqk">{tl("Keywords")}</label><input id="mqk" value={v.keywords} maxLength={300} onChange={e=>set('keywords',e.target.value)} placeholder={tl("comma, separated")}/></div></div>
     {x.id?<button className="btn" disabled={busy} onClick={()=>save(x.status)}>{tl("Save")}</button>:<div className="two"><button className="btn" disabled={busy} onClick={()=>save('published')}>{tl("Publish")}</button><button className="btn ghost" disabled={busy} onClick={()=>save('draft')}>{tl("Save as draft")}</button></div>}
     <button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
-function McqCsvSheet({course,tid,close,done,toast}){  // the quiz CSV format; each row goes to its own topic column, or else to the chosen topic. Saved as drafts to review
-  const [p,setP]=useState(null),[busy,setBusy]=useState(false)
-  const read=async e=>{const f=e.target.files[0];if(!f)return;setBusy(true);try{setP(await api('/quizzes/parse-csv',{method:'POST',body:{csv:await f.text(),course_id:course.id}}))}catch(x){toast(x.message)}setBusy(false)}
-  const save=async()=>{setBusy(true);try{const r=await api('/mcq/items/bulk',{method:'POST',body:{status:'draft',items:p.questions.map(q=>({topic_id:q.topic_id||tid,text:q.text,options:q.options,correct:q.correct,explanation:q.explanation,
+function McqCsvSheet({course,tid,close,done,toast}){  // the quiz CSV format; rows go to their own topic column, rows without one to the chosen topic, and a topic the
+  // file names but the course doesn't have is the teacher's choice, or left out: nothing lands under a topic nobody picked. Saved as drafts to review
+  const [p,setP]=useState(null),[busy,setBusy]=useState(false),[to,setTo]=useState({})  // to: a row's topic id, '' while undecided, '0' to leave it out
+  const read=async e=>{const f=e.target.files[0];if(!f)return;setBusy(true)
+    try{const r=await api('/quizzes/parse-csv',{method:'POST',body:{csv:await f.text(),course_id:course.id}});setP(r);setTo(Object.fromEntries(r.questions.map(q=>[q.row,String(q.topic_id||(q.topic_name?'':tid))])))}catch(x){toast(x.message)}setBusy(false)}
+  const qs=p?p.questions:[],odd=qs.filter(q=>!q.topic_id&&q.topic_name),keep=qs.filter(q=>to[q.row]&&to[q.row]!=='0'),undecided=odd.filter(q=>!to[q.row]).length
+  const per=Object.entries(keep.reduce((a,q)=>({...a,[to[q.row]]:(a[to[q.row]]||0)+1}),{})).map(([id,n])=>[course.topics.find(t=>String(t.id)===id)?.title||'',n])
+  const save=async()=>{setBusy(true);try{const r=await api('/mcq/items/bulk',{method:'POST',body:{status:'draft',items:keep.map(q=>({topic_id:Number(to[q.row]),text:q.text,options:q.options,correct:q.correct,explanation:q.explanation,
     image:q.image,option_images:q.option_images,keywords:q.area||''}))}});toast(tl("{added} added as drafts, {skipped} already in the bank",r));done()}catch(x){toast(x.message)}setBusy(false)}
   return <Sheet close={close}><h3>{tl("Upload questions")}</h3><p className="known">{tl("The same CSV as for quizzes: question, a, b, c, d, correct, and optionally explanation, topic, area. Rows without a topic go to the topic you chose. They arrive as drafts.")}</p>
     <input type="file" accept=".csv,text/csv" onChange={read} disabled={busy}/>
     {p&&<><p className="known">{tl("{n} questions ready.",{n:p.count})}{p.error_count?' '+tl("{n} rows have problems and are left out.",{n:p.error_count}):''}{p.images_needed.length?' '+tl("Image files named in the file aren't uploaded here; add them by editing the questions."):''}</p>
       {p.errors.slice(0,5).map(e=><p key={e.row} className="known warn">{tl("Row {row}: {error}",{row:e.row,error:srv(e.error)})}</p>)}
-      <button className="btn" disabled={busy||!p.count} onClick={save}>{tl("Add {n} as drafts",{n:p.count})}</button></>}
+      {per.length>0&&<><b>{tl("Where they go")}</b><ul className="known" style={{marginTop:4}}>{per.map(([t,n])=><li key={t}>{t}: {pl(n,'question')}</li>)}</ul></>}
+      {odd.length>0&&<><p className="known warn">{tl(odd.length===1?"1 row names a topic this course doesn't have. Choose a topic for it, or leave it out.":"{n} rows name a topic this course doesn't have. Choose a topic for each, or leave it out.",{n:odd.length})}</p>
+        {odd.map(q=><div key={q.row}><label htmlFor={'mt'+q.row}>{tl("Row {row}: “{topic}”",{row:q.row,topic:q.topic_name})}{' · '}{(q.text||'').slice(0,60)}</label>
+          <select id={'mt'+q.row} value={to[q.row]} onChange={e=>setTo({...to,[q.row]:e.target.value})}><option value="" disabled>{tl("Choose a topic")}</option><option value="0">{tl("Leave it out")}</option>
+            {course.topics.map(t=><option key={t.id} value={t.id}>{t.title} · {t.unit}</option>)}</select></div>)}</>}
+      <button className="btn" disabled={busy||!keep.length||undecided>0} onClick={save}>{tl("Add {n} as drafts",{n:keep.length})}</button>
+      {undecided>0&&<p className="known">{tl("Choose a topic, or Leave it out, for each row above first.")}</p>}</>}
     <button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
 function QuizEditor({id,unit_id,course_id,unitTopics,csvFirst,done,toast}){
   const confirm=useConfirm()

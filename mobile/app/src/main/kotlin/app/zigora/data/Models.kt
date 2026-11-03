@@ -227,7 +227,7 @@ import kotlinx.serialization.json.JsonObject
 /** MCQ practice: sets left (Lite one per 48 hours, others four a day), courses and topics with their published questions, a set and its result */
 @Serializable data class McqQuota(val tier: String = "", val limit: Int? = null, val used: Int = 0, val left: Int? = null, val next_at: String? = null)
 @Serializable data class McqStat(val answered: Int = 0, val correct: Int = 0, val percent: Int = 0)
-@Serializable data class McqTopic(val id: Int, val title: String, val unit: String = "", val questions: Int = 0, val stats: McqStat? = null)
+@Serializable data class McqTopic(val id: Int, val title: String, val unit: String = "", val questions: Int = 0, val stats: McqStat? = null, val notes: Boolean = true)  // notes: an AI set has something to be written from
 @Serializable data class McqCourse(val id: Int, val name: String, val semester: String = "", val questions: Int = 0, val topics: List<McqTopic> = emptyList())
 @Serializable data class McqOpen(val id: Int, val total: Int = 0, val answered: Int = 0)
 @Serializable data class McqHome(val quota: McqQuota = McqQuota(), val ai: Boolean = false, val min: Int = 3, val max: Int = 20, val open: McqOpen? = null, val courses: List<McqCourse> = emptyList())

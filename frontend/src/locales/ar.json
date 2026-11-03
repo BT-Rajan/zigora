@@ -2977,5 +2977,19 @@
 "Flagged AI answers and problems with topic notes": "إجابات ذكاء اصطناعي مُشار إليها ومشكلات في ملاحظات المواضيع",
 "Student reports": "بلاغات الطلاب",
 "{n} report": "{n} بلاغ",
-"{n} reports": "{n} بلاغات"
+"{n} reports": "{n} بلاغات",
+"Not enough published questions here yet: a set needs at least {min}.": "لا توجد أسئلة منشورة كافية هنا بعد: تحتاج المجموعة {min} على الأقل.",
+"This topic has no notes yet, so the AI can't write questions for it.": "لا توجد ملاحظات لهذا الموضوع بعد، لذا لا يستطيع الذكاء الاصطناعي كتابة أسئلة له.",
+"These topics have no notes yet, so the AI can't write questions for them.": "لا توجد ملاحظات لهذه المواضيع بعد، لذا لا يستطيع الذكاء الاصطناعي كتابة أسئلة لها.",
+"Publish all {n} waiting questions in {where}?": "هل تنشر كل الأسئلة المنتظرة ({n}) في {where}؟",
+"Dismiss all {n} waiting questions in {where}?": "هل ترفض كل الأسئلة المنتظرة ({n}) في {where}؟",
+"all your courses": "كل مقرراتك",
+"Where they go": "أين تذهب",
+"Leave it out": "اتركه",
+"1 row names a topic this course doesn't have. Choose a topic for it, or leave it out.": "يذكر صف واحد موضوعًا ليس في هذا المقرر. اختر له موضوعًا، أو اتركه.",
+"{n} rows name a topic this course doesn't have. Choose a topic for each, or leave it out.": "تذكر {n} صفوف موضوعًا ليس في هذا المقرر. اختر موضوعًا لكل منها، أو اتركه.",
+"Row {row}: “{topic}”": "الصف {row}: «{topic}»",
+"Choose a topic, or Leave it out, for each row above first.": "اختر أولًا موضوعًا، أو اتركه، لكل صف أعلاه.",
+"Publish the 1 waiting question in {where}?": "هل تنشر السؤال المنتظر الوحيد في {where}؟",
+"Dismiss the 1 waiting question in {where}?": "هل ترفض السؤال المنتظر الوحيد في {where}؟"
 }
