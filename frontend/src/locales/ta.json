@@ -3009,5 +3009,20 @@
 "{n} right": "{n} சரி",
 "{n} wrong": "{n} தவறு",
 "{n} left blank": "{n} விடுபட்டவை",
-"Where you stand now in these topics": "இந்தத் தலைப்புகளில் நீங்கள் இப்போது இருக்கும் நிலை"
+"Where you stand now in these topics": "இந்தத் தலைப்புகளில் நீங்கள் இப்போது இருக்கும் நிலை",
+"Upcoming": "வரவிருப்பவை",
+"The best attempt counts": "சிறந்த முயற்சியே கணக்கில்",
+"The latest attempt counts": "கடைசி முயற்சியே கணக்கில்",
+"The first attempt counts": "முதல் முயற்சியே கணக்கில்",
+"Opens (optional)": "திறக்கும் நேரம் (விருப்பம்)",
+"Leave empty to open at once. Students see it as upcoming until then and can't start before.": "உடனே திறக்க காலியாக விடுங்கள். அதுவரை மாணவர்கள் இதை வரவிருப்பதாகக் காண்பார்கள்; முன்பே தொடங்க முடியாது.",
+"Which attempt counts": "எந்த முயற்சி கணக்கில்",
+"Instructions (optional)": "அறிவுறுத்தல்கள் (விருப்பம்)",
+"What students should know before they start": "தொடங்கும் முன் மாணவர்கள் அறிய வேண்டியவை",
+"opens {when}": "{when} அன்று திறக்கும்",
+"New test · due {due}": "புதிய தேர்வு · {due} க்குள்",
+"Due within a day · {due}": "ஒரு நாளுக்குள் முடிக்க வேண்டும் · {due}",
+"This test opens on {when}.": "இந்தத் தேர்வு {when} அன்று திறக்கும்.",
+"The start time must be before the due time": "தொடக்க நேரம் முடிவு நேரத்துக்கு முன் இருக்க வேண்டும்",
+"Choose which attempt counts: best, latest or first": "எந்த முயற்சி கணக்கில் என்பதைத் தேர்வுசெய்க: சிறந்தது, கடைசி அல்லது முதல்"
 }

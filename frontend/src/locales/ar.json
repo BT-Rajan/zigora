@@ -3009,5 +3009,20 @@
 "{n} right": "{n} صحيحة",
 "{n} wrong": "{n} خاطئة",
 "{n} left blank": "{n} بلا إجابة",
-"Where you stand now in these topics": "موقفك الآن في هذه الموضوعات"
+"Where you stand now in these topics": "موقفك الآن في هذه الموضوعات",
+"Upcoming": "قادم",
+"The best attempt counts": "تُحتسب أفضل محاولة",
+"The latest attempt counts": "تُحتسب آخر محاولة",
+"The first attempt counts": "تُحتسب أول محاولة",
+"Opens (optional)": "يُفتح في (اختياري)",
+"Leave empty to open at once. Students see it as upcoming until then and can't start before.": "اتركه فارغًا ليُفتح فورًا. يراه الطلاب قادمًا حتى ذلك الحين ولا يمكنهم البدء قبله.",
+"Which attempt counts": "أي محاولة تُحتسب",
+"Instructions (optional)": "التعليمات (اختياري)",
+"What students should know before they start": "ما يجب أن يعرفه الطلاب قبل البدء",
+"opens {when}": "يُفتح {when}",
+"New test · due {due}": "اختبار جديد · موعده {due}",
+"Due within a day · {due}": "مستحق خلال يوم · {due}",
+"This test opens on {when}.": "يُفتح هذا الاختبار في {when}.",
+"The start time must be before the due time": "يجب أن يسبق وقت البدء موعد التسليم",
+"Choose which attempt counts: best, latest or first": "اختر أي محاولة تُحتسب: الأفضل أو الأخيرة أو الأولى"
 }

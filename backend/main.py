@@ -217,6 +217,7 @@ class Attempt(Base):
     detail = Column(Text, nullable=True)  # JSON [[question_id, 1 or 0, chosen index or null], ...] (older rows have no chosen index) so strengths and weak areas can be worked out; null on attempts made before this existed
     snapshot = Column(Text().with_variant(_mysql_dialect.MEDIUMTEXT(), "mysql", "mariadb"), nullable=True)
     request_id = Column(String(64), nullable=True)  # the app's id for this submission: sent again (a double tap, a retry after a lost reply), it gets the same attempt back
+    assignment_id = Column(Integer, nullable=True, index=True)  # the assignment this attempt was for (null: not for one, or made before attempts were tied)
     __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_quiz_attempts_user_request"),)  # JSON list, in detail's order: each question as the student saw it (null where it was gone before copies were kept)
 class QuizDraft(Base):  # a sitting of a quiz not yet submitted: the answers so far, so a refresh, Back or a closed app carries on. Never an attempt; gone on submit
     __tablename__ = "quiz_drafts"
@@ -968,6 +969,12 @@ def study_attempts_once(c):  # study_attempts.request_id (one per person and sub
         c.execute(text("CREATE UNIQUE INDEX uq_study_attempts_user_request ON study_attempts (user_id, request_id)"))
     if not c.execute(text("SELECT 1 FROM settings WHERE k = 'mastery_rule_since'")).first():
         c.execute(text("INSERT INTO settings (k, v) VALUES ('mastery_rule_since', :v)"), {"v": dt.datetime.utcnow().isoformat()})
+def assignment_window(c):  # assignments: a start time, instructions and which attempt counts; quiz attempts: the assignment they were for.
+    # Attempts made before attempts were tied (setting assign_tie_since) keep the old rule: any attempt of the quiz after the assignment was set
+    for col, typ in (("opens_at", "DATETIME NULL"), ("instructions", "TEXT NULL"), ("counts", "VARCHAR(8) NULL")): _addcol("assignments", col, typ)(c)
+    _addcol("quiz_attempts", "assignment_id", "INTEGER NULL")(c)
+    if not c.execute(text("SELECT 1 FROM settings WHERE k = 'assign_tie_since'")).first():
+        c.execute(text("INSERT INTO settings (k, v) VALUES ('assign_tie_since', :v)"), {"v": dt.datetime.utcnow().isoformat()})
 MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")), ("0002_subjects_semester_id", _addcol("subjects", "semester_id", "INT NULL")),
               ("0003_users_program_id", _addcol("users", "program_id", "INT NULL")), ("0004_users_semester", _addcol("users", "semester", "INT NULL")),
               ("0005_users_must_change", _addcol("users", "must_change", "TINYINT(1) NOT NULL DEFAULT 0")), ("0006_topics_published", _addcol("topics", "published", "TINYINT(1) NOT NULL DEFAULT 1")),
@@ -1008,7 +1015,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                   + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)]),
               ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL")), ("0043_attempt_question_copies", attempt_question_copies),
               ("0044_attempt_request_id", attempt_request_id),
-              ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__])), ("0046_study_attempts_once", study_attempts_once)]
+              ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__])), ("0046_study_attempts_once", study_attempts_once),
+              ("0047_assignment_window", assignment_window)]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -2893,7 +2901,7 @@ def get_quiz(qid: int, u: User = Depends(me), s: Session = Depends(db)):
     q = quiz_or_404(qid, s); cid = quiz_course_id(q, s); staff_view = u.role == "admin" or (u.role == "faculty" and can_edit(u, cid, s))
     if not staff_view:
         if not q.published: raise HTTPException(404, "Quiz not found")
-        check_course_access(u, cid, s); quiz_unit_open(q, s)
+        check_course_access(u, cid, s); quiz_unit_open(q, s); quiz_assignment(s, u, qid)
     qs = s.query(Question).filter_by(quiz_id=qid).order_by(Question.pos, Question.id).all()
     mine = s.query(Attempt).filter_by(quiz_id=qid, user_id=u.id).order_by(Attempt.id).all()
     co = s.get(Course, cid) if cid else None
@@ -2935,7 +2943,7 @@ def attempt_quiz(qid: int, b: AttemptIn, u: User = Depends(me), s: Session = Dep
     s.rollback()  # end the reads so far, so what follows sees every attempt saved before this one
     s.execute(text("UPDATE users SET id = id WHERE id = :u"), {"u": uid})  # this person's lock until the commit: another submission of theirs waits here
     if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
-    if role == "student": quiz_attempt_allowed(s, u, qid)
+    asg = quiz_assignment(s, u, qid); quiz_attempt_allowed(s, u, asg)
     qs = s.query(Question).filter_by(quiz_id=qid).order_by(Question.pos, Question.id).all()
     if not qs: raise HTTPException(400, "This quiz has no questions yet")
     if len(b.answers) != len(qs): raise HTTPException(400, "Answer every question or leave it blank")
@@ -2943,7 +2951,7 @@ def attempt_quiz(qid: int, b: AttemptIn, u: User = Depends(me), s: Session = Dep
     oks = [a == x.correct for a, x in zip(b.answers, qs)]
     score = sum(oks); pct = round(100 * score / len(qs))
     detail = [[x.id, int(ok), a] for x, ok, a in zip(qs, oks, b.answers)]
-    at = Attempt(quiz_id=qid, user_id=uid, score=score, total=len(qs), percent=pct, detail=json.dumps(detail), request_id=rid,
+    at = Attempt(quiz_id=qid, user_id=uid, score=score, total=len(qs), percent=pct, detail=json.dumps(detail), request_id=rid, assignment_id=asg.id if asg else None,
                  snapshot=json.dumps([question_snap(x) for x in qs], ensure_ascii=False)); s.add(at)
     s.query(QuizDraft).filter_by(user_id=uid, quiz_id=qid).delete(synchronize_session=False)  # the sitting is over: its saved answers go with the same commit
     try: s.commit()
@@ -2957,6 +2965,7 @@ def quiz_to_take(qid, u, s):  # the quiz, if this person may sit it now
     if not q.published and not (u.role == "admin" or can_edit(u, cid, s)): raise HTTPException(404, "Quiz not found")
     check_course_access(u, cid, s)
     if not can_edit(u, cid, s): quiz_unit_open(q, s)
+    quiz_assignment(s, u, qid)  # assigned with a start time still to come: not yet
     return q, cid
 def draft_view(d): return {"request_id": d.request_id, "answers": json.loads(d.answers or "{}"), "version": d.version, "saved_at": utc_iso(d.updated_at)} if d else None
 class DraftIn(BaseModel): request_id: str; answers: dict[int, int | None] = {}; version: int  # every answer of the sitting so far, by question id
@@ -3841,7 +3850,9 @@ def my_today(u: User = Depends(me), s: Session = Depends(db)):
                 if c["id"] not in seen: seen.add(c["id"]); courses.append((p, sm, c))
     weak = {a["topic_id"]: a for a in my_insights(u, s)["needs_study"] if a.get("topic_id")}
     cand, topics_total, topics_done, bests, per = {}, 0, 0, [], []
+    shut = not_open_yet(s, u)  # tests assigned to them that haven't opened: nothing to offer until they do
     def offer(prio, key, item):
+        if key[0] == "q" and key[1] in shut: return
         if key not in cand or cand[key][0] < prio: cand[key] = (prio, item)
     for p, sm, c in courses:
         first_new = None; n0, d0 = topics_total, topics_done
@@ -6747,7 +6758,7 @@ def notes_for(u, s):  # [{key, text, sub}]: staff get what needs attention, stud
     if u.role == "student":
         asks = [{"key": f"invite:{l.id}", "text": f"{g.name} wants to follow your progress", "sub": "Accept or decline on Home"} for l, g in invitations(s, u.id)]
         return asks + enrol_notes(u, s) + tq_answered(u, s) + ann_notes(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
-                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + cal_notes(u, s)
+                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + assign_notes(u, s) + cal_notes(u, s)
     return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + enrol_notes(u, s) + (ann_notes(u, s) if u.role == "admin" else [])
 @app.get("/api/me/notifications")
 def my_notifications(u: User = Depends(me), s: Session = Depends(db)):
@@ -7572,6 +7583,14 @@ def cal_feed(token: str, s: Session = Depends(db)):
             seen.add((who, it["id"])); lines += ics_event(it, who, stamp)
     body = "\r\n".join(ics_fold(x) for x in lines + ["END:VCALENDAR"]) + "\r\n"
     return Response(body, media_type="text/calendar; charset=utf-8", headers={"Cache-Control": "private, max-age=900", "Content-Disposition": 'inline; filename="zigora.ics"'})
+def assign_notes(u, s, now=None):  # the bell (and so the daily email): a test assigned, and one due within a day, while it is still to do
+    now = now or dt.datetime.utcnow(); out = []
+    if u.role != "student": return out
+    for a in assigned_to(s, u.id).filter(Assignment.due_at > now).order_by(Assignment.due_at).limit(30):
+        if (a.opens_at and now < a.opens_at) or student_state(s, a, u.id, now)["status"] != "to_do": continue
+        due = due_local(a.due_at).replace("T", " "); soon = a.due_at - now <= dt.timedelta(days=1)
+        out.append({"key": f"assignment:{a.id}:{'soon' if soon else 'new'}", "text": a.title, "sub": f"Due within a day · {due}" if soon else f"New test · due {due}"})
+    return out
 def cal_notes(u, s, now=None):  # reminders: events today and tomorrow, in the bell, the daily email and the app's daily note
     now = now or dt.datetime.utcnow(); today = local_day(now); tmw = today + dt.timedelta(days=1); out = []
     def add(e, who):
@@ -7624,6 +7643,9 @@ class Assignment(Base):
     topic_ids = Column(Text, nullable=True); size = Column(Integer, default=10)  # an MCQ set: its topics (JSON) and how many questions
     title = Column(String(200)); due_at = Column(DateTime, index=True); attempts = Column(Integer, default=1)  # 0: unlimited
     created_at = Column(DateTime, default=dt.datetime.utcnow)
+    opens_at = Column(DateTime, nullable=True)  # students can start from this instant (UTC); null: at once
+    instructions = Column(Text, nullable=True)  # what the teacher wants students to know, shown with the assignment
+    counts = Column(String(8), default="best")  # which on-time attempt is the result: best, latest or first
 class AssignmentStudent(Base):
     __tablename__ = "assignment_students"
     id = Column(Integer, primary_key=True); assignment_id = Column(Integer, ForeignKey("assignments.id", ondelete="CASCADE"), index=True)
@@ -7667,6 +7689,13 @@ def assign_options(course_id: int = 0, u: User = Depends(assigner), s: Session =
 class AssignIn(BaseModel):
     course_id: int; kind: str; quiz_id: int | None = None; topic_ids: list[int] = []; size: int = MCQ_SIZE
     students: list[int]; due: str; attempts: int = 1; title: str = ""
+    opens: str | None = None; instructions: str = ""; counts: str = "best"  # opens: "2026-11-05T09:00" on the students' clock; empty: at once
+COUNTS = ("best", "latest", "first")
+def assign_window(opens, due, counts):  # checks the start time and the result rule; -> opens_at (UTC or None)
+    if counts not in COUNTS: raise HTTPException(400, "Choose which attempt counts: best, latest or first")
+    o = local_due(opens) if opens else None
+    if o and o >= due: raise HTTPException(400, "The start time must be before the due time")
+    return o
 @app.post("/api/assignments")
 def create_assignment(b: AssignIn, u: User = Depends(assigner), s: Session = Depends(db)):
     c = next((c for c in assign_courses(u, s) if c.id == b.course_id), None)
@@ -7688,25 +7717,32 @@ def create_assignment(b: AssignIn, u: User = Depends(assigner), s: Session = Dep
         title = b.title.strip() or ("MCQ set: " + ", ".join(ok[t]["title"] for t in tids[:3]))
     allowed = {x.id for x in assignable_students(u, c, s)}; who = [i for i in dict.fromkeys(b.students) if i in allowed]
     if not who: raise HTTPException(400, "Choose at least one student who takes this course")
+    opens = assign_window(b.opens, due, b.counts)
     a = Assignment(created_by=u.id, kind=b.kind, quiz_id=b.quiz_id if b.kind == "quiz" else None, course_id=c.id, topic_ids=json.dumps(tids) if tids else None,
-                   size=size, title=title[:200], due_at=due, attempts=b.attempts)
+                   size=size, title=title[:200], due_at=due, attempts=b.attempts, opens_at=opens, instructions=b.instructions.strip()[:2000] or None, counts=b.counts)
     s.add(a); s.flush(); s.add_all([AssignmentStudent(assignment_id=a.id, user_id=i) for i in who]); s.commit()
     return {"id": a.id, "students": len(who), "skipped": len(set(b.students)) - len(who)}
-def assignment_attempts(s, a, uid):  # [(percent, at, late)] for this student and assignment
-    if a.kind == "quiz":
-        rows = s.query(Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id == a.quiz_id, Attempt.at >= a.created_at).all()
+def assignment_attempts(s, a, uid):  # [(percent, at, late)] for this student and assignment, oldest first
+    if a.kind == "quiz":  # attempts made for it; and, from before attempts were tied, any attempt of its quiz after it was set
+        since = setting(s, "assign_tie_since", ""); since = dt.datetime.fromisoformat(since) if since else None
+        old = and_(Attempt.assignment_id.is_(None), Attempt.at >= a.created_at, Attempt.at < since) if since else and_(Attempt.assignment_id.is_(None), Attempt.at >= a.created_at)
+        rows = s.query(Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id == a.quiz_id, or_(Attempt.assignment_id == a.id, old)).order_by(Attempt.at, Attempt.id).all()
     else:
-        rows = s.query(McqAttempt.percent, McqAttempt.submitted_at).filter(McqAttempt.user_id == uid, McqAttempt.assignment_id == a.id, McqAttempt.status == "submitted").all()
+        rows = s.query(McqAttempt.percent, McqAttempt.submitted_at).filter(McqAttempt.user_id == uid, McqAttempt.assignment_id == a.id, McqAttempt.status == "submitted").order_by(McqAttempt.submitted_at).all()
     return [(p or 0, t, t > a.due_at) for p, t in rows if t]
-def student_state(s, a, uid, now):
-    rows = assignment_attempts(s, a, uid); on_time = [p for p, _, late in rows if not late]
-    used = len(on_time); best = max(on_time) if on_time else None; late = max((p for p, _, l in rows if l), default=None)
-    status = "done" if on_time else "late" if late is not None else "missed" if now > a.due_at else "to_do"
+def counted(ps, rule):  # the result of a list of scores (oldest first) under the assignment's rule
+    if not ps: return None
+    return ps[-1] if rule == "latest" else ps[0] if rule == "first" else max(ps)
+def student_state(s, a, uid, now):  # best: the result under the assignment's rule (best, latest or first on-time attempt)
+    rows = assignment_attempts(s, a, uid); on_time = [p for p, _, late in rows if not late]; rule = a.counts or "best"
+    used = len(on_time); best = counted(on_time, rule); late = counted([p for p, _, l in rows if l], rule)
+    status = "done" if on_time else "late" if late is not None else "missed" if now > a.due_at else "upcoming" if a.opens_at and now < a.opens_at else "to_do"
     left = None if not a.attempts else max(0, a.attempts - used)
     return {"status": status, "used": used, "left": left, "best": best, "late_best": late}
 def assignment_json(a, s, extra=None):
     return {"id": a.id, "kind": a.kind, "title": a.title, "course_id": a.course_id, "quiz_id": a.quiz_id, "due": due_local(a.due_at), "due_at": utc_iso(a.due_at),
-            "attempts": a.attempts, "size": a.size if a.kind == "mcq" else None, **(extra or {})}
+            "attempts": a.attempts, "size": a.size if a.kind == "mcq" else None, "opens": due_local(a.opens_at) if a.opens_at else None, "opens_at": utc_iso(a.opens_at),
+            "instructions": a.instructions or "", "counts": a.counts or "best", **(extra or {})}
 @app.get("/api/assignments")
 def my_assignments(u: User = Depends(assigner), s: Session = Depends(db)):  # what this person assigned, newest due first, with how far each has got
     now = dt.datetime.utcnow(); out = []
@@ -7724,7 +7760,7 @@ def assignment_detail(aid: int, u: User = Depends(assigner), s: Session = Depend
     for x in s.query(User).join(AssignmentStudent, AssignmentStudent.user_id == User.id).filter(AssignmentStudent.assignment_id == a.id).order_by(User.name):
         rows.append({"id": x.id, "name": x.name, **student_state(s, a, x.id, now)})
     return assignment_json(a, s, {"rows": rows})
-class AssignEditIn(BaseModel): due: str | None = None; attempts: int | None = None
+class AssignEditIn(BaseModel): due: str | None = None; attempts: int | None = None; opens: str | None = None; instructions: str | None = None; counts: str | None = None
 @app.patch("/api/assignments/{aid}")
 def edit_assignment(aid: int, b: AssignEditIn, u: User = Depends(assigner), s: Session = Depends(db)):
     a = assignment_mine(aid, u, s)
@@ -7735,6 +7771,9 @@ def edit_assignment(aid: int, b: AssignEditIn, u: User = Depends(assigner), s: S
     if b.attempts is not None:
         if b.attempts not in ATTEMPT_CHOICES: raise HTTPException(400, "Choose 1, 2 or 3 attempts, or unlimited")
         a.attempts = b.attempts
+    if b.opens is not None or b.counts is not None: a.opens_at = assign_window(b.opens if b.opens is not None else (due_local(a.opens_at) if a.opens_at else ""), a.due_at, b.counts or a.counts or "best")
+    if b.counts is not None: a.counts = b.counts
+    if b.instructions is not None: a.instructions = b.instructions.strip()[:2000] or None
     s.commit(); return assignment_json(a, s)
 def assigned_to(s, uid):
     return s.query(Assignment).join(AssignmentStudent, AssignmentStudent.assignment_id == Assignment.id).filter(AssignmentStudent.user_id == uid)
@@ -7744,12 +7783,25 @@ def assigned_to_me(u: User = Depends(me), s: Session = Depends(db)):  # a studen
     for a in assigned_to(s, u.id).order_by(Assignment.due_at).all():
         by = s.get(User, a.created_by); c = s.get(Course, a.course_id)
         out.append(assignment_json(a, s, {**student_state(s, a, u.id, now), "by": by.name if by else "", "course": c.name if c else ""}))
-    out.sort(key=lambda x: (x["status"] not in ("to_do",), x["due_at"]))
+    out.sort(key=lambda x: ({"to_do": 0, "upcoming": 1}.get(x["status"], 2), x["due_at"]))
     return {"items": out}
-def quiz_attempt_allowed(s, u, qid):  # an assigned quiz with its attempts used up waits until the assignment is over
-    now = dt.datetime.utcnow()
-    for a in assigned_to(s, u.id).filter(Assignment.kind == "quiz", Assignment.quiz_id == qid, Assignment.due_at > now, Assignment.attempts > 0):
-        if student_state(s, a, u.id, now)["left"] == 0: raise HTTPException(403, f"You have used all {a.attempts} attempts for this assignment.")
+def quiz_assignment(s, u, qid, now=None):  # the assignment a student's sitting of this quiz is for: of those already open and not yet due, the one due
+    # soonest that still has attempts left (else the one due soonest), else the one due last. None when the quiz isn't assigned to them; a refusal when it is assigned but hasn't opened yet
+    if u.role != "student": return None
+    now = now or dt.datetime.utcnow(); mine = assigned_to(s, u.id).filter(Assignment.kind == "quiz", Assignment.quiz_id == qid).all()
+    live = [a for a in mine if not a.opens_at or a.opens_at <= now]
+    if not live and mine:
+        first = min(mine, key=lambda a: a.opens_at); raise HTTPException(403, f"This test opens on {due_local(first.opens_at).replace('T', ' ')}.")
+    ahead = sorted([a for a in live if a.due_at > now], key=lambda a: a.due_at)
+    room = [a for a in ahead if not a.attempts or student_state(s, a, u.id, now)["left"] != 0]  # one with attempts left comes first
+    return (room or ahead)[0] if ahead else max(live, key=lambda a: a.due_at, default=None)
+def not_open_yet(s, u, now=None):  # quizzes assigned to this student whose every assignment opens later
+    now = now or dt.datetime.utcnow(); by = defaultdict(list)
+    for a in assigned_to(s, u.id).filter(Assignment.kind == "quiz"): by[a.quiz_id].append(bool(a.opens_at and now < a.opens_at))
+    return {q for q, later in by.items() if all(later)}
+def quiz_attempt_allowed(s, u, a, now=None):  # an assignment with its attempts used up waits until it is over
+    now = now or dt.datetime.utcnow()
+    if a and a.attempts and a.due_at > now and student_state(s, a, u.id, now)["left"] == 0: raise HTTPException(403, f"You have used all {a.attempts} attempts for this assignment.")
 class AssignStartIn(BaseModel): request_id: str = ""
 @app.post("/api/assignments/{aid}/start")
 def start_assigned_mcq(aid: int, b: AssignStartIn, u: User = Depends(me), s: Session = Depends(db)):
@@ -7757,6 +7809,7 @@ def start_assigned_mcq(aid: int, b: AssignStartIn, u: User = Depends(me), s: Ses
     a = assigned_to(s, u.id).filter(Assignment.id == aid).first()
     if not a: raise HTTPException(404, "Assignment not found")
     if a.kind != "mcq": raise HTTPException(400, "This assignment is a quiz: open it from its course")
+    if a.opens_at and dt.datetime.utcnow() < a.opens_at: raise HTTPException(403, f"This test opens on {due_local(a.opens_at).replace('T', ' ')}.")
     hit = s.query(McqAttempt).filter_by(user_id=u.id, status="open").first()
     if hit and hit.assignment_id == a.id: return mcq_view(hit, s, resumed=True)
     if hit: raise HTTPException(409, "Finish or leave your open MCQ set first.")

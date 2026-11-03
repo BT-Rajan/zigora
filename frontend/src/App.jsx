@@ -1141,7 +1141,14 @@ function MoveClass({x,close,done,toast}){
 // ---- attempts; the best attempt before the due time counts. Due times are the students' clock, written "2026-11-05T17:00".
 const dueText=v=>v?day(v.slice(0,10))+' '+v.slice(11,16):''
 const ATT_LABEL=n=>n?tl(n===1?"1 attempt":"{n} attempts",{n}):tl("Unlimited attempts")
-const ASG_STATE={done:['Done','var(--ok)'],late:['Late','var(--warn)'],missed:['Missed','var(--bad)'],to_do:['To do','var(--mut)']}
+const ASG_STATE={done:['Done','var(--ok)'],late:['Late','var(--warn)'],missed:['Missed','var(--bad)'],to_do:['To do','var(--mut)'],upcoming:['Upcoming','var(--mut)']}
+const COUNT_LABEL=L({best:'The best attempt counts',latest:'The latest attempt counts',first:'The first attempt counts'})
+// start time, instructions and which attempt counts: the same three fields when assigning and when changing an assignment (S33)
+const WindowFields=({opens,setOpens,ins,setIns,counts,setCounts,id})=><>
+  <label htmlFor={id+'o'}>{tl("Opens (optional)")}</label><input id={id+'o'} type="datetime-local" value={opens} onChange={e=>setOpens(e.target.value)}/>
+  <small className="known">{tl("Leave empty to open at once. Students see it as upcoming until then and can't start before.")}</small>
+  <label htmlFor={id+'c'}>{tl("Which attempt counts")}</label><select id={id+'c'} value={counts} onChange={e=>setCounts(e.target.value)}>{Object.keys(COUNT_LABEL).map(k=><option key={k} value={k}>{COUNT_LABEL[k]}</option>)}</select>
+  <label htmlFor={id+'i'}>{tl("Instructions (optional)")}</label><textarea id={id+'i'} rows={3} maxLength={2000} value={ins} onChange={e=>setIns(e.target.value)} placeholder={tl("What students should know before they start")}/></>
 const StateChip=({x})=>{const [l,c]=ASG_STATE[x.status]||ASG_STATE.to_do;return <span className="chip" style={{color:c}}>{tl(l)}{x.status==='done'&&x.best!=null?' · '+x.best+'%':x.status==='late'&&x.late_best!=null?' · '+x.late_best+'%':''}</span>}
 function AssignPage({toast}){
   const [d,setD]=useState(null),[view,setView]=useState(null),[make,setMake]=useState(false)
@@ -1154,24 +1161,25 @@ function AssignPage({toast}){
     {d?.items.map(x=><button key={x.id} className="card ward" onClick={()=>setView(x.id)}><span className="wtop"><b>{x.title}</b><span className="chip">{tl("due {when}",{when:dueText(x.due)})}</span></span>
       <small className="known">{tl("{done} of {n} done",{done:x.done,n:x.students})}{x.late?' · '+tl("{n} late",{n:x.late}):''}{x.missed?' · '+tl("{n} missed",{n:x.missed}):''} · {ATT_LABEL(x.attempts)}</small></button>)}</div></>}
 function AssignDetail({id,back,toast}){
-  const confirm=useConfirm(),[d,setD]=useState(null),[due,setDue]=useState(''),[att,setAtt]=useState('1'),[busy,setBusy]=useState(false)
-  const load=()=>api('/assignments/'+id).then(r=>{setD(r);setDue(r.due);setAtt(String(r.attempts))}).catch(e=>{toast(e.message);back()});useEffect(()=>{load()},[id])
-  const save=async()=>{setBusy(true);try{await api('/assignments/'+id,{method:'PATCH',body:{due,attempts:+att}});toast(tl("Changes saved"));load()}catch(e){toast(e.message)}setBusy(false)}
+  const confirm=useConfirm(),[d,setD]=useState(null),[due,setDue]=useState(''),[att,setAtt]=useState('1'),[busy,setBusy]=useState(false),[opens,setOpens]=useState(''),[ins,setIns]=useState(''),[counts,setCounts]=useState('best')
+  const load=()=>api('/assignments/'+id).then(r=>{setD(r);setDue(r.due);setAtt(String(r.attempts));setOpens(r.opens||'');setIns(r.instructions||'');setCounts(r.counts||'best')}).catch(e=>{toast(e.message);back()});useEffect(()=>{load()},[id])
+  const save=async()=>{setBusy(true);try{await api('/assignments/'+id,{method:'PATCH',body:{due,attempts:+att,opens,instructions:ins,counts}});toast(tl("Changes saved"));load()}catch(e){toast(e.message)}setBusy(false)}
   const del=async()=>{if(!await confirm({title:tl("Delete this assignment?"),body:tl("Students no longer see it. Their attempts and scores stay."),ok:tl("Delete"),danger:true}))return;try{await api('/assignments/'+id,{method:'DELETE'});back()}catch(e){toast(e.message)}}
-  return <><Bar title={d?.title||tl("Loading")} sub={d?tl("due {when}",{when:dueText(d.due)})+' · '+ATT_LABEL(d.attempts):''} back={back}/><div className="main">
+  return <><Bar title={d?.title||tl("Loading")} sub={d?[d.opens&&tl("opens {when}",{when:dueText(d.opens)}),tl("due {when}",{when:dueText(d.due)}),ATT_LABEL(d.attempts),COUNT_LABEL[d.counts||'best']].filter(Boolean).join(' · '):''} back={back}/><div className="main">
     {!d&&<Skeleton rows={3}/>}{d?.rows.map(r=><div key={r.id} className="row"><div>{r.name}<small>{r.attempts?tl("{used} of {n} attempts used",{used:r.used,n:d.attempts}):tl("{used} attempts",{used:r.used})}</small></div><StateChip x={r}/></div>)}
     {d&&<><h3 className="sec">{tl("Change")}</h3><label htmlFor="adue">{tl("Due")}</label><input id="adue" type="datetime-local" value={due} onChange={e=>setDue(e.target.value)}/>
       <label htmlFor="aatt">{tl("Attempts")}</label><select id="aatt" value={att} onChange={e=>setAtt(e.target.value)}>{[1,2,3,0].map(n=><option key={n} value={n}>{ATT_LABEL(n)}</option>)}</select>
+      <WindowFields id="ad" opens={opens} setOpens={setOpens} ins={ins} setIns={setIns} counts={counts} setCounts={setCounts}/>
       <button className="btn" disabled={busy} onClick={save}>{tl("Save changes")}</button><button className="btn ghost" style={{color:'var(--bad)'}} onClick={del}>{tl("Delete this assignment")}</button></>}</div></>}
 function AssignForm({toast,close}){
   const tomorrow=()=>{const t=new Date();t.setDate(t.getDate()+1);return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}T17:00`}  // tomorrow 5 pm, on this device's calendar
   const [cs,setCs]=useState(null),[cid,setCid]=useState(''),[o,setO]=useState(null),[kind,setKind]=useState('quiz'),[quiz,setQuiz]=useState(''),[tops,setTops]=useState([]),[size,setSize]=useState('10')
-  const [who,setWho]=useState([]),[due,setDue]=useState(tomorrow),[att,setAtt]=useState('1'),[title,setTitle]=useState(''),[busy,setBusy]=useState(false)
+  const [who,setWho]=useState([]),[due,setDue]=useState(tomorrow),[att,setAtt]=useState('1'),[title,setTitle]=useState(''),[busy,setBusy]=useState(false),[opens,setOpens]=useState(''),[ins,setIns]=useState(''),[counts,setCounts]=useState('best')
   useEffect(()=>{api('/assign/options').then(r=>{setCs(r.courses);if(r.courses.length===1)setCid(String(r.courses[0].id))}).catch(e=>toast(e.message))},[])
   useEffect(()=>{setO(null);setQuiz('');setTops([]);setWho([]);if(cid)api('/assign/options?course_id='+cid).then(r=>{setO(r);if(!r.quizzes.length&&r.topics.length)setKind('mcq')}).catch(e=>toast(e.message))},[cid])
   const groups=o?[...new Set(o.students.map(x=>x.group))]:[],flip=(L,set,v)=>set(L.includes(v)?L.filter(x=>x!==v):[...L,v]),inGroup=g=>o.students.filter(x=>x.group===g).map(x=>x.id)
   const ok=o&&who.length&&due&&(kind==='quiz'?quiz:tops.length)
-  const send=async()=>{setBusy(true);try{const r=await api('/assignments',{method:'POST',body:{course_id:+cid,kind,quiz_id:kind==='quiz'?+quiz:null,topic_ids:tops,size:+size,students:who,due,attempts:+att,title}})
+  const send=async()=>{setBusy(true);try{const r=await api('/assignments',{method:'POST',body:{course_id:+cid,kind,quiz_id:kind==='quiz'?+quiz:null,topic_ids:tops,size:+size,students:who,due,attempts:+att,title,opens:opens||null,instructions:ins,counts}})
     toast(tl("Assigned to {n} students",{n:r.students}));close()}catch(e){toast(e.message)}setBusy(false)}
   return <Sheet page close={close}><h3>{tl("Assign a test")}</h3>
     {!cs?<Skeleton rows={2}/>:!cs.length?<p className="known">{tl("No course to assign from yet.")}</p>:<div>{/* a div, not a fragment: a page sheet flattens fragments */}
@@ -1192,6 +1200,7 @@ function AssignForm({toast,close}){
         <details><summary className="known">{tl("Choose students one by one ({n} chosen)",{n:who.length})}</summary>{o.students.map(x=><label key={x.id} className="chk"><input type="checkbox" checked={who.includes(x.id)} onChange={()=>flip(who,setWho,x.id)}/>{" "}{x.name} <small className="known">{x.group}</small></label>)}</details></>}
       <label htmlFor="adue2">{tl("Due")}</label><input id="adue2" type="datetime-local" value={due} onChange={e=>setDue(e.target.value)}/>
       <label htmlFor="aatt2">{tl("Attempts")}</label><select id="aatt2" value={att} onChange={e=>setAtt(e.target.value)}>{[1,2,3,0].map(n=><option key={n} value={n}>{ATT_LABEL(n)}</option>)}</select>
+      <WindowFields id="af" opens={opens} setOpens={setOpens} ins={ins} setIns={setIns} counts={counts} setCounts={setCounts}/>
       <label htmlFor="atitle">{tl("Name (optional)")}</label><input id="atitle" value={title} maxLength={200} onChange={e=>setTitle(e.target.value)} placeholder={kind==='quiz'?(o.quizzes.find(q=>String(q.id)===quiz)?.title||''):tl("MCQ set")}/>
       <button className="btn" disabled={busy||!ok} onClick={send}>{who.length?tl("Assign to {n} students",{n:who.length}):tl("Assign")}</button></div>}</div>}
     <button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
@@ -1204,10 +1213,11 @@ function AssignedToMe({toast}){
   const open=async x=>{if(x.kind==='quiz')return setQuiz(x.quiz_id);setBusy(x.id);try{setSet((await api(`/assignments/${x.id}/start`,{method:'POST',body:{request_id:'a'+x.id+'-'+Date.now()}})).id)}catch(e){toast(e.message)}setBusy(null)}
   return <><Bar title={tl("Assigned to me")}/><div className="main">
     {!d&&<Skeleton rows={2}/>}{d&&!d.items.length&&<p className="known">{tl("Nothing assigned to you right now.")}</p>}
-    {d?.items.map(x=>{const can=x.left!==0||x.status!=='to_do'
+    {d?.items.map(x=>{const can=x.status!=='upcoming'&&(x.left!==0||x.status!=='to_do')
       return <div key={x.id} className="card ward"><span className="wtop"><b>{x.title}</b><StateChip x={x}/></span>
         <small className="known">{x.course}{x.by?' · '+tl("from {name}",{name:x.by}):''}</small>
-        <small className="known">{tl("due {when}",{when:dueText(x.due)})} · {x.left==null?tl("Unlimited attempts"):tl("Attempts left: {n}",{n:x.left})}</small>
+        <small className="known">{x.status==='upcoming'&&tl("opens {when}",{when:dueText(x.opens)})+' · '}{tl("due {when}",{when:dueText(x.due)})} · {x.left==null?tl("Unlimited attempts"):tl("Attempts left: {n}",{n:x.left})} · {COUNT_LABEL[x.counts||'best']}</small>
+        {x.instructions&&<p className="known" style={{whiteSpace:'pre-wrap',margin:'6px 0 0'}}>{x.instructions}</p>}
         {can&&<button className="btn ghost" disabled={busy===x.id} onClick={()=>open(x)}>{x.status==='to_do'?tl("Start"):tl("Try again")}</button>}</div>})}</div></>}
 // a student's Home, made for a phone: what to do next (most useful first, one button each), then this week at a glance
 const DO_LABEL={assignment:'Open',topic:'Open',quiz:'Take the quiz',progress:'See weak topics',calendar:'Open calendar',mcq:'Practise',plan:'See my plan',courses:'My courses'}

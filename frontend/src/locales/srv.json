@@ -278,5 +278,17 @@
 [
 "^(?<n>\\d+) classmates have progress or quiz results on this course\\. Finishing again removes theirs too\\.$",
 "{n} classmates have progress or quiz results on this course. Finishing again removes theirs too."
+],
+[
+"^New test · due (?<due>.+)$",
+"New test · due {due}"
+],
+[
+"^Due within a day · (?<due>.+)$",
+"Due within a day · {due}"
+],
+[
+"^This test opens on (?<when>.+)\\.$",
+"This test opens on {when}."
 ]
 ]
