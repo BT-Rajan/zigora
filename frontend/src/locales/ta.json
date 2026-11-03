@@ -2998,5 +2998,10 @@
 "Go back": "திரும்பிச் செல்",
 "You have answered every question.": "எல்லா கேள்விகளுக்கும் பதிலளித்துவிட்டீர்கள்.",
 "You have 1 unanswered question. It will be marked wrong.": "பதிலளிக்காத கேள்வி 1 உள்ளது. அது தவறாகக் குறிக்கப்படும்.",
-"You have {n} unanswered questions. They will be marked wrong.": "பதிலளிக்காத கேள்விகள் {n} உள்ளன. அவை தவறாகக் குறிக்கப்படும்."
+"You have {n} unanswered questions. They will be marked wrong.": "பதிலளிக்காத கேள்விகள் {n} உள்ளன. அவை தவறாகக் குறிக்கப்படும்.",
+"Welcome back: your answers so far are restored. This test is not submitted yet.": "மீண்டும் வருக: இதுவரை உங்கள் பதில்கள் மீட்டெடுக்கப்பட்டன. இந்தத் தேர்வு இன்னும் சமர்ப்பிக்கப்படவில்லை.",
+"Saving your answers…": "உங்கள் பதில்கள் சேமிக்கப்படுகின்றன…",
+"Not saved yet: you seem to be offline. Your answers are kept on this device and will be saved when you are back online.": "இன்னும் சேமிக்கப்படவில்லை: நீங்கள் இணைப்பில் இல்லை போலத் தெரிகிறது. உங்கள் பதில்கள் இந்தச் சாதனத்தில் வைக்கப்பட்டுள்ளன; இணைப்பு திரும்பியதும் சேமிக்கப்படும்.",
+"Your answers are saved as you go.": "நீங்கள் பதிலளிக்கும்போதே உங்கள் பதில்கள் சேமிக்கப்படுகின்றன.",
+"This test was already submitted, in another tab or on another device. Go back and open it again to see your result.": "இந்தத் தேர்வு ஏற்கனவே சமர்ப்பிக்கப்பட்டது, வேறொரு தாவலில் அல்லது வேறொரு சாதனத்தில். உங்கள் முடிவைக் காண திரும்பிச் சென்று மீண்டும் திறக்கவும்."
 }

@@ -1378,8 +1378,27 @@ const LET='ABCDEF'
 function QuizPlay({id,back,toast,role}){
   const confirm=useConfirm()
   const [q,setQ]=useState(null),[ans,setAns]=useState([]),[res,setRes]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(null),[view,setView]=useState(null),[sit,setSit]=useState('')
-  const start=d=>{setQ(d);setAns(d.questions.map(()=>null));setRes(null);setSit(rid())}  // sit: this sitting's id, sent with every try of its submit so a retry is never a second attempt
-  useEffect(()=>{api('/quizzes/'+id).then(start).catch(e=>{toast(e.message);back()})},[id])
+  const [kept,setKept]=useState(''),[resumed,setResumed]=useState(false),cur=useRef({})  // kept: '', 'saving', 'saved' or 'offline'; cur: what a save needs, always the newest
+  const key='zg-quiz-draft:'+id,readLocal=()=>{try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}}
+  const writeLocal=v=>{try{v?localStorage.setItem(key,JSON.stringify(v)):localStorage.removeItem(key)}catch{/* private window: the server copy still holds */}}
+  // a sitting: its id (sit) goes with every save and every try of its submit, so a retry is never a second attempt. Answers come back from the server's
+  // copy, or this browser's if it is newer (saved while offline); fresh (Try again) starts a new sitting
+  const start=(d,fresh)=>{const srv=fresh?null:d.draft,loc=fresh?null:readLocal(),useLoc=loc&&(!srv||(loc.sit===srv.request_id&&loc.ver>srv.version))
+    const from=useLoc?{sit:loc.sit,ver:loc.ver,a:loc.answers}:srv?{sit:srv.request_id,ver:srv.version,a:srv.answers}:{sit:rid(),ver:0,a:{}}
+    const a=d.questions.map(x=>from.a[x.id]??null);if(fresh)writeLocal(null)
+    cur.current={sit:from.sit,ver:from.ver,ans:a,qs:d.questions,pending:!!useLoc};setQ(d);setAns(a);setRes(null);setSit(from.sit);setResumed(a.some(v=>v!==null));setKept(useLoc?'offline':'')
+    if(useLoc)push()}
+  const push=async()=>{const c=cur.current;if(!c.qs)return
+    const body={request_id:c.sit,version:c.ver,answers:Object.fromEntries(c.qs.map((x,i)=>[x.id,c.ans[i]]).filter(([,v])=>v!==null))};setKept('saving')
+    try{const r=await api(`/quizzes/${id}/draft`,{method:'PUT',body});if(cur.current!==c)return
+      if(!r.saved&&r.draft&&r.draft.version>c.ver){const a=c.qs.map(x=>r.draft.answers[x.id]??null);cur.current={...c,ver:r.draft.version,ans:a};setAns(a)}  // newer answers from another tab or device
+      c.pending=false;setKept('saved')}
+    catch(e){if(cur.current!==c)return;if(e.status===409){writeLocal(null);c.pending=false;setKept('submitted');return}  // that sitting was submitted elsewhere
+      c.pending=true;setKept('offline')}}
+  const pick=(i,k)=>{const c=cur.current,a=c.ans.map((v,n)=>n===i?k:v);cur.current={...c,ver:c.ver+1,ans:a,pending:true};setAns(a)
+    writeLocal({sit:c.sit,ver:c.ver+1,answers:Object.fromEntries(c.qs.map((x,n)=>[x.id,a[n]]).filter(([,v])=>v!==null))});push()}
+  useEffect(()=>{api('/quizzes/'+id).then(d=>start(d)).catch(e=>{toast(e.message);back()})},[id])
+  useEffect(()=>{const again=()=>{if(cur.current.pending)push()};addEventListener('online',again);const t=setInterval(again,15000);return()=>{removeEventListener('online',again);clearInterval(t)}},[id])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(view)return view.kind==='attempt'?<AttemptView id={view.id} back={()=>setView(null)} toast={toast} role={role}/>:view.kind==='mine'?<MyAttempts quiz={id} back={()=>setView(null)} toast={toast} role={role}/>:<QuizResults id={id} back={()=>setView(null)} toast={toast} role={role}/>
   if(!q)return <><Bar title={tl("Quiz")} back={back}/><div className="main"><Skeleton/></div></>
@@ -1387,19 +1406,21 @@ function QuizPlay({id,back,toast,role}){
   const submit=async()=>{if(busy)return;const n=ans.length
     if(!await confirm({title:tl("Submit your test?"),stats:[[n-left,tl("Answered")],[left,tl("Unanswered")],[n,tl("Total")]],ok:tl("Confirm submission"),cancel:tl("Go back"),
       body:left===0?tl("You have answered every question."):left===1?tl("You have 1 unanswered question. It will be marked wrong."):tl("You have {n} unanswered questions. They will be marked wrong.",{n:left})}))return
-    setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans,request_id:sit}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
+    setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans,request_id:sit}}));writeLocal(null);cur.current={};setKept('');window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
   return <><Bar title={q.title} sub={tl("{length} questions · pass mark {pass_percent}%{v}",{length:q.questions.length,pass_percent:q.pass_percent,v:q.kind==='course'?' · course test':''})} back={back}/><div className="main">
     {!res&&q.can_edit&&<button className="btn ghost" style={{marginTop:0}} onClick={()=>setView({kind:'results'})}><BarChart3 size={16}/>{" "}{tl("Results and scores")}</button>}
+    {!res&&resumed&&<p className="known" role="status" style={{marginTop:0}}>{tl("Welcome back: your answers so far are restored. This test is not submitted yet.")}</p>}
     {!res&&q.attempts>0&&<p className="known" style={{marginTop:0}}>{tl("You have tried this {n}. Best {best}% · latest {latest}%.",{n:pl(q.attempts,'time'),best:q.best,latest:q.latest})}{" "}<button className="tool" onClick={()=>setView({kind:'mine'})}>{tl("See your attempts")}</button></p>}
     {res&&<div className="qbox"><h2 style={{margin:0}}>{res.score} / {res.total} · {res.percent}%</h2><p className="known">{tl("Pass mark {pass}%.",{pass:res.pass_percent??q.pass_percent})}{res.summary&&' '+res.summary}</p>
-      <div className="two"><button className="btn" onClick={()=>setView({kind:'attempt',id:res.attempt_id})}>{tl("Review answers")}</button><button className="btn ghost" onClick={()=>start(q)}>{tl("Try again")}</button></div><button className="btn ghost" onClick={back}>{tl("Back")}</button></div>}
+      <div className="two"><button className="btn" onClick={()=>setView({kind:'attempt',id:res.attempt_id})}>{tl("Review answers")}</button><button className="btn ghost" onClick={()=>start(q,true)}>{tl("Try again")}</button></div><button className="btn ghost" onClick={back}>{tl("Back")}</button></div>}
     {res&&res.areas?.length>0&&<><h3 className="sec">{tl("What you are good at and what to revisit")}</h3><AreaList areas={res.areas} onStudy={setTopic}/></>}
     {q.questions.map((x,i)=><div className="qbox" key={x.id}><b>{tl("Question")}{" "}{i+1}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {pos}",{pos:i+1})}/>
       {x.options.map((o,k)=>{const r=res&&res.results[i],cls=r?(k===r.correct||(r.ok&&k===r.chosen)?' ok':k===r.chosen?' bad':''):ans[i]===k?' sel':''
-        return <button key={k} className={'opt'+cls} disabled={!!res} aria-pressed={!res&&ans[i]===k} onClick={()=>setAns(ans.map((a,n)=>n===i?k:a))}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></button>})}
+        return <button key={k} className={'opt'+cls} disabled={!!res} aria-pressed={!res&&ans[i]===k} onClick={()=>pick(i,k)}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></button>})}
       {res&&res.results[i].explanation&&<div className="known"><Md>{res.results[i].explanation}</Md></div>}</div>)}
     {!res&&<button className="btn" disabled={busy} onClick={submit}>{busy?tl("Checking…"):tl("Submit answers")}</button>}
-    {!res&&left>0&&<p className="known">{left}{" "}{tl("unanswered. Blank answers count as wrong.")}</p>}</div></>}
+    {!res&&left>0&&<p className="known">{left}{" "}{tl("unanswered. Blank answers count as wrong.")}</p>}
+    {!res&&<p className="known" role="status" aria-live="polite">{kept==='submitted'?tl("This test was already submitted, in another tab or on another device. Go back and open it again to see your result."):kept==='saving'?tl("Saving your answers…"):kept==='offline'?tl("Not saved yet: you seem to be offline. Your answers are kept on this device and will be saved when you are back online."):tl("Your answers are saved as you go.")}</p>}</div></>}
 // one attempt, question by question
 function AttemptView({id,back,toast,role}){
   const [d,setD]=useState(null),[topic,setTopic]=useState(null)

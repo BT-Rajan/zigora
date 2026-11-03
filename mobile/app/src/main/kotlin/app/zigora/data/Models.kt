@@ -98,7 +98,10 @@ import kotlinx.serialization.json.JsonObject
 
 @Serializable data class Question(val id: Int, val text: String, val options: List<String>, val image: String = "", val option_images: List<String> = emptyList())
 @Serializable data class Quiz(val id: Int, val title: String, val pass_percent: Int = 50, val course: String = "", val kind: String = "unit", val questions: List<Question> = emptyList(),
-                              val attempts: Int = 0, val best: Int? = null, val latest: Int? = null)
+                              val attempts: Int = 0, val best: Int? = null, val latest: Int? = null, val draft: QuizDraft? = null)
+/** a sitting not yet submitted: its id, the answers so far by question id, and the save counter (a late save never undoes a newer one) */
+@Serializable data class QuizDraft(val request_id: String = "", val answers: Map<String, Int> = emptyMap(), val version: Int = 0)
+@Serializable data class DraftReply(val saved: Boolean = false, val draft: QuizDraft? = null)
 @Serializable data class QResult(val chosen: Int? = null, val ok: Boolean = false, val correct: Int? = null, val explanation: String? = null)
 @Serializable data class AttemptOut(val score: Int, val total: Int, val percent: Int, val passed: Boolean, val pass_percent: Int, val reveal: Boolean = false, val results: List<QResult> = emptyList(),
                                     val attempt_id: Int? = null, val summary: String = "", val areas: List<Area> = emptyList())
