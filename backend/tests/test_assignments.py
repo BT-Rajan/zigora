@@ -62,3 +62,24 @@ def test_a_school_teacher_assigns_an_mcq_set_and_it_is_late_after_the_due_time(e
         x = s.get(main.McqAttempt, st["id"]); x.submitted_at = s.get(main.Assignment, aid).due_at + dt.timedelta(minutes=1); s.commit()
     a = mine(env)["Water practice"]; assert a["used"] == 1 and a["late_best"] == 0 and a["status"] == "done"  # after the due time: late, kept apart
     assert env.c.get("/api/assignments", headers=h).json()["items"][0]["done"] == 1
+
+
+def test_starting_an_assigned_set_twice_at_once_gives_both_the_same_set(env, monkeypatch):  # S31.5: a double tap on Start
+    import threading, time
+    i, unit = setup(env); cid = i["course"]["Chem"]; sid = me_id("stu@x.com")
+    with Session_() as s:
+        water = s.query(Topic).filter_by(unit_id=unit).first().id
+        for k in range(4): s.add(McqItem(topic_id=water, course_id=cid, text=f"Q{k}", options=json.dumps(["a", "b", "c", "d"]), correct=0, explanation="", status="published"))
+        s.commit()
+    aid = env.c.post("/api/assignments", headers=env.admin, json={"course_id": cid, "kind": "mcq", "topic_ids": [water], "size": 3, "students": [sid], "due": due(1),
+                                                                  "attempts": 1, "title": "Water practice"}).json()["id"]
+    state = main.student_state
+    monkeypatch.setattr(main, "student_state", lambda *a: (time.sleep(0.3), state(*a))[1])  # both taps get past the checks before either saves
+    out, go = [], threading.Barrier(2)
+    def tap(k):
+        go.wait(); r = env.c.post(f"/api/assignments/{aid}/start", headers=env.stu, json={"request_id": f"tap-{k}"}); out.append((r.status_code, r.json().get("id")))
+    ts = [threading.Thread(target=tap, args=(k,)) for k in (1, 2)]
+    for t in ts: t.start()
+    for t in ts: t.join()
+    assert [c for c, _ in out] == [200, 200] and len({x for _, x in out}) == 1
+    with Session_() as s: assert s.query(main.McqAttempt).filter_by(assignment_id=aid).count() == 1

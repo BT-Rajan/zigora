@@ -7660,8 +7660,10 @@ def start_assigned_mcq(aid: int, b: AssignStartIn, u: User = Depends(me), s: Ses
         s.add(at); s.flush()
         s.add_all([McqAttemptItem(attempt_id=at.id, pos=i, item_id=x["item_id"], version=x["version"], topic_id=x["topic_id"], snapshot=json.dumps(x, ensure_ascii=False)) for i, x in enumerate(snaps)])
         s.commit()
-    except IntegrityError:
-        s.rollback(); raise HTTPException(409, "Another set was being started. Try again.")
+    except IntegrityError:  # a second tap started it at the same moment: theirs is the set, resumed here too
+        s.rollback(); hit = s.query(McqAttempt).filter_by(user_id=u.id, status="open").first()
+        if hit and hit.assignment_id == a.id: return mcq_view(hit, s, resumed=True)
+        raise HTTPException(409, "Another set was being started. Try again.")
     return mcq_view(at, s)
 # the site: the home page (web/) at the root, and the app itself under /app/
 web = os.path.join(os.path.dirname(__file__), "..", "web")
