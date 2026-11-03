@@ -278,5 +278,29 @@
 [
 "^(?<n>\\d+) classmates have progress or quiz results on this course\\. Finishing again removes theirs too\\.$",
 "{n} classmates have progress or quiz results on this course. Finishing again removes theirs too."
+],
+[
+"^New test · due (?<due>.+)$",
+"New test · due {due}"
+],
+[
+"^Due within a day · (?<due>.+)$",
+"Due within a day · {due}"
+],
+[
+"^This test opens on (?<when>.+)\\.$",
+"This test opens on {when}."
+],
+[
+"^You have used today's (?<n>\\d+) explanations\\. Ask again tomorrow\\.$",
+"You have used today's {n} explanations. Ask again tomorrow."
+],
+[
+"^Topics to revise: (?<n>\\d+)$",
+"Topics to revise: {n}"
+],
+[
+"^(?<n>\\d+) overdue$",
+"{n} overdue"
 ]
 ]

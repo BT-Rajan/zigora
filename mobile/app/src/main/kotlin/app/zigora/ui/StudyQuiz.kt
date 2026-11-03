@@ -61,6 +61,7 @@ fun StudyQuizScreen(id: Int, back: () -> Unit, again: ((String) -> Unit)? = null
     val q = rememberLoad("squiz", id) { get("/study/quizzes/$id", StudyQuiz.serializer()) }
     val quiz = (q.state as? Load.Ok)?.value
     val ans = remember(quiz) { mutableStateListOf<Int?>().apply { repeat(quiz?.questions?.size ?: 0) { add(null) } } }
+    val sitting = remember(quiz) { java.util.UUID.randomUUID().toString() }  // sent with every try of this check's submit, so a retry counts once
     val fb = remember(quiz) { mutableStateMapOf<Int, Checked>() }
     val flagged = remember(quiz) { mutableStateMapOf<Int, Boolean>() }
     var res by remember(quiz) { mutableStateOf<StudyAttemptOut?>(null) }
@@ -76,6 +77,7 @@ fun StudyQuizScreen(id: Int, back: () -> Unit, again: ((String) -> Unit)? = null
                 res?.let { r ->
                     Panel {
                         Text("${r.score} / ${r.total} · ${r.percent}%", style = MaterialTheme.typography.headlineSmall)
+                        ResultFacts(r.counts, null)
                         Quiet(stringResource(if (review) R.string.review_done else if (mcq) R.string.done_answers_below else R.string.done_new_set) +
                               (if (r.summary.isNotEmpty()) " " + r.summary else "") + (r.next_review?.let { " $it." } ?: ""))
                         next?.let { (title, go) -> Button(onClick = go) { Text(stringResource(R.string.next_topic, title)) } }
@@ -117,7 +119,7 @@ fun StudyQuizScreen(id: Int, back: () -> Unit, again: ((String) -> Unit)? = null
                 if (res == null) {
                     Button(enabled = !busy && (!mcq || fb.size == qz.questions.size), onClick = { scope.launch {
                         busy = true
-                        try { res = a.send("POST", "/study/quizzes/${qz.id}/attempt", buildJsonObject { put("answers", JsonArray(ans.map { v -> v?.let(::JsonPrimitive) ?: JsonNull })) }, StudyAttemptOut.serializer()) }
+                        try { res = a.send("POST", "/study/quizzes/${qz.id}/attempt", buildJsonObject { put("answers", JsonArray(ans.map { v -> v?.let(::JsonPrimitive) ?: JsonNull })); put("request_id", sitting) }, StudyAttemptOut.serializer()) }
                         catch (e: Exception) { msg = e.message.orEmpty() }
                         busy = false
                     } }) { Text(stringResource(if (busy) R.string.checking else if (mcq) R.string.see_my_score else R.string.submit_answers)) }
@@ -131,6 +133,19 @@ fun StudyQuizScreen(id: Int, back: () -> Unit, again: ((String) -> Unit)? = null
 }
 
 
+/** a result's facts: which attempt, and right, wrong and left blank, as on the web */
+@Composable
+fun ResultFacts(counts: app.zigora.data.Counts?, number: app.zigora.data.AttemptNo?) {
+    val parts = listOfNotNull(number?.let { if (it.of != null) tl("Attempt {n} of {of}", "n" to it.n, "of" to it.of) else tl("Attempt {n}", "n" to it.n) },
+        counts?.let { tl("{n} right", "n" to it.correct) }, counts?.let { tl("{n} wrong", "n" to it.wrong) }, counts?.let { tl("{n} left blank", "n" to it.blank) })
+    if (parts.isNotEmpty()) Quiet(parts.joinToString(" · "))
+}
+/** where the student stands now in a result's topics, over all their answers */
+@Composable
+fun Standing(rows: List<Area>, onStudy: ((Int) -> Unit)?) {
+    if (rows.isEmpty()) return
+    SectionTitle(tl("Where you stand now in these topics")); AreaList(rows, onStudy = onStudy)
+}
 /** strong, getting there and needs another round, as on the web */
 @Composable
 fun AreaList(areas: List<Area>, staff: Boolean = false, onStudy: ((Int) -> Unit)? = null) {

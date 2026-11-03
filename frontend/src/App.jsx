@@ -93,7 +93,7 @@ export default function App(){
   // the side menu (the logo goes Home; search, change password, theme and sign out are in the header)
   const cal=['calendar',CalendarDays,tl("Calendar")]
   const asg=['assign',ClipboardCheck,tl("Assigned tests")],teacher=guardian&&user.relation==='teacher'
-  const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],cal,['join',Plus,tl("Join a course")],['saved',Bookmark,tl("Saved")],['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("My questions")],['progress',TrendingUp,tl("My progress")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
+  const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],['revision',RotateCcw,tl("Revision")],cal,['join',Plus,tl("Join a course")],['saved',Bookmark,tl("Saved")],['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("My questions")],['progress',TrendingUp,tl("My progress")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
     :guardian?[cal,...(teacher?[['offered',GraduationCap,tl("Offered courses")],['learn',BookOpen,tl("Course content")]]:[]),['classes',Megaphone,tl("Classes and announcements")],...(teacher?[['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],asg]:[]),['aikey',Sparkles,tl("My AI key")],['about',Info,tl("About")]]  // a parent or teacher: their students on Home, and the AI key their school students use
     :admin?ADMIN_SECTIONS.map(([k,I,l,pages])=>[pages[0][0],I,tl(l),k])
     :[['learn',BookOpen,tl("Courses")],['offered',GraduationCap,tl("Offered courses")],cal,asg,['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['bookmarks',Bookmark,tl("Bookmarks")],['highlights',Highlighter,tl("My highlights")],['reports',BarChart3,tl("Reports")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[]),['about',Info,tl("About")]]
@@ -105,7 +105,7 @@ export default function App(){
     {page==='routine'&&student&&<RoutinePage toast={toast} done={()=>go('home')}/>}
     {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')} onGo={go}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go(p==='awaiting'?'parents':'students')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
     {page==='search'&&<SearchPage key={findQ.n} initial={findQ.q} user={user} toast={toast}/>}{page==='learn'&&<Learn key={String(start)} start={start} user={user} toast={toast} appName={name} onGo={go} onStudy={openStudy}/>}
-    {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}
+    {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}{page==='revision'&&student&&<RevisionPage toast={toast} role={user.role}/>}
     {page==='build'&&user.role==='student'&&<StudyHome key={JSON.stringify(studyStart)} start={studyStart} toast={toast}/>}
     {page==='bookmarks'&&!admin&&<Bookmarks toast={toast} role={user.role}/>}{page==='highlights'&&!admin&&<MyHighlights toast={toast} role={user.role}/>}
     {page==='users'&&admin&&<Users key="all" toast={toast} me={user}/>}{page==='teachers'&&admin&&<Users key="faculty" role="faculty" toast={toast} me={user}/>}{page==='students'&&admin&&<Users key="student" role="student" toast={toast} me={user}/>}{page==='parents'&&admin&&<Users key="guardian" role="guardian" toast={toast} me={user}/>}{page==='courses'&&admin&&<AdminCourses toast={toast} onOpen={openIn}/>}{page==='programs'&&admin&&<Programs toast={toast} onOpen={openIn}/>}
@@ -681,6 +681,11 @@ function CourseSheet({c,pid,sid,sems,term='Semester',close,done,toast}){
 
 const STUDY=L({not_started:'Not opened yet',in_progress:'Opened, not marked completed',completed:'Marked completed'})
 const AREA_GROUPS=L([['needs_study',tl("Needs another round of study"),tl("Read these topics again, then retake the quiz.")],['getting_there',tl("Getting there"),''],['strong',tl("Strong areas"),tl("You answered these well.")]])
+// a result's facts: which attempt, and right, wrong and left blank (S32)
+const ResultFacts=({r})=>{const c=r.counts,n=r.number;if(!c&&!n)return null
+  return <p className="known" style={{margin:'4px 0 0'}}>{[n&&(n.of?tl("Attempt {n} of {of}",{n:n.n,of:n.of}):tl("Attempt {n}",{n:n.n})),c&&tl("{n} right",{n:c.correct}),c&&tl("{n} wrong",{n:c.wrong}),c&&tl("{n} left blank",{n:c.blank})].filter(Boolean).join(' · ')}</p>}
+// where the student stands now in the result's topics, over all their answers (S32)
+const Standing=({rows,onStudy})=>rows?.length?<><h3 className="sec">{tl("Where you stand now in these topics")}</h3><AreaList areas={rows} onStudy={onStudy}/></>:null
 function AreaList({areas,onStudy,staff}){
   return <>{AREA_GROUPS.map(([k,title,hint])=>{const L=areas.filter(a=>a.status===k);if(!L.length)return null
     return <div className={'qbox area '+k} key={k}><b>{title} ({L.length})</b>{hint&&!staff&&<p className="known" style={{margin:'4px 0 8px'}}>{hint}</p>}
@@ -1136,7 +1141,14 @@ function MoveClass({x,close,done,toast}){
 // ---- attempts; the best attempt before the due time counts. Due times are the students' clock, written "2026-11-05T17:00".
 const dueText=v=>v?day(v.slice(0,10))+' '+v.slice(11,16):''
 const ATT_LABEL=n=>n?tl(n===1?"1 attempt":"{n} attempts",{n}):tl("Unlimited attempts")
-const ASG_STATE={done:['Done','var(--ok)'],late:['Late','var(--warn)'],missed:['Missed','var(--bad)'],to_do:['To do','var(--mut)']}
+const ASG_STATE={done:['Done','var(--ok)'],late:['Late','var(--warn)'],missed:['Missed','var(--bad)'],to_do:['To do','var(--mut)'],upcoming:['Upcoming','var(--mut)']}
+const COUNT_LABEL=L({best:'The best attempt counts',latest:'The latest attempt counts',first:'The first attempt counts'})
+// start time, instructions and which attempt counts: the same three fields when assigning and when changing an assignment (S33)
+const WindowFields=({opens,setOpens,ins,setIns,counts,setCounts,id})=><>
+  <label htmlFor={id+'o'}>{tl("Opens (optional)")}</label><input id={id+'o'} type="datetime-local" value={opens} onChange={e=>setOpens(e.target.value)}/>
+  <small className="known">{tl("Leave empty to open at once. Students see it as upcoming until then and can't start before.")}</small>
+  <label htmlFor={id+'c'}>{tl("Which attempt counts")}</label><select id={id+'c'} value={counts} onChange={e=>setCounts(e.target.value)}>{Object.keys(COUNT_LABEL).map(k=><option key={k} value={k}>{COUNT_LABEL[k]}</option>)}</select>
+  <label htmlFor={id+'i'}>{tl("Instructions (optional)")}</label><textarea id={id+'i'} rows={3} maxLength={2000} value={ins} onChange={e=>setIns(e.target.value)} placeholder={tl("What students should know before they start")}/></>
 const StateChip=({x})=>{const [l,c]=ASG_STATE[x.status]||ASG_STATE.to_do;return <span className="chip" style={{color:c}}>{tl(l)}{x.status==='done'&&x.best!=null?' · '+x.best+'%':x.status==='late'&&x.late_best!=null?' · '+x.late_best+'%':''}</span>}
 function AssignPage({toast}){
   const [d,setD]=useState(null),[view,setView]=useState(null),[make,setMake]=useState(false)
@@ -1149,24 +1161,25 @@ function AssignPage({toast}){
     {d?.items.map(x=><button key={x.id} className="card ward" onClick={()=>setView(x.id)}><span className="wtop"><b>{x.title}</b><span className="chip">{tl("due {when}",{when:dueText(x.due)})}</span></span>
       <small className="known">{tl("{done} of {n} done",{done:x.done,n:x.students})}{x.late?' · '+tl("{n} late",{n:x.late}):''}{x.missed?' · '+tl("{n} missed",{n:x.missed}):''} · {ATT_LABEL(x.attempts)}</small></button>)}</div></>}
 function AssignDetail({id,back,toast}){
-  const confirm=useConfirm(),[d,setD]=useState(null),[due,setDue]=useState(''),[att,setAtt]=useState('1'),[busy,setBusy]=useState(false)
-  const load=()=>api('/assignments/'+id).then(r=>{setD(r);setDue(r.due);setAtt(String(r.attempts))}).catch(e=>{toast(e.message);back()});useEffect(()=>{load()},[id])
-  const save=async()=>{setBusy(true);try{await api('/assignments/'+id,{method:'PATCH',body:{due,attempts:+att}});toast(tl("Changes saved"));load()}catch(e){toast(e.message)}setBusy(false)}
+  const confirm=useConfirm(),[d,setD]=useState(null),[due,setDue]=useState(''),[att,setAtt]=useState('1'),[busy,setBusy]=useState(false),[opens,setOpens]=useState(''),[ins,setIns]=useState(''),[counts,setCounts]=useState('best')
+  const load=()=>api('/assignments/'+id).then(r=>{setD(r);setDue(r.due);setAtt(String(r.attempts));setOpens(r.opens||'');setIns(r.instructions||'');setCounts(r.counts||'best')}).catch(e=>{toast(e.message);back()});useEffect(()=>{load()},[id])
+  const save=async()=>{setBusy(true);try{await api('/assignments/'+id,{method:'PATCH',body:{due,attempts:+att,opens,instructions:ins,counts}});toast(tl("Changes saved"));load()}catch(e){toast(e.message)}setBusy(false)}
   const del=async()=>{if(!await confirm({title:tl("Delete this assignment?"),body:tl("Students no longer see it. Their attempts and scores stay."),ok:tl("Delete"),danger:true}))return;try{await api('/assignments/'+id,{method:'DELETE'});back()}catch(e){toast(e.message)}}
-  return <><Bar title={d?.title||tl("Loading")} sub={d?tl("due {when}",{when:dueText(d.due)})+' · '+ATT_LABEL(d.attempts):''} back={back}/><div className="main">
+  return <><Bar title={d?.title||tl("Loading")} sub={d?[d.opens&&tl("opens {when}",{when:dueText(d.opens)}),tl("due {when}",{when:dueText(d.due)}),ATT_LABEL(d.attempts),COUNT_LABEL[d.counts||'best']].filter(Boolean).join(' · '):''} back={back}/><div className="main">
     {!d&&<Skeleton rows={3}/>}{d?.rows.map(r=><div key={r.id} className="row"><div>{r.name}<small>{r.attempts?tl("{used} of {n} attempts used",{used:r.used,n:d.attempts}):tl("{used} attempts",{used:r.used})}</small></div><StateChip x={r}/></div>)}
     {d&&<><h3 className="sec">{tl("Change")}</h3><label htmlFor="adue">{tl("Due")}</label><input id="adue" type="datetime-local" value={due} onChange={e=>setDue(e.target.value)}/>
       <label htmlFor="aatt">{tl("Attempts")}</label><select id="aatt" value={att} onChange={e=>setAtt(e.target.value)}>{[1,2,3,0].map(n=><option key={n} value={n}>{ATT_LABEL(n)}</option>)}</select>
+      <WindowFields id="ad" opens={opens} setOpens={setOpens} ins={ins} setIns={setIns} counts={counts} setCounts={setCounts}/>
       <button className="btn" disabled={busy} onClick={save}>{tl("Save changes")}</button><button className="btn ghost" style={{color:'var(--bad)'}} onClick={del}>{tl("Delete this assignment")}</button></>}</div></>}
 function AssignForm({toast,close}){
   const tomorrow=()=>{const t=new Date();t.setDate(t.getDate()+1);return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}T17:00`}  // tomorrow 5 pm, on this device's calendar
   const [cs,setCs]=useState(null),[cid,setCid]=useState(''),[o,setO]=useState(null),[kind,setKind]=useState('quiz'),[quiz,setQuiz]=useState(''),[tops,setTops]=useState([]),[size,setSize]=useState('10')
-  const [who,setWho]=useState([]),[due,setDue]=useState(tomorrow),[att,setAtt]=useState('1'),[title,setTitle]=useState(''),[busy,setBusy]=useState(false)
+  const [who,setWho]=useState([]),[due,setDue]=useState(tomorrow),[att,setAtt]=useState('1'),[title,setTitle]=useState(''),[busy,setBusy]=useState(false),[opens,setOpens]=useState(''),[ins,setIns]=useState(''),[counts,setCounts]=useState('best')
   useEffect(()=>{api('/assign/options').then(r=>{setCs(r.courses);if(r.courses.length===1)setCid(String(r.courses[0].id))}).catch(e=>toast(e.message))},[])
   useEffect(()=>{setO(null);setQuiz('');setTops([]);setWho([]);if(cid)api('/assign/options?course_id='+cid).then(r=>{setO(r);if(!r.quizzes.length&&r.topics.length)setKind('mcq')}).catch(e=>toast(e.message))},[cid])
   const groups=o?[...new Set(o.students.map(x=>x.group))]:[],flip=(L,set,v)=>set(L.includes(v)?L.filter(x=>x!==v):[...L,v]),inGroup=g=>o.students.filter(x=>x.group===g).map(x=>x.id)
   const ok=o&&who.length&&due&&(kind==='quiz'?quiz:tops.length)
-  const send=async()=>{setBusy(true);try{const r=await api('/assignments',{method:'POST',body:{course_id:+cid,kind,quiz_id:kind==='quiz'?+quiz:null,topic_ids:tops,size:+size,students:who,due,attempts:+att,title}})
+  const send=async()=>{setBusy(true);try{const r=await api('/assignments',{method:'POST',body:{course_id:+cid,kind,quiz_id:kind==='quiz'?+quiz:null,topic_ids:tops,size:+size,students:who,due,attempts:+att,title,opens:opens||null,instructions:ins,counts}})
     toast(tl("Assigned to {n} students",{n:r.students}));close()}catch(e){toast(e.message)}setBusy(false)}
   return <Sheet page close={close}><h3>{tl("Assign a test")}</h3>
     {!cs?<Skeleton rows={2}/>:!cs.length?<p className="known">{tl("No course to assign from yet.")}</p>:<div>{/* a div, not a fragment: a page sheet flattens fragments */}
@@ -1187,6 +1200,7 @@ function AssignForm({toast,close}){
         <details><summary className="known">{tl("Choose students one by one ({n} chosen)",{n:who.length})}</summary>{o.students.map(x=><label key={x.id} className="chk"><input type="checkbox" checked={who.includes(x.id)} onChange={()=>flip(who,setWho,x.id)}/>{" "}{x.name} <small className="known">{x.group}</small></label>)}</details></>}
       <label htmlFor="adue2">{tl("Due")}</label><input id="adue2" type="datetime-local" value={due} onChange={e=>setDue(e.target.value)}/>
       <label htmlFor="aatt2">{tl("Attempts")}</label><select id="aatt2" value={att} onChange={e=>setAtt(e.target.value)}>{[1,2,3,0].map(n=><option key={n} value={n}>{ATT_LABEL(n)}</option>)}</select>
+      <WindowFields id="af" opens={opens} setOpens={setOpens} ins={ins} setIns={setIns} counts={counts} setCounts={setCounts}/>
       <label htmlFor="atitle">{tl("Name (optional)")}</label><input id="atitle" value={title} maxLength={200} onChange={e=>setTitle(e.target.value)} placeholder={kind==='quiz'?(o.quizzes.find(q=>String(q.id)===quiz)?.title||''):tl("MCQ set")}/>
       <button className="btn" disabled={busy||!ok} onClick={send}>{who.length?tl("Assign to {n} students",{n:who.length}):tl("Assign")}</button></div>}</div>}
     <button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
@@ -1199,10 +1213,11 @@ function AssignedToMe({toast}){
   const open=async x=>{if(x.kind==='quiz')return setQuiz(x.quiz_id);setBusy(x.id);try{setSet((await api(`/assignments/${x.id}/start`,{method:'POST',body:{request_id:'a'+x.id+'-'+Date.now()}})).id)}catch(e){toast(e.message)}setBusy(null)}
   return <><Bar title={tl("Assigned to me")}/><div className="main">
     {!d&&<Skeleton rows={2}/>}{d&&!d.items.length&&<p className="known">{tl("Nothing assigned to you right now.")}</p>}
-    {d?.items.map(x=>{const can=x.left!==0||x.status!=='to_do'
+    {d?.items.map(x=>{const can=x.status!=='upcoming'&&(x.left!==0||x.status!=='to_do')
       return <div key={x.id} className="card ward"><span className="wtop"><b>{x.title}</b><StateChip x={x}/></span>
         <small className="known">{x.course}{x.by?' · '+tl("from {name}",{name:x.by}):''}</small>
-        <small className="known">{tl("due {when}",{when:dueText(x.due)})} · {x.left==null?tl("Unlimited attempts"):tl("Attempts left: {n}",{n:x.left})}</small>
+        <small className="known">{x.status==='upcoming'&&tl("opens {when}",{when:dueText(x.opens)})+' · '}{tl("due {when}",{when:dueText(x.due)})} · {x.left==null?tl("Unlimited attempts"):tl("Attempts left: {n}",{n:x.left})} · {COUNT_LABEL[x.counts||'best']}</small>
+        {x.instructions&&<p className="known" style={{whiteSpace:'pre-wrap',margin:'6px 0 0'}}>{x.instructions}</p>}
         {can&&<button className="btn ghost" disabled={busy===x.id} onClick={()=>open(x)}>{x.status==='to_do'?tl("Start"):tl("Try again")}</button>}</div>})}</div></>}
 // a student's Home, made for a phone: what to do next (most useful first, one button each), then this week at a glance
 const DO_LABEL={assignment:'Open',topic:'Open',quiz:'Take the quiz',progress:'See weak topics',calendar:'Open calendar',mcq:'Practise',plan:'See my plan',courses:'My courses'}
@@ -1364,6 +1379,67 @@ function AdaptCard({toast}){
     {(taps>0||d.checks>0)&&<button className="btn ghost" onClick={reset}>{tl("Start fresh")}</button>}</div></>}
 
 const uploadImg=async f=>{const r=await fetch(ROOT+'/api/uploads',{method:'POST',headers:{'Content-Type':f.type||'application/octet-stream',Authorization:'Bearer '+localStorage.t},body:f}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(tl(j.detail||'Upload failed'));return j.url}
+// what to revise and when (S35): worked out on the server from what the student did; a check (an MCQ set) moves a topic on, reading its sheet doesn't
+const REV_GROUPS=[['overdue','Overdue'],['today','Due today'],['upcoming','Coming up this week']]
+function RevisionPage({toast,role}){
+  const confirm=useConfirm(),[d,setD]=useState(null),[topic,setTopic]=useState(null),[set,setSet]=useState(null),[busy,setBusy]=useState(null)
+  const load=()=>api('/me/revision').then(setD).catch(e=>toast(e.message));useEffect(()=>{if(!topic&&!set)load()},[topic,set])
+  if(topic)return <Topic id={topic} tab0="revise" back={()=>setTopic(null)} toast={toast} role={role}/>
+  if(set)return <McqPlay id={set} back={()=>setSet(null)} toast={toast} openTopic={setTopic}/>
+  const check=async x=>{setBusy(x.topic_id);const go=source=>api('/mcq/attempts',{method:'POST',body:{mode:'topic',source,size:5,topic_id:x.topic_id,request_id:rid()}})
+    try{setSet((await go('bank')).id)}catch(e){if(e.status!==409){toast(e.message)}else if(await confirm({title:tl("Not enough bank questions here"),body:tl("Make a new AI set for this check instead? It counts toward your MCQ sets."),ok:tl("A new AI set")})){try{setSet((await go('ai')).id)}catch(e2){toast(e2.message)}}}
+    setBusy(null)}
+  const later=async(x,days)=>{try{const r=await api(`/me/revision/${x.topic_id}/postpone`,{method:'POST',body:{days}});toast(tl("Moved to {day}",{day:day(r.due)}));load()}catch(e){toast(e.message)}}
+  const done=async x=>{try{await api(`/topics/${x.topic_id}/revised`,{method:'POST'});toast(tl("Marked as revised"));load()}catch(e){toast(e.message)}}
+  const why=x=>[x.weak&&tl("Last check {percent}%",{percent:x.last.percent}),x.wrong>1&&tl("{n} wrong answers so far",{n:x.wrong}),x.not_yet>0&&tl("You found it hard"),!x.checked&&tl("Not checked yet")].filter(Boolean)
+  const Row=({x,actions})=><div className="card ward"><span className="wtop"><b>{x.title}</b><span className="chip">{x.due<new Date().toISOString().slice(0,10)?tl("due {when}",{when:day(x.due)}):day(x.due)}</span></span>
+    <small className="known">{x.course}{x.unit?' · '+x.unit:''}{' · '}{x.interval===1?tl("every day"):tl("every {n} days",{n:x.interval})}</small>
+    {why(x).length>0&&<small className="known">{why(x).join(' · ')}</small>}
+    {actions&&<div className="two" style={{marginTop:8}}><button className="btn" onClick={()=>setTopic(x.topic_id)}>{tl("Revise now")}</button><button className="btn ghost" disabled={busy===x.topic_id} onClick={()=>check(x)}>{busy===x.topic_id?tl("Starting…"):tl("Check myself")}</button></div>}
+    {actions&&<span className="tools" style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6}}><button className="tool" onClick={()=>done(x)}>{tl("Mark as revised")}</button>{[1,3,7].map(n=><button key={n} className="tool" onClick={()=>later(x,n)}>{tl("Later: {n} d",{n})}</button>)}</span>}</div>
+  return <><Bar title={tl("Revision")} sub={d?tl("{n} to revise now",{n:d.overdue.length+d.today.length}):''}/><div className="main">
+    {!d&&<Skeleton rows={3}/>}
+    {d&&<p className="known" style={{marginTop:0}}>{tl("Topics come back after {days} days, further apart each time you pass a check (80% or more) and sooner when one goes badly. Reading the sheet counts as revising, not as a check.",{days:d.intervals.join(', ')})}</p>}
+    {d&&!d.overdue.length&&!d.today.length&&!d.upcoming.length&&<p className="known">{tl("Nothing to revise yet. Topics you mark as learned, or check yourself on, come here when it is time to revise them.")}</p>}
+    {d&&REV_GROUPS.map(([k,l])=>d[k].length>0&&<Fragment key={k}><h3 className="sec">{tl(l)} ({d[k].length})</h3><Paged rows={d[k]} render={x=><Row key={x.topic_id} x={x} actions={k!=='upcoming'}/>}/></Fragment>)}
+    {d?.recent.length>0&&<><h3 className="sec">{tl("Recently revised")}</h3>{d.recent.map(x=><div key={x.topic_id} className="row"><div>{x.title}<small>{x.last.kind==='check'?tl("Checked: {percent}%",{percent:x.last.percent}):tl("Read the sheet")}{' · '}{when(x.last.at)}</small></div><span className="chip">{tl("next {when}",{when:day(x.due)})}</span></div>)}</>}
+  </div></>}
+// a topic's revision sheet (S34): written once when asked for, shown three ways from the same sheet; "your focus" comes from the student's own results
+const REV_FORMATS=[['quick','Quick'],['detailed','Detailed'],['exam','Exam']]
+function TopicRevision({id,toast}){
+  const [d,setD]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState(''),[fmt,setFmt]=useState('quick'),[ex,setEx]=useState({})
+  const load=make=>api(`/topics/${id}/revision${make?'?make=1':''}`).then(setD)
+  useEffect(()=>{setD(null);load().catch(e=>setErr(e.message))},[id])
+  const make=async()=>{setBusy(true);setErr('');try{await load(true)}catch(e){setErr(e.message)}setBusy(false)}
+  const revised=async()=>{try{const r=await api(`/topics/${id}/revised`,{method:'POST'});setD(x=>({...x,revised_at:r.revised_at}));toast(tl("Marked as revised"))}catch(e){toast(e.message)}}
+  const explain=async(k,text)=>{setEx(x=>({...x,[k]:{busy:true}}));try{const r=await api(`/topics/${id}/explain`,{method:'POST',body:{text}});setEx(x=>({...x,[k]:{text:r.explain.text}}))}catch(e){setEx(x=>({...x,[k]:{err:e.message}}))}}
+  if(!d)return err?<p className="known">{err}</p>:<Skeleton rows={3}/>
+  const Line=({k,text,children})=><div className="revline">{children}<button className="tool" disabled={ex[k]?.busy} onClick={()=>explain(k,text)}>{ex[k]?.busy?tl("Thinking…"):tl("Explain this")}</button>
+    {ex[k]?.text&&<div className="known prose"><Md>{ex[k].text}</Md></div>}{ex[k]?.err&&<p className="known">{ex[k].err}</p>}</div>
+  const sh=d.sheet,f=d.focus,Sec=({title,show,children})=>show?<div className="qbox"><b>{title}</b>{children}</div>:null
+  const ideas=detail=>sh.concepts.map((c,i)=><Line key={'c'+i} k={'c'+i} text={c.title+': '+c.point}><div className="prose"><Md>{`**${c.title}**: ${c.point}`+(detail&&c.detail?`\n\n${c.detail}`:'')}</Md></div></Line>)
+  const formulas=meaning=>sh.formulas.map((x,i)=><Line key={'f'+i} k={'f'+i} text={x.formula+' '+x.meaning}><div className="prose"><Md>{x.formula+(meaning&&x.meaning?' · '+x.meaning:'')}</Md></div></Line>)
+  const defs=sh&&sh.definitions.map((x,i)=><Line key={'d'+i} k={'d'+i} text={x.term+': '+x.meaning}><div className="prose"><Md>{`**${x.term}**: ${x.meaning}`}</Md></div></Line>)
+  const list=(L,p)=>L.map((x,i)=><Line key={p+i} k={p+i} text={x}><div className="prose"><Md>{x}</Md></div></Line>)
+  const focus=f&&(f.wrong.length||f.marked.length||f.not_yet||f.standing)
+  return <>
+    {focus&&<div className="qbox area needs_study"><b>{tl("Your focus")}</b>
+      {f.standing&&<p className="known">{tl("Your MCQs on this topic: {correct} of {total} right · {percent}%",{correct:f.standing.correct,total:f.standing.answered,percent:f.standing.percent})}</p>}
+      {f.wrong.length>0&&<><small className="known">{tl("Questions you got wrong")}</small><ul>{f.wrong.map((w,i)=><li key={i} className="prose"><Md>{w}</Md></li>)}</ul></>}
+      {f.marked.length>0&&<><small className="known">{tl("Passages you highlighted")}</small><ul>{f.marked.map((w,i)=><li key={i}>{w}</li>)}</ul></>}
+      {f.not_yet>0&&<p className="known">{tl("You said \"Not quite\" on {n} quick checks here.",{n:f.not_yet})}</p>}</div>}
+    {d.empty?<p className="known">{tl("This topic has no notes yet, so there is nothing to revise from.")}</p>
+    :!sh?<div className="qbox"><p className="known" style={{marginTop:0}}>{tl("A one-screen summary of what matters in this topic, with a detailed and an exam view.")}</p>
+      <button className="btn" disabled={busy} onClick={make}>{busy?tl("Writing…"):tl("Write my revision sheet")}</button>{err&&<p className="known">{err}{" "}<button className="tool" onClick={make}>{tl("Try again")}</button></p>}</div>
+    :<><div className="seg" role="group" aria-label={tl("How much to show")} style={{gridTemplateColumns:'1fr 1fr 1fr'}}>{REV_FORMATS.map(([k,l])=><button key={k} className={fmt===k?'on':''} aria-pressed={fmt===k} onClick={()=>setFmt(k)}>{tl(l)}</button>)}</div>
+      {d.own_notes&&<p className="known">{tl("Written from your own notes, for you only.")}</p>}
+      {fmt==='quick'&&<><Sec title={tl("Key ideas")} show>{ideas(false)}</Sec><Sec title={tl("Formulas")} show={sh.formulas.length>0}>{formulas(false)}</Sec><Sec title={tl("Watch out for")} show={sh.mistakes.length>0}>{list(sh.mistakes.slice(0,3),'m')}</Sec></>}
+      {fmt==='detailed'&&<><Sec title={tl("Key ideas")} show>{ideas(true)}</Sec><Sec title={tl("Definitions")} show={sh.definitions.length>0}>{defs}</Sec><Sec title={tl("Formulas")} show={sh.formulas.length>0}>{formulas(true)}</Sec>
+        <Sec title={tl("Key facts")} show={sh.facts.length>0}>{list(sh.facts,'k')}</Sec><Sec title={tl("Examples")} show={sh.examples.length>0}>{sh.examples.map((x,i)=><Line key={'e'+i} k={'e'+i} text={x.title+': '+x.text}><div className="prose"><Md>{`**${x.title}**: ${x.text}`}</Md></div></Line>)}</Sec>
+        <Sec title={tl("Common mistakes")} show={sh.mistakes.length>0}>{list(sh.mistakes,'m')}</Sec></>}
+      {fmt==='exam'&&<><Sec title={tl("Definitions")} show={sh.definitions.length>0}>{defs}</Sec><Sec title={tl("Formulas")} show={sh.formulas.length>0}>{formulas(true)}</Sec>
+        <Sec title={tl("Likely questions")} show={sh.likely.length>0}>{list(sh.likely,'l')}</Sec><Sec title={tl("Common mistakes")} show={sh.mistakes.length>0}>{list(sh.mistakes,'m')}</Sec></>}
+      <button className="btn ghost" onClick={revised}>{tl("Mark as revised")}</button>{d.revised_at&&<p className="known">{tl("Last revised {when}",{when:when(d.revised_at)})}</p>}</>}</>}
 // one image place on a question or an answer: shows the image, the file the CSV asked for, or a small "Add image" button
 function ImgSlot({url,need,label,onSet,toast,small}){
   const ref=useRef(),[busy,setBusy]=useState(false)
@@ -1411,9 +1487,10 @@ function QuizPlay({id,back,toast,role}){
     {!res&&q.can_edit&&<button className="btn ghost" style={{marginTop:0}} onClick={()=>setView({kind:'results'})}><BarChart3 size={16}/>{" "}{tl("Results and scores")}</button>}
     {!res&&resumed&&<p className="known" role="status" style={{marginTop:0}}>{tl("Welcome back: your answers so far are restored. This test is not submitted yet.")}</p>}
     {!res&&q.attempts>0&&<p className="known" style={{marginTop:0}}>{tl("You have tried this {n}. Best {best}% · latest {latest}%.",{n:pl(q.attempts,'time'),best:q.best,latest:q.latest})}{" "}<button className="tool" onClick={()=>setView({kind:'mine'})}>{tl("See your attempts")}</button></p>}
-    {res&&<div className="qbox"><h2 style={{margin:0}}>{res.score} / {res.total} · {res.percent}%</h2><p className="known">{tl("Pass mark {pass}%.",{pass:res.pass_percent??q.pass_percent})}{res.summary&&' '+res.summary}</p>
+    {res&&<div className="qbox"><h2 style={{margin:0}}>{res.score} / {res.total} · {res.percent}%</h2><ResultFacts r={res}/><p className="known">{tl("Pass mark {pass}%.",{pass:res.pass_percent??q.pass_percent})}{res.summary&&' '+res.summary}</p>
       <div className="two"><button className="btn" onClick={()=>setView({kind:'attempt',id:res.attempt_id})}>{tl("Review answers")}</button><button className="btn ghost" onClick={()=>start(q,true)}>{tl("Try again")}</button></div><button className="btn ghost" onClick={back}>{tl("Back")}</button></div>}
     {res&&res.areas?.length>0&&<><h3 className="sec">{tl("What you are good at and what to revisit")}</h3><AreaList areas={res.areas} onStudy={setTopic}/></>}
+    {res&&<Standing rows={res.standing} onStudy={setTopic}/>}
     {q.questions.map((x,i)=><div className="qbox" key={x.id}><b>{tl("Question")}{" "}{i+1}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {pos}",{pos:i+1})}/>
       {x.options.map((o,k)=>{const r=res&&res.results[i],cls=r?(k===r.correct||(r.ok&&k===r.chosen)?' ok':k===r.chosen?' bad':''):ans[i]===k?' sel':''
         return <button key={k} className={'opt'+cls} disabled={!!res} aria-pressed={!res&&ans[i]===k} onClick={()=>pick(i,k)}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></button>})}
@@ -1429,7 +1506,7 @@ function AttemptView({id,back,toast,role}){
   if(!d)return <><Bar title={tl("Attempt")} back={back}/><div className="main"><Skeleton/></div></>
   const staff=role!=='student',right=d.questions.filter(x=>x.ok).length
   return <><Bar title={d.quiz} sub={(staff?d.user+' · ':'')+when(d.at)} back={back}/><div className="main">
-    <div className="qbox" style={{marginTop:0}}><h2 style={{margin:0}}>{d.score} / {d.total} · {d.percent}%</h2><p className="known" style={{marginBottom:0}}>{tl("Pass mark {pass}%.",{pass:d.pass_percent})}{d.summary&&' '+d.summary}</p></div>
+    <div className="qbox" style={{marginTop:0}}><h2 style={{margin:0}}>{d.score} / {d.total} · {d.percent}%</h2><ResultFacts r={d}/><p className="known" style={{marginBottom:0}}>{tl("Pass mark {pass}%.",{pass:d.pass_percent})}{d.summary&&' '+d.summary}</p></div>
     {d.areas.length>0&&<><h3 className="sec">{staff?tl("Strengths and weak areas"):tl("What you are good at and what to revisit")}</h3><AreaList areas={d.areas} onStudy={staff?null:setTopic} staff={staff}/></>}
     {d.no_detail&&<p className="known">{tl("This attempt was made before answers were kept question by question, so only the score is known.")}</p>}
     {d.changed>0&&<p className="known">{pl(d.changed,'question')}{" "}{tl("of this attempt {v} changed or removed since, so {v2} not shown.",{v:d.changed===1?'was':'were',v2:d.changed===1?'it is':'they are'})}</p>}
@@ -1518,8 +1595,9 @@ function McqPlay({id,toast,back,openTopic}){  // one set: answers are saved as t
     setBusy(true);try{setD(await api(`/mcq/attempts/${id}/submit`,{method:'POST',body:{answers:Object.fromEntries(d.questions.map(x=>[x.pos,x.chosen]))}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
   const areas=(d.feedback||[]).map(f=>({topic_id:f.topic_id,title:f.topic,correct:f.correct,total:f.total,percent:f.percent,status:f.status}))
   return <><Bar title={d.mode==='topic'&&d.questions[0]?d.questions[0].topic:tl("MCQ practice")} sub={open?tl("{n} questions · answers are saved as you go",{n:d.total}):when(d.submitted_at)} back={back}/><div className="main">
-    {!open&&<div className="qbox" style={{marginTop:0}}><h2 style={{margin:0}}>{d.score} / {d.total} · {d.percent}%</h2><p className="known" style={{marginBottom:0}}>{d.source==='ai'?tl("An AI set, written from your topics' notes."):tl("A set from the question bank.")}</p></div>}
+    {!open&&<div className="qbox" style={{marginTop:0}}><h2 style={{margin:0}}>{d.score} / {d.total} · {d.percent}%</h2><ResultFacts r={d}/><p className="known" style={{marginBottom:0}}>{d.source==='ai'?tl("An AI set, written from your topics' notes."):tl("A set from the question bank.")}</p></div>}
     {!open&&areas.length>0&&<><h3 className="sec">{tl("What you are good at and what to revisit")}</h3><AreaList areas={areas} onStudy={openTopic}/></>}
+    {!open&&<Standing rows={d.standing} onStudy={openTopic}/>}
     {d.questions.map((x,i)=><div className="qbox" key={x.pos}><b>{tl("Question")}{" "}{i+1}{!open?' · '+(x.ok?tl("Right"):tl("Wrong")):''}{d.mode!=='topic'&&x.topic?' · '+x.topic:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {pos}",{pos:i+1})}/>
       {x.options.map((o,k)=>{const cls=open?(x.chosen===k?' sel':''):k===x.correct?' ok':k===x.chosen?' bad':''
         return open?<button key={k} className={'opt'+cls} aria-pressed={x.chosen===k} onClick={()=>pick(i,k)}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></button>
@@ -1916,16 +1994,16 @@ function StudyTopicPage({id,toast,back,go}){
       <p className="known">{tl("Markdown works: # for headings, - for lists, **bold**. Your progress and stars stay.")}</p>
       <button className="btn" disabled={!ed.title.trim()||!ed.content.trim()} onClick={saveEd}>{tl("Save")}</button><button className="btn ghost" onClick={()=>setEd(null)}>{tl("Cancel")}</button></Sheet>}</div></>}
 function StudyQuizPlay({quiz,toast,back,again,next}){
-  const mcq=quiz.kind!=='quiz',[ans,setAns]=useState(quiz.questions.map(()=>null)),[fb,setFb]=useState({}),[res,setRes]=useState(null),[busy,setBusy]=useState(false)
+  const mcq=quiz.kind!=='quiz',[ans,setAns]=useState(quiz.questions.map(()=>null)),[fb,setFb]=useState({}),[res,setRes]=useState(null),[busy,setBusy]=useState(false),[sit]=useState(rid)  // sit: sent with every try of this submit, so a retry counts once
   const [flagged,setFlagged]=useState({})
   const flag=async i=>{try{await api(`/study/quizzes/${quiz.id}/flag`,{method:'POST',body:{index:i}});setFlagged(f=>({...f,[i]:true}));toast(tl("Thanks. That question won't come back in your reviews."))}catch(e){toast(e.message)}}
   const pick=async(i,k)=>{if(res||(mcq&&fb[i]))return;setAns(a=>a.map((v,n)=>n===i?k:v));if(!mcq)return
     try{const r=await api(`/study/quizzes/${quiz.id}/check`,{method:'POST',body:{index:i,answer:k}});setFb(f=>({...f,[i]:r}))}catch(e){toast(e.message)}}
-  const submit=async()=>{setBusy(true);try{setRes(await api(`/study/quizzes/${quiz.id}/attempt`,{method:'POST',body:{answers:ans}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
+  const submit=async()=>{setBusy(true);try{setRes(await api(`/study/quizzes/${quiz.id}/attempt`,{method:'POST',body:{answers:ans,request_id:sit}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
   const left=ans.filter(a=>a==null).length,review=quiz.kind==='review',label=review?'Review':mcq?'Quick check':'Full quiz'
   return <><Bar title={label} sub={quiz.topic+' · '+pl(quiz.questions.length,'question')} back={back}/><div className="main">
     {res&&<div className="qbox score" style={{marginTop:0}} role="status">
-      <h2 style={{margin:0}}>{res.score} / {res.total} · {res.percent}%</h2>
+      <h2 style={{margin:0}}>{res.score} / {res.total} · {res.percent}%</h2><ResultFacts r={res}/>
       <p className="known">{review?tl("Review done."):mcq?tl("Done. The answers are below."):tl("Done. A new set is there whenever you want one.")}{res.summary&&' '+res.summary}{res.next_review&&' '+res.next_review+'.'}</p>
       {next&&<button className="btn" onClick={next.go}>{tl("Next topic: {title}",{title:next.title})}{" "}<ChevronRight size={16}/></button>}
       <div className="two">{again&&<button className={'btn'+(next?' ghost':'')} onClick={()=>again(quiz.kind)}>{tl("New")}{" "}{mcq?'questions':'quiz'}</button>}<button className={'btn'+(again||next?' ghost':'')} onClick={back}>{review?tl("Done"):tl("Back to the topic")}</button></div></div>}
@@ -1992,13 +2070,13 @@ function HistorySheet({tid,close,done,toast}){
     {!list?<div className="sk"/>:!list.length?<p className="known">{tl("No versions recorded yet. They appear the next time this topic is saved.")}</p>
       :<Paged rows={list} render={x=><button key={x.id} className="row" style={{width:'100%',textAlign:'start',background:'none'}} onClick={()=>open(x)}><div>{x.saved_at&&!(x.by===null&&x.note.startsWith('Before'))?when(x.saved_at):tl("Before history began")}<small>{x.note}{x.by?' · '+x.by:''}</small></div>{x.current&&<span className="pill">{tl("Current")}</span>}<ChevronRight size={16}/></button>}/>}
     <button className="btn ghost" onClick={close}>{tl("Close")}</button></Sheet>}
-function Topic({id:first,back,toast,role}){
+function Topic({id:first,back,toast,role,tab0}){
   const confirm=useConfirm()
   const {aiOff}=useContext(Ctx)
   useLearnClock()  // a lite person's learning minutes
   const [mcq,setMcq]=useState(false),[report,setReport]=useState(false),[practice,setPractice]=useState(null),[checking,setChecking]=useState(''),[reading,setReading]=useState(false),[hls,setHls]=useState([]),[tr,setTr]=useState(null)
   useEffect(()=>{setTr(null)},[first])
-  const [id,setId]=useState(first),[editing,setEditing]=useState(false),[v,setV]=useState(0),[t,setT]=useState(null),[tab,setTab]=useState('notes'),[known,setKnown]=useState([]),[ai,setAi]=useState({}),[aiOk,setAiOk]=useState(null),[ownKey,setOwnKey]=useState(false),[aiMsg,setAiMsg]=useState(''),[busy,setBusy]=useState(false),[bm,setBm]=useState(false),[pv,setPv]=useState(false),[hist,setHist]=useState(false),[cp,setCp]=useState(false),[gone,setGone]=useState('')
+  const [id,setId]=useState(first),[editing,setEditing]=useState(false),[v,setV]=useState(0),[t,setT]=useState(null),[tab,setTab]=useState(tab0||'notes'),[known,setKnown]=useState([]),[ai,setAi]=useState({}),[aiOk,setAiOk]=useState(null),[ownKey,setOwnKey]=useState(false),[aiMsg,setAiMsg]=useState(''),[busy,setBusy]=useState(false),[bm,setBm]=useState(false),[pv,setPv]=useState(false),[hist,setHist]=useState(false),[cp,setCp]=useState(false),[gone,setGone]=useState('')
   const [mat,setMat]=useState(false),[askT,setAskT]=useState(false),[upNext,setUpNext]=useState(null),opened=useRef(false),jump=nid=>{opened.current=false;setUpNext(null);setGone('');setT(null);setTab('notes');setAi({});setAiMsg('');setKnown([]);setEditing(false);setId(nid);window.scrollTo(0,0)},learn=r=>setT(p=>({...p,status:r.status,overdue:r.overdue,late:r.late,completed_at:r.completed_at}))
   useEffect(()=>{api('/topics/'+id).then(x=>{setT(x);setBm(!!x.bookmarked)
     if(!opened.current){opened.current=true;api(`/topics/${id}/read`,{method:'POST'}).then(r=>{setKnown(r.known);learn(r)}).catch(()=>{})}}).catch(e=>{toast(e.message);if(/unavailable right now/.test(e.message))setGone(e.message)})},[id,v])  // opening starts it, after the page has loaded
@@ -2039,13 +2117,14 @@ function Topic({id:first,back,toast,role}){
     {hist&&<HistorySheet tid={id} toast={toast} close={()=>setHist(false)} done={()=>{setHist(false);setV(v+1)}}/>}
     {t.can_edit&&!t.published&&<p className="known" style={{marginTop:0}}>{tl("Draft · students cannot see it")}</p>}
     {aiOk&&(t.content||t.my_notes)&&<TopicSteps id={id} student={role==='student'} diagram={pv&&t.diagram?'on':t.diagram}/>}  {/* no gist from a topic's name alone: from its notes, or the student's own */}
-    {aiOff?<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>:<Tabs label={tl("Topic sections")} items={[['notes',tl("Notes")],['explain',tl("Explain")],['answer',tl("Sample answer")]]} value={tab} onChange={setTab}/>}
+    {aiOff?<p className="known">{tl("AI help is off. A parent or teacher can turn it on by adding their AI key to their account.")}</p>:<Tabs label={tl("Topic sections")} items={[['notes',tl("Notes")],['explain',tl("Explain")],['answer',tl("Sample answer")],['revise',tl("Revise")]]} value={tab} onChange={setTab}/>}
     {known.length>0&&tab==='explain'&&<p className="known">{tl("You’ve already covered:")}{" "}{known.join(', ')}</p>}
     {tab==='notes'&&t.content&&<button className="btn lead" onClick={()=>setReading(true)}><Maximize2 size={16}/> {t.content_format==='interactive'?tl("Open the interactive page"):tl("Read in full screen")}</button>}
     {tab==='notes'&&<NotesLang t={t} aiOk={aiOk} tr={tr} setTr={setTr}/>}
     {tab==='notes'&&<div className="prose">{t.content?(t.content_format==='interactive'?<p className="known" style={{margin:0}}>{tl("This topic is an interactive page. Open it above to use it and highlight its text.")}</p>:<Body text={tr?.on&&tr.content?tr.content:t.content} format={t.content_format}/>):!t.my_notes&&(role==='student'?<div className="qbox" style={{marginTop:0}}><b>{tl("This topic has no notes yet")}</b><p className="known" style={{margin:'4px 0 8px'}}>{tl("Bring your own notes for this course. They are filed under its topics, for you only, and you study them here.")}</p><button className="btn" onClick={()=>setMat(true)}><FileText size={16}/>{" "}{tl("Bring your own notes")}</button></div>:<Md>{tl("No notes yet.")}</Md>)}{t.my_notes&&<>{t.content&&<h3>{tl("Your notes")}</h3>}{!t.content&&<span className="chip">{tl("Your notes")}</span>}<Md>{t.my_notes}</Md></>}{t.question_pattern&&<><h3>{tl("Question pattern")}</h3><Md>{t.question_pattern}</Md></>}{t.guideline&&<><h3>{tl("Answer guideline")}</h3><Md>{t.guideline}</Md></>}{role==='student'&&(t.content||t.my_notes)&&<button className="tool" onClick={()=>setMat(true)}><FileText size={14}/> {t.my_notes?tl("Update your notes for this course"):tl("Add your own notes for this topic")}</button>}</div>}
     {tab==='notes'&&hls.length>0&&<><h3 className="sec">{tl("Your highlights ({length})",{length:hls.length})}</h3>{<Paged rows={hls} render={h=><HlItem key={h.id} h={{...h,tid:id}} toast={toast} onSaved={r=>setHls(l=>l.map(x=>x.id===r.id?r:x))} onDrop={()=>dropHl(h)}/>}/>}</>}
     {tab==='explain'&&view('explain')}{(tab==='answer'||(aiOff&&tab==='notes'))&&<ModelAnswer t={t} canEdit={!!t.can_edit&&!pv} toast={toast} onSaved={m=>setT(p=>({...p,model_answer:m}))}/>}{tab==='answer'&&(aiOk===false?view('answer'):<><Outline id={id}/>{ai.answer?view('answer'):<button className="btn ghost" disabled={busy} onClick={()=>ask('answer')}>{busy?tl("Thinking…"):tl("Show the full sample answer")}</button>}{!ai.answer&&aiMsg&&<p className="known">{aiMsg}</p>}</>)}
+    {tab==='revise'&&!aiOff&&<TopicRevision id={id} toast={toast}/>}
     {reading&&<Reader t={t} auto={role==='student'} toast={toast} onList={setHls} close={()=>setReading(false)}/>}
     {role!=='guardian'&&t.published!==false&&<button className="btn ghost" onClick={()=>setMcq(true)}><ListChecks size={16}/>{" "}{tl("MCQ practice on this topic")}</button>}
     {role==='student'&&aiOk!==false&&(!t.empty||t.my_notes)&&<><h3 className="sec">{tl("Want to test yourself?")}</h3><div className="two"><button className="btn ghost" disabled={!!checking} onClick={()=>practise('mcq')}><ClipboardList size={16}/> {checking==='mcq'?tl("Writing questions…"):tl("5 quick questions")}</button><button className="btn ghost" disabled={!!checking} onClick={()=>practise('quiz')}><Target size={16}/> {checking==='quiz'?tl("Writing the quiz…"):tl("Full quiz · 10")}</button></div>

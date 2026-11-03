@@ -97,6 +97,7 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
             if (res != null) {
                 Panel {
                     Text("${res.score} / ${res.total} · ${res.percent}%", style = MaterialTheme.typography.headlineSmall)
+                    ResultFacts(res.counts, res.number)
                     Quiet(tl("Pass mark {pass}%.", "pass" to res.pass_percent) + if (res.summary.isNotEmpty()) " " + res.summary else "")
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         res.attempt_id?.let { aid -> Button(onClick = { openAttempt(aid) }) { Text(tl("Review answers")) } }
@@ -105,6 +106,7 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
                     TextButton(onClick = back) { Text(tl("Back")) }
                 }
                 if (res.areas.isNotEmpty()) { SectionTitle(tl("What you are good at and what to revisit")); AreaList(res.areas, onStudy = openTopic) }
+                Standing(res.standing, openTopic)
             }
             qz.questions.forEachIndexed { i, x ->
                 Panel {
