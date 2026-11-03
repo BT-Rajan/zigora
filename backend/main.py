@@ -2119,11 +2119,11 @@ def report_students(cid: int, format: str = "json", u: User = Depends(author), s
     for l in s.query(CourseLink).filter_by(course_id=cid): links[cid].append(l.semester_id)
     aud = course_audience(c, students, sems, links); tids, reads, done, last, qids, bests = course_stats(c, aud, s)
     pt = {p.id: term_label(p) for p in s.query(Program)}; used = {pt.get(x.program_id, "Semester") for x in aud}
-    batches = latest_batches(s, [x.id for x in aud], course_quiz_ids(cid, s)); ctx = area_context(batches, s); per = defaultdict(list)
+    batches = all_batches(s, [x.id for x in aud], course_quiz_ids(cid, s)); ctx = area_context(batches, s); per = defaultdict(list); prac = practice_sittings(s, [x.id for x in aud])
     for b in batches: per[b[0]].append(b)
-    mine = {uid: tally(bs, ctx, True) for uid, bs in per.items()}
+    mine = {uid: tally(bs, ctx, True, True, prac.get(uid)) for uid, bs in per.items()}
     names = lambda uid, st: [a["title"] for a in sorted(mine.get(uid, {}).values(), key=lambda a: (a["percent"], a["title"])) if a["status"] == st]
-    rows = [{"strong": names(x.id, "strong"), "needs_study": names(x.id, "needs_study"), "name": x.name, "email": x.email, "program": pn.get(x.program_id, ""), "semester": x.semester, "active": bool(x.active), "topics_read": reads[x.id], "topics_completed": done[x.id], "topics": len(tids),
+    rows = [{"user_id": x.id, "strong": names(x.id, "strong"), "needs_study": names(x.id, "needs_study"), "name": x.name, "email": x.email, "program": pn.get(x.program_id, ""), "semester": x.semester, "active": bool(x.active), "topics_read": reads[x.id], "topics_completed": done[x.id], "topics": len(tids),
              "completion": round(100 * done[x.id] / len(tids)) if tids else 0, "quizzes_taken": len(bests[x.id]), "quizzes": len(qids),
              "avg_quiz_percent": round(sum(bests[x.id].values()) / len(bests[x.id])) if bests[x.id] else None, "last_active": (last[x.id].isoformat() + "Z") if last.get(x.id) else None}
             for x in sorted(aud, key=lambda x: (x.name or "").lower())]
@@ -2714,6 +2714,31 @@ def clean_question(q, x, i, s):  # -> the column values of one question, or a 40
 # ---- strengths and weak areas: what a student has mastered, and what needs another round of study ----
 STRONG, WEAK = 80, 60  # at or above STRONG is a strength; below WEAK needs another round of study; in between is getting there
 def area_status(pct): return "strong" if pct >= STRONG else "needs_study" if pct < WEAK else "getting_there"
+# S38: one rule for how a topic (or area) stands, from enough evidence: at least EVIDENCE_MIN_ASKED questions over at least EVIDENCE_MIN_SITTINGS separate
+# sittings (tests and MCQ sets both count). Strong: 80%+ overall and 80%+ in the latest sitting. Needs attention ("needs_study"): under 60% overall and in
+# the latest. Needs revision ("getting_there"): anything between, or results that disagree. Less evidence than that: not assessed, never weak.
+EVIDENCE_MIN_ASKED, EVIDENCE_MIN_SITTINGS = 5, 2
+def classify(sittings):  # [(at, right, asked)] for one topic
+    asked = sum(x[2] for x in sittings); right = sum(x[1] for x in sittings)
+    if asked < EVIDENCE_MIN_ASKED or len(sittings) < EVIDENCE_MIN_SITTINGS: return "not_assessed"
+    last = max(sittings, key=lambda x: x[0] or dt.datetime.min); lp = 100 * last[1] / last[2] if last[2] else 0; pc = 100 * right / asked
+    if pc >= STRONG and lp >= STRONG: return "strong"
+    if pc < WEAK and lp < WEAK: return "needs_study"
+    return "getting_there"
+def all_batches(s, user_ids, quiz_ids):  # like latest_batches, but every attempt (each a sitting), with its time as a fifth item
+    if not user_ids or not quiz_ids: return []
+    atts = s.query(Attempt).filter(Attempt.user_id.in_(list(user_ids)), Attempt.quiz_id.in_(list(quiz_ids)), Attempt.detail.isnot(None)).order_by(Attempt.at, Attempt.id).all()
+    quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}; qm = defaultdict(dict)
+    for x in s.query(Question).filter(Question.quiz_id.in_(set(quizzes) or {0})): qm[x.quiz_id][x.id] = x
+    return [(a.user_id, quizzes[a.quiz_id], attempt_questions(a, qm[a.quiz_id]), json.loads(a.detail), a.at) for a in atts if a.quiz_id in quizzes]
+def practice_sittings(s, user_ids):  # {user: {topic: [(at, right, asked)]}}: each submitted MCQ set, per topic it asked about
+    sets = defaultdict(lambda: [None, 0, 0])
+    for aid, uid, at, tid, ok in s.query(McqAttempt.id, McqAttempt.user_id, McqAttempt.submitted_at, McqAttemptItem.topic_id, McqAttemptItem.ok).join(McqAttemptItem, McqAttemptItem.attempt_id == McqAttempt.id) \
+            .filter(McqAttempt.user_id.in_(list(user_ids) or [0]), McqAttempt.status == "submitted", McqAttemptItem.topic_id.isnot(None)):
+        k = sets[(uid, aid, tid)]; k[0] = at; k[1] += bool(ok); k[2] += 1
+    out = defaultdict(lambda: defaultdict(list))
+    for (uid, aid, tid), v in sets.items(): out[uid][tid].append(tuple(v))
+    return out
 def latest_batches(s, user_ids, quiz_ids):
     """Each user's newest attempt of each quiz, so a retake replaces the earlier result. Returns [(user_id, quiz, {question_id: Question}, [[question_id, 1|0], ...])]."""
     if not user_ids or not quiz_ids: return []
@@ -2723,18 +2748,19 @@ def latest_batches(s, user_ids, quiz_ids):
     for x in s.query(Question).filter(Question.quiz_id.in_(set(quizzes) or {0})): qm[x.quiz_id][x.id] = x
     return [(a.user_id, quizzes[a.quiz_id], attempt_questions(a, qm[a.quiz_id]), json.loads(a.detail)) for a in atts if a.quiz_id in quizzes]
 def area_context(batches, s):
-    tids = {x.topic_id for _, _, qm, _ in batches for x in qm.values() if x.topic_id}
+    tids = {x.topic_id for b in batches for x in b[2].values() if x.topic_id}
     topics = {t.id: t for t in s.query(Topic).filter(Topic.id.in_(tids or {0}))}
-    uids = {q.unit_id for _, q, _, _ in batches if q.unit_id} | {t.unit_id for t in topics.values() if t.unit_id}
+    uids = {b[1].unit_id for b in batches if b[1].unit_id} | {t.unit_id for t in topics.values() if t.unit_id}
     units = {x.id: x for x in s.query(Unit).filter(Unit.id.in_(uids or {0}))}
-    cids = {x.course_id for x in units.values()} | {q.course_id for _, q, _, _ in batches if not q.unit_id}
+    cids = {x.course_id for x in units.values()} | {b[1].course_id for b in batches if not b[1].unit_id}
     courses = {c.id: c.name for c in s.query(Course).filter(Course.id.in_(cids or {0}))}
     return topics, units, courses
-def tally(batches, ctx, staff):
+def tally(batches, ctx, staff, evidence=False, practice=None):
     """Groups one person's answers by topic. A question with no topic (or whose topic is a draft they can't see, was deleted or moved out of the quiz's
     unit or course) counts under its area label if it has one, else under its unit, else under the course test itself."""
     topics, units, courses = ctx; acc = {}
-    for _, q, qm, detail in batches:
+    for i, b in enumerate(batches):
+        q, qm, detail = b[1], b[2], b[3]; at = b[4] if len(b) > 4 else None
         un = units.get(q.unit_id) if q.unit_id else None; cid = un.course_id if un else (q.course_id if not q.unit_id else None)
         for d in detail:
             qid, ok = d[0], d[1]; x = qm.get(qid)
@@ -2748,9 +2774,14 @@ def tally(batches, ctx, staff):
             elif q.unit_id: key, title = ("u", q.unit_id), (un.name + " · general questions") if un else q.title
             else: key, title = ("q", q.id), q.title + " · general questions"
             a = acc.setdefault(key, {"key": key, "topic_id": t.id if t else None, "unit_id": tu.id if tu else None, "unit": tu.name if tu else "", "course_id": cid,
-                                     "course": courses.get(cid, ""), "title": title, "area": key[0] == "a", "correct": 0, "total": 0})
-            a["correct"] += ok; a["total"] += 1
-    for a in acc.values(): a["percent"] = round(100 * a["correct"] / a["total"]); a["status"] = area_status(a["percent"])
+                                     "course": courses.get(cid, ""), "title": title, "area": key[0] == "a", "correct": 0, "total": 0, "_sit": {}})
+            a["correct"] += ok; a["total"] += 1; sit = a["_sit"].setdefault(i, [at, 0, 0]); sit[1] += ok; sit[2] += 1
+    for a in acc.values():
+        a["percent"] = round(100 * a["correct"] / a["total"]); sits = [tuple(v) for v in a.pop("_sit").values()]
+        if evidence:  # S38: the standing from every sitting, tests and (for a topic) MCQ practice; the percent stays the tests' own
+            pr = (practice or {}).get(a["topic_id"], []) if a["topic_id"] else []
+            a["practice_correct"] = sum(x[1] for x in pr); a["practice_total"] = sum(x[2] for x in pr); a["sittings"] = len(sits) + len(pr); a["status"] = classify(sits + pr)
+        else: a["status"] = area_status(a["percent"])
     return acc
 def area_summary(areas):  # one plain sentence on what the learner is good at and what to revisit
     good = [a["title"] for a in sorted(areas, key=lambda a: -a["percent"]) if a["status"] == "strong"][:3]; weak = [a["title"] for a in areas if a["status"] == "needs_study"][:3]
@@ -2759,8 +2790,8 @@ def area_summary(areas):  # one plain sentence on what the learner is good at an
     if good: return f"Good at {', '.join(good)}." + ("" if len(good) == len(areas) else " Keep going on the rest.")
     if weak: return f"Needs another round: {', '.join(weak)}."
     return "Getting there in every area. One more round of practice should make them strong."
-def areas_for(batches, s, staff, uid=None):
-    ctx = area_context(batches, s); acc = tally(batches, ctx, staff)
+def areas_for(batches, s, staff, uid=None, evidence=False, practice=None):
+    ctx = area_context(batches, s); acc = tally(batches, ctx, staff, evidence, practice)
     study = {}
     if uid and acc:
         for r in s.query(Progress).filter(Progress.user_id == uid, Progress.topic_id.in_([a["topic_id"] for a in acc.values() if a["topic_id"]] or [0])): study[r.topic_id] = "completed" if r.completed_at else "in_progress"
@@ -2776,12 +2807,13 @@ def my_insights(u: User = Depends(me), s: Session = Depends(db)):
         return ok_course[cid]
     qs = [(q, quiz_course_id(q, s)) for q in s.query(Quiz).filter(Quiz.published == True, Quiz.id.in_(s.query(Attempt.quiz_id).filter(Attempt.user_id == u.id)))]  # noqa: E712
     qids = [q.id for q, cid in qs if cid and allowed(cid)]
-    areas = areas_for(latest_batches(s, [u.id], qids), s, is_staff(u), u.id)
+    areas = areas_for(all_batches(s, [u.id], qids), s, is_staff(u), u.id, evidence=True, practice=practice_sittings(s, [u.id])[u.id])
     by = defaultdict(list)
     for a in areas: by[a["course_id"]].append(a)
     courses = [{"course_id": cid, "course": L[0]["course"], "percent": round(100 * sum(a["correct"] for a in L) / sum(a["total"] for a in L)), "areas": L} for cid, L in by.items()]
     return {"quizzes_taken": len(qids), "courses": courses, "strong": sorted([a for a in areas if a["status"] == "strong"], key=lambda a: (-a["percent"], a["title"])),
-            "getting_there": [a for a in areas if a["status"] == "getting_there"], "needs_study": [a for a in areas if a["status"] == "needs_study"]}
+            "getting_there": [a for a in areas if a["status"] == "getting_there"], "needs_study": [a for a in areas if a["status"] == "needs_study"],
+            "not_assessed": [a for a in areas if a["status"] == "not_assessed"], "rule": {"min_questions": EVIDENCE_MIN_ASKED, "min_sittings": EVIDENCE_MIN_SITTINGS, "strong": STRONG, "weak": WEAK}}
 def course_quiz_ids(cid, s):  # published unit quizzes and course tests of a course
     return [q.id for q in s.query(Quiz).join(Unit, Unit.id == Quiz.unit_id).filter(Unit.course_id == cid, Quiz.published == True)] + \
            [i for (i,) in s.query(Quiz.id).filter(Quiz.unit_id.is_(None), Quiz.course_id == cid, Quiz.published == True)]  # noqa: E712
@@ -2794,16 +2826,16 @@ def class_weak_areas(cid: int, u: User = Depends(author), s: Session = Depends(d
     c = s.get(Course, cid)
     if not c: raise HTTPException(404, "Course not found")
     need_edit(u, cid, s)
-    aud = [x for x in course_users(c, s) if x.active]; batches = latest_batches(s, [x.id for x in aud], course_quiz_ids(cid, s))
-    n, areas = class_areas(batches, s)
+    aud = [x for x in course_users(c, s) if x.active]; batches = all_batches(s, [x.id for x in aud], course_quiz_ids(cid, s))
+    n, areas = class_areas(batches, s, practice_sittings(s, [x.id for x in aud]))
     return {"course": c.name, "students_with_results": n, "areas": areas}
-def class_areas(batches, s):  # every student's areas added up: (students with results, rows weakest first)
+def class_areas(batches, s, practice=None):  # every student's areas added up: (students with results, rows weakest first). With practice: the S38 rule
     ctx = area_context(batches, s); per = defaultdict(list)
     for b in batches: per[b[0]].append(b)
     agg = {}
     for uid, bs in per.items():
-        for key, a in tally(bs, ctx, True).items():
-            g = agg.setdefault(key, {**{k: v for k, v in a.items() if k not in ("key", "status", "percent")}, "correct": 0, "total": 0, "students": 0, "strong": 0, "getting_there": 0, "needs_study": 0})
+        for key, a in tally(bs, ctx, True, practice is not None, (practice or {}).get(uid)).items():
+            g = agg.setdefault(key, {**{k: v for k, v in a.items() if k not in ("key", "status", "percent", "practice_correct", "practice_total", "sittings")}, "correct": 0, "total": 0, "students": 0, "strong": 0, "getting_there": 0, "needs_study": 0, "not_assessed": 0})
             g["correct"] += a["correct"]; g["total"] += a["total"]; g["students"] += 1; g[a["status"]] += 1
     rows = sorted(agg.values(), key=lambda g: (round(100 * g["correct"] / g["total"]), g["title"]))
     return len(per), [{**g, "percent": round(100 * g["correct"] / g["total"])} for g in rows]
@@ -4539,11 +4571,7 @@ def course_completion(cid: int, u: User = Depends(author), s: Session = Depends(
                      "cycle": st["cycle"], "first_completed_at": st["first_completed_at"]})
     return {"course": c.name, "students": rows, "completed": sum(r["complete"] for r in rows), "close": sum(not r["complete"] and r["percent"] >= 75 for r in rows)}
 # ---- comparing passes (S37): each pass's window runs from its start (the first from the beginning) to the next one's start. A topic's standing in a pass
-# ---- comes from the questions on it in that window (MCQ sets and tests): strong at 80%+, weak under 60%, and never from fewer than 3 questions
-STANDING_MIN_ASKED = 3
-def topic_standing(right, asked):
-    if asked < STANDING_MIN_ASKED: return None
-    return "strong" if 100 * right >= STRONG * asked else "weak" if 100 * right < WEAK * asked else "mixed"  # the same 80/60 lines as strengths and weak areas
+# ---- comes from its sittings in that window (MCQ sets and tests), by the S38 rule (classify): weak means "needs attention", never from thin evidence
 def course_cycles(s, uid, c):
     rows = s.query(LearningCycle).filter_by(user_id=uid, course_id=c.id).order_by(LearningCycle.number).all()
     rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()
@@ -4562,10 +4590,10 @@ def course_cycles(s, uid, c):
         best = {}
         for qid, pct, at in atts:
             if inw(at): best[qid] = max(best.get(qid, 0), pct)
-        per = defaultdict(lambda: [0, 0])
+        per, sits = defaultdict(lambda: [0, 0]), defaultdict(list)
         for tid, at, ok, n, _ in checks:
-            if inw(at): per[tid][0] += ok; per[tid][1] += n
-        stand = {tid: topic_standing(ok, n) for tid, (ok, n) in per.items()}
+            if inw(at): per[tid][0] += ok; per[tid][1] += n; sits[tid].append((at, ok, n))
+        stand = {tid: {"strong": "strong", "needs_study": "weak"}.get(classify(x)) for tid, x in sits.items()}
         out.append({"number": cy.number, "started_at": utc_iso(cy.started_at), "ended_at": utc_iso(cy.ended_at), "completed_at": utc_iso(cy.completed_at),
                     "days": (cy.completed_at - cy.started_at).days if cy.completed_at and cy.started_at else None, "current": cy.ended_at is None,
                     "learned": len({tid for tid, at in learned if inw(at)}), "topics_total": len(topics), "tests_tried": len(best), "tests_total": len(tests),
@@ -4595,6 +4623,167 @@ def get_course_cycles(cid: int, student: int | None = None, u: User = Depends(me
         if not x or x.role != "student": raise HTTPException(404, "Student not found")
         return course_cycles(s, student, c)
     check_course_access(u, cid, s); return course_cycles(s, u.id, c)
+# ---- learning history and trends (S38): a reporting layer over the records already kept (progress, attempts, MCQ sets, revision steps, completions and
+# ---- passes). Nothing new is stored. Tests ("test") and MCQ practice ("practice") are kept apart throughout; a test attempt is one row however often its
+# ---- submit was retried (request_id), so nothing is counted twice.
+def place_names(s, tids=(), uids=()):  # {topic: (title, unit id)}, {unit: (name, course id)}, {course: name}
+    topics = {t.id: (t.title, t.unit_id) for t in s.query(Topic).filter(Topic.id.in_(list(tids) or [0]))}
+    uids = set(uids) | {u for _, u in topics.values() if u}
+    units = {x.id: (x.name, x.course_id) for x in s.query(Unit).filter(Unit.id.in_(list(uids) or [0]))}
+    courses = {c.id: c.name for c in s.query(Course).filter(Course.id.in_([c for _, c in units.values()] or [0]))}
+    return topics, units, courses
+def local_bounds(since, until):  # "YYYY-MM-DD" days on the students' clock, either may be empty
+    try: return (dt.date.fromisoformat(since) if since else None), (dt.date.fromisoformat(until) if until else None)
+    except ValueError: raise HTTPException(400, "Dates must look like 2026-01-31")
+HISTORY_KINDS = ("learned", "unit_done", "studied", "revised", "practice", "test", "course_done", "restart", "unit_restart")
+def learning_history(s, u, course_id=0, unit_id=0, since="", until="", kind="", limit=300):
+    lo, hi = local_bounds(since, until); uid = u.id; ev = []
+    learned = {(tid, at) for tab in (Progress, ProgressHistory) for tid, at in s.query(tab.topic_id, tab.completed_at).filter(tab.user_id == uid, tab.completed_at.isnot(None))}  # a topic set aside keeps its learned date once
+    revised = s.query(StepLog.topic_id, StepLog.at).filter(StepLog.user_id == uid, StepLog.kind == "revised").all()
+    sets = s.query(McqAttempt).filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted").all()
+    atts = s.query(Attempt).filter(Attempt.user_id == uid).order_by(Attempt.at, Attempt.id).all()
+    quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}
+    topics, units, courses = place_names(s, {t for t, _ in learned} | {t for t, _ in revised} | {x.topic_id for x in sets if x.topic_id}, {q.unit_id for q in quizzes.values() if q.unit_id})
+    extra = {q.course_id for q in quizzes.values() if q.course_id} | {x.course_id for x in sets if x.course_id}
+    courses.update({c.id: c.name for c in s.query(Course).filter(Course.id.in_(list(extra - set(courses)) or [0]))})
+    def where(tid=None, unit=None, cid=None):
+        if tid in topics: unit = topics[tid][1]
+        if unit in units: cid = units[unit][1]
+        return {"topic_id": tid, "unit_id": unit, "unit": units.get(unit, ("", 0))[0], "course_id": cid, "course": courses.get(cid, "")}
+    for tid, at in learned: ev.append({"kind": "learned", "at": at, "title": topics.get(tid, ("",))[0], **where(tid)})
+    for tid, at in revised: ev.append({"kind": "revised", "at": at, "title": topics.get(tid, ("",))[0], **where(tid)})
+    for x in sets:
+        if not x.submitted_at: continue
+        ev.append({"kind": "practice", "at": x.submitted_at, "title": topics[x.topic_id][0] if x.topic_id in topics else courses.get(x.course_id, ""), "percent": x.percent, "score": x.score, "total": x.total,
+                   **where(x.topic_id if x.topic_id in topics else None, cid=x.course_id)})
+    nth = defaultdict(int)
+    for a in atts:
+        q = quizzes.get(a.quiz_id)
+        if not q: continue
+        nth[a.quiz_id] += 1
+        ev.append({"kind": "test", "at": a.at, "title": q.title, "percent": a.percent, "score": a.score, "total": a.total, "attempt": nth[a.quiz_id], "attempt_id": a.id, **where(unit=q.unit_id, cid=q.course_id)})
+    if not course_id and not unit_id:  # days they opened topics: the store doesn't say which, so they show only without a course or unit filter
+        for d, n in s.query(ActivityDay.day, ActivityDay.reads).filter(ActivityDay.user_id == uid, ActivityDay.reads > 0):
+            ev.append({"kind": "studied", "at": dt.datetime.combine(d, dt.time()) - dt.timedelta(minutes=DAY_OFFSET), "title": "", "reads": n, **where()})
+    for c in my_courses_for(u, s):
+        if not c or (course_id and c.id != course_id): continue
+        for un in course_status(s, uid, c)["units"]:
+            if un["completed_at"]: ev.append({"kind": "unit_done", "at": dt.datetime.fromisoformat(un["completed_at"].rstrip("Z")), "title": un["name"], **where(unit=un["id"], cid=c.id), "unit": un["name"], "course": c.name})
+    cyc = s.query(LearningCycle).filter_by(user_id=uid).all(); seen = {x.course_id for x in cyc}
+    cn = {c.id: c.name for c in s.query(Course).filter(Course.id.in_({x.course_id for x in cyc} | {r.course_id for r in s.query(CourseCompletion).filter_by(user_id=uid)} or {0}))}
+    for x in cyc:
+        base = {"unit_id": None, "unit": "", "topic_id": None, "course_id": x.course_id, "course": cn.get(x.course_id, "")}
+        if x.completed_at: ev.append({"kind": "course_done", "at": x.completed_at, "title": cn.get(x.course_id, ""), "cycle": x.number, **base})
+        if x.number > 1: ev.append({"kind": "restart", "at": x.started_at, "title": cn.get(x.course_id, ""), "cycle": x.number, **base})
+        for r in json.loads(x.unit_restarts or "[]"):
+            un = s.get(Unit, r["unit_id"]); ev.append({"kind": "unit_restart", "at": dt.datetime.fromisoformat(r["at"].rstrip("Z")), "title": un.name if un else "", "cycle": x.number, **base, "unit_id": r["unit_id"], "unit": un.name if un else ""})
+    for r in s.query(CourseCompletion).filter_by(user_id=uid):
+        if r.course_id not in seen: ev.append({"kind": "course_done", "at": r.completed_at, "title": cn.get(r.course_id, ""), "cycle": 1, "unit_id": None, "unit": "", "topic_id": None, "course_id": r.course_id, "course": cn.get(r.course_id, "")})
+    kinds = set(kind.split(",")) & set(HISTORY_KINDS) if kind else set(HISTORY_KINDS)
+    out = [e for e in ev if e["at"] and e["kind"] in kinds and (not course_id or e["course_id"] == course_id) and (not unit_id or e["unit_id"] == unit_id)
+           and (lo is None or local_day(e["at"]) >= lo) and (hi is None or local_day(e["at"]) <= hi)]
+    out.sort(key=lambda e: e["at"], reverse=True)
+    return {"items": [{**e, "at": utc_iso(e["at"])} for e in out[:limit]], "total": len(out), "kinds": list(HISTORY_KINDS),
+            "courses": [{"id": c.id, "name": c.name, "units": [{"id": x.id, "name": x.name} for x in s.query(Unit).filter(Unit.course_id == c.id, Unit.archived_at.is_(None)).order_by(*ORDER[Unit])]}
+                        for c in my_courses_for(u, s) if c]}
+@app.get("/api/me/history")
+def my_history(course_id: int = 0, unit_id: int = 0, since: str = "", until: str = "", kind: str = "", u: User = Depends(me), s: Session = Depends(db)):
+    return learning_history(s, u, course_id, unit_id, since, until, kind)
+NOT_REVISED_DAYS = 14
+def pct(right, asked): return round(100 * right / asked) if asked else None
+def learning_trends(s, uid, course_id=0, now=None):  # numbers only from stored results; insights are sentences made from these numbers, never from the AI
+    now = now or dt.datetime.utcnow()
+    atts = s.query(Attempt).filter(Attempt.user_id == uid).order_by(Attempt.at, Attempt.id).all()
+    quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}
+    qcourse = {q.id: quiz_course_id(q, s) for q in quizzes.values()}
+    atts = [a for a in atts if a.quiz_id in quizzes and (not course_id or qcourse[a.quiz_id] == course_id)]
+    per_test = defaultdict(list); right = wrong = 0
+    for a in atts:
+        per_test[a.quiz_id].append(a)
+        if a.detail: d = json.loads(a.detail); right += sum(1 for x in d if x[1]); wrong += sum(1 for x in d if not x[1])
+    tests = [{"id": qid, "title": quizzes[qid].title, "attempts": [{"at": utc_iso(a.at), "percent": a.percent} for a in L], "first": L[0].percent, "latest": L[-1].percent,
+              "best": max(a.percent for a in L), "change": L[-1].percent - L[0].percent if len(L) > 1 else None} for qid, L in per_test.items()]
+    sets = [x for x in s.query(McqAttempt).filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted").order_by(McqAttempt.submitted_at) if x.submitted_at]
+    tids = {t.id: t for t in s.query(Topic).join(Unit, Unit.id == Topic.unit_id).filter(*( [Unit.course_id == course_id] if course_id else []), Topic.published != False, Topic.archived_at.is_(None))}  # noqa: E712
+    if course_id: sets = [x for x in sets if x.course_id == course_id or x.topic_id in tids]
+    weeks = defaultdict(lambda: [0, 0])
+    for x in sets:
+        d = local_day(x.submitted_at); w = weeks[(d - dt.timedelta(days=d.weekday())).isoformat()]; w[0] += x.score or 0; w[1] += x.total or 0
+    p_right = sum(v[0] for v in weeks.values()); p_asked = sum(v[1] for v in weeks.values())
+    sits = defaultdict(lambda: {"test": [], "practice": []})
+    for tid, at, ok, n, kind in topic_checks(s, uid):
+        if tid in tids: sits[tid][kind].append((at, ok, n))
+    topics = []
+    for tid, k in sits.items():
+        allx = sorted(k["test"] + k["practice"], key=lambda x: x[0] or dt.datetime.min); t = tids[tid]
+        topics.append({"topic_id": tid, "title": t.title, "unit_id": t.unit_id, "status": classify(allx), "sittings": len(allx),
+                       "right": sum(x[1] for x in allx), "asked": sum(x[2] for x in allx), "percent": pct(sum(x[1] for x in allx), sum(x[2] for x in allx)),
+                       "test_percent": pct(sum(x[1] for x in k["test"]), sum(x[2] for x in k["test"])), "practice_percent": pct(sum(x[1] for x in k["practice"]), sum(x[2] for x in k["practice"])),
+                       "first": pct(allx[0][1], allx[0][2]), "latest": pct(allx[-1][1], allx[-1][2])})
+    topics.sort(key=lambda x: (x["percent"] if x["percent"] is not None else 101, x["title"]))
+    again = [x for x in tests if x["change"] is not None]
+    out = {"tests": sorted(tests, key=lambda x: x["title"]), "timeline": [{"at": utc_iso(a.at), "percent": a.percent, "title": quizzes[a.quiz_id].title} for a in atts],
+           "test_answers": {"right": right, "wrong": wrong, "percent": pct(right, right + wrong)},
+           "practice": {"sets": len(sets), "right": p_right, "wrong": p_asked - p_right, "percent": pct(p_right, p_asked),
+                        "weeks": [{"week": w, "right": v[0], "asked": v[1], "percent": pct(v[0], v[1])} for w, v in sorted(weeks.items())]},
+           "retakes": {"tests": len(again), "first": round(sum(x["first"] for x in again) / len(again)) if again else None, "latest": round(sum(x["latest"] for x in again) / len(again)) if again else None},
+           "topics": topics, "rule": {"min_questions": EVIDENCE_MIN_ASKED, "min_sittings": EVIDENCE_MIN_SITTINGS, "strong": STRONG, "weak": WEAK}}
+    out["insights"] = trend_insights(s, uid, out, set(tids), now)
+    return out
+def trend_insights(s, uid, d, tids, now):  # short sentences, each carrying the numbers it was made from
+    out = []
+    grew = sorted([t for t in d["topics"] if t["sittings"] >= EVIDENCE_MIN_SITTINGS and t["asked"] >= EVIDENCE_MIN_ASKED and t["latest"] - t["first"] >= 20], key=lambda t: t["first"] - t["latest"])
+    for t in grew[:2]: out.append({"kind": "improved", "text": f"Your accuracy in {t['title']} improved from {t['first']}% to {t['latest']}%.", "numbers": {"topic_id": t["topic_id"], "from": t["first"], "to": t["latest"]}})
+    strong = [t["title"] for t in sorted(d["topics"], key=lambda t: -t["percent"]) if t["status"] == "strong"][:3]
+    if strong: out.append({"kind": "strong", "text": f"You consistently do well in {', '.join(strong)}.", "numbers": {"topics": strong}})
+    for t in [t for t in d["topics"] if t["status"] == "needs_study"][:2]:
+        out.append({"kind": "attention", "text": f"{t['title']} needs attention: {t['right']} of {t['asked']} right over {t['sittings']} sittings.", "numbers": {"topic_id": t["topic_id"], "right": t["right"], "asked": t["asked"], "sittings": t["sittings"]}})
+    said = {t["topic_id"] for t in grew[:2]}
+    mixed = [t for t in d["topics"] if t["status"] == "getting_there" and t["topic_id"] not in said and t["latest"] is not None and t["latest"] > t["percent"]][:1]
+    for t in mixed: out.append({"kind": "improving", "text": f"{t['title']} is improving ({t['latest']}% last time), but needs more practice.", "numbers": {"topic_id": t["topic_id"], "latest": t["latest"], "overall": t["percent"]}})
+    r = d["retakes"]
+    if r["tests"] and r["latest"] != r["first"]:
+        out.append({"kind": "retakes", "text": f"On tests you took again, your score went from {r['first']}% to {r['latest']}% on average.", "numbers": r})
+    ev, _, _ = revision_events(s, uid); cut = now - dt.timedelta(days=NOT_REVISED_DAYS); stale = 0
+    for tid, e in ev.items():
+        if tid not in tids or not any(k == "learned" for _, k, _ in e): continue
+        if all(at < cut for at, k, _ in e if k != "postpone"): stale += 1
+    if stale: out.append({"kind": "not_revised", "text": "You have not revised 1 topic in the last two weeks." if stale == 1 else f"You have not revised {stale} topics in the last two weeks.", "numbers": {"topics": stale, "days": NOT_REVISED_DAYS}})
+    return out
+@app.get("/api/me/trends")
+def my_trends(course_id: int = 0, u: User = Depends(me), s: Session = Depends(db)):
+    d = learning_trends(s, u.id, course_id)
+    if course_id:
+        c = s.get(Course, course_id)
+        if c: check_course_access(u, course_id, s); d["cycles"] = course_cycles(s, u.id, c)
+    return d
+def student_of_course(s, c, sid):  # a student who is on this course's list, else 404: a teacher sees only their own course's students
+    x = s.get(User, sid)
+    if not x or x.role != "student" or x.id not in {y.id for y in course_users(c, s)}: raise HTTPException(404, "Student not found")
+    return x
+@app.get("/api/reports/courses/{cid}/students/{sid}/trends")
+def student_trends(cid: int, sid: int, u: User = Depends(author), s: Session = Depends(db)):  # one student's trends in this course, for its teachers
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s); x = student_of_course(s, c, sid)
+    return {"student": x.name, **learning_trends(s, sid, cid), "cycles": course_cycles(s, sid, c)}
+@app.get("/api/reports/courses/{cid}/trends")
+def class_trends(cid: int, u: User = Depends(author), s: Session = Depends(db)):  # the class: each test's first and latest scores, and the monthly average
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s)
+    aud = {x.id for x in course_users(c, s) if x.active}; qids = course_quiz_ids(cid, s); titles = {q.id: q.title for q in s.query(Quiz).filter(Quiz.id.in_(qids or [0]))}
+    per = defaultdict(lambda: defaultdict(list)); months = defaultdict(list)
+    for a in s.query(Attempt).filter(Attempt.user_id.in_(aud or {0}), Attempt.quiz_id.in_(qids or [0])).order_by(Attempt.at, Attempt.id):
+        per[a.quiz_id][a.user_id].append(a.percent); months[local_day(a.at).strftime("%Y-%m")].append(a.percent)
+    def avg(xs): return round(sum(xs) / len(xs)) if xs else None
+    tests = []
+    for qid, by in per.items():
+        again = [v for v in by.values() if len(v) > 1]
+        tests.append({"id": qid, "title": titles.get(qid, ""), "students": len(by), "first": avg([v[0] for v in by.values()]), "best": avg([max(v) for v in by.values()]),
+                      "retook": len(again), "retake_first": avg([v[0] for v in again]), "retake_latest": avg([v[-1] for v in again])})
+    return {"course": c.name, "students": len(aud), "tests": sorted(tests, key=lambda x: x["title"]),
+            "months": [{"month": m, "attempts": len(v), "average": avg(v)} for m, v in sorted(months.items())]}
 # ---- achievements (S36): a few milestones worked out from what the student did; no points, nothing for just opening the app
 def my_achievements_list(u, s):
     out = []

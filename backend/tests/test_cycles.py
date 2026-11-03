@@ -70,11 +70,11 @@ def test_relearning_starts_with_what_the_last_pass_showed(env):
     i, unit, cid, tids, q, first = finish(env)
     qq = env.c.post("/api/quizzes", headers=env.admin, json={"unit_id": unit, "title": "Topic check", "pass_percent": 50, "published": True}).json()["id"]
     env.c.put(f"/api/quizzes/{qq}/questions", headers=env.admin, json={"questions": [{"text": f"Q{k}", "options": ["a", "b"], "correct": 0, "topic_id": tids[k // 3]} for k in range(6)]})
-    take(env, qq, [1, 1, 1, 0, 0, 0])  # first topic 0 of 3, second 3 of 3
+    take(env, qq, [1, 1, 1, 0, 0, 0]); take(env, qq, [1, 1, 1, 0, 0, 0])  # twice: first topic 0 of 6, second 6 of 6 (two sittings, enough to judge)
     redo(env, cid)
     d = cycles(env, cid).json()
     assert [x["id"] for x in d["relearn"]["weak"]] == [tids[0]] and [x["id"] for x in d["relearn"]["strong"]] == [tids[1]]
-    take(env, qq, [0, 0, 0, 1, 1, 1])  # the weak one now strong, the strong one now weak
+    take(env, qq, [0, 0, 0, 1, 1, 1]); take(env, qq, [0, 0, 0, 1, 1, 1])  # the weak one now strong, the strong one now weak
     c = cycles(env, cid).json()["compare"]
     assert [x["id"] for x in c["improved"]] == [tids[0]] and c["still_weak"] == []
 
@@ -83,7 +83,7 @@ def test_one_wrong_answer_is_not_a_weak_topic(env):
     i, unit, cid, tids, q, first = finish(env)  # the Water quiz: two questions without topics, so nothing to judge a topic by
     qq = env.c.post("/api/quizzes", headers=env.admin, json={"unit_id": unit, "title": "One", "pass_percent": 50, "published": True}).json()["id"]
     env.c.put(f"/api/quizzes/{qq}/questions", headers=env.admin, json={"questions": [{"text": "Q", "options": ["a", "b"], "correct": 0, "topic_id": tids[0]}]})
-    take(env, qq, [1]); redo(env, cid)
+    take(env, qq, [1]); take(env, qq, [0]); redo(env, cid)  # two sittings but 2 questions: not enough to call it either way
     assert cycles(env, cid).json()["relearn"] == {"weak": [], "strong": []}
 
 

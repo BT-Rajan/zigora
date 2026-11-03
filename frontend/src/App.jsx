@@ -93,7 +93,7 @@ export default function App(){
   // the side menu (the logo goes Home; search, change password, theme and sign out are in the header)
   const cal=['calendar',CalendarDays,tl("Calendar")]
   const asg=['assign',ClipboardCheck,tl("Assigned tests")],teacher=guardian&&user.relation==='teacher'
-  const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],['revision',RotateCcw,tl("Revision")],cal,['join',Plus,tl("Join a course")],['saved',Bookmark,tl("Saved")],['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("My questions")],['progress',TrendingUp,tl("My progress")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
+  const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],['revision',RotateCcw,tl("Revision")],cal,['join',Plus,tl("Join a course")],['saved',Bookmark,tl("Saved")],['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("My questions")],['progress',TrendingUp,tl("My progress")],['learning',History,tl("My learning")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
     :guardian?[cal,...(teacher?[['offered',GraduationCap,tl("Offered courses")],['learn',BookOpen,tl("Course content")]]:[]),['classes',Megaphone,tl("Classes and announcements")],...(teacher?[['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],asg]:[]),['aikey',Sparkles,tl("My AI key")],['about',Info,tl("About")]]  // a parent or teacher: their students on Home, and the AI key their school students use
     :admin?ADMIN_SECTIONS.map(([k,I,l,pages])=>[pages[0][0],I,tl(l),k])
     :[['learn',BookOpen,tl("Courses")],['offered',GraduationCap,tl("Offered courses")],cal,asg,['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['bookmarks',Bookmark,tl("Bookmarks")],['highlights',Highlighter,tl("My highlights")],['reports',BarChart3,tl("Reports")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[]),['about',Info,tl("About")]]
@@ -105,7 +105,7 @@ export default function App(){
     {page==='routine'&&student&&<RoutinePage toast={toast} done={()=>go('home')}/>}
     {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')} onGo={go}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go(p==='awaiting'?'parents':'students')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
     {page==='search'&&<SearchPage key={findQ.n} initial={findQ.q} user={user} toast={toast}/>}{page==='learn'&&<Learn key={String(start)} start={start} user={user} toast={toast} appName={name} onGo={go} onStudy={openStudy}/>}
-    {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}{page==='revision'&&student&&<RevisionPage toast={toast} role={user.role}/>}
+    {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}{page==='learning'&&student&&<LearningPage toast={toast} role={user.role}/>}{page==='revision'&&student&&<RevisionPage toast={toast} role={user.role}/>}
     {page==='build'&&user.role==='student'&&<StudyHome key={JSON.stringify(studyStart)} start={studyStart} toast={toast}/>}
     {page==='bookmarks'&&!admin&&<Bookmarks toast={toast} role={user.role}/>}{page==='highlights'&&!admin&&<MyHighlights toast={toast} role={user.role}/>}
     {page==='users'&&admin&&<Users key="all" toast={toast} me={user}/>}{page==='teachers'&&admin&&<Users key="faculty" role="faculty" toast={toast} me={user}/>}{page==='students'&&admin&&<Users key="student" role="student" toast={toast} me={user}/>}{page==='parents'&&admin&&<Users key="guardian" role="guardian" toast={toast} me={user}/>}{page==='courses'&&admin&&<AdminCourses toast={toast} onOpen={openIn}/>}{page==='programs'&&admin&&<Programs toast={toast} onOpen={openIn}/>}
@@ -1385,7 +1385,7 @@ function Insights({toast,role,onRoutine}){
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(sc)return <ScoreCourse c={sc} back={()=>setSc(null)} toast={toast} role={role}/>
   const clicked=d?.strong||[],looks=d?[...d.needs_study,...d.getting_there]:[]
-  const item=a=><button key={a.topic_id||'u'+a.unit_id} className="row rowbtn" disabled={!a.topic_id} onClick={()=>setTopic(a.topic_id)}><div>{a.title}<small>{a.course}</small></div>{a.topic_id&&<ChevronRight size={18}/>}</button>
+  const item=a=><button key={a.topic_id||'u'+a.unit_id} className="row rowbtn" disabled={!a.topic_id} onClick={()=>setTopic(a.topic_id)}><div>{a.title}<small>{[a.course,a.status!=='strong'&&tl(STATUS_LABEL[a.status]),a.sittings&&pl(a.sittings,'sitting')].filter(Boolean).join(' · ')}</small></div>{a.topic_id&&<ChevronRight size={18}/>}</button>
   return <><Bar title={tl("My progress")}/><div className="main">
     {cm?.courses?.length>0?<><h3 className="sec first">{tl("Your courses")}</h3>
       <p className="known" style={{marginTop:0}}>{tl("A course is finished when every required topic is marked as learned and every test has been tried. Finishing is not the same as mastering: your scores below show that.")}</p>
@@ -1400,6 +1400,7 @@ function Insights({toast,role,onRoutine}){
     {ach&&<><h3 className="sec">{tl("Milestones")}</h3><div className="stats">{ach.map(a=><div key={a.key} className="stat" style={{opacity:a.at?1:.55}}><b style={{fontSize:16}}>{tl(a.title)}</b>
       <small className="known">{a.at?tl("Reached {when}",{when:day(a.at.slice(0,10))})+(a.detail?' · '+a.detail:''):tl(ACH_HINT[a.key]||'')}</small></div>)}</div></>}
     {!d&&<Skeleton/>}
+    {d?.not_assessed?.length>0&&<p className="known">{tl("Not assessed yet: {n}. A topic is judged after 5 or more questions over 2 or more sittings, so one wrong answer never marks it weak.",{n:d.not_assessed.length})}</p>}
     {d&&!clicked.length&&!looks.length&&<p className="known">{tl("After you try a quiz or a test, the topics that clicked and the ones worth another look show up here.")}</p>}
     {clicked.length>0&&<><h3 className={'sec'+(td?.courses?.length?'':' first')}>{tl("What clicked")}</h3><Paged rows={clicked} render={item}/></>}
     {looks.length>0&&<><h3 className={'sec'+(clicked.length?'':' first')}>{tl("Worth another look")}</h3><Paged rows={looks} render={item}/></>}
@@ -1424,6 +1425,56 @@ function AdaptCard({toast}){
 const uploadImg=async f=>{const r=await fetch(ROOT+'/api/uploads',{method:'POST',headers:{'Content-Type':f.type||'application/octet-stream',Authorization:'Bearer '+localStorage.t},body:f}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(tl(j.detail||'Upload failed'));return j.url}
 // what to revise and when (S35): worked out on the server from what the student did; a check (an MCQ set) moves a topic on, reading its sheet doesn't
 const REV_GROUPS=[['overdue','Overdue'],['today','Due today'],['upcoming','Coming up this week']]
+// a student's learning history and performance (S38): only figures the server worked out from their stored results; tests and practice kept apart
+const STATUS_LABEL={strong:"Strong",getting_there:"Needs revision",needs_study:"Needs attention",not_assessed:"Not assessed yet"},STATUS_CLS={strong:'okp',needs_study:'off',getting_there:'',not_assessed:''}
+const HIST_LABEL={learned:"Topic learned",unit_done:"Unit finished",studied:"Studied",revised:"Revision sheet read",practice:"MCQ practice",test:"Test submitted",course_done:"Course finished",restart:"Course started over",unit_restart:"Unit started over"}
+function Spark({xs}){return <div className="spark" aria-hidden="true">{xs.map((v,i)=><i key={i} style={{height:Math.max(6,v)+'%'}}/>)}</div>}
+function TrendsView({d,onTopic}){
+  const r=d.rule,ta=d.test_answers,pr=d.practice,groups=['needs_study','getting_there','strong','not_assessed']
+  return <>
+    <div className="stats">
+      {ta.percent!=null&&<div className="stat"><b>{ta.percent}%</b><small className="known">{tl("Test answers right ({right} of {n})",{right:ta.right,n:ta.right+ta.wrong})}</small></div>}
+      {pr.percent!=null&&<div className="stat"><b>{pr.percent}%</b><small className="known">{tl("MCQ practice right ({right} of {n}, {sets} sets)",{right:pr.right,n:pr.right+pr.wrong,sets:pr.sets})}</small></div>}
+      {d.retakes.tests>0&&<div className="stat"><b>{d.retakes.first}% → {d.retakes.latest}%</b><small className="known">{tl("Tests taken again: first try to latest, on average")}</small></div>}</div>
+    {d.insights.length>0&&<><h3 className="sec">{tl("What your results say")}</h3><div className="qbox">{d.insights.map((x,i)=><p key={i} style={{margin:'4px 0'}}>{srv(x.text)}</p>)}</div></>}
+    {d.topics.length>0&&<><h3 className="sec">{tl("Topics")}</h3>
+      <p className="known" style={{marginTop:0}}>{tl("Judged only after {q} or more questions over {n} or more sittings (tests and MCQ sets). Strong: {s}% or more overall and last time. Needs attention: under {w}% overall and last time. Needs revision: in between or mixed.",{q:r.min_questions,n:r.min_sittings,s:r.strong,w:r.weak})}</p>
+      {groups.map(g=>{const L=d.topics.filter(t=>t.status===g);return L.length?<div key={g}><b className="known">{tl(STATUS_LABEL[g])} ({L.length})</b>
+        {L.map(t=><button key={t.topic_id} className="row rowbtn" disabled={!onTopic} onClick={()=>onTopic&&onTopic(t.topic_id)}><div>{t.title}<small>{[tl("{p}% of {n} questions",{p:t.percent,n:t.asked}),pl(t.sittings,'sitting'),t.test_percent!=null&&tl("tests {p}%",{p:t.test_percent}),t.practice_percent!=null&&tl("practice {p}%",{p:t.practice_percent}),t.sittings>1&&tl("first {a}% · last {b}%",{a:t.first,b:t.latest})].filter(Boolean).join(' · ')}</small><Bar2 v={t.percent}/></div><span className={'pill sm '+STATUS_CLS[g]}>{tl(STATUS_LABEL[g])}</span></button>)}</div>:null})}</>}
+    {d.tests.length>0&&<><h3 className="sec">{tl("Tests over time")}</h3>{d.tests.map(t=><div key={t.id} className="row"><div>{t.title}<small>{t.attempts.length>1?tl("{n} attempts · first {a}% · latest {b}% · best {c}%",{n:t.attempts.length,a:t.first,b:t.latest,c:t.best}):tl("1 attempt · {a}%",{a:t.first})}</small></div>{t.attempts.length>1&&<Spark xs={t.attempts.map(a=>a.percent)}/>}</div>)}</>}
+    {pr.weeks.length>0&&<><h3 className="sec">{tl("MCQ practice by week")}</h3><div className="row"><div><small>{tl("Share right each week, oldest first: {list}",{list:pr.weeks.map(w=>w.percent+'%').join(', ')})}</small></div><Spark xs={pr.weeks.map(w=>w.percent)}/></div></>}
+    {d.cycles?.cycles?.length>1&&<CyclePasses d={d.cycles}/>}</>}
+function LearningPage({toast,role}){
+  const [tab,setTab]=useState('perf'),[cid,setCid]=useState(0),[d,setD]=useState(null),[h,setH]=useState(null),[f,setF]=useState({unit:0,since:'',until:'',kind:''}),[topic,setTopic]=useState(null)
+  useEffect(()=>{setD(null);api('/me/trends'+(cid?'?course_id='+cid:'')).then(setD).catch(e=>toast(e.message))},[cid])
+  useEffect(()=>{const q=new URLSearchParams({...(cid?{course_id:cid}:{}),...(f.unit?{unit_id:f.unit}:{}),...(f.since?{since:f.since}:{}),...(f.until?{until:f.until}:{}),...(f.kind?{kind:f.kind}:{})});api('/me/history?'+q).then(setH).catch(e=>toast(e.message))},[cid,f])
+  if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
+  const units=h?.courses.find(c=>c.id===cid)?.units||[]
+  return <><Bar title={tl("My learning")}/><div className="main">
+    <div className="qopt"><select aria-label={tl("Course")} value={cid} onChange={e=>{setCid(+e.target.value);setF({...f,unit:0})}}><option value={0}>{tl("All courses")}</option>{(h?.courses||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+    <div className="seg" role="group" style={{gridTemplateColumns:'1fr 1fr'}}>{[['perf',tl("Performance")],['hist',tl("History")]].map(([k,l])=><button key={k} className={tab===k?'on':''} aria-pressed={tab===k} onClick={()=>setTab(k)}>{l}</button>)}</div>
+    {tab==='perf'&&(!d?<Skeleton rows={3}/>:!d.tests.length&&!d.practice.sets&&!d.topics.length?<p className="known">{tl("After you try a test or an MCQ set, your results over time show up here.")}</p>:<TrendsView d={d} onTopic={setTopic}/>)}
+    {tab==='hist'&&<>
+      <div className="qopt">{cid>0&&<select aria-label={tl("Unit")} value={f.unit} onChange={e=>setF({...f,unit:+e.target.value})}><option value={0}>{tl("All units")}</option>{units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}
+        <select aria-label={tl("What")} value={f.kind} onChange={e=>setF({...f,kind:e.target.value})}><option value="">{tl("Everything")}</option>{Object.entries(HIST_LABEL).map(([k,l])=><option key={k} value={k}>{tl(l)}</option>)}</select></div>
+      <div className="qopt"><label className="known">{tl("From")}{" "}<input type="date" value={f.since} onChange={e=>setF({...f,since:e.target.value})}/></label><label className="known">{tl("To")}{" "}<input type="date" value={f.until} onChange={e=>setF({...f,until:e.target.value})}/></label></div>
+      {!h?<Skeleton rows={3}/>:!h.items.length?<p className="known">{tl("Nothing here for these filters.")}</p>:<>
+        {cid===0&&!f.unit&&<p className="known" style={{marginTop:0}}>{tl("“Studied” days count the topics you opened; which ones isn't recorded.")}</p>}
+        <Paged rows={h.items} render={(e,i)=><div className="row" key={e.kind+e.at+i}><div>{tl(HIST_LABEL[e.kind])}{e.title?': '+e.title:''}<small>{[when(e.at),
+          e.kind==='test'&&tl("{p}% · attempt {n}",{p:e.percent,n:e.attempt}),e.kind==='practice'&&tl("{p}% ({score} of {total})",{p:e.percent,score:e.score,total:e.total}),
+          e.kind==='studied'&&(e.reads===1?tl("1 topic opened"):tl("{n} topics opened",{n:e.reads})),(e.kind==='restart'||e.kind==='course_done')&&e.cycle&&tl("pass {n}",{n:e.cycle}),
+          e.unit&&e.kind!=='unit_done'&&e.kind!=='unit_restart'?e.unit:'',e.course&&!cid?e.course:''].filter(Boolean).join(' · ')}</small></div></div>}/>
+        {h.total>h.items.length&&<p className="known">{tl("Showing the latest {n} of {total}. Narrow the dates to see older ones.",{n:h.items.length,total:h.total})}</p>}</>}</>}
+  </div></>}
+function StudentTrends({cid,sid,back,toast}){  // a course's teacher looking at one of its students (S38)
+  const [d,setD]=useState(null);useEffect(()=>{api(`/reports/courses/${cid}/students/${sid}/trends`).then(setD).catch(e=>{toast(e.message);back()})},[sid])
+  return <><Bar title={d?.student||tl("Performance")} sub={tl("Performance in this course")} back={back}/><div className="main">{!d?<Skeleton rows={3}/>:<TrendsView d={d}/>}</div></>}
+function ClassTrends({cid}){
+  const [d,setD]=useState(null);useEffect(()=>{api(`/reports/courses/${cid}/trends`).then(setD).catch(()=>{})},[cid])
+  if(!d||!d.tests.length)return null
+  return <><h3 className="sec">{tl("Tests over time")}</h3>
+    {d.tests.map(t=><div key={t.id} className="row"><div>{t.title}<small>{[tl("{n} students · first try {a}% · best {b}% on average",{n:t.students,a:t.first,b:t.best}),t.retook>0&&tl("{n} took it again: {a}% → {b}%",{n:t.retook,a:t.retake_first,b:t.retake_latest})].filter(Boolean).join(' · ')}</small><Bar2 v={t.first}/></div></div>)}
+    {d.months.length>1&&<div className="row"><div><small>{tl("Average test score by month: {list}",{list:d.months.map(m=>m.month+' '+m.average+'%').join(', ')})}</small></div><Spark xs={d.months.map(m=>m.average)}/></div>}</>}
 function RevisionPage({toast,role}){
   const confirm=useConfirm(),[d,setD]=useState(null),[topic,setTopic]=useState(null),[set,setSet]=useState(null),[busy,setBusy]=useState(null)
   const load=()=>api('/me/revision').then(setD).catch(e=>toast(e.message));useEffect(()=>{if(!topic&&!set)load()},[topic,set])
@@ -3188,18 +3239,20 @@ function CourseReports({toast,onOpen}){
     {rows?.length>0&&<button className="btn ghost" onClick={()=>fetchFile('/reports/courses?format=csv&program_id='+f.p+'&semester='+f.s,'courses.csv',toast)}>{tl("Download courses CSV")}</button>}</>}
 function StudentReport({c,back,toast}){
   const [q,setQ]=useState(''),[show,setShow]=useState(''),[sort,setSort]=useState('name')
-  const [d,setD]=useState(null),[w,setW]=useState(null);useEffect(()=>{api(`/reports/courses/${c.course_id}/students`).then(setD).catch(e=>toast(e.message));api(`/reports/courses/${c.course_id}/weak-areas`).then(setW).catch(()=>{})},[])
+  const [d,setD]=useState(null),[w,setW]=useState(null),[perf,setPerf]=useState(null);useEffect(()=>{api(`/reports/courses/${c.course_id}/students`).then(setD).catch(e=>toast(e.message));api(`/reports/courses/${c.course_id}/weak-areas`).then(setW).catch(()=>{})},[])
   const keep={'':()=>true,active:x=>x.active,disabled:x=>!x.active,never:x=>!x.topics_read,behind:x=>x.completion<50,needs:x=>x.needs_study.length>0}[show],seen=x=>x.last_active||''
   const by={name:(a,b)=>(a.name||'').localeCompare(b.name||''),low:(a,b)=>a.completion-b.completion,high:(a,b)=>b.completion-a.completion,recent:(a,b)=>seen(b).localeCompare(seen(a)),quiet:(a,b)=>seen(a).localeCompare(seen(b))}[sort]
   const shown=d&&d.students.filter(x=>keep(x)&&has(q,x.name,x.email)).sort(by),{items,total,page,setPage}=useLocalPage(shown,[q,show,sort])
+  if(perf)return <StudentTrends cid={c.course_id} sid={perf} back={()=>setPerf(null)} toast={toast}/>
   return <><Bar title={c.course} sub={c.program+' · '+c.semester} back={back}/><div className="main">
-    {w&&w.areas.length>0&&<><h3 className="sec first">{tl("Topics the class finds hard")}</h3><p className="known" style={{margin:'0 0 8px'}}>{tl("From each student's latest quiz results, weakest first.")}</p>{<Paged rows={w.areas} render={a=><div className="row" key={a.topic_id||'u'+a.unit_id}><div>{a.title}<small>{a.percent}{tl("% right overall · {needs_study} of {students} students need another round of study",{needs_study:a.needs_study,students:a.students})}</small><Bar2 v={a.percent}/></div></div>}/>}<h3 className="sec">{tl("Students")}</h3></>}
+    {w&&w.areas.length>0&&<><h3 className="sec first">{tl("Topics the class finds hard")}</h3><p className="known" style={{margin:'0 0 8px'}}>{tl("From every test and MCQ set, weakest first. A student is counted only after 5 or more questions over 2 or more sittings.")}</p>{<Paged rows={w.areas} render={a=><div className="row" key={a.topic_id||'u'+a.unit_id}><div>{a.title}<small>{a.percent}{tl("% right overall · of {students} students: {needs_study} need attention, {getting_there} need revision, {not_assessed} not assessed yet",{needs_study:a.needs_study,getting_there:a.getting_there,not_assessed:a.not_assessed,students:a.students})}</small><Bar2 v={a.percent}/></div></div>}/>}<h3 className="sec">{tl("Students")}</h3></>}
+    <ClassTrends cid={c.course_id}/>
     {d&&!d.students.length&&<p className="known">{tl("No students are enrolled for this course yet.")}</p>}
     {d?.students.length>5&&<><div className="search"><Search size={18}/><input type="search" aria-label={tl("Search students")} placeholder={tl("Search by name or email")} value={q} onChange={e=>setQ(e.target.value)}/></div>
-      <div className="filters fit"><Opts label={tl("Show")} value={show} set={setShow} items={[['',tl("All students")],['active',tl("Active")],['disabled',tl("Disabled")],['never',tl("Never opened a topic")],['behind',tl("Under 50% completed")],['needs',tl("Need another round of study")]]}/>
+      <div className="filters fit"><Opts label={tl("Show")} value={show} set={setShow} items={[['',tl("All students")],['active',tl("Active")],['disabled',tl("Disabled")],['never',tl("Never opened a topic")],['behind',tl("Under 50% completed")],['needs',tl("Need attention")]]}/>
         <Opts label={tl("Sort by")} value={sort} set={setSort} items={[['name',tl("Sort: name")],['low',tl("Sort: lowest completion first")],['high',tl("Sort: highest completion first")],['recent',tl("Sort: recently active first")],['quiet',tl("Sort: longest inactive first")]]}/></div>
       {!total&&<p className="known">{tl("Nothing matches.")}</p>}</>}
-    {!d&&<Skeleton/>}{items.map(x=><div className="row" key={x.email}><div>{x.name}{!x.active&&<span className="pill off sm">{tl("Disabled")}</span>}<small>{x.completion}{tl("% completed · {topics_completed}/{topics} done, {topics_read} opened{v} · last active",{topics_completed:x.topics_completed,topics:x.topics,topics_read:x.topics_read,v:c.quizzes?' · quizzes '+x.quizzes_taken+'/'+x.quizzes+(x.avg_quiz_percent!=null?', avg '+x.avg_quiz_percent+'%':''):''})}{" "}{day(x.last_active)}</small>{(x.strong.length>0||x.needs_study.length>0)&&<small>{x.strong.length>0&&tl("Strong: {strong}",{strong:x.strong.join(', ')})}{x.strong.length>0&&x.needs_study.length>0&&' · '}{x.needs_study.length>0&&tl("Needs another round: {needs_study}",{needs_study:x.needs_study.join(', ')})}</small>}<Bar2 v={x.completion}/></div></div>)}
+    {!d&&<Skeleton/>}{items.map(x=><div className="row" key={x.email}><div>{x.name}{!x.active&&<span className="pill off sm">{tl("Disabled")}</span>}<small>{x.completion}{tl("% completed · {topics_completed}/{topics} done, {topics_read} opened{v} · last active",{topics_completed:x.topics_completed,topics:x.topics,topics_read:x.topics_read,v:c.quizzes?' · quizzes '+x.quizzes_taken+'/'+x.quizzes+(x.avg_quiz_percent!=null?', avg '+x.avg_quiz_percent+'%':''):''})}{" "}{day(x.last_active)}</small>{(x.strong.length>0||x.needs_study.length>0)&&<small>{x.strong.length>0&&tl("Strong: {strong}",{strong:x.strong.join(', ')})}{x.strong.length>0&&x.needs_study.length>0&&' · '}{x.needs_study.length>0&&tl("Needs attention: {needs_study}",{needs_study:x.needs_study.join(', ')})}</small>}<Bar2 v={x.completion}/></div>{x.user_id&&<button className="btn ghost sm" onClick={()=>setPerf(x.user_id)}>{tl("Performance")}</button>}</div>)}
     <Pager page={page} total={total} onPage={setPage}/>
     {d?.students.length>0&&<button className="btn ghost" onClick={()=>fetchFile(`/reports/courses/${c.course_id}/students?format=csv`,'students-'+c.course.replace(/\s+/g,'_')+'.csv',toast)}>{tl("Download students CSV")}</button>}</div></>}
 function Reports({role,toast}){

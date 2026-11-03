@@ -25,17 +25,19 @@ def test_attempt_result_names_strong_and_weak_topics_without_the_answer_key(env)
     assert [a["title"] for a in r["areas"]][0] == "Boilers"  # weakest first
     assert all("correct" not in x and "explanation" not in x for x in r["results"])  # still no answer key for students
 
-def test_insights_use_the_latest_attempt_so_retaking_improves_the_status(env):
+def test_a_topic_is_judged_only_from_enough_sittings_and_recent_results_count(env):  # S38: 5+ questions over 2+ sittings; never weak from one go
     i, unit = setup(env); q, t = two_topic_quiz(env, unit)
+    def ins(): return env.c.get("/api/me/insights", headers=env.stu).json()
     take(env, env.stu, q, [0, 0, 1, 1, 1])
-    ins = env.c.get("/api/me/insights", headers=env.stu).json()
-    assert [a["title"] for a in ins["needs_study"]] == ["Boilers"] and [a["title"] for a in ins["strong"]] == ["Water"] and ins["courses"][0]["percent"] == 40 and ins["quizzes_taken"] == 1
-    take(env, env.stu, q, [0, 0, 0, 0, 1])  # Boilers now 2 of 3 = 67%
-    ins = env.c.get("/api/me/insights", headers=env.stu).json(); assert ins["needs_study"] == [] and [a["title"] for a in ins["getting_there"]] == ["Boilers"]
-    take(env, env.stu, q, [0, 0, 0, 0, 0]); ins = env.c.get("/api/me/insights", headers=env.stu).json(); assert ins["courses"][0]["percent"] == 100 and len(ins["strong"]) == 2
+    x = ins(); assert x["needs_study"] == [] and x["strong"] == [] and {a["title"] for a in x["not_assessed"]} == {"Water", "Boilers"} and x["quizzes_taken"] == 1
+    take(env, env.stu, q, [0, 0, 1, 1, 1])  # Boilers 0 of 6 over two sittings: needs attention; Water 4 of 4 is still too few questions
+    x = ins(); assert [a["title"] for a in x["needs_study"]] == ["Boilers"] and [a["title"] for a in x["not_assessed"]] == ["Water"] and x["needs_study"][0]["sittings"] == 2
+    take(env, env.stu, q, [0, 0, 0, 0, 0])  # Boilers 3 of 9 overall but 3 of 3 last time: mixed, needs revision; Water 6 of 6: strong
+    x = ins(); assert [a["title"] for a in x["strong"]] == ["Water"] and [a["title"] for a in x["getting_there"]] == ["Boilers"] and x["courses"][0]["percent"] == 60
+    assert x["rule"] == {"min_questions": 5, "min_sittings": 2, "strong": 80, "weak": 60}
 
 def test_untagged_questions_fall_back_to_the_unit_and_deleted_or_moved_topics_too(env):
-    i, unit = setup(env); q, t = two_topic_quiz(env, unit, tag=False); take(env, env.stu, q, [1, 1, 1, 1, 1])
+    i, unit = setup(env); q, t = two_topic_quiz(env, unit, tag=False); take(env, env.stu, q, [1, 1, 1, 1, 1]); take(env, env.stu, q, [1, 1, 1, 1, 1])
     a = env.c.get("/api/me/insights", headers=env.stu).json()["needs_study"]; assert len(a) == 1 and a[0]["topic_id"] is None and a[0]["title"].endswith("general questions") and a[0]["study"] is None
     q2, t2 = two_topic_quiz(env, unit); take(env, env.stu, q2, [0, 0, 1, 1, 1])
     env.c.delete(f"/api/topics/{t2['Boilers']}", headers=env.admin)
@@ -64,11 +66,11 @@ def test_old_attempts_unpublished_quizzes_and_other_programs_are_ignored(env):
 
 def test_class_view_and_student_report_for_staff_only(env):
     i, unit = setup(env); env.add_user("stu2@x.com", program=i["prog"]["Mech"], semester=1); h2 = env.login("stu2@x.com"); q, t = two_topic_quiz(env, unit)
-    take(env, env.stu, q, [0, 0, 1, 1, 0]); take(env, h2, q, [1, 0, 1, 1, 1])
+    for _ in range(3): take(env, env.stu, q, [0, 0, 1, 1, 0]); take(env, h2, q, [1, 0, 1, 1, 1])  # three sittings each: enough to judge (S38)
     cid = i["course"]["Chem"]; r = env.c.get(f"/api/reports/courses/{cid}/weak-areas", headers=env.admin).json()
     boil, water = r["areas"][0], r["areas"][1]
-    assert r["students_with_results"] == 2 and (boil["title"], boil["correct"], boil["total"], boil["students"], boil["needs_study"]) == ("Boilers", 1, 6, 2, 2)
-    assert (water["title"], water["correct"], water["total"], water["percent"], water["strong"], water["needs_study"]) == ("Water", 3, 4, 75, 1, 1)
+    assert r["students_with_results"] == 2 and (boil["title"], boil["correct"], boil["total"], boil["students"], boil["needs_study"]) == ("Boilers", 3, 18, 2, 2)
+    assert (water["title"], water["correct"], water["total"], water["percent"], water["strong"], water["needs_study"]) == ("Water", 9, 12, 75, 1, 1)
     rows = {x["email"]: x for x in env.c.get(f"/api/reports/courses/{cid}/students", headers=env.admin).json()["students"]}
     assert (rows["stu@x.com"]["strong"], rows["stu@x.com"]["needs_study"]) == (["Water"], ["Boilers"]) and (rows["stu2@x.com"]["strong"], rows["stu2@x.com"]["needs_study"]) == ([], ["Boilers", "Water"])
     text = env.c.get(f"/api/reports/courses/{cid}/students?format=csv", headers=env.admin).text.lstrip("﻿"); head = next(csv.reader(io.StringIO(text)))
