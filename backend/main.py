@@ -2964,7 +2964,7 @@ def parse_quiz_csv(b: QuizCsvIn, u: User = Depends(author), s: Session = Depends
             else:
                 warnings.append(f"Row {n}: no topic called \"{tname}\" in this {'unit' if b.unit_id else 'course'}, so it is grouped as the area \"{tname[:150]}\"")
                 area = area or tname[:150]
-        out.append({"row": n, "text": text, "options": [o[0] for o in opts], "correct": k, "explanation": cell(r, "explanation"), "topic_id": tid, "topic": ttitle, "area": area,
+        out.append({"row": n, "text": text, "options": [o[0] for o in opts], "correct": k, "explanation": cell(r, "explanation"), "topic_id": tid, "topic": ttitle, "topic_name": tname, "area": area,  # topic_name: as the file wrote it, matched or not
                     "image": qimg, "image_name": qname, "option_images": [o[1] for o in opts], "option_image_names": [o[2] for o in opts]})
     names = sorted({x["image_name"] for x in out if x["image_name"]} | {m for x in out for m in x["option_image_names"] if m}, key=str.lower)
     return {"questions": out, "count": len(out), "errors": errors[:200], "error_count": len(errors), "warnings": warnings[:200], "images_needed": names}

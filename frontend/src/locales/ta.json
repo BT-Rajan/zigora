@@ -2980,5 +2980,16 @@
 "{n} reports": "{n} புகார்கள்",
 "Not enough published questions here yet: a set needs at least {min}.": "இங்கே இன்னும் போதுமான வெளியிடப்பட்ட கேள்விகள் இல்லை: ஒரு தொகுப்புக்குக் குறைந்தது {min} தேவை.",
 "This topic has no notes yet, so the AI can't write questions for it.": "இந்தத் தலைப்பில் இன்னும் குறிப்புகள் இல்லை, எனவே AI இதற்குக் கேள்விகள் எழுத முடியாது.",
-"These topics have no notes yet, so the AI can't write questions for them.": "இந்தத் தலைப்புகளில் இன்னும் குறிப்புகள் இல்லை, எனவே AI இவற்றுக்குக் கேள்விகள் எழுத முடியாது."
+"These topics have no notes yet, so the AI can't write questions for them.": "இந்தத் தலைப்புகளில் இன்னும் குறிப்புகள் இல்லை, எனவே AI இவற்றுக்குக் கேள்விகள் எழுத முடியாது.",
+"Publish all {n} waiting questions in {where}?": "{where} இல் காத்திருக்கும் {n} கேள்விகளையும் வெளியிடவா?",
+"Dismiss all {n} waiting questions in {where}?": "{where} இல் காத்திருக்கும் {n} கேள்விகளையும் நிராகரிக்கவா?",
+"all your courses": "உங்கள் எல்லாப் பாடங்களிலும்",
+"Where they go": "அவை எங்கே செல்கின்றன",
+"Leave it out": "விட்டுவிடு",
+"1 row names a topic this course doesn't have. Choose a topic for it, or leave it out.": "1 வரிசை இந்தப் பாடத்தில் இல்லாத தலைப்பைக் குறிப்பிடுகிறது. அதற்கு ஒரு தலைப்பைத் தேர்ந்தெடுக்கவும், அல்லது விட்டுவிடவும்.",
+"{n} rows name a topic this course doesn't have. Choose a topic for each, or leave it out.": "{n} வரிசைகள் இந்தப் பாடத்தில் இல்லாத தலைப்பைக் குறிப்பிடுகின்றன. ஒவ்வொன்றுக்கும் ஒரு தலைப்பைத் தேர்ந்தெடுக்கவும், அல்லது விட்டுவிடவும்.",
+"Row {row}: “{topic}”": "வரிசை {row}: “{topic}”",
+"Choose a topic, or Leave it out, for each row above first.": "முதலில் மேலே உள்ள ஒவ்வொரு வரிசைக்கும் ஒரு தலைப்பைத் தேர்ந்தெடுக்கவும், அல்லது விட்டுவிடு என்பதைத் தேர்வுசெய்யவும்.",
+"Publish the 1 waiting question in {where}?": "{where} இல் காத்திருக்கும் 1 கேள்வியை வெளியிடவா?",
+"Dismiss the 1 waiting question in {where}?": "{where} இல் காத்திருக்கும் 1 கேள்வியை நிராகரிக்கவா?"
 }
