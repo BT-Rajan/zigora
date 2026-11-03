@@ -576,7 +576,7 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   const confirm=useConfirm()
   const isAdmin=user.role==='admin',staff=user.role!=='student'
   const [mat,setMat]=useState(false),[rev,setRev]=useState(null)
-  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null)
+  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[fin,setFin]=useState(null)
   const load=()=>api('/tree').then(setTree).catch(e=>toast(e.message));useEffect(()=>{load()},[t,ed,qz,qe,sheet,arch,qr])
   const landed=useRef(!!start?.length);useEffect(()=>{const real=tree.filter(x=>!x.offered);if(landed.current||user.role!=='student'||real.length!==1)return;landed.current=true;const p=real[0],c=p.semesters.find(x=>x.current)||(p.semesters.length===1?p.semesters[0]:null);setNav(c?[p.id,c.id]:[p.id])},[tree])
   const prog=tree.find(x=>x.id===nav[0]),sem=prog?.semesters.find(x=>x.id===nav[1]),co=sem?.courses.find(x=>x.id===nav[2]),unit=co?.units.find(x=>x.id===nav[3])
@@ -589,8 +589,9 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   if(qr)return <QuizResults id={qr} back={()=>setQr(null)} toast={toast} role={user.role}/>
   if(rev)return <RevisionSheet uid={rev} toast={toast} back={()=>setRev(null)}/>
   if(gb)return <Gradebook cid={gb} back={()=>setGb(null)} toast={toast} role={user.role}/>
+  if(fin)return <CourseFinishers cid={fin} back={()=>setFin(null)} toast={toast}/>
   if(ed)return <TopicEditor role={user.role} toast={toast} edit={ed.id?ed:null} unitId={ed.unit_id} done={()=>setEd(null)} cancel={()=>setEd(null)}/>
-  const tsub=x=>[x.published===false&&'Draft · students cannot see it',x.learning_due_at&&(staff?'Due '+when(x.learning_due_at):tl("Your teacher's date")+': '+day(x.learning_due_at)),
+  const tsub=x=>[x.published===false&&'Draft · students cannot see it',x.optional&&tl("Optional"),x.learning_due_at&&(staff?'Due '+when(x.learning_due_at):tl("Your teacher's date")+': '+day(x.learning_due_at)),
     cp?.topics[x.id]&&`${cp.topics[x.id].completed}/${cp.students} completed`+(cp.topics[x.id].overdue?` · ${cp.topics[x.id].overdue} overdue`:'')].filter(Boolean).join(' · ')
   const row=(x,kind,one,sub,extra={})=>({id:x.id,n:x.name,sub,kind,archived:x.archived,archived_self:x.archived_self,locked:!staff&&kind==='courses'&&(x.archived||x.upcoming||x.paused),can:x.offered||prog?.offered&&kind!=='units'?false:kind==='programs'||kind==='semesters'?isAdmin:kind==='courses'?(isAdmin||x.mine)&&!x.shared:mayEdit&&!co?.shared,go:()=>setNav([...nav,x.id]),edit:()=>setEd({kind:one,id:x.id,name:x.name,...extra})})
   const drafts=t=>t.filter(x=>x.published===false).length
@@ -633,7 +634,8 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
       {<Paged rows={co.tests} render={(q,i)=><div key={q.id} className="card"><button className="hit" onClick={()=>setQz(q.id)}><span className="dot" style={{background:COL[(i+1)%5]}}><ClipboardList size={18}/></span><div><b>{q.title}</b><span>{q.questions}{" "}{tl("questions · pass {pass_percent}%",{pass_percent:q.pass_percent})}{q.best!=null?tl(" · best {best}%",{best:q.best}):''}{q.published?'':tl(" · Draft")}</span></div>{q.best!=null&&q.best>=q.pass_percent&&<span className="marks"><Check size={16}/></span>}</button>
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,course_id:co.id})}><Pencil size={16}/></button></>}</div>}/>}
       {mayEdit&&!co.shared&&<button className="btn ghost" onClick={()=>setQe({course_id:co.id,csvFirst:true})}><Upload size={16}/>{" "}{tl("New MCQ test from a CSV")}</button>}
-      {mayEdit&&<button className="btn ghost" onClick={()=>setGb(co.id)}><BarChart3 size={16}/>{" "}{tl("Gradebook: final scores for every test")}</button>}</>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setGb(co.id)}><BarChart3 size={16}/>{" "}{tl("Gradebook: final scores for every test")}</button>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setFin(co.id)}><ClipboardCheck size={16}/>{" "}{tl("Who has finished this course")}</button>}</>}
     {unit&&(unit.quizzes.length>0||mayEdit)&&<><h3 className="sec">{tl("Quizzes")}</h3>
       {<Paged rows={unit.quizzes} render={(q,i)=><div key={q.id} className="card"><button className="hit" onClick={()=>setQz(q.id)}><span className="dot" style={{background:COL[(i+3)%5]}}>?</span><div><b>{q.title}</b><span>{q.questions}{" "}{tl("questions · pass {pass_percent}%",{pass_percent:q.pass_percent})}{q.best!=null?tl(" · best {best}%",{best:q.best}):''}{q.published?'':tl(" · Draft")}</span></div>{q.best!=null&&q.best>=q.pass_percent&&<span className="marks"><Check size={16}/></span>}</button>
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,unit_id:unit.id,unitTopics:unit.topics.map(t=>({id:t.id,title:t.title}))})}><Pencil size={16}/></button></>}</div>}/>}
@@ -1345,17 +1347,39 @@ function Hit({x,open}){return <button className="hitrow" onClick={()=>open(x.id)
 
 // My progress: a calm mirror, not a report card. What clicked and what is worth another look (from quizzes and tests, without percentages),
 // the optional routine, test results folded away, and what the app has picked up about how they learn
+const ACH_HINT={first_unit:"Mark every required topic of a unit as learned.",first_course:"Finish a course: every required topic learned, every test tried.",
+  steady:"Revise in four different weeks (read a revision sheet, or check yourself on a topic you've learned).",improved:"Score 20 points more on a test than your first try.",hard_topic:"Pass a check (80%+) on a topic you once scored under 60% on."}
+// who has finished a course, who is close, and what is outstanding (S36): for its teachers
+function CourseFinishers({cid,back,toast}){
+  const [d,setD]=useState(null),[show,setShow]=useState('all')
+  useEffect(()=>{api(`/courses/${cid}/completion`).then(setD).catch(e=>{toast(e.message);back()})},[cid])
+  const rows=d?d.students.filter(r=>show==='all'||(show==='done'?r.complete:show==='close'?!r.complete&&r.percent>=75:!r.complete)):[]
+  return <><Bar title={tl("Who has finished")} sub={d?d.course+' · '+tl("{done} of {n} finished",{done:d.completed,n:d.students.length}):''} back={back}/><div className="main">
+    {!d?<Skeleton rows={3}/>:<><div className="seg" role="group" aria-label={tl("Show")} style={{gridTemplateColumns:'repeat(4,1fr)',marginTop:0}}>{[['all','All'],['done','Finished'],['close','Close (75%+)'],['open','Work left']].map(([k,l])=><button key={k} className={show===k?'on':''} aria-pressed={show===k} onClick={()=>setShow(k)}>{tl(l)}</button>)}</div>
+    <p className="known">{tl("Finished: every required topic marked as learned and every test of the course tried. It says nothing about scores; the average shows those.")}</p>
+    {!rows.length&&<p className="known">{tl("No students here.")}</p>}
+    <Paged rows={rows} render={r=><div key={r.user_id} className="row"><div>{r.name}<small>{r.complete?tl("Finished {when}",{when:day(r.completed_at.slice(0,10))}):[r.topics_left&&(r.topics_left===1?tl("1 topic left"):tl("{n} topics left",{n:r.topics_left})),r.tests_left&&(r.tests_left===1?tl("1 test to try"):tl("{n} tests to try",{n:r.tests_left}))].filter(Boolean).join(' · ')}{r.average!=null?' · '+tl("average {n}%",{n:r.average}):''}</small><Bar2 v={r.percent}/></div><span className="chip">{r.percent}%</span></div>}/></>}
+  </div></>}
 function Insights({toast,role,onRoutine}){
-  const [d,setD]=useState(null),[topic,setTopic]=useState(null),[sc,setSc]=useState(null),[td,setTd]=useState(null)
-  useEffect(()=>{if(!topic){api('/me/insights').then(setD).catch(e=>toast(e.message));if(role==='student')api('/me/today').then(setTd).catch(()=>{})}},[topic])
+  const [d,setD]=useState(null),[topic,setTopic]=useState(null),[sc,setSc]=useState(null),[td,setTd]=useState(null),[cm,setCm]=useState(null),[ach,setAch]=useState(null)
+  useEffect(()=>{if(!topic){api('/me/insights').then(setD).catch(e=>toast(e.message));if(role==='student'){api('/me/today').then(setTd).catch(()=>{});api('/me/completion').then(setCm).catch(()=>{});api('/me/achievements').then(r=>setAch(r.items)).catch(()=>{})}}},[topic])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(sc)return <ScoreCourse c={sc} back={()=>setSc(null)} toast={toast} role={role}/>
   const clicked=d?.strong||[],looks=d?[...d.needs_study,...d.getting_there]:[]
   const item=a=><button key={a.topic_id||'u'+a.unit_id} className="row rowbtn" disabled={!a.topic_id} onClick={()=>setTopic(a.topic_id)}><div>{a.title}<small>{a.course}</small></div>{a.topic_id&&<ChevronRight size={18}/>}</button>
   return <><Bar title={tl("My progress")}/><div className="main">
-    {td?.courses?.length>0&&<><h3 className="sec first">{tl("Your courses")}</h3>  {/* what they marked as learned: their own word for it, not a score */}
+    {cm?.courses?.length>0?<><h3 className="sec first">{tl("Your courses")}</h3>
+      <p className="known" style={{marginTop:0}}>{tl("A course is finished when every required topic is marked as learned and every test has been tried. Finishing is not the same as mastering: your scores below show that.")}</p>
+      <Paged rows={cm.courses} render={c=><div className="qbox" key={c.course_id}><b>{c.course}</b>{" "}{c.complete?<span className="chip" style={{color:'var(--ok)'}}>{tl("Finished {when}",{when:day(c.completed_at.slice(0,10))})}</span>:c.completed_at?<span className="chip">{tl("Finished {when}; new work added since",{when:day(c.completed_at.slice(0,10))})}</span>:null}
+        <Bar2 v={c.percent}/><small className="known">{c.tests.total?tl("{percent}% · {done} of {req} required topics learned · {tried} of {tests} tests tried",{percent:c.percent,done:c.topics.done,req:c.topics.required,tried:c.tests.tried,tests:c.tests.total}):tl("{percent}% · {done} of {req} required topics learned",{percent:c.percent,done:c.topics.done,req:c.topics.required})}{c.average!=null?' · '+tl("test average {n}%",{n:c.average}):''}</small>
+        {(c.remaining.length>0||c.pending_tests.length>0)&&<details><summary className="known">{tl("What's left ({n})",{n:c.remaining.length+c.pending_tests.length})}</summary>
+          {c.remaining.map(t=><button key={t.id} className="row rowbtn" onClick={()=>setTopic(t.id)}><div>{t.title}<small>{tl("Topic to mark as learned")}</small></div><ChevronRight size={18}/></button>)}
+          {c.pending_tests.map(q=><div key={q.id} className="row"><div>{q.title}<small>{tl("Test to try")}</small></div></div>)}</details>}</div>}/></>
+    :td?.courses?.length>0&&<><h3 className="sec first">{tl("Your courses")}</h3>  {/* what they marked as learned: their own word for it, not a score */}
       <p className="known" style={{marginTop:0}}>{tl("{done} of {total} topics marked as learned. Quizzes below show how well they stuck.",{done:td.topics_completed,total:td.topics_total})}</p>
       <Paged rows={td.courses} render={c=><div className="row" key={c.id}><div>{c.name}<small>{tl("{done} of {total} topics marked as learned",{done:c.completed,total:c.total})}{' · '}{Math.round(100*c.completed/c.total)}%</small><Bar2 v={100*c.completed/c.total}/></div></div>}/></>}
+    {ach&&<><h3 className="sec">{tl("Milestones")}</h3><div className="stats">{ach.map(a=><div key={a.key} className="stat" style={{opacity:a.at?1:.55}}><b style={{fontSize:16}}>{tl(a.title)}</b>
+      <small className="known">{a.at?tl("Reached {when}",{when:day(a.at.slice(0,10))})+(a.detail?' · '+a.detail:''):tl(ACH_HINT[a.key]||'')}</small></div>)}</div></>}
     {!d&&<Skeleton/>}
     {d&&!clicked.length&&!looks.length&&<p className="known">{tl("After you try a quiz or a test, the topics that clicked and the ones worth another look show up here.")}</p>}
     {clicked.length>0&&<><h3 className={'sec'+(td?.courses?.length?'':' first')}>{tl("What clicked")}</h3><Paged rows={clicked} render={item}/></>}
@@ -2414,9 +2438,9 @@ const FILES_HELP='Pick the content: an HTML file or a Markdown .md file. To keep
 function TopicEditor({role,toast,done,cancel,edit,unitId}){  // edit = {id} of a topic, or null for a new one in unitId
   const confirm=useConfirm()
   const fac=role==='faculty',[prev,setPrev]=useState(false),[up,setUp]=useState(false),fileRef=useRef(null),taRef=useRef(null),filesRef=useRef(null),[busy,setBusy]=useState(false)
-  const [tree,setTree]=useState([]),[f,setF]=useState({title:'',unit_id:unitId||'',content:'',content_format:'markdown',sample_content:'',question_pattern:'',guideline:'',published:!fac,due:'',diagram:false,diagram_note:''}),[cid,setCid]=useState(null)
+  const [tree,setTree]=useState([]),[f,setF]=useState({title:'',unit_id:unitId||'',content:'',content_format:'markdown',sample_content:'',question_pattern:'',guideline:'',published:!fac,due:'',diagram:false,diagram_note:'',optional:false}),[cid,setCid]=useState(null)
   const [fromFiles,setFromFiles]=useState(null),[shown,setShown]=useState(''),[imp,setImp]=useState(false)
-  useEffect(()=>{api('/tree').then(setTree).catch(()=>{});if(edit)api('/topics/'+edit.id).then(t=>{setCid(t.course_id);setF({title:t.title,unit_id:t.unit_id||'',content:t.content||'',content_format:t.content_format||'markdown',sample_content:t.sample_content||'',question_pattern:t.question_pattern||'',guideline:t.guideline||'',published:t.published!==false,due:localInput(t.learning_due_at),diagram:!!t.diagram_on,diagram_note:t.diagram_note||''})}).catch(e=>toast(e.message))},[])
+  useEffect(()=>{api('/tree').then(setTree).catch(()=>{});if(edit)api('/topics/'+edit.id).then(t=>{setCid(t.course_id);setF({title:t.title,unit_id:t.unit_id||'',content:t.content||'',content_format:t.content_format||'markdown',sample_content:t.sample_content||'',question_pattern:t.question_pattern||'',guideline:t.guideline||'',published:t.published!==false,due:localInput(t.learning_due_at),diagram:!!t.diagram_on,diagram_note:t.diagram_note||'',optional:!!t.optional})}).catch(e=>toast(e.message))},[])
   const html=f.content_format==='html',inter=f.content_format==='interactive',[frameUrl,setFrameUrl]=useState('')
   useEffect(()=>{if(!prev||!inter)return;let live=true;setFrameUrl('');api('/topics/frame-preview',{method:'POST',body:{html:f.content}}).then(r=>live&&setFrameUrl(r.url)).catch(e=>toast(e.message));return()=>{live=false}},[prev,inter,f.content])
   useEffect(()=>{if(!prev||!html)return;let live=true;api('/topics/clean-html',{method:'POST',body:{html:f.content}}).then(r=>live&&setShown(r.html)).catch(e=>toast(e.message));return()=>{live=false}},[prev,html,f.content])
@@ -2456,6 +2480,7 @@ function TopicEditor({role,toast,done,cancel,edit,unitId}){  // edit = {id} of a
     <label>{tl("Learning deadline")}</label><div className="qopt"><input type="datetime-local" aria-label={tl("Learning deadline")} value={f.due} onChange={set('due')}/>{f.due&&<button type="button" className="tool" onClick={()=>setF({...f,due:''})}>{tl("No deadline")}</button>}</div>
     <p className="known" style={{marginTop:4}}>{f.due?tl("Students should have learnt this topic by then. They can still open it afterwards."):tl("No deadline")}</p>
     <label className="chk"><input type="checkbox" checked={f.published!==false} onChange={e=>setF({...f,published:e.target.checked})}/>{" "}{tl("Published (students can see this topic)")}</label>
+    <label className="chk"><input type="checkbox" checked={!!f.optional} onChange={e=>setF({...f,optional:e.target.checked})}/>{" "}{tl("Optional (doesn't count toward finishing the course)")}</label>
     <label className="chk"><input type="checkbox" checked={!!f.diagram} onChange={e=>setF({...f,diagram:e.target.checked})}/>{" "}{tl("Diagram for students on Pro")}</label>
     {f.diagram&&<><label htmlFor="dgn">{tl("What should the diagram show? (optional)")}</label><textarea id="dgn" maxLength={1000} value={f.diagram_note} onChange={set('diagram_note')}
       placeholder={tl("For example: the lime-soda process as a flow, step by step")}/></>}

@@ -150,6 +150,7 @@ class Topic(Base):
     published = Column(Boolean, default=True)  # drafts are visible to admins and the course's owner only
     position = Column(Integer, nullable=True)  # order within the unit, set by the course's owner
     learning_due_at = Column(DateTime, nullable=True)  # learn-by deadline, a UTC instant like every timestamp here; null = no deadline
+    optional = Column(Boolean, default=False)  # set by the teacher: an optional topic never stands between a student and finishing the course
     archived_at = Column(DateTime, nullable=True)  # set while this item is archived (hidden from students, nothing deleted); everything under it is archived with it
     diagram = Column(Boolean, default=False)  # the teacher wants a diagram for this topic: the AI draws one (an interactive HTML page) for students on Pro
     diagram_note = Column(Text, nullable=True)  # what the teacher wants drawn, if they say ("a flow diagram of the lime-soda process")
@@ -219,6 +220,11 @@ class Attempt(Base):
     request_id = Column(String(64), nullable=True)  # the app's id for this submission: sent again (a double tap, a retry after a lost reply), it gets the same attempt back
     assignment_id = Column(Integer, nullable=True, index=True)  # the assignment this attempt was for (null: not for one, or made before attempts were tied)
     __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_quiz_attempts_user_request"),)  # JSON list, in detail's order: each question as the student saw it (null where it was gone before copies were kept)
+class CourseCompletion(Base):  # when a student finished a course (every required topic learned, every course test tried); written once, kept even if the course grows later
+    __tablename__ = "course_completions"
+    id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True); completed_at = Column(DateTime)
+    __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_course_completions_user_course"),)
 class QuizDraft(Base):  # a sitting of a quiz not yet submitted: the answers so far, so a refresh, Back or a closed app carries on. Never an attempt; gone on submit
     __tablename__ = "quiz_drafts"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -1016,7 +1022,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL")), ("0043_attempt_question_copies", attempt_question_copies),
               ("0044_attempt_request_id", attempt_request_id),
               ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__])), ("0046_study_attempts_once", study_attempts_once),
-              ("0047_assignment_window", assignment_window)]
+              ("0047_assignment_window", assignment_window),
+              ("0048_course_completion", lambda c: [_addcol("topics", "optional", "BOOLEAN NOT NULL DEFAULT 0")(c), Base.metadata.create_all(c, tables=[CourseCompletion.__table__])])]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -2320,6 +2327,7 @@ class TopicIn(BaseModel):
     content_format: str = "markdown"  # "markdown" or "html"; HTML is cleaned when it is saved
     learning_due_at: dt.datetime | None = None  # ISO 8601 with a time zone; null removes the deadline; leave out to keep it
     diagram: bool = False; diagram_note: str = ""  # the teacher asks for an AI diagram (shown to students on Pro), and what it should show
+    optional: bool = False  # an optional topic doesn't count toward finishing the course
 M = {"programs": Program, "semesters": Semester, "courses": Course, "units": Unit, "topics": Topic}
 def offered_cj(d, c, u):  # an offered course in someone's list: before its first day a student sees its name and start date, nothing inside
     today = local_day(dt.datetime.utcnow()); soon = bool(c.starts_on and today < c.starts_on)
@@ -2360,7 +2368,7 @@ def tree(u: User = Depends(me), s: Session = Depends(db)):
              "owner": owners[c.faculty_owner_id].name if c.faculty_owner_id in owners else None,
              "tests": [] if off and not ed else [q for q in tests[c.id] if ed or (q["published"] and q["questions"])], "units": [] if off and not ed else [  # everyone else sees an archived course as a locked name, nothing inside
             {"id": n.id, "name": n.name, "archived": off or bool(n.archived_at), "archived_self": bool(n.archived_at), "quizzes": [q for q in qz[n.id] if ed or (q["published"] and q["questions"])],
-             "topics": [{"id": t.id, "title": t.title, "read": t.id in read, "bookmarked": t.id in marked, "published": t.published is not False, "has_notes": t.id in noted,
+             "topics": [{"id": t.id, "title": t.title, "read": t.id in read, "bookmarked": t.id in marked, "published": t.published is not False, "has_notes": t.id in noted, "optional": bool(t.optional),
                          "archived": off or bool(n.archived_at) or bool(t.archived_at), "archived_self": bool(t.archived_at),
                          "last_read": mine_p[t.id].last_read.isoformat() + "Z" if t.id in mine_p and mine_p[t.id].last_read else None,
                          **learning_state(t.learning_due_at, mine_p.get(t.id), now)} for t in tp[n.id] if (t.published is not False or ed) and (ed or not t.archived_at)]} for n in un[c.id] if ed or not n.archived_at]}
@@ -3352,7 +3360,7 @@ def full(t, s):
     return {"id": t.id, "title": t.title, "course_id": co.id, "unit_id": t.unit_id, "unit": un.name if un else "", "course": co.name,
             "semester": sem.name if sem else "", "program": (s.get(Program, sem.program_id if sem else co.program_id) or Program(name="")).name,
             "content": shown_content(t), "content_format": fmt_of(t), "sample_content": t.sample_content, "question_pattern": t.question_pattern, "guideline": t.guideline, "published": t.published is not False,
-            "diagram_on": bool(t.diagram), "diagram_note": t.diagram_note or ""}
+            "diagram_on": bool(t.diagram), "diagram_note": t.diagram_note or "", "optional": bool(t.optional)}
 def version_row(v, names, cur): return {"id": v.id, "saved_at": (v.saved_at.isoformat() + "Z") if v.saved_at else None, "by": names.get(v.saved_by) if v.saved_by else None, "note": v.note or "",
                                           "current": all((getattr(v, k) or "") == cur[k] for k in VFIELDS)}
 @app.get("/api/topics/{tid}/versions")
@@ -4425,6 +4433,90 @@ async def explain_passage(tid: int, b: ExplainIn, u: User = Depends(me), s: Sess
     try: s.add(row); s.commit()
     except Exception: s.rollback(); row = None
     return {"explain": {"id": row.id if row else None, "text": d["text"]}}
+# ---- course completion (S36): a course is finished when every required topic (published, not optional, in a live unit) is marked learned and every
+# ---- published test and unit quiz of the course has been tried at least once, whatever the score: finishing is not mastering. Worked out from the
+# ---- student's progress and attempts each time; the moment it first happens is kept (CourseCompletion) and stays even if the course grows later
+def course_status(s, uid, c):
+    units = s.query(Unit).filter(Unit.course_id == c.id, Unit.archived_at.is_(None)).order_by(*ORDER[Unit]).all()
+    topics = s.query(Topic).filter(Topic.unit_id.in_([u.id for u in units] or [0]), Topic.published != False, Topic.archived_at.is_(None)).order_by(*ORDER[Topic]).all()  # noqa: E712
+    req = [t for t in topics if not t.optional]
+    done = {tid: at for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == uid, Progress.topic_id.in_([t.id for t in topics] or [0]), Progress.completed_at.isnot(None))}
+    tests = [q for q, un in course_tests(c.id, s) if (un is None or un.archived_at is None) and s.query(Question.id).filter_by(quiz_id=q.id).first()]
+    tried = defaultdict(list)
+    for qid, pct, at in s.query(Attempt.quiz_id, Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id.in_([q.id for q in tests] or [0])).order_by(Attempt.at): tried[qid].append((pct, at))
+    need = len(req) + len(tests); got = sum(t.id in done for t in req) + sum(q.id in tried for q in tests)
+    by_unit = defaultdict(list)
+    for t in req: by_unit[t.unit_id].append(t)
+    unit_rows = [{"id": u.id, "name": u.name, "required": len(by_unit[u.id]), "done": sum(t.id in done for t in by_unit[u.id]),
+                  "completed_at": utc_iso(max(done[t.id] for t in by_unit[u.id])) if by_unit[u.id] and all(t.id in done for t in by_unit[u.id]) else None} for u in units]
+    complete = need > 0 and got == need
+    rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()
+    if complete and not rec:  # the moment it became complete: the last required topic learned or the last test first tried
+        when = max([done[t.id] for t in req] + [tried[q.id][0][1] for q in tests])
+        try: rec = CourseCompletion(user_id=uid, course_id=c.id, completed_at=when); s.add(rec); s.commit()
+        except IntegrityError: s.rollback(); rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()  # another request kept it first
+    bests = [max(p for p, _ in tried[q.id]) for q in tests if q.id in tried]
+    return {"course_id": c.id, "course": c.name, "percent": round(100 * got / need) if need else 0, "complete": complete, "completed_at": utc_iso(rec.completed_at) if rec else None,
+            "topics": {"required": len(req), "done": sum(t.id in done for t in req), "optional": len(topics) - len(req)},
+            "units": unit_rows, "remaining": [{"id": t.id, "title": t.title} for t in req if t.id not in done][:50],
+            "tests": {"total": len(tests), "tried": sum(q.id in tried for q in tests)}, "pending_tests": [{"id": q.id, "title": q.title} for q in tests if q.id not in tried],
+            "average": round(sum(bests) / len(bests)) if bests else None}
+def my_courses_for(u, s):  # the courses a student studies (their own program's, not archived)
+    return [s.get(Course, c["id"]) for c in mcq_courses(u, s)]
+@app.get("/api/me/completion")
+def my_completion(u: User = Depends(me), s: Session = Depends(db)):  # each of my courses: how far, what's left, when finished, and my test average
+    return {"courses": [course_status(s, u.id, c) for c in my_courses_for(u, s) if c]}
+@app.get("/api/courses/{cid}/completion")
+def course_completion(cid: int, u: User = Depends(author), s: Session = Depends(db)):  # for its teachers: every student's standing toward finishing the course
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s)
+    links = defaultdict(list)
+    for l in s.query(CourseLink).filter_by(course_id=cid): links[cid].append(l.semester_id)
+    aud = course_audience(c, s.query(User).filter_by(role="student", active=True).all(), {x.id: x for x in s.query(Semester)}, links)
+    rows = []
+    for x in sorted(aud, key=lambda x: x.name.lower()):
+        st = course_status(s, x.id, c)
+        rows.append({"user_id": x.id, "name": x.name, "percent": st["percent"], "complete": st["complete"], "completed_at": st["completed_at"],
+                     "topics_left": st["topics"]["required"] - st["topics"]["done"], "tests_left": st["tests"]["total"] - st["tests"]["tried"], "average": st["average"]})
+    return {"course": c.name, "students": rows, "completed": sum(r["complete"] for r in rows), "close": sum(not r["complete"] and r["percent"] >= 75 for r in rows)}
+# ---- achievements (S36): a few milestones worked out from what the student did; no points, nothing for just opening the app
+def my_achievements_list(u, s):
+    out = []
+    sts = [course_status(s, u.id, c) for c in my_courses_for(u, s) if c]
+    unit_days = [(st["course"], un["name"], un["completed_at"]) for st in sts for un in st["units"] if un["completed_at"]]
+    first_unit = min(unit_days, key=lambda x: x[2], default=None)
+    out.append({"key": "first_unit", "title": "First unit finished", "at": first_unit[2] if first_unit else None, "detail": f"{first_unit[1]} · {first_unit[0]}" if first_unit else ""})
+    rec = s.query(CourseCompletion).filter_by(user_id=u.id).order_by(CourseCompletion.completed_at).first()
+    cname = s.get(Course, rec.course_id).name if rec and s.get(Course, rec.course_id) else ""
+    out.append({"key": "first_course", "title": "First course finished", "at": utc_iso(rec.completed_at) if rec else None, "detail": cname})
+    weeks = {}  # revising: reading a sheet, or an MCQ set on a topic already learned
+    learned = {tid: at for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == u.id, Progress.completed_at.isnot(None))}
+    stamps = [at for (at,) in s.query(StepLog.at).filter(StepLog.user_id == u.id, StepLog.kind == "revised")]
+    stamps += [at for at, tid in s.query(McqAttempt.submitted_at, McqAttempt.topic_id).filter(McqAttempt.user_id == u.id, McqAttempt.status == "submitted") if tid in learned and at and at > learned[tid]]
+    for at in sorted(stamps):
+        w = local_day(at).isocalendar()[:2]; weeks.setdefault(w, at)
+    fourth = sorted(weeks.values())[3] if len(weeks) >= 4 else None
+    out.append({"key": "steady", "title": "Steady revision", "at": utc_iso(fourth), "detail": f"Revised in {len(weeks)} different weeks" if weeks else ""})
+    best = None  # improvement: a later attempt of the same test 20 points or more above the first
+    for qid in {q for (q,) in s.query(Attempt.quiz_id).filter(Attempt.user_id == u.id)}:
+        rows = s.query(Attempt.percent, Attempt.at).filter(Attempt.user_id == u.id, Attempt.quiz_id == qid).order_by(Attempt.at, Attempt.id).all()
+        hit = next(((p, at) for p, at in rows[1:] if p >= rows[0][0] + 20), None)
+        if hit and (not best or hit[1] < best[2]): q = s.get(Quiz, qid); best = (q.title if q else "", f"{rows[0][0]}% → {hit[0]}%", hit[1])
+    out.append({"key": "improved", "title": "Big improvement", "at": utc_iso(best[2]) if best else None, "detail": f"{best[0]}: {best[1]}" if best else ""})
+    ev, _, _ = revision_events(s, u.id); hard = None  # a hard topic overcome: a check under 60%, later one at 80%+
+    for tid, e in ev.items():
+        low = None
+        for at, kind, v in sorted(e, key=lambda x: x[0]):
+            if kind != "check": continue
+            if v < 0.6 and low is None: low = at
+            elif v >= 0.8 and low is not None:
+                if not hard or at < hard[1]: t = s.get(Topic, tid); hard = (t.title if t else "", at)
+                break
+    out.append({"key": "hard_topic", "title": "Hard topic overcome", "at": utc_iso(hard[1]) if hard else None, "detail": hard[0] if hard else ""})
+    return out
+@app.get("/api/me/achievements")
+def my_achievements(u: User = Depends(me), s: Session = Depends(db)): return {"items": my_achievements_list(u, s)}
 # ---- revision schedule (S35): when to revise each topic of a teacher's course, worked out from the evidence every time it is asked for, never stored, so
 # ---- a corrected result recalculates by itself. The same rule as study courses (schedule_review, REVIEW_DAYS 1/3/7/14/30): a topic enters when it is
 # ---- marked learned (or at its first evidence) and is due a day later; a check (an MCQ set or a test, scored on that topic's questions) at 80%+ moves
