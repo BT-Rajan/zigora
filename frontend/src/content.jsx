@@ -18,7 +18,17 @@ export function fixTables(text){
     return '\n'+rows.map(r=>'|'+r.join('|')+'|').join('\n')+'\n'
   }).join('\n')
 }
+// Maths written the LaTeX way, \(...\) inline and \[...\] on its own, as quiz CSVs and other tools write it: Markdown would read the backslashes as
+// escapes and show plain "(x^2)", so turn it into the $...$ and $$...$$ the maths plugin reads. Code (fenced or `inline`) is left as it is.
+const CODE=/(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]+`)/
+export function texDelims(text){
+  const s=String(text||'');if(!s.includes('\\(')&&!s.includes('\\['))return s
+  return s.split(CODE).map((part,i)=>i%2?part:part
+    .replace(/^([ \t]*)\\\[((?:(?!\n[ \t]*\n)[\s\S])+?)\\\][ \t]*$/gm,(m,ind,x)=>ind+'$$\n'+ind+x.trim()+'\n'+ind+'$$')  // a line of its own: shown as a block
+    .replace(/(?<!\\)\\\[((?:(?!\n[ \t]*\n)[\s\S])+?)\\\]/g,(m,x)=>'$$'+x.trim()+'$$')
+    .replace(/(?<!\\)\\\(((?:(?!\n[ \t]*\n)[\s\S])+?)\\\)/g,(m,x)=>'$'+x.trim()+'$')).join('')
+}
 const url=u=>defaultUrlTransform(at(u))  // saved pictures (/api/uploads/...) under the site's folder
-export const Md=({children})=><Markdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]} urlTransform={url}>{fixTables(children)}</Markdown>
+export const Md=({children})=><Markdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]} urlTransform={url}>{fixTables(texDelims(children))}</Markdown>
 // a topic's content: Markdown, or HTML from an uploaded file (the server cleans it on every save and every read, so it carries no scripts or styles)
 export const Body=({text,format})=>format==='html'?<div className="htmlc" dangerouslySetInnerHTML={{__html:atHtml(text||'')}}/>:<Md>{text}</Md>

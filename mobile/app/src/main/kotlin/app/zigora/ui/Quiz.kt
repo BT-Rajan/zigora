@@ -67,14 +67,14 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
             qz.questions.forEachIndexed { i, x ->
                 Panel {
                     Text(tl("Question") + " " + (i + 1), fontWeight = FontWeight.SemiBold)
-                    Md(x.text); QImage(x.image)
+                    MathMd(x.text); QImage(x.image, tl("Picture for question {pos}", "pos" to i + 1))
                     x.options.forEachIndexed { k, o ->
                         val r = res?.results?.getOrNull(i)
                         val st = if (r != null) when { k == r.correct || (r.ok && k == r.chosen) -> OptState.Ok; k == r.chosen -> OptState.Bad; else -> OptState.Plain }
                                  else if (picks.getOrNull(i) == k) OptState.Picked else OptState.Plain
                         Option(k, o, x.option_images.getOrElse(k) { "" }, st, onClick = if (res == null) ({ picks[i] = k }) else null)
                     }
-                    res?.results?.getOrNull(i)?.explanation?.takeIf { it.isNotBlank() }?.let { Md(it) }
+                    res?.results?.getOrNull(i)?.explanation?.takeIf { it.isNotBlank() }?.let { MathMd(it) }
                 }
             }
             if (res == null && qz.questions.isNotEmpty()) {
