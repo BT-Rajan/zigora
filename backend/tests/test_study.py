@@ -183,28 +183,41 @@ def test_learning_is_measured_rewarded_and_reviewed(env, monkeypatch):
     me = env.c.get("/api/study/me", headers=env.stu).json()
     assert (me["xp"]["total"], me["xp"]["level"], me["reviews_due"], me["next"]["topic_id"], me["streak"]) == (0, 1, 0, t0, 0)
     q = env.c.post(f"/api/study/topics/{t0}/quizzes", headers=env.stu, json={"kind": "quiz"}).json()
-    r = env.c.post(f"/api/study/quizzes/{q['id']}/attempt", headers=env.stu, json={"answers": [0] * 10}).json()
-    # 100%: topic completed by the quiz (10), 10 right answers, passed (20) and mastered (30)
-    assert r["completed_now"] is True and r["stars"] == {"before": 0, "after": 3} and r["xp"]["gained"] == 70 and r["next_review"] == "Review it again tomorrow"
+    r = env.c.post(f"/api/study/quizzes/{q['id']}/attempt", headers=env.stu, json={"answers": [0] * 10, "request_id": "sit-1"}).json()
+    # 100%: topic completed by the quiz (10), 10 right answers and passed (20); mastered needs a second 90%+ check on another day (S32)
+    assert r["completed_now"] is True and r["stars"] == {"before": 0, "after": 2} and r["xp"]["gained"] == 40 and r["next_review"] == "Review it again tomorrow"
+    assert r["counts"] == {"correct": 10, "wrong": 0, "blank": 0}
+    again = env.c.post(f"/api/study/quizzes/{q['id']}/attempt", headers=env.stu, json={"answers": [0] * 10, "request_id": "sit-1"}).json()
+    assert again["already"] and again["attempt_id"] == r["attempt_id"] and again["xp"]["gained"] == 0  # a resend is the same attempt: no second set of points
+    with Session_() as s: assert s.query(main.StudyAttempt).count() == 1
     m = env.c.post(f"/api/study/topics/{tids[1]}/quizzes", headers=env.stu, json={"kind": "mcq"}).json()
     r2 = env.c.post(f"/api/study/quizzes/{m['id']}/attempt", headers=env.stu, json={"answers": [0, 0, 1, 1, 1]}).json()
     assert r2["completed_now"] is False and r2["stars"]["after"] == 0  # 40% in practice: not learnt yet, no stars
     d = env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json()
-    assert [t["stars"] for u in d["units"] for t in u["topics"]][:2] == [3, 0] and d["mastery"] == 25 and d["reviews_due"] == 0
-    me = env.c.get("/api/study/me", headers=env.stu).json(); assert me["xp"]["total"] == 72 and me["streak"] == 1 and me["active_today"] and me["next"]["topic_id"] == tids[1]
+    assert [t["stars"] for u in d["units"] for t in u["topics"]][:2] == [2, 0] and d["mastery"] == 17 and d["reviews_due"] == 0
+    me = env.c.get("/api/study/me", headers=env.stu).json(); assert me["xp"]["total"] == 42 and me["streak"] == 1 and me["active_today"] and me["next"]["topic_id"] == tids[1]
     assert env.c.post(f"/api/study/courses/{cid}/review", headers=env.stu).status_code == 400  # nothing due yet
     # a day later both come back: topic 1 after its first good result, topic 2 because practice went badly
     with Session_() as s:
         for p in s.query(main.StudyProgress).filter(main.StudyProgress.review_due.isnot(None)): p.review_due -= main.dt.timedelta(days=2)
+        for a in s.query(main.StudyAttempt): a.at -= main.dt.timedelta(days=2)  # those checks were two days ago,
+        s.get(main.Setting, "mastery_rule_since").v = (main.dt.datetime.utcnow() - main.dt.timedelta(days=30)).isoformat()  # well after the two-day rule began
         s.commit()
     assert env.c.get("/api/study/me", headers=env.stu).json()["reviews_due"] == 2
     calls = len(FakeAI.calls); rv = env.c.post(f"/api/study/courses/{cid}/review", headers=env.stu).json()
     assert len(FakeAI.calls) == calls and rv["kind"] == "review" and len(rv["questions"]) == 4 and {x["topic"] for x in rv["questions"]} == {"What hardness is", "Boiling"}
     assert env.c.post(f"/api/study/quizzes/{rv['id']}/check", headers=env.stu, json={"index": 0, "answer": 0}).json()["ok"] is True
-    rr = env.c.post(f"/api/study/quizzes/{rv['id']}/attempt", headers=env.stu, json={"answers": [0] * 4}).json(); assert rr["xp"]["gained"] == 4 + 5
+    rr = env.c.post(f"/api/study/quizzes/{rv['id']}/attempt", headers=env.stu, json={"answers": [0] * 4}).json()
+    assert rr["xp"]["gained"] == 4 + 5 + 30  # 4 right, a review finished, and topic 1 mastered: 90%+ again on another day
+    d = env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json(); assert [t["stars"] for u in d["units"] for t in u["topics"]][:2] == [3, 0]
     with Session_() as s:
         steps = {p.topic_id: (p.review_step, (p.review_due - main.dt.datetime.utcnow()).days) for p in s.query(main.StudyProgress).filter(main.StudyProgress.topic_id.in_(tids[:2]))}
     assert steps[t0][0] == 2 and steps[t0][1] in (2, 3) and steps[tids[1]][0] == 1  # good reviews push the next one out
+    q2 = env.c.post(f"/api/study/topics/{t0}/quizzes", headers=env.stu, json={"kind": "quiz"}).json()
+    xp = env.c.get("/api/study/me", headers=env.stu).json()["xp"]["total"]
+    env.c.post(f"/api/study/quizzes/{q2['id']}/attempt", headers=env.stu, json={"answers": [0] * 10})
+    env.c.post(f"/api/study/quizzes/{q2['id']}/attempt", headers=env.stu, json={"answers": [0] * 10})  # the same check retaken
+    assert env.c.get("/api/study/me", headers=env.stu).json()["xp"]["total"] == xp + 10  # its right answers count once, at its best
     assert main.level_of(99)["level"] == 1 and main.level_of(300)["level"] == 3
 
 def test_gaps_quizzes_on_staff_topics_fixing_topics_flags_and_ai_left(env, monkeypatch):
@@ -266,3 +279,12 @@ def test_a_failed_part_says_so_once_and_gives_the_request_back(env, monkeypatch)
     assert r.status_code == 502 and "slice by headings" in r.json()["detail"]
     assert env.c.get(f"/api/study/courses/{cid}/slicing", headers=env.stu).status_code == 409  # said once; after that, nothing is running and there is no outline
     with Session_() as s: assert s.query(main.StudyAICall).count() == used
+
+
+def test_a_topic_mastered_before_the_two_day_rule_keeps_its_stars(env, monkeypatch):  # S32: one 90%+ check was enough before; those topics stay mastered
+    cid, tids = ready(env, monkeypatch); t0 = tids[0]
+    q = env.c.post(f"/api/study/topics/{t0}/quizzes", headers=env.stu, json={"kind": "quiz"}).json()
+    assert env.c.post(f"/api/study/quizzes/{q['id']}/attempt", headers=env.stu, json={"answers": [0] * 10}).json()["stars"]["after"] == 2
+    with Session_() as s:  # the rule began after that check
+        s.get(main.Setting, "mastery_rule_since").v = (main.dt.datetime.utcnow() + main.dt.timedelta(minutes=5)).isoformat(); s.commit()
+    d = env.c.get(f"/api/study/courses/{cid}", headers=env.stu).json(); assert [t["stars"] for u in d["units"] for t in u["topics"]][0] == 3

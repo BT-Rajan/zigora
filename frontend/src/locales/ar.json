@@ -3003,5 +3003,11 @@
 "Saving your answers…": "جارٍ حفظ إجاباتك…",
 "Not saved yet: you seem to be offline. Your answers are kept on this device and will be saved when you are back online.": "لم تُحفظ بعد: يبدو أنك غير متصل. إجاباتك محفوظة على هذا الجهاز وستُحفظ عند عودة الاتصال.",
 "Your answers are saved as you go.": "تُحفظ إجاباتك أولًا بأول.",
-"This test was already submitted, in another tab or on another device. Go back and open it again to see your result.": "سُلِّم هذا الاختبار من قبل، في علامة تبويب أخرى أو على جهاز آخر. ارجع وافتحه مرة أخرى لترى نتيجتك."
+"This test was already submitted, in another tab or on another device. Go back and open it again to see your result.": "سُلِّم هذا الاختبار من قبل، في علامة تبويب أخرى أو على جهاز آخر. ارجع وافتحه مرة أخرى لترى نتيجتك.",
+"Attempt {n}": "المحاولة {n}",
+"Attempt {n} of {of}": "المحاولة {n} من {of}",
+"{n} right": "{n} صحيحة",
+"{n} wrong": "{n} خاطئة",
+"{n} left blank": "{n} بلا إجابة",
+"Where you stand now in these topics": "موقفك الآن في هذه الموضوعات"
 }

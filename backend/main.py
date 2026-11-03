@@ -961,6 +961,13 @@ def attempt_request_id(c):  # quiz_attempts.request_id, one per person and submi
     _addcol("quiz_attempts", "request_id", "VARCHAR(64) NULL")(c); ins = inspect(c)
     if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("quiz_attempts") + ins.get_unique_constraints("quiz_attempts")):
         c.execute(text("CREATE UNIQUE INDEX uq_quiz_attempts_user_request ON quiz_attempts (user_id, request_id)"))
+def study_attempts_once(c):  # study_attempts.request_id (one per person and submission), and when the two-day mastery rule began: a topic mastered
+    # before keeps its stars (only adds data)
+    _addcol("study_attempts", "request_id", "VARCHAR(64) NULL")(c); ins = inspect(c)
+    if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("study_attempts") + ins.get_unique_constraints("study_attempts")):
+        c.execute(text("CREATE UNIQUE INDEX uq_study_attempts_user_request ON study_attempts (user_id, request_id)"))
+    if not c.execute(text("SELECT 1 FROM settings WHERE k = 'mastery_rule_since'")).first():
+        c.execute(text("INSERT INTO settings (k, v) VALUES ('mastery_rule_since', :v)"), {"v": dt.datetime.utcnow().isoformat()})
 MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")), ("0002_subjects_semester_id", _addcol("subjects", "semester_id", "INT NULL")),
               ("0003_users_program_id", _addcol("users", "program_id", "INT NULL")), ("0004_users_semester", _addcol("users", "semester", "INT NULL")),
               ("0005_users_must_change", _addcol("users", "must_change", "TINYINT(1) NOT NULL DEFAULT 0")), ("0006_topics_published", _addcol("topics", "published", "TINYINT(1) NOT NULL DEFAULT 1")),
@@ -1001,7 +1008,7 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                   + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)]),
               ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL")), ("0043_attempt_question_copies", attempt_question_copies),
               ("0044_attempt_request_id", attempt_request_id),
-              ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__]))]
+              ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__])), ("0046_study_attempts_once", study_attempts_once)]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -2979,7 +2986,23 @@ def attempt_reply(at, q, u, cid, s, already=False):  # one attempt's result as i
     results = [{"chosen": d[2] if len(d) > 2 else None, "ok": bool(d[1]), **({"correct": x["correct"], "explanation": x["explanation"]} if key and x else {})} for d, x in zip(detail, snap)]
     areas = areas_for([(at.user_id, q, attempt_questions(at, {}), detail)], s, is_staff(u), at.user_id)
     return {"attempt_id": at.id, "score": at.score, "total": at.total, "percent": at.percent, "passed": at.percent >= q.pass_percent, "pass_percent": q.pass_percent, "reveal": key,
-            "results": results, "areas": areas, "summary": area_summary(areas), **({"already": True} if already else {})}
+            "results": results, "areas": areas, "summary": area_summary(areas), **attempt_extras(at, q, cid, s), **({"already": True} if already else {})}
+def attempt_extras(at, q, cid, s):  # right/wrong/blank, which attempt this is, and where the student now stands in the attempt's topics
+    detail = json.loads(at.detail) if at.detail else []
+    return {"counts": result_counts([d[2] if len(d) > 2 else None for d in detail], [d[1] for d in detail]) if detail else None,
+            "number": attempt_number(at, s), "standing": quiz_standing(at, q, cid, s)}
+def attempt_number(at, s):  # within an assignment of this quiz that limits attempts ("2 of 3"), or among all the person's attempts of it
+    q = s.query(func.count(Attempt.id)).filter(Attempt.user_id == at.user_id, Attempt.quiz_id == at.quiz_id, Attempt.id <= at.id)
+    a = assigned_to(s, at.user_id).filter(Assignment.kind == "quiz", Assignment.quiz_id == at.quiz_id, Assignment.attempts > 0, Assignment.created_at <= at.at) \
+        .order_by(Assignment.created_at.desc()).first()
+    if a: return {"n": q.filter(Attempt.at >= a.created_at).scalar() or 1, "of": a.attempts}
+    return {"n": q.scalar() or 1, "of": None}
+def quiz_standing(at, q, cid, s):  # the attempt's topics, as the student stands in them now: their latest attempt of each test of the course
+    tids = {x.topic_id for x in attempt_questions(at, {}).values() if getattr(x, "topic_id", None)}
+    if not tids or not cid: return []
+    qids = [x.id for x, _ in course_tests(cid, s)]
+    return [{k: a[k] for k in ("topic_id", "title", "correct", "total", "percent", "status")}
+            for a in areas_for(latest_batches(s, [at.user_id], qids), s, False, at.user_id) if a["topic_id"] in tids]
 
 # ---- MCQ tests from a CSV: parse and preview, then the questions are saved with PUT /api/quizzes/{id}/questions ----
 class QuizCsvIn(BaseModel): csv: str; unit_id: int = 0; course_id: int = 0
@@ -3142,7 +3165,7 @@ def attempt_detail(aid: int, u: User = Depends(me), s: Session = Depends(db)):
     areas = areas_for([(a.user_id, q, qm, detail)], s, is_staff(u), a.user_id) if detail else []
     p = s.get(User, a.user_id); co = s.get(Course, cid) if cid else None
     return {**attempt_row(a, q), "quiz_id": q.id, "quiz": q.title, "course": co.name if co else "", "user": p.name if p else "", "user_id": a.user_id, "pass_percent": q.pass_percent,
-            "reveal": key, "questions": items, "changed": gone, "no_detail": not detail, "areas": areas, "summary": area_summary(areas)}
+            "reveal": key, "questions": items, "changed": gone, "no_detail": not detail, "areas": areas, "summary": area_summary(areas), **attempt_extras(a, q, cid, s)}
 def course_tests(cid, s, published_only=True):  # course tests first, then unit quizzes in unit order
     units = s.query(Unit).filter_by(course_id=cid).order_by(*ORDER[Unit]).all(); un = {x.id: x for x in units}; rank = {x.id: i for i, x in enumerate(units)}
     qs = s.query(Quiz).filter(or_(and_(Quiz.unit_id.is_(None), Quiz.course_id == cid), Quiz.unit_id.in_(list(un) or [0])))
@@ -5629,6 +5652,8 @@ class StudyAttempt(Base):
     id = Column(Integer, primary_key=True); quiz_id = Column(Integer, ForeignKey("study_quizzes.id", ondelete="CASCADE"), index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     answers = Column(Text); score = Column(Integer); total = Column(Integer); percent = Column(Integer); at = Column(DateTime, default=dt.datetime.utcnow)
+    request_id = Column(String(64), nullable=True)  # the app's id for this submission: sent again (a double tap, a retry), it gets the same attempt back
+    __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_study_attempts_user_request"),)
 class StudyAICall(Base):  # one row per AI call for a student-built course on the shared key; used for the daily limit
     __tablename__ = "study_ai_calls"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -6279,34 +6304,57 @@ def study_check(qid: int, b: CheckIn, u: User = Depends(me), s: Session = Depend
     qs = json.loads(q.questions)
     if not 0 <= b.index < len(qs) or not 0 <= b.answer < len(qs[b.index]["options"]): raise HTTPException(400, "Out of range")
     x = qs[b.index]; return {"ok": b.answer == x["correct"], "correct": x["correct"], "explanation": x["explanation"]}
-class StudyAnswersIn(BaseModel): answers: list[int | None]
+class StudyAnswersIn(BaseModel): answers: list[int | None]; request_id: str = ""
 @app.post("/api/study/quizzes/{qid}/attempt")
 def study_attempt(qid: int, b: StudyAnswersIn, u: User = Depends(me), s: Session = Depends(db)):
-    q = study_quiz_or_404(qid, u, s); qs = json.loads(q.questions)
+    """Marks a check. The same request_id sent again (a double tap, a retry after a lost reply) gets the first result back: one attempt, so its
+    points and review schedule count once."""
+    q = study_quiz_or_404(qid, u, s); qs = json.loads(q.questions); uid = u.id
+    rid = re.sub(r"[^A-Za-z0-9_-]", "", b.request_id or "")[:64] or None
+    def again():
+        a = s.query(StudyAttempt).filter_by(user_id=uid, request_id=rid).first() if rid else None
+        if a and a.quiz_id != q.id: raise HTTPException(409, "That submission was for another check")
+        return a
+    if (a := again()): return study_reply(a, q, qs, u, s, already=True)
     if len(b.answers) != len(qs): raise HTTPException(400, "Answer every question or leave it blank")
     if any(a is not None and not 0 <= a < len(x["options"]) for a, x in zip(b.answers, qs)): raise HTTPException(400, "One of the answers is not a choice of its question")
-    results = [{"chosen": a, "ok": a == x["correct"], "correct": x["correct"], "explanation": x["explanation"], "concept": x.get("concept", "")} for a, x in zip(b.answers, qs)]
-    score = sum(r["ok"] for r in results); pct = round(100 * score / len(qs))
-    xp0, stars0 = study_xp(s, u.id), study_stars(s, u.id, [q.topic_id]).get(q.topic_id, 0) if q.topic_id else 0
-    a = StudyAttempt(quiz_id=q.id, user_id=u.id, answers=json.dumps(b.answers), score=score, total=len(qs), percent=pct); s.add(a)
-    per = defaultdict(lambda: [0, 0])  # topic -> [right, asked]: each topic in the set moves on its own review schedule
-    for x, r_ in zip(qs, results):
-        k = x.get("topic_id") or q.topic_id
-        if k: per[k][0] += r_["ok"]; per[k][1] += 1  # checks on staff-made topics have no review schedule of their own
+    oks = [a == x["correct"] for a, x in zip(b.answers, qs)]; score = sum(oks); pct = round(100 * score / len(qs))
+    xp0, stars0 = study_xp(s, uid), study_stars(s, uid, [q.topic_id]).get(q.topic_id, 0) if q.topic_id else 0
+    a = StudyAttempt(quiz_id=q.id, user_id=uid, answers=json.dumps(b.answers), score=score, total=len(qs), percent=pct, request_id=rid); s.add(a)
+    per = study_per_topic(q, qs, oks)
     now, completed_now = dt.datetime.utcnow(), False
     for tid, (ok, n) in per.items():
-        p = s.query(StudyProgress).filter_by(user_id=u.id, topic_id=tid).first() or StudyProgress(user_id=u.id, topic_id=tid); s.add(p)
+        p = s.query(StudyProgress).filter_by(user_id=uid, topic_id=tid).first() or StudyProgress(user_id=uid, topic_id=tid); s.add(p)
         schedule_review(p, ok / n, now)
         if q.kind != "review" and not p.completed_at and pct >= (QUIZ_PASS if q.kind == "quiz" else 80): p.completed_at = now; completed_now = True  # a good check marks the topic learnt
-    s.commit()
+    try: s.commit()
+    except IntegrityError:  # the same submission, saved by another request just now: theirs stands
+        s.rollback()
+        if (a := again()): return study_reply(a, q, qs, u, s, already=True)
+        raise
+    return study_reply(a, q, qs, u, s, xp0=xp0, stars0=stars0, completed_now=completed_now)
+def study_per_topic(q, qs, oks):  # topic -> [right, asked]: each topic in the set moves on its own review schedule
+    per = defaultdict(lambda: [0, 0])
+    for x, ok in zip(qs, oks):
+        k = x.get("topic_id") or q.topic_id
+        if k: per[k][0] += ok; per[k][1] += 1  # checks on staff-made topics have no review schedule of their own
+    return per
+def study_reply(a, q, qs, u, s, xp0=None, stars0=None, completed_now=False, already=False):  # a check's result from its saved attempt
+    ans = json.loads(a.answers or "[]")
+    results = [{"chosen": c, "ok": c == x["correct"], "correct": x["correct"], "explanation": x["explanation"], "concept": x.get("concept", "")} for c, x in zip(ans, qs)]
     xp1 = study_xp(s, u.id); stars1 = study_stars(s, u.id, [q.topic_id]).get(q.topic_id, 0) if q.topic_id else 0
+    xp0 = xp1 if xp0 is None else xp0; stars0 = stars1 if stars0 is None else stars0
     acc = {}
     for r in results:
         k = r["concept"] or "General"; g = acc.setdefault(k.lower(), {"title": k, "correct": 0, "total": 0}); g["correct"] += r["ok"]; g["total"] += 1
     areas = sorted([{**g, "percent": round(100 * g["correct"] / g["total"]), "status": area_status(round(100 * g["correct"] / g["total"]))} for g in acc.values()], key=lambda g: (g["percent"], g["title"]))
-    return {"attempt_id": a.id, "score": score, "total": len(qs), "percent": pct, "passed": pct >= QUIZ_PASS, "pass_percent": QUIZ_PASS, "results": results, "areas": areas, "summary": area_summary(areas),
+    return {"attempt_id": a.id, "score": a.score, "total": a.total, "percent": a.percent, "passed": a.percent >= QUIZ_PASS, "pass_percent": QUIZ_PASS, "results": results,
+            "counts": result_counts([r["chosen"] for r in results], [r["ok"] for r in results]), "areas": areas, "summary": area_summary(areas),
             "completed_now": completed_now, "stars": {"before": stars0, "after": stars1}, "xp": {"gained": xp1 - xp0, **level_of(xp1), "level_up": level_of(xp1)["level"] > level_of(xp0)["level"]},
-            "next_review": next_review_phrase(per, u, s)}
+            "next_review": next_review_phrase(study_per_topic(q, qs, [r["ok"] for r in results]), u, s), **({"already": True} if already else {})}
+def result_counts(chosen, oks):  # right, wrong and left blank, for any result
+    blank = sum(c is None for c in chosen); right = sum(bool(o) for o in oks)
+    return {"correct": right, "wrong": len(oks) - right - blank, "blank": blank}
 @app.get("/api/study/courses/{cid}/progress")
 def study_progress(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     """Your progress in a course: topics completed, and each topic's best quiz score sorted into strong, getting there and needs another round."""
@@ -6478,22 +6526,41 @@ def next_review_phrase(per, u, s):
     if not ds: return ""
     n = (local_day(min(ds)) - local_day(dt.datetime.utcnow())).days
     return "Review it again tomorrow" if n <= 1 else f"Review it again in {n} days"
-def study_stars(s, uid, tids):  # 1 star: completed; 2: passed a quiz (60%+); 3: mastered (90%+ in a quiz)
+MASTERY = 90  # a check at or above this, on two different days, makes a topic mastered
+def study_mastered(s, uid, tids=None):  # topics this student has mastered: 90%+ on checks (a quiz on the topic, or its part of a review) on two different days.
+    # A topic with a 90%+ quiz before the two-day rule began (setting mastery_rule_since) keeps its mastery
+    since = setting(s, "mastery_rule_since", ""); since = dt.datetime.fromisoformat(since) if since else None
+    days, early = defaultdict(set), set()
+    for tid, pct, at in s.query(StudyQuiz.topic_id, StudyAttempt.percent, StudyAttempt.at).join(StudyAttempt, StudyAttempt.quiz_id == StudyQuiz.id) \
+            .filter(StudyAttempt.user_id == uid, StudyQuiz.kind == "quiz", StudyQuiz.topic_id.isnot(None), StudyAttempt.percent >= MASTERY):
+        if tids is not None and tid not in tids: continue
+        days[tid].add(local_day(at))
+        if since and at < since: early.add(tid)
+    for qjson, ans, at in s.query(StudyQuiz.questions, StudyAttempt.answers, StudyAttempt.at).join(StudyAttempt, StudyAttempt.quiz_id == StudyQuiz.id) \
+            .filter(StudyAttempt.user_id == uid, StudyQuiz.kind == "review"):
+        per = defaultdict(lambda: [0, 0])
+        for x, c in zip(json.loads(qjson or "[]"), json.loads(ans or "[]")):
+            if x.get("topic_id"): per[x["topic_id"]][0] += c == x["correct"]; per[x["topic_id"]][1] += 1
+        for tid, (ok, n) in per.items():
+            if n and 100 * ok / n >= MASTERY and (tids is None or tid in tids): days[tid].add(local_day(at))
+    return {t for t, d in days.items() if len(d) >= 2} | early
+def study_stars(s, uid, tids):  # 1 star: completed; 2: passed a quiz (60%+); 3: mastered (90%+ on checks on two different days)
     tids = [t for t in tids if t]
     if not tids: return {}
     done = {t for (t,) in s.query(StudyProgress.topic_id).filter(StudyProgress.user_id == uid, StudyProgress.topic_id.in_(tids), StudyProgress.completed_at.isnot(None))}
     best = dict(s.query(StudyQuiz.topic_id, func.max(StudyAttempt.percent)).join(StudyAttempt, StudyAttempt.quiz_id == StudyQuiz.id)
                 .filter(StudyQuiz.topic_id.in_(tids), StudyQuiz.kind == "quiz", StudyAttempt.user_id == uid).group_by(StudyQuiz.topic_id).all())
-    return {t: 3 if (best.get(t) or 0) >= 90 else 2 if (best.get(t) or 0) >= QUIZ_PASS else 1 if t in done else 0 for t in tids}
+    mastered = study_mastered(s, uid, set(tids))
+    return {t: 3 if t in mastered else 2 if (best.get(t) or 0) >= QUIZ_PASS else 1 if t in done else 0 for t in tids}
 def study_xp(s, uid):
-    """Points worked out from what the student did, so they never drift: 10 per topic completed, 1 per right answer, 20 per topic with a passed quiz,
-    30 more per mastered topic, 5 per review finished."""
+    """Points worked out from what the student did, so they never drift: 10 per topic completed, 1 per right answer (each check counted once, at its
+    best), 20 per topic with a passed quiz, 30 more per mastered topic, 5 per review finished."""
     done = s.query(func.count(StudyProgress.id)).filter(StudyProgress.user_id == uid, StudyProgress.completed_at.isnot(None)).scalar() or 0
-    right = s.query(func.coalesce(func.sum(StudyAttempt.score), 0)).filter(StudyAttempt.user_id == uid).scalar() or 0
+    right = sum(m or 0 for (m,) in s.query(func.max(StudyAttempt.score)).filter(StudyAttempt.user_id == uid).group_by(StudyAttempt.quiz_id))
     best = [p for _, p in s.query(StudyQuiz.topic_id, func.max(StudyAttempt.percent)).join(StudyAttempt, StudyAttempt.quiz_id == StudyQuiz.id)
             .filter(StudyAttempt.user_id == uid, StudyQuiz.kind == "quiz").group_by(StudyQuiz.topic_id)]
     reviews = s.query(func.count(StudyAttempt.id)).join(StudyQuiz, StudyQuiz.id == StudyAttempt.quiz_id).filter(StudyAttempt.user_id == uid, StudyQuiz.kind == "review").scalar() or 0
-    return 10 * done + int(right) + 20 * sum(p >= QUIZ_PASS for p in best) + 30 * sum(p >= 90 for p in best) + 5 * reviews
+    return 10 * done + int(right) + 20 * sum(p >= QUIZ_PASS for p in best) + 30 * len(study_mastered(s, uid)) + 5 * reviews
 def level_of(xp):  # level n starts at 50·n·(n−1) points: 0, 100, 300, 600, 1000 …
     n = 1
     while 50 * (n + 1) * n <= xp: n += 1
@@ -7120,6 +7187,16 @@ def mcq_feedback(rows, titles):  # per topic: how this set went and whether to r
     for r in rows: by[r.topic_id][0] += bool(r.ok); by[r.topic_id][1] += 1
     out = [{"topic_id": tid, "topic": titles.get(tid, ""), "correct": c, "total": n, "percent": round(100 * c / n), "status": area_status(round(100 * c / n))} for tid, (c, n) in by.items()]
     return sorted(out, key=lambda a: (a["percent"], a["topic"]))
+def mcq_number(at, s):  # which set this is: within its assignment ("2 of 3"), or among all the person's sets
+    q = s.query(func.count(McqAttempt.id)).filter(McqAttempt.user_id == at.user_id, McqAttempt.status == "submitted", McqAttempt.id <= at.id)
+    if at.assignment_id:
+        a = s.get(Assignment, at.assignment_id)
+        return {"n": q.filter(McqAttempt.assignment_id == at.assignment_id).scalar() or 1, "of": (a.attempts or None) if a else None}
+    return {"n": q.scalar() or 1, "of": None}
+def mcq_standing(uid, tids, titles, s):  # each topic of a set: where the student stands now, over every MCQ they have submitted on it
+    st = mcq_topic_stats(s, uid, list(tids))
+    return sorted([{"topic_id": t, "title": titles.get(t, ""), "correct": v["correct"], "total": v["answered"], "percent": v["percent"], "status": area_status(v["percent"])}
+                   for t, v in st.items()], key=lambda a: (a["percent"], a["title"]))
 def mcq_view(at, s, resumed=False):
     """A set as its owner sees it. Before it is submitted it carries no correct answers and no explanations: those stay on the server."""
     rows = s.query(McqAttemptItem).filter_by(attempt_id=at.id).order_by(McqAttemptItem.pos).all(); done = at.status == "submitted"; qs = []
@@ -7134,7 +7211,8 @@ def mcq_view(at, s, resumed=False):
     if done:
         titles = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_({r.topic_id for r in rows} or {0}))}
         titles.update({r.topic_id: json.loads(r.snapshot).get("topic", "") for r in rows if r.topic_id not in titles})
-        out.update(score=at.score, percent=at.percent, feedback=mcq_feedback(rows, titles))
+        out.update(score=at.score, percent=at.percent, feedback=mcq_feedback(rows, titles), counts=result_counts([r.chosen for r in rows], [r.ok for r in rows]),
+                   number=mcq_number(at, s), standing=mcq_standing(at.user_id, {r.topic_id for r in rows if r.topic_id}, titles, s))
     return out
 def mcq_own(aid, u, s, read=False):  # a set is its owner's; admins, and faculty who own its course, may read a submitted one. Anyone else: not found
     at = s.get(McqAttempt, aid)

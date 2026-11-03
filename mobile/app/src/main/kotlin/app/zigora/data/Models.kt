@@ -104,14 +104,18 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class DraftReply(val saved: Boolean = false, val draft: QuizDraft? = null)
 @Serializable data class QResult(val chosen: Int? = null, val ok: Boolean = false, val correct: Int? = null, val explanation: String? = null)
 @Serializable data class AttemptOut(val score: Int, val total: Int, val percent: Int, val passed: Boolean, val pass_percent: Int, val reveal: Boolean = false, val results: List<QResult> = emptyList(),
-                                    val attempt_id: Int? = null, val summary: String = "", val areas: List<Area> = emptyList())
+                                    val attempt_id: Int? = null, val summary: String = "", val areas: List<Area> = emptyList(),
+                                    val counts: Counts? = null, val number: AttemptNo? = null, val standing: List<Area> = emptyList())
+/** a result's right, wrong and left blank; and which attempt it was ("2 of 3" within an assignment) */
+@Serializable data class Counts(val correct: Int = 0, val wrong: Int = 0, val blank: Int = 0)
+@Serializable data class AttemptNo(val n: Int = 1, val of: Int? = null)
 @Serializable data class AttemptRow(val id: Int, val at: String = "", val score: Int = 0, val total: Int = 0, val percent: Int = 0, val passed: Boolean = false)
 @Serializable data class Attempts(val quiz: String = "", val user: String = "", val items: List<AttemptRow> = emptyList())
 @Serializable data class AQuestion(val id: Int, val text: String, val options: List<String> = emptyList(), val image: String = "", val option_images: List<String> = emptyList(),
                                    val ok: Boolean = false, val chosen: Int? = null, val chosen_known: Boolean = false, val area: String = "", val correct: Int? = null, val explanation: String = "")
 @Serializable data class AttemptFull(val id: Int, val at: String = "", val score: Int = 0, val total: Int = 0, val percent: Int = 0, val quiz: String = "", val pass_percent: Int = 50,
                                      val reveal: Boolean = false, val questions: List<AQuestion> = emptyList(), val changed: Int = 0, val no_detail: Boolean = false,
-                                     val areas: List<Area> = emptyList(), val summary: String = "")
+                                     val areas: List<Area> = emptyList(), val summary: String = "", val counts: Counts? = null, val number: AttemptNo? = null)
 @Serializable data class ScoreTest(val id: Int, val title: String, val unit: String = "", val pass_percent: Int = 50, val attempts: Int = 0, val best: Int? = null, val latest: Int? = null,
                                    val passed: Boolean = false)
 @Serializable data class ScoreCourse(val course_id: Int, val course: String, val tests: List<ScoreTest> = emptyList(), val taken: Int = 0, val final: Int? = null, val passed: Int = 0)
@@ -150,7 +154,7 @@ import kotlinx.serialization.json.JsonObject
                               val study: String? = null, val course: String = "")
 @Serializable data class SResult(val chosen: Int? = null, val ok: Boolean = false, val correct: Int = 0, val explanation: String = "")
 @Serializable data class StudyAttemptOut(val score: Int, val total: Int, val percent: Int, val results: List<SResult> = emptyList(), val areas: List<Area> = emptyList(),
-                                         val summary: String = "", val next_review: String? = null)
+                                         val summary: String = "", val next_review: String? = null, val counts: Counts? = null)
 
 @Serializable data class ReadOut(val known: List<String> = emptyList())
 @Serializable data class SessionItem(val id: Int = 0, val kind: String = "", val src: String = "", val title: String = "", val done: Boolean = false, val course: String = "",
@@ -238,7 +242,8 @@ import kotlinx.serialization.json.JsonObject
                               val chosen: Int? = null, val correct: Int? = null, val explanation: String = "", val explanation_image: String = "", val ok: Boolean = false)
 @Serializable data class McqFeedback(val topic_id: Int? = null, val topic: String = "", val correct: Int = 0, val total: Int = 0, val percent: Int = 0, val status: String = "")
 @Serializable data class McqSet(val id: Int, val mode: String = "", val source: String = "", val status: String = "", val total: Int = 0, val resumed: Boolean = false, val score: Int? = null,
-                                val percent: Int? = null, val submitted_at: String? = null, val questions: List<McqQ> = emptyList(), val feedback: List<McqFeedback> = emptyList())
+                                val percent: Int? = null, val submitted_at: String? = null, val questions: List<McqQ> = emptyList(), val feedback: List<McqFeedback> = emptyList(),
+                                val counts: Counts? = null, val number: AttemptNo? = null, val standing: List<Area> = emptyList())
 @Serializable data class McqHistItem(val id: Int, val mode: String = "", val source: String = "", val status: String = "", val topic: String = "", val course: String = "", val score: Int? = null,
                                      val total: Int = 0, val percent: Int? = null, val at: String? = null)
 @Serializable data class McqHist(val total: Int = 0, val items: List<McqHistItem> = emptyList())

@@ -3003,5 +3003,11 @@
 "Saving your answers…": "உங்கள் பதில்கள் சேமிக்கப்படுகின்றன…",
 "Not saved yet: you seem to be offline. Your answers are kept on this device and will be saved when you are back online.": "இன்னும் சேமிக்கப்படவில்லை: நீங்கள் இணைப்பில் இல்லை போலத் தெரிகிறது. உங்கள் பதில்கள் இந்தச் சாதனத்தில் வைக்கப்பட்டுள்ளன; இணைப்பு திரும்பியதும் சேமிக்கப்படும்.",
 "Your answers are saved as you go.": "நீங்கள் பதிலளிக்கும்போதே உங்கள் பதில்கள் சேமிக்கப்படுகின்றன.",
-"This test was already submitted, in another tab or on another device. Go back and open it again to see your result.": "இந்தத் தேர்வு ஏற்கனவே சமர்ப்பிக்கப்பட்டது, வேறொரு தாவலில் அல்லது வேறொரு சாதனத்தில். உங்கள் முடிவைக் காண திரும்பிச் சென்று மீண்டும் திறக்கவும்."
+"This test was already submitted, in another tab or on another device. Go back and open it again to see your result.": "இந்தத் தேர்வு ஏற்கனவே சமர்ப்பிக்கப்பட்டது, வேறொரு தாவலில் அல்லது வேறொரு சாதனத்தில். உங்கள் முடிவைக் காண திரும்பிச் சென்று மீண்டும் திறக்கவும்.",
+"Attempt {n}": "முயற்சி {n}",
+"Attempt {n} of {of}": "முயற்சி {n} / {of}",
+"{n} right": "{n} சரி",
+"{n} wrong": "{n} தவறு",
+"{n} left blank": "{n} விடுபட்டவை",
+"Where you stand now in these topics": "இந்தத் தலைப்புகளில் நீங்கள் இப்போது இருக்கும் நிலை"
 }

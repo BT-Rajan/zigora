@@ -153,12 +153,14 @@ fun McqSetScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
             if (!open) {
                 Panel {
                     Text("${s.score} / ${s.total} · ${s.percent}%", style = MaterialTheme.typography.headlineSmall)
+                    ResultFacts(s.counts, s.number)
                     Quiet(if (s.source == "ai") tl("An AI set, written from your topics' notes.") else tl("A set from the question bank."))
                 }
                 if (s.feedback.isNotEmpty()) {
                     SectionTitle(tl("What you are good at and what to revisit"))
                     AreaList(s.feedback.map { Area(topic_id = it.topic_id, title = it.topic, percent = it.percent, status = it.status, correct = it.correct, total = it.total) }, onStudy = openTopic)
                 }
+                Standing(s.standing, openTopic)
             }
             s.questions.forEachIndexed { i, x ->
                 Panel {

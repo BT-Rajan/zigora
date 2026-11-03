@@ -330,6 +330,7 @@ fun AttemptScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
         Loaded(d) { v ->
             Panel {
                 Text("${v.score} / ${v.total} · ${v.percent}%", style = MaterialTheme.typography.headlineSmall)
+                ResultFacts(v.counts, v.number)
                 Quiet(tl("Pass mark {pass}%.", "pass" to v.pass_percent) + if (v.summary.isNotEmpty()) " " + v.summary else "")
             }
             if (v.areas.isNotEmpty()) { SectionTitle(tl("What you are good at and what to revisit")); AreaList(v.areas, onStudy = openTopic) }
