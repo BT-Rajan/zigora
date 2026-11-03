@@ -1376,26 +1376,51 @@ const QImg=({src,alt})=>src?<img className="qimg" src={at(src)} alt={alt} loadin
 const OptBody=({text,img,k})=><span className="obody">{img&&<img src={at(img)} alt={tl("Answer {k}",{k:LET[k]})}/>}{text?<Md>{text}</Md>:!img&&<span>—</span>}</span>
 const LET='ABCDEF'
 function QuizPlay({id,back,toast,role}){
-  const [q,setQ]=useState(null),[ans,setAns]=useState([]),[res,setRes]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(null),[view,setView]=useState(null)
-  const start=d=>{setQ(d);setAns(d.questions.map(()=>null));setRes(null)}
-  useEffect(()=>{api('/quizzes/'+id).then(start).catch(e=>{toast(e.message);back()})},[id])
+  const confirm=useConfirm()
+  const [q,setQ]=useState(null),[ans,setAns]=useState([]),[res,setRes]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(null),[view,setView]=useState(null),[sit,setSit]=useState('')
+  const [kept,setKept]=useState(''),[resumed,setResumed]=useState(false),cur=useRef({})  // kept: '', 'saving', 'saved' or 'offline'; cur: what a save needs, always the newest
+  const key='zg-quiz-draft:'+id,readLocal=()=>{try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}}
+  const writeLocal=v=>{try{v?localStorage.setItem(key,JSON.stringify(v)):localStorage.removeItem(key)}catch{/* private window: the server copy still holds */}}
+  // a sitting: its id (sit) goes with every save and every try of its submit, so a retry is never a second attempt. Answers come back from the server's
+  // copy, or this browser's if it is newer (saved while offline); fresh (Try again) starts a new sitting
+  const start=(d,fresh)=>{const srv=fresh?null:d.draft,loc=fresh?null:readLocal(),useLoc=loc&&(!srv||(loc.sit===srv.request_id&&loc.ver>srv.version))
+    const from=useLoc?{sit:loc.sit,ver:loc.ver,a:loc.answers}:srv?{sit:srv.request_id,ver:srv.version,a:srv.answers}:{sit:rid(),ver:0,a:{}}
+    const a=d.questions.map(x=>from.a[x.id]??null);if(fresh)writeLocal(null)
+    cur.current={sit:from.sit,ver:from.ver,ans:a,qs:d.questions,pending:!!useLoc};setQ(d);setAns(a);setRes(null);setSit(from.sit);setResumed(a.some(v=>v!==null));setKept(useLoc?'offline':'')
+    if(useLoc)push()}
+  const push=async()=>{const c=cur.current;if(!c.qs)return
+    const body={request_id:c.sit,version:c.ver,answers:Object.fromEntries(c.qs.map((x,i)=>[x.id,c.ans[i]]).filter(([,v])=>v!==null))};setKept('saving')
+    try{const r=await api(`/quizzes/${id}/draft`,{method:'PUT',body});if(cur.current!==c)return
+      if(!r.saved&&r.draft&&r.draft.version>c.ver){const a=c.qs.map(x=>r.draft.answers[x.id]??null);cur.current={...c,ver:r.draft.version,ans:a};setAns(a)}  // newer answers from another tab or device
+      c.pending=false;setKept('saved')}
+    catch(e){if(cur.current!==c)return;if(e.status===409){writeLocal(null);c.pending=false;setKept('submitted');return}  // that sitting was submitted elsewhere
+      c.pending=true;setKept('offline')}}
+  const pick=(i,k)=>{const c=cur.current,a=c.ans.map((v,n)=>n===i?k:v);cur.current={...c,ver:c.ver+1,ans:a,pending:true};setAns(a)
+    writeLocal({sit:c.sit,ver:c.ver+1,answers:Object.fromEntries(c.qs.map((x,n)=>[x.id,a[n]]).filter(([,v])=>v!==null))});push()}
+  useEffect(()=>{api('/quizzes/'+id).then(d=>start(d)).catch(e=>{toast(e.message);back()})},[id])
+  useEffect(()=>{const again=()=>{if(cur.current.pending)push()};addEventListener('online',again);const t=setInterval(again,15000);return()=>{removeEventListener('online',again);clearInterval(t)}},[id])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(view)return view.kind==='attempt'?<AttemptView id={view.id} back={()=>setView(null)} toast={toast} role={role}/>:view.kind==='mine'?<MyAttempts quiz={id} back={()=>setView(null)} toast={toast} role={role}/>:<QuizResults id={id} back={()=>setView(null)} toast={toast} role={role}/>
   if(!q)return <><Bar title={tl("Quiz")} back={back}/><div className="main"><Skeleton/></div></>
   const left=ans.filter(a=>a===null).length
-  const submit=async()=>{setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
+  const submit=async()=>{if(busy)return;const n=ans.length
+    if(!await confirm({title:tl("Submit your test?"),stats:[[n-left,tl("Answered")],[left,tl("Unanswered")],[n,tl("Total")]],ok:tl("Confirm submission"),cancel:tl("Go back"),
+      body:left===0?tl("You have answered every question."):left===1?tl("You have 1 unanswered question. It will be marked wrong."):tl("You have {n} unanswered questions. They will be marked wrong.",{n:left})}))return
+    setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans,request_id:sit}}));writeLocal(null);cur.current={};setKept('');window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
   return <><Bar title={q.title} sub={tl("{length} questions · pass mark {pass_percent}%{v}",{length:q.questions.length,pass_percent:q.pass_percent,v:q.kind==='course'?' · course test':''})} back={back}/><div className="main">
     {!res&&q.can_edit&&<button className="btn ghost" style={{marginTop:0}} onClick={()=>setView({kind:'results'})}><BarChart3 size={16}/>{" "}{tl("Results and scores")}</button>}
+    {!res&&resumed&&<p className="known" role="status" style={{marginTop:0}}>{tl("Welcome back: your answers so far are restored. This test is not submitted yet.")}</p>}
     {!res&&q.attempts>0&&<p className="known" style={{marginTop:0}}>{tl("You have tried this {n}. Best {best}% · latest {latest}%.",{n:pl(q.attempts,'time'),best:q.best,latest:q.latest})}{" "}<button className="tool" onClick={()=>setView({kind:'mine'})}>{tl("See your attempts")}</button></p>}
     {res&&<div className="qbox"><h2 style={{margin:0}}>{res.score} / {res.total} · {res.percent}%</h2><p className="known">{tl("Pass mark {pass}%.",{pass:res.pass_percent??q.pass_percent})}{res.summary&&' '+res.summary}</p>
-      <div className="two"><button className="btn" onClick={()=>setView({kind:'attempt',id:res.attempt_id})}>{tl("Review answers")}</button><button className="btn ghost" onClick={()=>start(q)}>{tl("Try again")}</button></div><button className="btn ghost" onClick={back}>{tl("Back")}</button></div>}
+      <div className="two"><button className="btn" onClick={()=>setView({kind:'attempt',id:res.attempt_id})}>{tl("Review answers")}</button><button className="btn ghost" onClick={()=>start(q,true)}>{tl("Try again")}</button></div><button className="btn ghost" onClick={back}>{tl("Back")}</button></div>}
     {res&&res.areas?.length>0&&<><h3 className="sec">{tl("What you are good at and what to revisit")}</h3><AreaList areas={res.areas} onStudy={setTopic}/></>}
-    {q.questions.map((x,i)=><div className="qbox" key={x.id}><b>{tl("Question")}{" "}{i+1}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {i}{v}",{i:i,v:1})}/>
+    {q.questions.map((x,i)=><div className="qbox" key={x.id}><b>{tl("Question")}{" "}{i+1}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {pos}",{pos:i+1})}/>
       {x.options.map((o,k)=>{const r=res&&res.results[i],cls=r?(k===r.correct||(r.ok&&k===r.chosen)?' ok':k===r.chosen?' bad':''):ans[i]===k?' sel':''
-        return <button key={k} className={'opt'+cls} disabled={!!res} aria-pressed={!res&&ans[i]===k} onClick={()=>setAns(ans.map((a,n)=>n===i?k:a))}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></button>})}
+        return <button key={k} className={'opt'+cls} disabled={!!res} aria-pressed={!res&&ans[i]===k} onClick={()=>pick(i,k)}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></button>})}
       {res&&res.results[i].explanation&&<div className="known"><Md>{res.results[i].explanation}</Md></div>}</div>)}
     {!res&&<button className="btn" disabled={busy} onClick={submit}>{busy?tl("Checking…"):tl("Submit answers")}</button>}
-    {!res&&left>0&&<p className="known">{left}{" "}{tl("unanswered. Blank answers count as wrong.")}</p>}</div></>}
+    {!res&&left>0&&<p className="known">{left}{" "}{tl("unanswered. Blank answers count as wrong.")}</p>}
+    {!res&&<p className="known" role="status" aria-live="polite">{kept==='submitted'?tl("This test was already submitted, in another tab or on another device. Go back and open it again to see your result."):kept==='saving'?tl("Saving your answers…"):kept==='offline'?tl("Not saved yet: you seem to be offline. Your answers are kept on this device and will be saved when you are back online."):tl("Your answers are saved as you go.")}</p>}</div></>}
 // one attempt, question by question
 function AttemptView({id,back,toast,role}){
   const [d,setD]=useState(null),[topic,setTopic]=useState(null)
@@ -1409,7 +1434,7 @@ function AttemptView({id,back,toast,role}){
     {d.no_detail&&<p className="known">{tl("This attempt was made before answers were kept question by question, so only the score is known.")}</p>}
     {d.changed>0&&<p className="known">{pl(d.changed,'question')}{" "}{tl("of this attempt {v} changed or removed since, so {v2} not shown.",{v:d.changed===1?'was':'were',v2:d.changed===1?'it is':'they are'})}</p>}
     {!d.reveal&&d.questions.length>0&&<p className="known">{tl("You see which answers were right ({right} of {length}). This quiz does not show the correct answers.",{right:right,length:d.questions.length})}</p>}
-    {d.questions.map((x,i)=><div className="qbox" key={x.id}><b>{tl("Question {v} ·",{v:i+1})}{" "}{x.ok?tl("Right"):tl("Wrong")}{x.area?' · '+x.area:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {i}{v}",{i:i,v:1})}/>
+    {d.questions.map((x,i)=><div className="qbox" key={x.id}><b>{tl("Question {v} ·",{v:i+1})}{" "}{x.ok?tl("Right"):tl("Wrong")}{x.area?' · '+x.area:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {pos}",{pos:i+1})}/>
       {x.options.map((o,k)=>{const mine=x.chosen_known&&x.chosen===k,key=d.reveal&&x.correct===k,cls=key||(mine&&x.ok)?' ok':mine?' bad':''
         return <div key={k} className={'opt'+cls}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/>{(mine||key)&&<span className="otag">{[mine&&(staff?tl('Their answer'):tl('Your answer')),key&&tl('Correct answer')].filter(Boolean).join(' · ')}</span>}</div>})}
       {x.chosen_known&&x.chosen==null&&<p className="known">{tl("Left blank.")}</p>}
@@ -1495,7 +1520,7 @@ function McqPlay({id,toast,back,openTopic}){  // one set: answers are saved as t
   return <><Bar title={d.mode==='topic'&&d.questions[0]?d.questions[0].topic:tl("MCQ practice")} sub={open?tl("{n} questions · answers are saved as you go",{n:d.total}):when(d.submitted_at)} back={back}/><div className="main">
     {!open&&<div className="qbox" style={{marginTop:0}}><h2 style={{margin:0}}>{d.score} / {d.total} · {d.percent}%</h2><p className="known" style={{marginBottom:0}}>{d.source==='ai'?tl("An AI set, written from your topics' notes."):tl("A set from the question bank.")}</p></div>}
     {!open&&areas.length>0&&<><h3 className="sec">{tl("What you are good at and what to revisit")}</h3><AreaList areas={areas} onStudy={openTopic}/></>}
-    {d.questions.map((x,i)=><div className="qbox" key={x.pos}><b>{tl("Question")}{" "}{i+1}{!open?' · '+(x.ok?tl("Right"):tl("Wrong")):''}{d.mode!=='topic'&&x.topic?' · '+x.topic:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {i}{v}",{i:i+1,v:''})}/>
+    {d.questions.map((x,i)=><div className="qbox" key={x.pos}><b>{tl("Question")}{" "}{i+1}{!open?' · '+(x.ok?tl("Right"):tl("Wrong")):''}{d.mode!=='topic'&&x.topic?' · '+x.topic:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tl("Picture for question {pos}",{pos:i+1})}/>
       {x.options.map((o,k)=>{const cls=open?(x.chosen===k?' sel':''):k===x.correct?' ok':k===x.chosen?' bad':''
         return open?<button key={k} className={'opt'+cls} aria-pressed={x.chosen===k} onClick={()=>pick(i,k)}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></button>
           :<div key={k} className={'opt'+cls}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/>{(k===x.chosen||k===x.correct)&&<span className="otag">{[k===x.chosen&&tl('Your answer'),k===x.correct&&tl('Correct answer')].filter(Boolean).join(' · ')}</span>}</div>})}
@@ -1598,7 +1623,7 @@ function QuizEditor({id,unit_id,course_id,unitTopics,csvFirst,done,toast}){
   const [csv,setCsv]=useState(null),[bank,setBank]=useState(false),[btags,setBtags]=useState(''),[stage,setStage]=useState(csvFirst&&!id?'csv':'edit'),[cid,setCid]=useState(course_id)
   const course=!unit_id
   useEffect(()=>{if(id)api('/quizzes/'+id).then(d=>{setM({title:d.title,pass_percent:d.pass_percent,published:d.published,reveal:d.reveal});setCid(d.course_id);setTopics(d.topics||[])
-    setQs(d.questions.length?d.questions.map(x=>({text:x.text,options:x.options,option_images:x.options.map((_,k)=>x.option_images[k]||''),correct:x.correct,explanation:x.explanation||'',topic_id:x.topic_id??null,area:x.area||'',image:x.image||'',need:{image:'',options:[]}})):[blankQ()])}).catch(e=>{toast(e.message);done()})
+    setQs(d.questions.length?d.questions.map(x=>({id:x.id,text:x.text,options:x.options,option_images:x.options.map((_,k)=>x.option_images[k]||''),correct:x.correct,explanation:x.explanation||'',topic_id:x.topic_id??null,area:x.area||'',image:x.image||'',need:{image:'',options:[]}})):[blankQ()])}).catch(e=>{toast(e.message);done()})
     else if(course&&course_id)api('/courses/'+course_id+'/topics').then(setTopics).catch(()=>{})},[id])
   const upd=(i,p)=>setQs(cur=>cur.map((x,n)=>n===i?{...x,...p}:x))
   const setOpt=(i,k,v)=>upd(i,{options:qs[i].options.map((o,n)=>n===k?v:o)})
@@ -1606,7 +1631,7 @@ function QuizEditor({id,unit_id,course_id,unitTopics,csvFirst,done,toast}){
   const setQImg=(i,v,skip)=>setQs(cur=>cur.map((x,n)=>n!==i?x:{...x,image:v,need:skip||v?{...x.need,image:''}:x.need}))
   const delOpt=(i,k)=>{const x=qs[i];upd(i,{options:x.options.filter((_,n)=>n!==k),option_images:x.option_images.filter((_,n)=>n!==k),need:{...x.need,options:x.need.options.filter((_,n)=>n!==k)},correct:x.correct===k?0:x.correct>k?x.correct-1:x.correct})}
   const todo=missing(qs)
-  const payload=()=>qs.filter(x=>x.text.trim()||x.image).map(x=>({text:x.text,options:x.options,option_images:x.option_images,correct:x.correct,explanation:x.explanation,topic_id:x.topic_id,area:x.area,image:x.image}))
+  const payload=()=>qs.filter(x=>x.text.trim()||x.image).map(x=>({id:x.id??null,text:x.text,options:x.options,option_images:x.option_images,correct:x.correct,explanation:x.explanation,topic_id:x.topic_id,area:x.area,image:x.image}))
   const save=async()=>{setBusy(true);try{const body={...(course?{course_id:cid}:{unit_id}),...m,pass_percent:+m.pass_percent},qid=id||(await api('/quizzes',{method:'POST',body})).id
     if(id)await api('/quizzes/'+id,{method:'PUT',body})
     await api(`/quizzes/${qid}/questions`,{method:'PUT',body:{questions:payload()}});toast(course?tl("Test saved"):tl("Quiz saved"));done()}catch(e){toast(e.message)}setBusy(false)}
@@ -2490,8 +2515,10 @@ function Sheet({close,children,page}){
   if(slot){const all=flat(children),i=all.findIndex(c=>isValidElement(c)&&c.type==='h3'),title=i<0?'':all[i].props.children  // the form's heading becomes the page title
     return createPortal(<><Bar title={title} back={()=>cb.current()}/><div className="main" ref={box} tabIndex={-1} role="region" aria-label={typeof title==='string'?title:undefined}>{all.filter((_,j)=>j!==i)}</div></>,slot)}
   return <div className="scrim" onClick={()=>cb.current()}><div className="sheet" ref={box} tabIndex={-1} role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>{children}</div></div>}
-const Confirm=({o,answer})=><Sheet close={()=>answer(false)}><h3>{o.title}</h3>{o.body&&<p className="known">{o.body}</p>}
-  <button className={'btn'+(o.danger?' danger':'')} onClick={()=>answer(true)}>{o.ok||tl("Confirm")}</button><button className="btn ghost" onClick={()=>answer(false)}>{tl("Cancel")}</button></Sheet>
+const Confirm=({o,answer})=><Sheet close={()=>answer(false)}><h3>{o.title}</h3>
+  {o.stats&&<div className="stats" style={{gridTemplateColumns:`repeat(${o.stats.length},1fr)`,margin:'8px 0'}}>{o.stats.map(([n,l])=><div className="stat" key={l} style={{overflowWrap:'anywhere',minWidth:0}}><b>{n}</b>{l}</div>)}</div>}
+  {o.body&&<p className="known">{o.body}</p>}
+  <button className={'btn'+(o.danger?' danger':'')} onClick={()=>answer(true)}>{o.ok||tl("Confirm")}</button><button className="btn ghost" onClick={()=>answer(false)}>{o.cancel||tl("Cancel")}</button></Sheet>
 const useConfirm=()=>useContext(Ctx).confirm
 const Toast=({msg})=>msg?<div className="toast" role="status">{msg}</div>:null
 const Skeleton=({rows=3})=><div aria-busy="true" aria-label={tl("Loading")}>{Array.from({length:rows},(_,i)=><div className="sk" key={i}/>)}</div>

@@ -237,14 +237,14 @@ fun rememberToast(): (String) -> Unit {
 }
 
 /** "are you sure?" before something that can't be undone, as the web asks */
-class Ask(val title: String, val body: String, val ok: String, val danger: Boolean = false, val yes: () -> Unit)
+class Ask(val title: String, val body: String, val ok: String, val danger: Boolean = false, val cancel: String? = null, val yes: () -> Unit)
 
 @Composable
 fun AskDialog(ask: Ask?, close: () -> Unit) {
     if (ask == null) return
     androidx.compose.material3.AlertDialog(onDismissRequest = close, title = { Text(ask.title) }, text = { Text(ask.body) },
         confirmButton = { TextButton(onClick = { close(); ask.yes() }) { Text(ask.ok, color = if (ask.danger) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified) } },
-        dismissButton = { TextButton(onClick = close) { Text(tl("Cancel")) } })
+        dismissButton = { TextButton(onClick = close) { Text(ask.cancel ?: tl("Cancel")) } })
 }
 
 /** navigation after a request: always on the main thread, wherever the request finished */

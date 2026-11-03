@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from guardrails import GUARDRAILS, GUARD_VERSION, SUPPORT, checked, crisis, fence
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime, Boolean, UniqueConstraint, Date, func, or_, and_, inspect, text, case
 from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.dialects import mysql as _mysql_dialect
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, object_session
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -214,6 +215,16 @@ class Attempt(Base):
     id = Column(Integer, primary_key=True); quiz_id = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), index=True); user_id = Column(Integer, ForeignKey("users.id"), index=True)
     score = Column(Integer); total = Column(Integer); percent = Column(Integer); at = Column(DateTime, default=dt.datetime.utcnow)
     detail = Column(Text, nullable=True)  # JSON [[question_id, 1 or 0, chosen index or null], ...] (older rows have no chosen index) so strengths and weak areas can be worked out; null on attempts made before this existed
+    snapshot = Column(Text().with_variant(_mysql_dialect.MEDIUMTEXT(), "mysql", "mariadb"), nullable=True)
+    request_id = Column(String(64), nullable=True)  # the app's id for this submission: sent again (a double tap, a retry after a lost reply), it gets the same attempt back
+    __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_quiz_attempts_user_request"),)  # JSON list, in detail's order: each question as the student saw it (null where it was gone before copies were kept)
+class QuizDraft(Base):  # a sitting of a quiz not yet submitted: the answers so far, so a refresh, Back or a closed app carries on. Never an attempt; gone on submit
+    __tablename__ = "quiz_drafts"
+    id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    quiz_id = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), index=True)
+    request_id = Column(String(64)); answers = Column(Text, default="{}")  # the sitting's id (sent with its submit) and {question id: chosen index}
+    version = Column(Integer, default=0); updated_at = Column(DateTime, default=dt.datetime.utcnow)  # version: the app's save counter, so a save that arrives late can't undo a newer one
+    __table_args__ = (UniqueConstraint("user_id", "quiz_id", name="uq_quiz_drafts_user_quiz"),)
 class Progress(Base):  # one row per student and topic, made when they first open it. No row = not started; completed_at null = in progress
     __tablename__ = "progress"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id")); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"))
@@ -937,6 +948,19 @@ def guardian_columns(c):  # sign-in names for children, a guardian's relation, a
     for col, typ in (("username", "VARCHAR(40) NULL"), ("relation", "VARCHAR(10) NULL"), ("level", "VARCHAR(8) NULL")): _addcol("users", col, typ)(c)
     if not any(set(ix.get("column_names") or []) == {"username"} for ix in inspect(c).get_indexes("users") + [dict(column_names=u["column_names"]) for u in inspect(c).get_unique_constraints("users")]):
         c.execute(text("CREATE UNIQUE INDEX ux_users_username ON users (username)"))
+def attempt_question_copies(c):  # quiz_attempts.snapshot, filled for past attempts from the questions that are still there (a question still
+    # carrying its id was never saved again since, so it is what the student saw); a question already gone stays gone. Only adds data; one quiz at a time
+    _addcol("quiz_attempts", "snapshot", "MEDIUMTEXT NULL" if c.dialect.name in ("mysql", "mariadb") else "TEXT NULL")(c)
+    for (qid,) in c.execute(text("SELECT DISTINCT quiz_id FROM quiz_attempts WHERE snapshot IS NULL AND detail IS NOT NULL")).all():
+        qs = {r.id: question_snap(r) for r in c.execute(text("SELECT id, text, options, correct, explanation, topic_id, area, image, option_images FROM quiz_questions WHERE quiz_id = :q"), {"q": qid})}
+        for aid, detail in c.execute(text("SELECT id, detail FROM quiz_attempts WHERE quiz_id = :q AND snapshot IS NULL AND detail IS NOT NULL"), {"q": qid}).all():
+            try: ids = [d[0] for d in json.loads(detail)]
+            except (ValueError, TypeError, IndexError, KeyError): continue  # unreadable: left as it is
+            c.execute(text("UPDATE quiz_attempts SET snapshot = :v WHERE id = :i AND snapshot IS NULL"), {"v": json.dumps([qs.get(i) for i in ids], ensure_ascii=False), "i": aid})
+def attempt_request_id(c):  # quiz_attempts.request_id, one per person and submission; past attempts have none (any number may)
+    _addcol("quiz_attempts", "request_id", "VARCHAR(64) NULL")(c); ins = inspect(c)
+    if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("quiz_attempts") + ins.get_unique_constraints("quiz_attempts")):
+        c.execute(text("CREATE UNIQUE INDEX uq_quiz_attempts_user_request ON quiz_attempts (user_id, request_id)"))
 MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")), ("0002_subjects_semester_id", _addcol("subjects", "semester_id", "INT NULL")),
               ("0003_users_program_id", _addcol("users", "program_id", "INT NULL")), ("0004_users_semester", _addcol("users", "semester", "INT NULL")),
               ("0005_users_must_change", _addcol("users", "must_change", "TINYINT(1) NOT NULL DEFAULT 0")), ("0006_topics_published", _addcol("topics", "published", "TINYINT(1) NOT NULL DEFAULT 1")),
@@ -975,7 +999,9 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                   ("start_told", "DATETIME NULL"), ("end_told", "DATETIME NULL"), ("paused_at", "DATETIME NULL"))]
                   + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))]
                   + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)]),
-              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL"))]
+              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL")), ("0043_attempt_question_copies", attempt_question_copies),
+              ("0044_attempt_request_id", attempt_request_id),
+              ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__]))]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -2623,10 +2649,10 @@ MAX_QUESTIONS = 200  # a course test; a unit quiz stays short
 def max_questions(q): return 100 if q.unit_id else MAX_QUESTIONS
 class QuizIn(BaseModel): unit_id: int = 0; course_id: int = 0; title: str; pass_percent: int = 50; published: bool = False; reveal: bool = False  # unit_id for a unit quiz, else course_id for a course test
 class QuestionIn(BaseModel):
-    text: str; options: list[str]; correct: int; explanation: str = ""; topic_id: int | None = None
+    text: str; options: list[str]; correct: int; explanation: str = ""; topic_id: int | None = None; id: int | None = None  # id: the saved question this edits
     area: str = ""; image: str = ""; option_images: list[str] = []  # images are urls from POST /api/uploads
 class QuestionsIn(BaseModel): questions: list[QuestionIn]
-class AttemptIn(BaseModel): answers: list[int | None]
+class AttemptIn(BaseModel): answers: list[int | None]; request_id: str = ""  # request_id: made by the app once per sitting of the test, kept on retries
 def quiz_or_404(qid, s):
     q = s.get(Quiz, qid)
     if not q: raise HTTPException(404, "Quiz not found")
@@ -2663,7 +2689,7 @@ def latest_batches(s, user_ids, quiz_ids):
     atts = s.query(Attempt).filter(Attempt.id.in_(ids or [0])).all(); quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}
     qm = defaultdict(dict)
     for x in s.query(Question).filter(Question.quiz_id.in_(set(quizzes) or {0})): qm[x.quiz_id][x.id] = x
-    return [(a.user_id, quizzes[a.quiz_id], qm[a.quiz_id], json.loads(a.detail)) for a in atts if a.quiz_id in quizzes]
+    return [(a.user_id, quizzes[a.quiz_id], attempt_questions(a, qm[a.quiz_id]), json.loads(a.detail)) for a in atts if a.quiz_id in quizzes]
 def area_context(batches, s):
     tids = {x.topic_id for _, _, qm, _ in batches for x in qm.values() if x.topic_id}
     topics = {t.id: t for t in s.query(Topic).filter(Topic.id.in_(tids or {0}))}
@@ -2772,8 +2798,15 @@ def set_questions(qid: int, b: QuestionsIn, u: User = Depends(author), s: Sessio
     q = quiz_or_404(qid, s); need_edit(u, quiz_course_id(q, s), s)
     if len(b.questions) > max_questions(q): raise HTTPException(400, f"A quiz can have up to {max_questions(q)} questions")
     rows = [clean_question(q, x, i, s) for i, x in enumerate(b.questions, 1)]
-    s.query(Question).filter_by(quiz_id=qid).delete()  # past attempts keep their scores; their per-question review covers the questions that still match
-    for i, v in enumerate(rows): s.add(Question(quiz_id=qid, pos=i, **v))
+    have = {x.id: x for x in s.query(Question).filter_by(quiz_id=qid)}; kept = set()
+    for i, (x, v) in enumerate(zip(b.questions, rows)):
+        old = have.get(x.id) if x.id not in kept else None
+        if old is not None and json.loads(old.options) == json.loads(v["options"]) and old.correct == v["correct"]:  # the same question, reworded or re-pictured: it keeps its id, so its class figures carry on
+            for k, val in v.items(): setattr(old, k, val)
+            old.pos = i; kept.add(old.id)
+        else: s.add(Question(quiz_id=qid, pos=i, **v))  # new, or its choices or answer changed: a new question, so answers given to the old choices aren't counted against it
+    for qid_, old in have.items():
+        if qid_ not in kept: s.delete(old)  # past attempts keep their own copy of it (Attempt.snapshot)
     s.commit(); return {"ok": True, "count": len(rows)}
 # ---- shared question bank ----
 def q_sig(text, opts, correct): return hashlib.sha1(json.dumps([text.strip().lower(), [o.strip().lower() for o in opts], correct]).encode()).hexdigest()
@@ -2861,7 +2894,13 @@ def get_quiz(qid: int, u: User = Depends(me), s: Session = Depends(db)):
             "course": co.name if co else "", "kind": "unit" if q.unit_id else "course", "can_edit": staff_view,
             "questions": [{**question_view(x), **({"correct": x.correct, "explanation": x.explanation, "topic_id": x.topic_id, "area": x.area or ""} if staff_view else {})} for x in qs],
             **({"topics": quiz_topics(q, s)} if staff_view else {}),
-            "attempts": len(mine), "best": max([a.percent for a in mine], default=None), "latest": mine[-1].percent if mine else None, "latest_id": mine[-1].id if mine else None}
+            "attempts": len(mine), "best": max([a.percent for a in mine], default=None), "latest": mine[-1].percent if mine else None, "latest_id": mine[-1].id if mine else None,
+            "draft": draft_view(s.query(QuizDraft).filter_by(user_id=u.id, quiz_id=qid).first())}
+def question_snap(x):  # a question as an attempt keeps it: everything needed to review it later, whatever happens to the quiz
+    return {**question_view(x), "correct": x.correct, "explanation": x.explanation or "", "topic_id": x.topic_id, "area": x.area or ""}
+def attempt_questions(a, current):  # {question id: question} for one attempt: its own copies where it has them, else the quiz's questions as they are now
+    if not a.snapshot: return current
+    return {x["id"]: SimpleNamespace(**{**x, "options": json.dumps(x["options"]), "option_images": json.dumps(x["option_images"]) if x["option_images"] else None}) for x in json.loads(a.snapshot) if x}
 def question_view(x):  # what anyone taking the quiz may see of a question
     return {"id": x.id, "text": x.text, "options": json.loads(x.options), "image": x.image or "", "option_images": [v or "" for v in json.loads(x.option_images)] if x.option_images else []}
 def quiz_topics(q, s):  # the topics a question of this quiz may be tied to
@@ -2877,23 +2916,70 @@ def course_topics(cid, s):
     return [{"id": t.id, "title": t.title, "unit": un.name} for un in units for t in by[un.id]]
 @app.post("/api/quizzes/{qid}/attempt")
 def attempt_quiz(qid: int, b: AttemptIn, u: User = Depends(me), s: Session = Depends(db)):
-    q = quiz_or_404(qid, s); cid = quiz_course_id(q, s)
-    if not q.published and not (u.role == "admin" or can_edit(u, cid, s)): raise HTTPException(404, "Quiz not found")
-    check_course_access(u, cid, s)
-    if not can_edit(u, cid, s): quiz_unit_open(q, s)
-    if u.role == "student": quiz_attempt_allowed(s, u, qid)
+    """Marks one sitting of a quiz on the server. The same request_id sent again (a double tap, a retry after a lost reply) gets the same attempt and
+    result back instead of a new one; a person's submissions are taken one at a time, so two at once can't both pass the attempt limit."""
+    q, cid = quiz_to_take(qid, u, s)
+    rid = re.sub(r"[^A-Za-z0-9_-]", "", b.request_id or "")[:64] or None; uid, role = u.id, u.role
+    def again():  # this submission, if it was already taken
+        at = s.query(Attempt).filter_by(user_id=uid, request_id=rid).first() if rid else None
+        if at and at.quiz_id != qid: raise HTTPException(409, "That submission was for another quiz")
+        return at
+    if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+    s.rollback()  # end the reads so far, so what follows sees every attempt saved before this one
+    s.execute(text("UPDATE users SET id = id WHERE id = :u"), {"u": uid})  # this person's lock until the commit: another submission of theirs waits here
+    if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+    if role == "student": quiz_attempt_allowed(s, u, qid)
     qs = s.query(Question).filter_by(quiz_id=qid).order_by(Question.pos, Question.id).all()
     if not qs: raise HTTPException(400, "This quiz has no questions yet")
     if len(b.answers) != len(qs): raise HTTPException(400, "Answer every question or leave it blank")
     if any(a is not None and not 0 <= a < len(json.loads(x.options)) for a, x in zip(b.answers, qs)): raise HTTPException(400, "One of the answers is not a choice of its question")
+    oks = [a == x.correct for a, x in zip(b.answers, qs)]
+    score = sum(oks); pct = round(100 * score / len(qs))
+    detail = [[x.id, int(ok), a] for x, ok, a in zip(qs, oks, b.answers)]
+    at = Attempt(quiz_id=qid, user_id=uid, score=score, total=len(qs), percent=pct, detail=json.dumps(detail), request_id=rid,
+                 snapshot=json.dumps([question_snap(x) for x in qs], ensure_ascii=False)); s.add(at)
+    s.query(QuizDraft).filter_by(user_id=uid, quiz_id=qid).delete(synchronize_session=False)  # the sitting is over: its saved answers go with the same commit
+    try: s.commit()
+    except IntegrityError:  # the same submission, saved by another request just now: theirs stands
+        s.rollback()
+        if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+        raise
+    return attempt_reply(at, q, u, cid, s)
+def quiz_to_take(qid, u, s):  # the quiz, if this person may sit it now
+    q = quiz_or_404(qid, s); cid = quiz_course_id(q, s)
+    if not q.published and not (u.role == "admin" or can_edit(u, cid, s)): raise HTTPException(404, "Quiz not found")
+    check_course_access(u, cid, s)
+    if not can_edit(u, cid, s): quiz_unit_open(q, s)
+    return q, cid
+def draft_view(d): return {"request_id": d.request_id, "answers": json.loads(d.answers or "{}"), "version": d.version, "saved_at": utc_iso(d.updated_at)} if d else None
+class DraftIn(BaseModel): request_id: str; answers: dict[int, int | None] = {}; version: int  # every answer of the sitting so far, by question id
+@app.put("/api/quizzes/{qid}/draft")
+def save_draft(qid: int, b: DraftIn, u: User = Depends(me), s: Session = Depends(db)):
+    """Keeps the answers of a sitting not yet submitted. Only a newer save (a higher version) replaces what is kept, so a late or retried save never
+    undoes a newer one; the reply is what is kept now. A sitting already submitted can't be saved again."""
+    q, cid = quiz_to_take(qid, u, s); uid = u.id
+    rid = re.sub(r"[^A-Za-z0-9_-]", "", b.request_id or "")[:64]
+    if not rid: raise HTTPException(400, "Missing the sitting's id")
+    if s.query(Attempt.id).filter_by(user_id=uid, request_id=rid).first(): raise HTTPException(409, "This sitting was already submitted")
+    opts = {x.id: len(json.loads(x.options)) for x in s.query(Question).filter_by(quiz_id=qid)}
+    if len(b.answers) > len(opts) or any(k not in opts or (v is not None and not 0 <= v < opts[k]) for k, v in b.answers.items()):
+        raise HTTPException(400, "One of the answers is not a choice of this quiz")
+    val = json.dumps({str(k): v for k, v in b.answers.items() if v is not None}); now = dt.datetime.utcnow(); saved = False
+    for _ in range(2):
+        saved = s.query(QuizDraft).filter(QuizDraft.user_id == uid, QuizDraft.quiz_id == qid, QuizDraft.version < b.version).update(
+            {QuizDraft.answers: val, QuizDraft.version: b.version, QuizDraft.request_id: rid, QuizDraft.updated_at: now}, synchronize_session=False) == 1
+        if saved or s.query(QuizDraft.id).filter_by(user_id=uid, quiz_id=qid).first(): break  # saved, or a newer save is already kept
+        try: s.add(QuizDraft(user_id=uid, quiz_id=qid, request_id=rid, answers=val, version=b.version, updated_at=now)); s.commit(); saved = True; break
+        except IntegrityError: s.rollback()  # another save made it just now: compare with that one
+    s.commit(); s.expire_all()
+    return {"saved": saved, "draft": draft_view(s.query(QuizDraft).filter_by(user_id=uid, quiz_id=qid).first())}
+def attempt_reply(at, q, u, cid, s, already=False):  # one attempt's result as it was marked, from its own copy of the questions
     key = u.role == "admin" or can_edit(u, cid, s) or bool(q.reveal)  # the answer key goes back only to people who can edit the quiz, or to everyone when the quiz reveals it
-    results = [{"chosen": a, "ok": a == x.correct, **({"correct": x.correct, "explanation": x.explanation} if key else {})} for a, x in zip(b.answers, qs)]
-    score = sum(r["ok"] for r in results); pct = round(100 * score / len(qs))
-    detail = [[x.id, int(r["ok"]), a] for x, r, a in zip(qs, results, b.answers)]
-    at = Attempt(quiz_id=qid, user_id=u.id, score=score, total=len(qs), percent=pct, detail=json.dumps(detail)); s.add(at); s.commit()
-    areas = areas_for([(u.id, q, {x.id: x for x in qs}, detail)], s, is_staff(u), u.id)
-    return {"attempt_id": at.id, "score": score, "total": len(qs), "percent": pct, "passed": pct >= q.pass_percent, "pass_percent": q.pass_percent, "reveal": key, "results": results, "areas": areas,
-            "summary": area_summary(areas)}
+    detail = json.loads(at.detail); snap = json.loads(at.snapshot) if at.snapshot else [None] * len(detail)
+    results = [{"chosen": d[2] if len(d) > 2 else None, "ok": bool(d[1]), **({"correct": x["correct"], "explanation": x["explanation"]} if key and x else {})} for d, x in zip(detail, snap)]
+    areas = areas_for([(at.user_id, q, attempt_questions(at, {}), detail)], s, is_staff(u), at.user_id)
+    return {"attempt_id": at.id, "score": at.score, "total": at.total, "percent": at.percent, "passed": at.percent >= q.pass_percent, "pass_percent": q.pass_percent, "reveal": key,
+            "results": results, "areas": areas, "summary": area_summary(areas), **({"already": True} if already else {})}
 
 # ---- MCQ tests from a CSV: parse and preview, then the questions are saved with PUT /api/quizzes/{id}/questions ----
 class QuizCsvIn(BaseModel): csv: str; unit_id: int = 0; course_id: int = 0
@@ -2993,7 +3079,7 @@ def quiz_results(qid: int, format: str = "json", u: User = Depends(author), s: S
     by = defaultdict(list)
     for a in atts:
         if a.user_id in people: by[a.user_id].append(a)
-    aud = students_in(cid, s); ctx_batches = [(uid, q, qm, json.loads(L[-1].detail)) for uid, L in by.items() if L[-1].detail]
+    aud = students_in(cid, s); ctx_batches = [(uid, q, attempt_questions(L[-1], qm), json.loads(L[-1].detail)) for uid, L in by.items() if L[-1].detail]
     ctx = area_context(ctx_batches, s); mine = {b[0]: tally([b], ctx, True) for b in ctx_batches}
     students = []
     for uid, L in by.items():
@@ -3045,7 +3131,7 @@ def attempt_detail(aid: int, u: User = Depends(me), s: Session = Depends(db)):
     q = quiz_or_404(a.quiz_id, s); cid = quiz_course_id(q, s); staff_view = u.role == "admin" or can_edit(u, cid, s)
     if a.user_id != u.id and not staff_view: raise HTTPException(403, "You can only see your own attempts")
     key = staff_view or bool(q.reveal)
-    qm = {x.id: x for x in s.query(Question).filter_by(quiz_id=q.id)}; detail = json.loads(a.detail) if a.detail else []
+    qm = attempt_questions(a, {x.id: x for x in s.query(Question).filter_by(quiz_id=q.id)}); detail = json.loads(a.detail) if a.detail else []
     topics = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_({x.topic_id for x in qm.values() if x.topic_id} or {0}))}
     items, gone = [], 0
     for d in detail:
@@ -7609,8 +7695,10 @@ def start_assigned_mcq(aid: int, b: AssignStartIn, u: User = Depends(me), s: Ses
         s.add(at); s.flush()
         s.add_all([McqAttemptItem(attempt_id=at.id, pos=i, item_id=x["item_id"], version=x["version"], topic_id=x["topic_id"], snapshot=json.dumps(x, ensure_ascii=False)) for i, x in enumerate(snaps)])
         s.commit()
-    except IntegrityError:
-        s.rollback(); raise HTTPException(409, "Another set was being started. Try again.")
+    except IntegrityError:  # a second tap started it at the same moment: theirs is the set, resumed here too
+        s.rollback(); hit = s.query(McqAttempt).filter_by(user_id=u.id, status="open").first()
+        if hit and hit.assignment_id == a.id: return mcq_view(hit, s, resumed=True)
+        raise HTTPException(409, "Another set was being started. Try again.")
     return mcq_view(at, s)
 # the site: the home page (web/) at the root, and the app itself under /app/
 web = os.path.join(os.path.dirname(__file__), "..", "web")
