@@ -163,7 +163,7 @@ fun McqSetScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
             s.questions.forEachIndexed { i, x ->
                 Panel {
                     Text(tl("Question") + " ${i + 1}" + (if (!open) " · " + (if (x.ok) tl("Right") else tl("Wrong")) else "") + (if (s.mode != "topic" && x.topic.isNotEmpty()) " · ${x.topic}" else ""), fontWeight = FontWeight.SemiBold)
-                    MathMd(x.text); QImage(x.image)
+                    MathMd(x.text); QImage(x.image, tl("Picture for question {pos}", "pos" to i + 1))
                     x.options.forEachIndexed { k, o ->
                         val st = if (open) (if (picks.getOrNull(i) == k) OptState.Picked else OptState.Plain)
                                  else if (k == x.correct) OptState.Ok else if (k == x.chosen) OptState.Bad else OptState.Plain
@@ -175,7 +175,7 @@ fun McqSetScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                     }
                     if (!open && x.chosen == null) Quiet(tl("Left blank."))
                     if (!open && x.explanation.isNotBlank()) MathMd(x.explanation)
-                    if (!open) QImage(x.explanation_image)
+                    if (!open) QImage(x.explanation_image, tl("Picture for the explanation"))
                 }
             }
             if (open) {

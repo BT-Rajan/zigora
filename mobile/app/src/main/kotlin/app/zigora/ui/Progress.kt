@@ -346,14 +346,14 @@ fun AttemptScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
 @Composable
 private fun AttemptQuestion(i: Int, x: AQuestion, reveal: Boolean) = Panel {
     Text(tl("Question {v} ·", "v" to i + 1) + " " + (if (x.ok) tl("Right") else tl("Wrong")) + (if (x.area.isNotEmpty()) " · " + x.area else ""), fontWeight = FontWeight.SemiBold)
-    Md(x.text); QImage(x.image)
+    MathMd(x.text); QImage(x.image, tl("Picture for question {pos}", "pos" to i + 1))
     x.options.forEachIndexed { k, o ->
         val mine = x.chosen_known && x.chosen == k; val key = reveal && x.correct == k
         Option(k, o, x.option_images.getOrElse(k) { "" }, when { key || (mine && x.ok) -> OptState.Ok; mine -> OptState.Bad; else -> OptState.Plain },
                tag = listOfNotNull(if (mine) tl("Your answer") else null, if (key) tl("Correct answer") else null).joinToString(" · "))
     }
     if (x.chosen_known && x.chosen == null) Quiet(tl("Left blank."))
-    if (x.explanation.isNotEmpty()) Md(x.explanation)
+    if (x.explanation.isNotEmpty()) MathMd(x.explanation)
 }
 
 enum class OptState { Plain, Picked, Ok, Bad }
@@ -373,7 +373,7 @@ fun Option(k: Int, text: String, img: String, state: OptState, tag: String = "",
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(LET[k].toString(), fontWeight = FontWeight.Bold, color = line, modifier = Modifier.padding(end = 12.dp))
             Column(Modifier.weight(1f)) {
-                if (img.isNotEmpty()) QImage(img)
+                if (img.isNotEmpty()) QImage(img, tl("Answer {k}", "k" to LET[k]))
                 if (text.isNotEmpty()) MathMd(text) else if (img.isEmpty()) Text("—")
                 if (tag.isNotEmpty()) Text(tag, style = MaterialTheme.typography.labelMedium, color = line)
             }
@@ -385,8 +385,9 @@ fun Option(k: Int, text: String, img: String, state: OptState, tag: String = "",
     else Card(Modifier.fillMaxWidth().padding(top = 6.dp), shape = shape, colors = colors, border = BorderStroke(1.dp, line)) { body() }
 }
 
+/** a picture on a question, an answer or an explanation, with what it is for a screen reader */
 @Composable
-fun QImage(src: String) { if (src.isNotEmpty()) AsyncImage(api().base + src, null, Modifier.fillMaxWidth().heightIn(max = 260.dp).padding(vertical = 4.dp)) }
+fun QImage(src: String, label: String) { if (src.isNotEmpty()) AsyncImage(api().base + src, label, Modifier.fillMaxWidth().heightIn(max = 260.dp).padding(vertical = 4.dp)) }
 
 // ---- the study routine and today's session
 
