@@ -225,6 +225,14 @@ class CourseCompletion(Base):  # when a student finished a course (every require
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True); completed_at = Column(DateTime)
     __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_course_completions_user_course"),)
+class LearningCycle(Base):  # one pass of a student through a course (S37): restarting the course ends the current pass and starts the next. Nothing is copied:
+    # a pass's topic progress is the progress learned within its time window (what was set aside at the restart is in ProgressHistory), its tests the attempts in it
+    __tablename__ = "learning_cycles"
+    id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True); number = Column(Integer)
+    started_at = Column(DateTime); completed_at = Column(DateTime, nullable=True); ended_at = Column(DateTime, nullable=True)  # ended: when the next pass began
+    unit_restarts = Column(Text, default="[]")  # JSON [{"unit_id", "at"}]: units started over within this pass (a unit restart is not a new pass)
+    __table_args__ = (UniqueConstraint("user_id", "course_id", "number", name="uq_learning_cycles_user_course_number"),)
 class QuizDraft(Base):  # a sitting of a quiz not yet submitted: the answers so far, so a refresh, Back or a closed app carries on. Never an attempt; gone on submit
     __tablename__ = "quiz_drafts"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -1023,7 +1031,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0044_attempt_request_id", attempt_request_id),
               ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__])), ("0046_study_attempts_once", study_attempts_once),
               ("0047_assignment_window", assignment_window),
-              ("0048_course_completion", lambda c: [_addcol("topics", "optional", "BOOLEAN NOT NULL DEFAULT 0")(c), Base.metadata.create_all(c, tables=[CourseCompletion.__table__])])]
+              ("0048_course_completion", lambda c: [_addcol("topics", "optional", "BOOLEAN NOT NULL DEFAULT 0")(c), Base.metadata.create_all(c, tables=[CourseCompletion.__table__])]),
+              ("0049_learning_cycles", lambda c: Base.metadata.create_all(c, tables=[LearningCycle.__table__]))]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -3899,21 +3908,64 @@ def my_today(u: User = Depends(me), s: Session = Depends(db)):
             "quiz_average": round(sum(bests) / len(bests)) if bests else None, "focus": focus, "courses": per}
 # ---- redo: a student starts a topic, or a whole course, over. Its progress is set aside (ProgressHistory), so it reads "not started" again
 # ---- everywhere; quiz attempts and scores stay as they are, and the days they studied still count toward their streak.
-def set_aside(s, uid, tids):
+def set_aside(s, uid, tids, at=None):
     rows = s.query(Progress).filter(Progress.user_id == uid, Progress.topic_id.in_(list(tids) or [0])).all()
-    for p in rows: s.add(ProgressHistory(user_id=uid, topic_id=p.topic_id, reads=p.reads, last_read=p.last_read, completed_at=p.completed_at)); s.delete(p)
+    for p in rows: s.add(ProgressHistory(user_id=uid, topic_id=p.topic_id, reads=p.reads, last_read=p.last_read, completed_at=p.completed_at, redone_at=at or dt.datetime.utcnow())); s.delete(p)
     return len(rows)
 @app.post("/api/topics/{tid}/redo")
 def redo_topic(tid: int, u: User = Depends(me), s: Session = Depends(db)):
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
     check_topic_access(u, t, s); n = set_aside(s, u.id, [tid]); s.commit(); return {"ok": True, "topics": n}
+# ---- learning cycles (S37): restarting a course ends the student's current pass through it and starts the next; nothing is deleted or copied. Their first
+# ---- pass is implicit until the first restart writes it down. A unit restart sets that unit's topics aside within the same pass and is noted on it.
+def course_topic_ids(s, cid): return [i for (i,) in s.query(Topic.id).join(Unit, Unit.id == Topic.unit_id).filter(Unit.course_id == cid)]
+def current_cycle(s, uid, cid):  # the pass in progress; None while they have never restarted the course (their first pass, from the beginning)
+    return s.query(LearningCycle).filter_by(user_id=uid, course_id=cid, ended_at=None).order_by(LearningCycle.number.desc()).first()
+def first_activity(s, uid, cid):  # roughly when their first pass began: the earliest thing they did in the course
+    tids = course_topic_ids(s, cid) or [0]; qids = [q.id for q, _ in course_tests(cid, s, published_only=False)] or [0]
+    xs = [s.query(func.min(col)).filter(tab.user_id == uid, tab.topic_id.in_(tids)).scalar()
+          for tab, col in ((Progress, Progress.last_read), (Progress, Progress.completed_at), (ProgressHistory, ProgressHistory.last_read), (ProgressHistory, ProgressHistory.completed_at))]
+    xs.append(s.query(func.min(Attempt.at)).filter(Attempt.user_id == uid, Attempt.quiz_id.in_(qids)).scalar())
+    return min([x for x in xs if x], default=dt.datetime.utcnow())
+def ensure_cycle(s, uid, cid):  # the current pass, writing down the first one when it is first needed
+    cur = current_cycle(s, uid, cid)
+    if cur: return cur
+    rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=cid).first()
+    cur = LearningCycle(user_id=uid, course_id=cid, number=1, started_at=first_activity(s, uid, cid), completed_at=rec.completed_at if rec else None, unit_restarts="[]")
+    s.add(cur); s.flush(); return cur
 @app.post("/api/courses/{cid}/redo")
 def redo_course(cid: int, u: User = Depends(me), s: Session = Depends(db)):
-    if not s.get(Course, cid): raise HTTPException(404, "Course not found")
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
     check_course_access(u, cid, s)
-    tids = [i for (i,) in s.query(Topic.id).join(Unit, Unit.id == Topic.unit_id).filter(Unit.course_id == cid)]
-    n = set_aside(s, u.id, tids); s.commit(); return {"ok": True, "topics": n}
+    course_status(s, u.id, c)  # if this pass has just been finished, its finish is kept before it ends
+    try:
+        cur = ensure_cycle(s, u.id, cid); tids = course_topic_ids(s, cid)
+        qids = [q.id for q, _ in course_tests(cid, s, published_only=False)] or [0]
+        tried = s.query(Attempt.id).filter(Attempt.user_id == u.id, Attempt.quiz_id.in_(qids))
+        if cur.number > 1: tried = tried.filter(Attempt.at >= cur.started_at)
+        if not s.query(Progress.id).filter(Progress.user_id == u.id, Progress.topic_id.in_(tids or [0])).first() and not tried.first():
+            s.commit(); return {"ok": True, "topics": 0, "cycle": cur.number, "new": False}  # nothing done since the last start: no empty pass
+        now = dt.datetime.utcnow(); cur.ended_at = now; n = set_aside(s, u.id, tids, now)
+        s.add(LearningCycle(user_id=u.id, course_id=cid, number=cur.number + 1, started_at=now, unit_restarts="[]")); s.commit()
+    except IntegrityError:
+        s.rollback(); raise HTTPException(409, "This course was just started over. Refresh to see it.")
+    return {"ok": True, "topics": n, "cycle": cur.number + 1, "new": True}
+@app.post("/api/units/{unit_id}/redo")
+def redo_unit(unit_id: int, u: User = Depends(me), s: Session = Depends(db)):  # one unit starts over; the rest of the course and the pass carry on
+    un = s.get(Unit, unit_id)
+    if not un or un.archived_at: raise HTTPException(404, "Unit not found")
+    check_course_access(u, un.course_id, s)
+    now = dt.datetime.utcnow(); n = set_aside(s, u.id, [i for (i,) in s.query(Topic.id).filter(Topic.unit_id == unit_id)], now)
+    try:
+        if n:
+            cur = ensure_cycle(s, u.id, un.course_id)
+            cur.unit_restarts = json.dumps(json.loads(cur.unit_restarts or "[]") + [{"unit_id": unit_id, "at": utc_iso(now)}])
+        s.commit()
+    except IntegrityError:
+        s.rollback(); raise HTTPException(409, "Something changed meanwhile. Try again.")
+    return {"ok": True, "topics": n}
 @app.post("/api/topics/{tid}/read")
 def read(tid: int, u: User = Depends(me), s: Session = Depends(db)):
     t = s.get(Topic, tid)
@@ -4442,8 +4494,10 @@ def course_status(s, uid, c):
     req = [t for t in topics if not t.optional]
     done = {tid: at for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == uid, Progress.topic_id.in_([t.id for t in topics] or [0]), Progress.completed_at.isnot(None))}
     tests = [q for q, un in course_tests(c.id, s) if (un is None or un.archived_at is None) and s.query(Question.id).filter_by(quiz_id=q.id).first()]
-    tried = defaultdict(list)
-    for qid, pct, at in s.query(Attempt.quiz_id, Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id.in_([q.id for q in tests] or [0])).order_by(Attempt.at): tried[qid].append((pct, at))
+    cyc = current_cycle(s, uid, c.id); tried = defaultdict(list)  # after a restart, only the tests tried in this pass count toward finishing it
+    aq = s.query(Attempt.quiz_id, Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id.in_([q.id for q in tests] or [0]))
+    if cyc and cyc.number > 1: aq = aq.filter(Attempt.at >= cyc.started_at)
+    for qid, pct, at in aq.order_by(Attempt.at): tried[qid].append((pct, at))
     need = len(req) + len(tests); got = sum(t.id in done for t in req) + sum(q.id in tried for q in tests)
     by_unit = defaultdict(list)
     for t in req: by_unit[t.unit_id].append(t)
@@ -4451,12 +4505,15 @@ def course_status(s, uid, c):
                   "completed_at": utc_iso(max(done[t.id] for t in by_unit[u.id])) if by_unit[u.id] and all(t.id in done for t in by_unit[u.id]) else None} for u in units]
     complete = need > 0 and got == need
     rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()
-    if complete and not rec:  # the moment it became complete: the last required topic learned or the last test first tried
-        when = max([done[t.id] for t in req] + [tried[q.id][0][1] for q in tests])
+    when = max([done[t.id] for t in req] + [tried[q.id][0][1] for q in tests]) if complete else None  # the last required topic learned or the last test first tried
+    if complete and not rec:  # the first time ever: kept for good
         try: rec = CourseCompletion(user_id=uid, course_id=c.id, completed_at=when); s.add(rec); s.commit()
         except IntegrityError: s.rollback(); rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()  # another request kept it first
+    if complete and cyc and not cyc.completed_at: cyc.completed_at = when; s.commit()  # this pass's own finish
+    finished = cyc.completed_at if cyc else rec.completed_at if rec else None
     bests = [max(p for p, _ in tried[q.id]) for q in tests if q.id in tried]
-    return {"course_id": c.id, "course": c.name, "percent": round(100 * got / need) if need else 0, "complete": complete, "completed_at": utc_iso(rec.completed_at) if rec else None,
+    return {"course_id": c.id, "course": c.name, "percent": round(100 * got / need) if need else 0, "complete": complete, "completed_at": utc_iso(finished),
+            "first_completed_at": utc_iso(rec.completed_at) if rec else None, "cycle": cyc.number if cyc else 1,
             "topics": {"required": len(req), "done": sum(t.id in done for t in req), "optional": len(topics) - len(req)},
             "units": unit_rows, "remaining": [{"id": t.id, "title": t.title} for t in req if t.id not in done][:50],
             "tests": {"total": len(tests), "tried": sum(q.id in tried for q in tests)}, "pending_tests": [{"id": q.id, "title": q.title} for q in tests if q.id not in tried],
@@ -4478,8 +4535,66 @@ def course_completion(cid: int, u: User = Depends(author), s: Session = Depends(
     for x in sorted(aud, key=lambda x: x.name.lower()):
         st = course_status(s, x.id, c)
         rows.append({"user_id": x.id, "name": x.name, "percent": st["percent"], "complete": st["complete"], "completed_at": st["completed_at"],
-                     "topics_left": st["topics"]["required"] - st["topics"]["done"], "tests_left": st["tests"]["total"] - st["tests"]["tried"], "average": st["average"]})
+                     "topics_left": st["topics"]["required"] - st["topics"]["done"], "tests_left": st["tests"]["total"] - st["tests"]["tried"], "average": st["average"],
+                     "cycle": st["cycle"], "first_completed_at": st["first_completed_at"]})
     return {"course": c.name, "students": rows, "completed": sum(r["complete"] for r in rows), "close": sum(not r["complete"] and r["percent"] >= 75 for r in rows)}
+# ---- comparing passes (S37): each pass's window runs from its start (the first from the beginning) to the next one's start. A topic's standing in a pass
+# ---- comes from the questions on it in that window (MCQ sets and tests): strong at 80%+, weak under 60%, and never from fewer than 3 questions
+STANDING_MIN_ASKED = 3
+def topic_standing(right, asked):
+    if asked < STANDING_MIN_ASKED: return None
+    return "strong" if 100 * right >= STRONG * asked else "weak" if 100 * right < WEAK * asked else "mixed"  # the same 80/60 lines as strengths and weak areas
+def course_cycles(s, uid, c):
+    rows = s.query(LearningCycle).filter_by(user_id=uid, course_id=c.id).order_by(LearningCycle.number).all()
+    rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()
+    if not rows: rows = [LearningCycle(number=1, started_at=first_activity(s, uid, c.id), completed_at=rec.completed_at if rec else None, unit_restarts="[]")]  # not saved
+    units = s.query(Unit).filter(Unit.course_id == c.id, Unit.archived_at.is_(None)).order_by(*ORDER[Unit]).all(); uname = {u.id: u.name for u in units}
+    topics = s.query(Topic).filter(Topic.unit_id.in_(list(uname) or [0]), Topic.published != False, Topic.archived_at.is_(None)).order_by(*ORDER[Topic]).all()  # noqa: E712
+    tid_set = {t.id for t in topics}
+    learned = [(tid, at) for tab in (Progress, ProgressHistory) for tid, at in s.query(tab.topic_id, tab.completed_at).filter(tab.user_id == uid, tab.topic_id.in_(tid_set or [0]), tab.completed_at.isnot(None))]
+    tests = [q for q, un in course_tests(c.id, s) if (un is None or un.archived_at is None)]
+    atts = s.query(Attempt.quiz_id, Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id.in_([q.id for q in tests] or [0])).all()
+    checks = [x for x in topic_checks(s, uid) if x[0] in tid_set]
+    now = dt.datetime.utcnow(); out = []
+    for cy in rows:
+        lo = cy.started_at if cy.number > 1 else None; hi = cy.ended_at
+        def inw(at): return at is not None and (lo is None or at >= lo) and (hi is None or at < hi)
+        best = {}
+        for qid, pct, at in atts:
+            if inw(at): best[qid] = max(best.get(qid, 0), pct)
+        per = defaultdict(lambda: [0, 0])
+        for tid, at, ok, n, _ in checks:
+            if inw(at): per[tid][0] += ok; per[tid][1] += n
+        stand = {tid: topic_standing(ok, n) for tid, (ok, n) in per.items()}
+        out.append({"number": cy.number, "started_at": utc_iso(cy.started_at), "ended_at": utc_iso(cy.ended_at), "completed_at": utc_iso(cy.completed_at),
+                    "days": (cy.completed_at - cy.started_at).days if cy.completed_at and cy.started_at else None, "current": cy.ended_at is None,
+                    "learned": len({tid for tid, at in learned if inw(at)}), "topics_total": len(topics), "tests_tried": len(best), "tests_total": len(tests),
+                    "average": round(sum(best.values()) / len(best)) if best else None,
+                    "unit_restarts": [{"unit_id": r["unit_id"], "name": uname.get(r["unit_id"], ""), "at": r["at"]} for r in json.loads(cy.unit_restarts or "[]")],
+                    "_best": best, "_per": per, "_stand": stand})
+    def tlist(ids, d): return [{"id": t.id, "title": t.title, "percent": round(100 * d[t.id][0] / d[t.id][1])} for t in topics if t.id in ids]
+    compare = None
+    if len(out) > 1:  # the last two passes, on what both had: the same tests, the same topics
+        a, b = out[-2], out[-1]
+        compare = {"from": a["number"], "to": b["number"],
+                   "tests": [{"id": q.id, "title": q.title, "before": a["_best"][q.id], "after": b["_best"][q.id]} for q in tests if q.id in a["_best"] and q.id in b["_best"]],
+                   "improved": tlist({t for t, v in a["_stand"].items() if v == "weak" and b["_stand"].get(t) == "strong"}, b["_per"]),
+                   "still_weak": tlist({t for t, v in a["_stand"].items() if v == "weak" and b["_stand"].get(t) == "weak"}, b["_per"])}
+    relearn = None
+    if len(out) > 1 and out[-1]["current"]:  # what the last pass showed, to start this one with
+        p = out[-2]
+        relearn = {"weak": tlist({t for t, v in p["_stand"].items() if v == "weak"}, p["_per"]), "strong": tlist({t for t, v in p["_stand"].items() if v == "strong"}, p["_per"])}
+    for x in out: del x["_best"], x["_per"], x["_stand"]
+    return {"course": c.name, "current": out[-1]["number"], "cycles": out, "compare": compare, "relearn": relearn, "first_completed_at": utc_iso(rec.completed_at) if rec else None}
+@app.get("/api/courses/{cid}/cycles")
+def get_course_cycles(cid: int, student: int | None = None, u: User = Depends(me), s: Session = Depends(db)):  # a student's own passes; a course's teachers may look at a student's
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    if student and student != u.id:
+        need_edit(u, cid, s); x = s.get(User, student)
+        if not x or x.role != "student": raise HTTPException(404, "Student not found")
+        return course_cycles(s, student, c)
+    check_course_access(u, cid, s); return course_cycles(s, u.id, c)
 # ---- achievements (S36): a few milestones worked out from what the student did; no points, nothing for just opening the app
 def my_achievements_list(u, s):
     out = []
@@ -4523,19 +4638,22 @@ def my_achievements(u: User = Depends(me), s: Session = Depends(db)): return {"i
 # ---- it to the next interval, under 60% brings it back the next day, in between keeps the interval; reading its sheet ("Mark as revised") counts as a
 # ---- review at the same interval and never moves it on; postponing adds 1, 3 or 7 days.
 POSTPONE_DAYS = (1, 3, 7)
-def revision_events(s, uid):  # {topic id: [(at, kind, value)]} and {topic id: wrong answers} from what the student did
-    ev, wrong, not_yet = defaultdict(list), defaultdict(int), defaultdict(int)
-    for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == uid, Progress.completed_at.isnot(None)): ev[tid].append((at, "learned", None))
-    sets = defaultdict(lambda: [0, 0])
+def topic_checks(s, uid):  # [(topic id, at, right, asked, "practice" or "test")]: each submitted MCQ set and each test, per topic it asked about
+    sets, out = defaultdict(lambda: [0, 0]), []
     for aid, at, tid, ok in s.query(McqAttempt.id, McqAttempt.submitted_at, McqAttemptItem.topic_id, McqAttemptItem.ok).join(McqAttemptItem, McqAttemptItem.attempt_id == McqAttempt.id) \
             .filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted", McqAttemptItem.topic_id.isnot(None)):
-        k = sets[(aid, at, tid)]; k[0] += bool(ok); k[1] += 1; wrong[tid] += not ok
-    for (aid, at, tid), (ok, n) in sets.items(): ev[tid].append((at, "check", ok / n))
+        k = sets[(aid, at, tid)]; k[0] += bool(ok); k[1] += 1
+    out += [(tid, at, ok, n, "practice") for (aid, at, tid), (ok, n) in sets.items()]
     for a in s.query(Attempt).filter(Attempt.user_id == uid, Attempt.snapshot.isnot(None), Attempt.detail.isnot(None)):
         per = defaultdict(lambda: [0, 0])
         for d, x in zip(json.loads(a.detail), json.loads(a.snapshot)):
-            if x and x.get("topic_id"): per[x["topic_id"]][0] += bool(d[1]); per[x["topic_id"]][1] += 1; wrong[x["topic_id"]] += not d[1]
-        for tid, (ok, n) in per.items(): ev[tid].append((a.at, "check", ok / n))
+            if x and x.get("topic_id"): per[x["topic_id"]][0] += bool(d[1]); per[x["topic_id"]][1] += 1
+        out += [(tid, a.at, ok, n, "test") for tid, (ok, n) in per.items()]
+    return out
+def revision_events(s, uid):  # {topic id: [(at, kind, value)]} and {topic id: wrong answers} from what the student did
+    ev, wrong, not_yet = defaultdict(list), defaultdict(int), defaultdict(int)
+    for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == uid, Progress.completed_at.isnot(None)): ev[tid].append((at, "learned", None))
+    for tid, at, ok, n, _ in topic_checks(s, uid): ev[tid].append((at, "check", ok / n)); wrong[tid] += n - ok
     for tid, kind, outcome, at in s.query(StepLog.topic_id, StepLog.kind, StepLog.outcome, StepLog.at).filter(StepLog.user_id == uid, StepLog.kind.in_(("revised", "postpone", "check"))):
         if kind == "revised": ev[tid].append((at, "read", None))
         elif kind == "postpone": ev[tid].append((at, "postpone", int(outcome or 1)))
