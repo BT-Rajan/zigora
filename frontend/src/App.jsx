@@ -1376,6 +1376,7 @@ const QImg=({src,alt})=>src?<img className="qimg" src={at(src)} alt={alt} loadin
 const OptBody=({text,img,k})=><span className="obody">{img&&<img src={at(img)} alt={tl("Answer {k}",{k:LET[k]})}/>}{text?<Md>{text}</Md>:!img&&<span>—</span>}</span>
 const LET='ABCDEF'
 function QuizPlay({id,back,toast,role}){
+  const confirm=useConfirm()
   const [q,setQ]=useState(null),[ans,setAns]=useState([]),[res,setRes]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(null),[view,setView]=useState(null),[sit,setSit]=useState('')
   const start=d=>{setQ(d);setAns(d.questions.map(()=>null));setRes(null);setSit(rid())}  // sit: this sitting's id, sent with every try of its submit so a retry is never a second attempt
   useEffect(()=>{api('/quizzes/'+id).then(start).catch(e=>{toast(e.message);back()})},[id])
@@ -1383,7 +1384,10 @@ function QuizPlay({id,back,toast,role}){
   if(view)return view.kind==='attempt'?<AttemptView id={view.id} back={()=>setView(null)} toast={toast} role={role}/>:view.kind==='mine'?<MyAttempts quiz={id} back={()=>setView(null)} toast={toast} role={role}/>:<QuizResults id={id} back={()=>setView(null)} toast={toast} role={role}/>
   if(!q)return <><Bar title={tl("Quiz")} back={back}/><div className="main"><Skeleton/></div></>
   const left=ans.filter(a=>a===null).length
-  const submit=async()=>{setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans,request_id:sit}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
+  const submit=async()=>{if(busy)return;const n=ans.length
+    if(!await confirm({title:tl("Submit your test?"),stats:[[n-left,tl("Answered")],[left,tl("Unanswered")],[n,tl("Total")]],ok:tl("Confirm submission"),cancel:tl("Go back"),
+      body:left===0?tl("You have answered every question."):left===1?tl("You have 1 unanswered question. It will be marked wrong."):tl("You have {n} unanswered questions. They will be marked wrong.",{n:left})}))return
+    setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans,request_id:sit}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
   return <><Bar title={q.title} sub={tl("{length} questions · pass mark {pass_percent}%{v}",{length:q.questions.length,pass_percent:q.pass_percent,v:q.kind==='course'?' · course test':''})} back={back}/><div className="main">
     {!res&&q.can_edit&&<button className="btn ghost" style={{marginTop:0}} onClick={()=>setView({kind:'results'})}><BarChart3 size={16}/>{" "}{tl("Results and scores")}</button>}
     {!res&&q.attempts>0&&<p className="known" style={{marginTop:0}}>{tl("You have tried this {n}. Best {best}% · latest {latest}%.",{n:pl(q.attempts,'time'),best:q.best,latest:q.latest})}{" "}<button className="tool" onClick={()=>setView({kind:'mine'})}>{tl("See your attempts")}</button></p>}
@@ -2490,8 +2494,10 @@ function Sheet({close,children,page}){
   if(slot){const all=flat(children),i=all.findIndex(c=>isValidElement(c)&&c.type==='h3'),title=i<0?'':all[i].props.children  // the form's heading becomes the page title
     return createPortal(<><Bar title={title} back={()=>cb.current()}/><div className="main" ref={box} tabIndex={-1} role="region" aria-label={typeof title==='string'?title:undefined}>{all.filter((_,j)=>j!==i)}</div></>,slot)}
   return <div className="scrim" onClick={()=>cb.current()}><div className="sheet" ref={box} tabIndex={-1} role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>{children}</div></div>}
-const Confirm=({o,answer})=><Sheet close={()=>answer(false)}><h3>{o.title}</h3>{o.body&&<p className="known">{o.body}</p>}
-  <button className={'btn'+(o.danger?' danger':'')} onClick={()=>answer(true)}>{o.ok||tl("Confirm")}</button><button className="btn ghost" onClick={()=>answer(false)}>{tl("Cancel")}</button></Sheet>
+const Confirm=({o,answer})=><Sheet close={()=>answer(false)}><h3>{o.title}</h3>
+  {o.stats&&<div className="stats" style={{gridTemplateColumns:`repeat(${o.stats.length},1fr)`,margin:'8px 0'}}>{o.stats.map(([n,l])=><div className="stat" key={l} style={{overflowWrap:'anywhere',minWidth:0}}><b>{n}</b>{l}</div>)}</div>}
+  {o.body&&<p className="known">{o.body}</p>}
+  <button className={'btn'+(o.danger?' danger':'')} onClick={()=>answer(true)}>{o.ok||tl("Confirm")}</button><button className="btn ghost" onClick={()=>answer(false)}>{o.cancel||tl("Cancel")}</button></Sheet>
 const useConfirm=()=>useContext(Ctx).confirm
 const Toast=({msg})=>msg?<div className="toast" role="status">{msg}</div>:null
 const Skeleton=({rows=3})=><div aria-busy="true" aria-label={tl("Loading")}>{Array.from({length:rows},(_,i)=><div className="sk" key={i}/>)}</div>

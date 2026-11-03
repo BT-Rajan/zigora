@@ -2991,5 +2991,12 @@
 "Row {row}: “{topic}”": "வரிசை {row}: “{topic}”",
 "Choose a topic, or Leave it out, for each row above first.": "முதலில் மேலே உள்ள ஒவ்வொரு வரிசைக்கும் ஒரு தலைப்பைத் தேர்ந்தெடுக்கவும், அல்லது விட்டுவிடு என்பதைத் தேர்வுசெய்யவும்.",
 "Publish the 1 waiting question in {where}?": "{where} இல் காத்திருக்கும் 1 கேள்வியை வெளியிடவா?",
-"Dismiss the 1 waiting question in {where}?": "{where} இல் காத்திருக்கும் 1 கேள்வியை நிராகரிக்கவா?"
+"Dismiss the 1 waiting question in {where}?": "{where} இல் காத்திருக்கும் 1 கேள்வியை நிராகரிக்கவா?",
+"Submit your test?": "உங்கள் தேர்வைச் சமர்ப்பிக்கவா?",
+"Unanswered": "பதிலளிக்காதவை",
+"Confirm submission": "சமர்ப்பிப்பை உறுதிசெய்",
+"Go back": "திரும்பிச் செல்",
+"You have answered every question.": "எல்லா கேள்விகளுக்கும் பதிலளித்துவிட்டீர்கள்.",
+"You have 1 unanswered question. It will be marked wrong.": "பதிலளிக்காத கேள்வி 1 உள்ளது. அது தவறாகக் குறிக்கப்படும்.",
+"You have {n} unanswered questions. They will be marked wrong.": "பதிலளிக்காத கேள்விகள் {n} உள்ளன. அவை தவறாகக் குறிக்கப்படும்."
 }

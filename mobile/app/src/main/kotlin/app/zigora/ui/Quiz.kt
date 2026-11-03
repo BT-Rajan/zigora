@@ -45,6 +45,7 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
     val sitting = androidx.compose.runtime.saveable.rememberSaveable(id, tick) { java.util.UUID.randomUUID().toString() }  // sent with every try of this sitting's submit, so a retry is never a second attempt
     var busy by remember { mutableStateOf(false) }
     var msg by remember { mutableStateOf("") }
+    var ask by remember { mutableStateOf<Ask?>(null) }
     val scroll = rememberScrollState()
     Page(q?.title ?: tl("Quiz"), q?.let { tl("{length} questions · pass mark {pass_percent}%{v}", "length" to it.questions.size, "pass_percent" to it.pass_percent,
                                              "v" to if (it.kind == "course") " · course test" else "") }.orEmpty(), back, scroll = scroll) {
@@ -81,18 +82,26 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
             }
             if (res == null && qz.questions.isNotEmpty()) {
                 if (msg.isNotEmpty()) Text(msg, color = MaterialTheme.colorScheme.error)
-                Button(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = { scope.launch {
+                val submit = { scope.launch {
                     busy = true; msg = ""
                     try {
                         val body = buildJsonObject { put("answers", JsonArray(picks.map { it?.let(::JsonPrimitive) ?: JsonNull })); put("request_id", sitting) }
                         out = a.send("POST", "/quizzes/$id/attempt", body, AttemptOut.serializer()); scroll.scrollTo(0)
                     } catch (e: Exception) { msg = e.message.orEmpty() }
                     busy = false
-                } }) { Text(if (busy) tl("Checking…") else tl("Submit answers")) }
+                } }
+                Button(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+                    val n = picks.size; val blank = picks.count { it == null }
+                    val counts = tl("Answered") + ": ${n - blank} · " + tl("Unanswered") + ": $blank · " + tl("Total") + ": $n"
+                    val warn = when (blank) { 0 -> tl("You have answered every question."); 1 -> tl("You have 1 unanswered question. It will be marked wrong.")
+                                              else -> tl("You have {n} unanswered questions. They will be marked wrong.", "n" to blank) }
+                    ask = Ask(tl("Submit your test?"), counts + "\n\n" + warn, tl("Confirm submission"), cancel = tl("Go back")) { if (!busy) submit() }
+                }) { Text(if (busy) tl("Checking…") else tl("Submit answers")) }
                 val left = picks.count { it == null }
                 if (left > 0) Quiet("$left " + tl("unanswered. Blank answers count as wrong."))
             }
             if (qz.questions.isEmpty()) Quiet(stringResource(R.string.no_questions))
         }
     }
+    AskDialog(ask) { ask = null }
 }

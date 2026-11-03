@@ -2991,5 +2991,12 @@
 "Row {row}: “{topic}”": "الصف {row}: «{topic}»",
 "Choose a topic, or Leave it out, for each row above first.": "اختر أولًا موضوعًا، أو اتركه، لكل صف أعلاه.",
 "Publish the 1 waiting question in {where}?": "هل تنشر السؤال المنتظر الوحيد في {where}؟",
-"Dismiss the 1 waiting question in {where}?": "هل ترفض السؤال المنتظر الوحيد في {where}؟"
+"Dismiss the 1 waiting question in {where}?": "هل ترفض السؤال المنتظر الوحيد في {where}؟",
+"Submit your test?": "هل تريد تسليم اختبارك؟",
+"Unanswered": "بلا إجابة",
+"Confirm submission": "تأكيد التسليم",
+"Go back": "رجوع",
+"You have answered every question.": "أجبت عن جميع الأسئلة.",
+"You have 1 unanswered question. It will be marked wrong.": "لديك سؤال واحد بلا إجابة. سيُحتسب خطأً.",
+"You have {n} unanswered questions. They will be marked wrong.": "لديك {n} أسئلة بلا إجابة. ستُحتسب خطأً."
 }
