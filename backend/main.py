@@ -53,6 +53,7 @@ class User(Base):
     ai_key = Column(Text, nullable=True)  # their own AI key, encrypted (see seal); only self-registered people and parents or teachers have one
     ai_provider = Column(String(20), nullable=True)  # whose key ai_key is (see PROVIDERS); none means DeepSeek, the only kind before 0032
     digest = Column(Boolean, default=False); digest_at = Column(DateTime, nullable=True)
+    return_reminders = Column(Boolean, default=True)  # S39: a gentle bell line (and so the daily email, if asked for) after a break; the student can turn it off
     google_sub = Column(String(64), unique=True, nullable=True)  # the Google account that signs in to this one (Google's own id for it, which never changes)
     cal_token = Column(String(64), unique=True, nullable=True)  # a hash of the private link a phone's calendar subscribes to (the link itself is never stored)
     username = Column(String(40), unique=True, nullable=True)  # sign-in name for a child a parent or teacher created (no email of their own); lower case
@@ -1032,7 +1033,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__])), ("0046_study_attempts_once", study_attempts_once),
               ("0047_assignment_window", assignment_window),
               ("0048_course_completion", lambda c: [_addcol("topics", "optional", "BOOLEAN NOT NULL DEFAULT 0")(c), Base.metadata.create_all(c, tables=[CourseCompletion.__table__])]),
-              ("0049_learning_cycles", lambda c: Base.metadata.create_all(c, tables=[LearningCycle.__table__]))]
+              ("0049_learning_cycles", lambda c: Base.metadata.create_all(c, tables=[LearningCycle.__table__])),
+              ("0050_return_reminders", _addcol("users", "return_reminders", "BOOLEAN NOT NULL DEFAULT 1"))]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -1897,6 +1899,7 @@ class Cfg(BaseModel):
     ai_provider: str | None = None  # which provider answers for the college (see PROVIDERS)
     keys: dict[str, str] | None = None; models: dict[str, str] | None = None; budgets: dict[str, int] | None = None; remove_keys: list[str] | None = None  # by provider
     lite_searches: int | None = None; lite_minutes: int | None = None  # the free daily allowance of self-registered (lite) people
+    break_days: list[int] | None = None  # S39: [extended, long] days away from learning
     google_client_id: str | None = None  # Sign in with Google: the web client ID (more, comma separated); empty turns it off
 @app.get("/api/admin/settings")
 def get_cfg(_: User = Depends(admin), s: Session = Depends(db)):
@@ -1908,7 +1911,7 @@ def get_cfg(_: User = Depends(admin), s: Session = Depends(db)):
             "vision_set": bool(vk), "vision_hint": ("…" + vk[-4:]) if vk else "", "vision_model": setting(s, "vision_model", VISION_MODEL), "ocr": ocr_ready(),
             "budget": {x: budget(s, x) for x in PROVIDERS},
             "self_registration": setting(s, "self_registration") == "1", "allowed_domains": setting(s, "allowed_domains"), "self_registered_users": s.query(User).filter_by(self_registered=True).count(),
-            "lite": dict(zip(("searches", "minutes"), lite_limits(s)))}
+            "lite": dict(zip(("searches", "minutes"), lite_limits(s))), "break_days": list(break_days(s))}
 @app.put("/api/admin/settings")
 def put_cfg(b: Cfg, _: User = Depends(admin), s: Session = Depends(db)):
     if b.remove_key: s.query(Setting).filter_by(k="deepseek_key").delete()  # turns AI off for everyone until a new key is saved
@@ -1936,6 +1939,9 @@ def put_cfg(b: Cfg, _: User = Depends(admin), s: Session = Depends(db)):
     for k, v in (("vision_key", b.vision_key), ("vision_model", b.vision_model)):
         if v and v.strip() and not (k == "vision_key" and b.remove_vision_key): s.merge(Setting(k=k, v=v.strip()))
     if b.self_registration is not None: s.merge(Setting(k="self_registration", v="1" if b.self_registration else "0"))
+    if b.break_days is not None:
+        if len(b.break_days) != 2 or not 1 <= b.break_days[0] < b.break_days[1] <= 365: raise HTTPException(400, "Enter two numbers of days, the second larger: for example 7 and 30")
+        s.merge(Setting(k="break_extended_days", v=str(b.break_days[0]))); s.merge(Setting(k="break_long_days", v=str(b.break_days[1])))
     if b.google_client_id is not None:
         ids = [x.strip() for x in b.google_client_id.split(",") if x.strip()]
         if any(not GOOGLE_ID.fullmatch(x) for x in ids): raise HTTPException(400, "A Google client ID looks like 123456789-abc123.apps.googleusercontent.com")
@@ -2123,7 +2129,7 @@ def report_students(cid: int, format: str = "json", u: User = Depends(author), s
     for b in batches: per[b[0]].append(b)
     mine = {uid: tally(bs, ctx, True, True, prac.get(uid)) for uid, bs in per.items()}
     names = lambda uid, st: [a["title"] for a in sorted(mine.get(uid, {}).values(), key=lambda a: (a["percent"], a["title"])) if a["status"] == st]
-    rows = [{"user_id": x.id, "strong": names(x.id, "strong"), "needs_study": names(x.id, "needs_study"), "name": x.name, "email": x.email, "program": pn.get(x.program_id, ""), "semester": x.semester, "active": bool(x.active), "topics_read": reads[x.id], "topics_completed": done[x.id], "topics": len(tids),
+    rows = [{"user_id": x.id, "activity": activity_label(s, x.id), "strong": names(x.id, "strong"), "needs_study": names(x.id, "needs_study"), "name": x.name, "email": x.email, "program": pn.get(x.program_id, ""), "semester": x.semester, "active": bool(x.active), "topics_read": reads[x.id], "topics_completed": done[x.id], "topics": len(tids),
              "completion": round(100 * done[x.id] / len(tids)) if tids else 0, "quizzes_taken": len(bests[x.id]), "quizzes": len(qids),
              "avg_quiz_percent": round(sum(bests[x.id].values()) / len(bests[x.id])) if bests[x.id] else None, "last_active": (last[x.id].isoformat() + "Z") if last.get(x.id) else None}
             for x in sorted(aud, key=lambda x: (x.name or "").lower())]
@@ -4895,6 +4901,87 @@ def revision_notes(u, s):  # the bell (and the daily email): one line a day when
     d = my_revision(u=u, s=s); n, late = len(d["today"]) + len(d["overdue"]), len(d["overdue"])
     if not n: return []
     return [{"key": f"revise:{local_day(dt.datetime.utcnow()).isoformat()}", "text": f"Topics to revise: {n}", "sub": f"{late} overdue" if late else ""}]
+# ---- return after a break (S39): how long since a student last learned, from the same study days the streak uses (topics opened or learned, tests,
+# ---- MCQ sets, study courses); signing in or opening the app is not among them. Nothing is reset or restarted and missed days are not held against
+# ---- anyone: a student back from a break gets a short welcome with a choice of where to start, a lighter daily session for a week, and their
+# ---- overdue revision can be spread out. Thresholds are settings (break_extended_days, break_long_days).
+BREAK_DEFAULTS, EASE_DAYS = (7, 30), 7
+def break_days(s):
+    try: ext, lng = int(setting(s, "break_extended_days", str(BREAK_DEFAULTS[0]))), int(setting(s, "break_long_days", str(BREAK_DEFAULTS[1])))
+    except ValueError: return BREAK_DEFAULTS
+    return (ext, lng) if 1 <= ext < lng else BREAK_DEFAULTS
+def learning_gap(s, uid, now=None):  # {state: new | active | extended | long, days_away, last_day, break_from, back_on, gap}
+    now = now or dt.datetime.utcnow(); today = local_day(now); ext, lng = break_days(s)
+    days = sorted(d for d in study_days(s, uid, today - dt.timedelta(days=400)) if d <= today)
+    if not days: return {"state": "new", "days_away": None, "last_day": None, "break_from": None, "back_on": None, "gap": None}
+    away = (today - days[-1]).days
+    if away >= ext:  # away now: the break started on their last study day
+        return {"state": "long" if away >= lng else "extended", "days_away": away, "last_day": days[-1].isoformat(), "break_from": days[-1].isoformat(), "back_on": None, "gap": away}
+    back = next(((a, b) for a, b in zip(reversed(days[:-1]), reversed(days[1:])) if (b - a).days >= ext), None)  # the latest break they came back from
+    recent = back and (today - back[1]).days < EASE_DAYS
+    return {"state": "active", "days_away": away, "last_day": days[-1].isoformat(), "break_from": back[0].isoformat() if recent else None,
+            "back_on": back[1].isoformat() if recent else None, "gap": (back[1] - back[0]).days if recent else None}
+def seen_key(s, uid, key): return s.query(NoteSeen.id).filter_by(user_id=uid, key=key).first() is not None
+def easing(s, uid, g=None):  # a lighter week after a break, unless they chose their usual plan
+    g = g or learning_gap(s, uid)
+    return bool(g["break_from"]) and not seen_key(s, uid, f"ease-off:{g['break_from']}")
+def welcome_view(s, u, now=None):
+    now = now or dt.datetime.utcnow(); g = learning_gap(s, u.id, now); ext, lng = break_days(s); today = local_day(now).isoformat()
+    out = {**g, "thresholds": {"extended": ext, "long": lng}, "easing": easing(s, u.id, g), "ease_days": EASE_DAYS, "return_reminders": u.return_reminders is not False, "show": False}
+    if u.role != "student" or not g["break_from"] or (g["back_on"] and g["back_on"] != today) or seen_key(s, u.id, f"welcome:{g['break_from']}"): return out
+    names = {t["id"]: (t["title"], c["id"], c["name"]) for c in mcq_courses(u, s) for t in c["topics"]}  # what they can still open
+    last = next(((p.topic_id, p.completed_at) for p in s.query(Progress).filter(Progress.user_id == u.id, Progress.last_read.isnot(None)).order_by(Progress.last_read.desc()) if p.topic_id in names), None)
+    out["last"] = {"topic_id": last[0], "topic": names[last[0]][0], "course_id": names[last[0]][1], "course": names[last[0]][2], "learned": bool(last[1])} if last else None
+    if last:
+        c = s.get(Course, names[last[0]][1]); st = course_status(s, u.id, c) if c else None
+        out["progress"] = {"percent": st["percent"], "done": st["topics"]["done"], "required": st["topics"]["required"]} if st else None
+    asg = assigned_to_me(u=u, s=s)["items"]
+    out["assignments"] = {"open": [x for x in asg if x["status"] in ("to_do", "upcoming")][:3], "open_count": sum(x["status"] in ("to_do", "upcoming") for x in asg),
+                          "closed": [x for x in asg if x["status"] == "missed" and x["due_at"] and x["due_at"] >= utc_iso(now - dt.timedelta(days=g["gap"] + 1))][:3]}  # closed while they were away; they stay closed
+    rv = my_revision(u=u, s=s); due = rv["overdue"] + rv["today"]
+    out["revision"] = {"due": len(due), "top": due[:3]}
+    tr = learning_trends(s, u.id, now=now); weak = [t for t in tr["topics"] if t["status"] in ("needs_study", "getting_there") and t["topic_id"] in names]
+    weak.sort(key=lambda t: (t["status"] != "needs_study", t["percent"]))
+    unfinished = next((p.topic_id for p in s.query(Progress).filter(Progress.user_id == u.id, Progress.completed_at.is_(None)).order_by(Progress.last_read.desc()) if p.topic_id in names), None)
+    nxt = None
+    if last:
+        st = course_status(s, u.id, s.get(Course, names[last[0]][1]))
+        nxt = next((t["id"] for t in st["remaining"] if t["id"] != unfinished and t["id"] in names), None)
+    check = (weak[0]["topic_id"] if weak else (last[0] if last and last[1] else None))
+    paths = []  # the student picks; nothing happens on its own
+    if unfinished: paths.append({"key": "resume", "topic_id": unfinished, "title": names[unfinished][0]})
+    if weak: paths.append({"key": "revise", "topic_id": weak[0]["topic_id"], "title": weak[0]["title"], "topics": [{"topic_id": t["topic_id"], "title": t["title"], "percent": t["percent"]} for t in weak[:3]]})
+    elif due: paths.append({"key": "revise", "topic_id": due[0]["topic_id"], "title": due[0]["title"], "topics": [{"topic_id": t["topic_id"], "title": t["title"], "percent": None} for t in due[:3]]})
+    if check: paths.append({"key": "check", "topic_id": check, "title": names[check][0]})
+    if nxt: paths.append({"key": "next", "topic_id": nxt, "title": names[nxt][0]})
+    out.update({"show": True, "paths": paths})
+    return out
+@app.get("/api/me/welcome")
+def my_welcome(u: User = Depends(me), s: Session = Depends(db)): return welcome_view(s, u)
+class WelcomeIn(BaseModel): what: str
+@app.post("/api/me/welcome")
+def welcome_choice(b: WelcomeIn, u: User = Depends(me), s: Session = Depends(db)):
+    """hide: close the welcome card. usual: back to the usual session size. spread: spread overdue revision (beyond the first three) over the next week,
+    with the same postpone the revision page uses, so nothing is listed twice."""
+    g = learning_gap(s, u.id)
+    if not g["break_from"]: raise HTTPException(400, "There is no break to come back from")
+    if b.what in ("hide", "usual"):
+        key = f"{'welcome' if b.what == 'hide' else 'ease-off'}:{g['break_from']}"
+        if not seen_key(s, u.id, key): s.add(NoteSeen(user_id=u.id, key=key)); s.commit()
+        return welcome_view(s, u)
+    if b.what == "spread":
+        rv = my_revision(u=u, s=s); later = (rv["overdue"] + rv["today"])[3:]
+        for i, x in enumerate(later): s.add(StepLog(user_id=u.id, topic_id=x["topic_id"], kind="postpone", outcome=str(POSTPONE_DAYS[i % len(POSTPONE_DAYS)])))
+        s.commit(); return {**welcome_view(s, u), "spread": len(later)}
+    raise HTTPException(400, "Choose hide, usual or spread")
+def return_notes(u, s):  # one gentle line on the day a break reaches each threshold: the bell, and so the daily email for those who asked for it
+    if u.role != "student" or u.return_reminders is False: return []
+    g = learning_gap(s, u.id)
+    if g["state"] not in ("extended", "long") or g["days_away"] not in break_days(s): return []
+    last = s.query(Progress).filter(Progress.user_id == u.id, Progress.last_read.isnot(None)).order_by(Progress.last_read.desc()).first(); t = s.get(Topic, last.topic_id) if last else None
+    return [{"key": f"return:{g['break_from']}:{g['days_away']}", "text": "Ready when you are: pick up where you left off", "sub": t.title if t else ""}]
+def activity_label(s, uid):  # for a student's teachers: recently active, away (extended or long) or back from a break, never what they did
+    g = learning_gap(s, uid); return {"state": g["state"], "days_away": g["days_away"], "back_on": g["back_on"]}
 # ---- "this looks wrong": a student flags an AI reply; the topic's teachers see it (never who sent it) and write it again or let it stand ----
 class FlagIn(BaseModel): source: str; id: int | None = None; topic_id: int | None = None; kind: str = ""; excerpt: str = ""; reason: str = ""
 FLAG_DAILY = 20
@@ -7259,6 +7346,10 @@ def plan_advice(r, qs, today):
     return p
 def routine_view(r): return {"days": r.days, "minutes": r.minutes, "at": r.at, "new_per_session": SLOTS.get(r.minutes, 1)}
 def item_done(it, u, s, now):
+    if it["kind"] == "revise":  # revised today: the sheet read or a check on the topic
+        start = dt.datetime.combine(local_day(now), dt.time()) - dt.timedelta(minutes=DAY_OFFSET)
+        return bool(s.query(StepLog.id).filter(StepLog.user_id == u.id, StepLog.topic_id == it["id"], StepLog.kind == "revised", StepLog.at >= start).first()
+                    or s.query(McqAttempt.id).filter(McqAttempt.user_id == u.id, McqAttempt.topic_id == it["id"], McqAttempt.status == "submitted", McqAttempt.submitted_at >= start).first())
     if it["kind"] == "review":
         due = s.query(func.count(StudyProgress.id)).filter(StudyProgress.user_id == u.id, StudyProgress.topic_id.in_(it["topic_ids"] or [0]), StudyProgress.review_due <= now).scalar()
         return due == 0
@@ -7269,8 +7360,12 @@ def item_alive(it, s):
     if it["kind"] == "review" or it["src"] == "study": return it["kind"] == "review" or s.get(StudyTopic, it["id"]) is not None
     x = s.get(Topic, it["id"]); return bool(x and x.published is not False and not topic_off(s, x))
 def make_session(u, s, r, today, now):
-    items = pick_topics(study_queues(u, s), SLOTS.get(r.minutes, 1)); rv = review_item(u, s, now)
+    ease = easing(s, u.id); slots = SLOTS.get(r.minutes, 1)
+    items = pick_topics(study_queues(u, s), max(1, slots // 2) if ease else slots); rv = review_item(u, s, now)
     if rv: items.append(rv)
+    if ease:  # S39, the week after a break: fewer new topics, and the most pressing revision first
+        due = my_revision(u=u, s=s); top = (due["overdue"] + due["today"])[:1]
+        items = [{"kind": "revise", "src": "course", "id": x["topic_id"], "title": x["title"], "course": x["course"]} for x in top] + items
     for x in items: x.pop("due", None); x.pop("started", None)
     s.add(DaySession(user_id=u.id, day=today, items=json.dumps(items, ensure_ascii=False)))
     try: s.commit()
@@ -7284,7 +7379,8 @@ def session_view(u, s, r, ds, today, now):
     since = max(today - dt.timedelta(days=14), local_day(r.started_at or r.updated_at or dt.datetime.utcnow()) + dt.timedelta(days=1))  # the day it was set up doesn't count
     while d >= since and d not in days:  # study days missed since they last studied, and only since the routine began
         missed += r.days[d.weekday()] == "1"; d -= dt.timedelta(days=1)
-    out = {"routine": routine_view(r), "planned_today": r.days[today.weekday()] == "1", "studied_today": today in days, "missed": missed,
+    ease = easing(s, u.id)
+    out = {"routine": routine_view(r), "planned_today": r.days[today.weekday()] == "1", "studied_today": today in days, "missed": 0 if ease else missed, "easing": ease,
            "streak": streak_of(days, today, r.days), "plan": plan_advice(r, study_queues(u, s), today), "session": None,
            "next_day": next_study_day(r.days, today)}
     if ds:
@@ -7329,12 +7425,12 @@ def notes_for(u, s):  # [{key, text, sub}]: staff get what needs attention, stud
     if u.role == "student":
         asks = [{"key": f"invite:{l.id}", "text": f"{g.name} wants to follow your progress", "sub": "Accept or decline on Home"} for l, g in invitations(s, u.id)]
         return asks + enrol_notes(u, s) + tq_answered(u, s) + ann_notes(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
-                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + assign_notes(u, s) + revision_notes(u, s) + cal_notes(u, s)
+                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + assign_notes(u, s) + revision_notes(u, s) + return_notes(u, s) + cal_notes(u, s)
     return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + enrol_notes(u, s) + (ann_notes(u, s) if u.role == "admin" else [])
 @app.get("/api/me/notifications")
 def my_notifications(u: User = Depends(me), s: Session = Depends(db)):
     items = notes_for(u, s); seen = {k for (k,) in s.query(NoteSeen.key).filter(NoteSeen.user_id == u.id, NoteSeen.key.in_([i["key"] for i in items] or [""]))}
-    return {"items": [{**i, "unread": i["key"] not in seen} for i in items], "digest": bool(u.digest), "mail": mail_on(s)}
+    return {"items": [{**i, "unread": i["key"] not in seen} for i in items], "digest": bool(u.digest), "mail": mail_on(s), **({"return_reminders": u.return_reminders is not False} if u.role == "student" else {})}
 class SeenIn(BaseModel): keys: list[str]
 @app.post("/api/me/notifications/seen")
 def notes_seen(b: SeenIn, u: User = Depends(me), s: Session = Depends(db)):
@@ -7343,11 +7439,13 @@ def notes_seen(b: SeenIn, u: User = Depends(me), s: Session = Depends(db)):
         if k not in have: s.add(NoteSeen(user_id=u.id, key=k))
     s.query(NoteSeen).filter(NoteSeen.user_id == u.id, NoteSeen.at < dt.datetime.utcnow() - dt.timedelta(days=120)).delete()  # old ones stop mattering
     s.commit(); return {"ok": True}
-class DigestIn(BaseModel): digest: bool
+class DigestIn(BaseModel): digest: bool | None = None; return_reminders: bool | None = None
 @app.put("/api/me/notifications/settings")
 def notes_settings(b: DigestIn, u: User = Depends(me), s: Session = Depends(db)):
     if b.digest and not mail_on(s): raise HTTPException(400, "Email is not set up on this server yet")
-    u.digest = b.digest; s.commit(); return {"digest": u.digest}
+    if b.digest is not None: u.digest = b.digest
+    if b.return_reminders is not None: u.return_reminders = b.return_reminders
+    s.commit(); return {"digest": bool(u.digest), **({"return_reminders": u.return_reminders is not False} if u.role == "student" else {})}
 DIGEST_HOUR = int(os.getenv("DIGEST_HOUR") or 7)  # the local hour (see DAY_OFFSET_MINUTES) after which the daily summary goes out
 def send_digests(now=None):  # once a local day, after DIGEST_HOUR: everyone who asked gets their unseen notifications by email (nothing if there are none)
     now = now or dt.datetime.utcnow(); sent = 0

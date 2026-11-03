@@ -483,7 +483,15 @@ function SelfReg({cfg,run}){
     <button className="btn ghost" onClick={()=>run(()=>api('/admin/settings',{method:'PUT',body:{allowed_domains:shown}}).then(()=>setDom(null)),'Domains saved')}>{tl("Save domains")}</button>
     <h3 className="sec">{tl("Free daily AI for self-registered people (Lite)")}</h3>
     <p className="known">{tl("They use your AI key within this allowance each day. Beyond it they can add their own key, or ask you for more: make them Pro until a date from Users. Saved answers never count.")}</p>
-    <LiteLimits cfg={cfg} run={run}/></>}
+    <LiteLimits cfg={cfg} run={run}/>
+    <h3 className="sec">{tl("Time away from learning")}</h3>
+    <p className="known">{tl("Counted from learning (topics opened or learned, tests, MCQ sets), never from just opening the app. After the first number of days a student gets a welcome back and a lighter week; teachers see who is away.")}</p>
+    <BreakDays cfg={cfg} run={run}/></>}
+function BreakDays({cfg,run}){  // S39: when time away counts as an extended break, and when as a long one
+  const [v,setV]=useState(null),cur=v||{a:String(cfg.break_days?.[0]??7),b:String(cfg.break_days?.[1]??30)}
+  return <><div className="two"><div><label htmlFor="bd1">{tl("Extended break after (days)")}</label><input id="bd1" type="number" min="1" max="364" value={cur.a} onChange={e=>setV({...cur,a:e.target.value})}/></div>
+    <div><label htmlFor="bd2">{tl("Long break after (days)")}</label><input id="bd2" type="number" min="2" max="365" value={cur.b} onChange={e=>setV({...cur,b:e.target.value})}/></div></div>
+    <button className="btn ghost" onClick={()=>run(()=>api('/admin/settings',{method:'PUT',body:{break_days:[+cur.a||0,+cur.b||0]}}).then(()=>setV(null)),'Saved')}>{tl("Save")}</button></>}
 function GoogleSetting({cfg,run}){  // Sign in with Google: the web client ID from the Google Cloud project; the button shows on the sign-in page once it is set
   const [v,setV]=useState(null),shown=v??cfg.google_client_id??''
   return <><h3 className="sec">{tl("Sign in with Google")}</h3>
@@ -546,10 +554,12 @@ function Notifications({onOpen,page}){
     setOpen(true);try{const r=await api('/me/notifications');setD(r);const keys=r.items.filter(x=>x.unread).map(x=>x.key)  // what is shown now is what gets marked seen
       if(keys.length)await api('/me/notifications/seen',{method:'POST',body:{keys}})}catch{/* the list stays as it was */}}
   const digest=async on=>{try{const r=await api('/me/notifications/settings',{method:'PUT',body:{digest:on}});setD(x=>({...x,digest:r.digest}))}catch(e){alert(e.message)}}
+  const reminders=async on=>{try{const r=await api('/me/notifications/settings',{method:'PUT',body:{return_reminders:on}});setD(x=>({...x,return_reminders:r.return_reminders}))}catch(e){alert(e.message)}}
   return <div className="notes" ref={box}><button className="ic" aria-label={n?tl("Notifications, {n} new",{n:n}):tl("Notifications")} aria-expanded={open} onClick={toggle}><Bell size={19}/>{n>0&&<em className="badge">{n>9?'9+':n}</em>}</button>
     {open&&<div className="pop" role="dialog" aria-label={tl("Notifications")}><b className="poph">{tl("Notifications")}{n>0&&<small>{" "}{tl("· {n} new",{n:n})}</small>}</b>
       {d===null?<Skeleton/>:items.length?<Paged rows={items} render={x=><button key={x.key} className={'note'+(x.unread?' new':'')} onClick={()=>{setOpen(false);load();onOpen()}}><span>{srv(x.text)}</span>{x.sub&&<small>{srv(x.sub)}</small>}</button>}/>:<p className="known">{tl("You're all caught up.")}</p>}
-      {d?.mail&&<label className="chk notemail"><input type="checkbox" checked={!!d.digest} onChange={e=>digest(e.target.checked)}/>{" "}{tl("Email me a daily summary of new ones")}</label>}</div>}</div>}
+      {d?.mail&&<label className="chk notemail"><input type="checkbox" checked={!!d.digest} onChange={e=>digest(e.target.checked)}/>{" "}{tl("Email me a daily summary of new ones")}</label>}
+      {d&&d.return_reminders!==undefined&&<label className="chk notemail"><input type="checkbox" checked={!!d.return_reminders} onChange={e=>reminders(e.target.checked)}/>{" "}{tl("A gentle reminder if I haven't studied for a while")}</label>}</div>}</div>}
 // the search box under the header on every page: Enter opens Search with the query
 function GlobalSearch({onFind,onPhoto}){
   const [q,setQ]=useState('')
@@ -1243,15 +1253,16 @@ function DoNext({d:d0,openTopic,onOpen,onGo,onCalendar,session}){  // with a rou
 function ThisWeek({d,onGo}){
   const days=[...Array(7)].map((_,i)=>{const t=new Date();t.setDate(t.getDate()-6+i);return t.toLocaleDateString(getLang(),{weekday:'narrow'})})
   return <button className="card ward" onClick={()=>onGo('progress')} aria-label={tl("My progress")}>
-    <span className="wtop"><b>{tl("This week")}</b><span className="chip">{tl("{n}-day streak",{n:d.streak})}</span></span>
+    <span className="wtop"><b>{tl("This week")}</b>{d.streak>0&&<span className="chip">{tl("{n}-day streak",{n:d.streak})}</span>}</span>
     <span className="wweek" aria-label={tl("Studied on {n} of the last 7 days",{n:d.week.filter(Boolean).length})}>{d.week.map((on,i)=><span key={i} className={on?'on':''} aria-hidden="true">{days[i]}</span>)}</span>
     <small className="known">{tl("Topics learned this week: {n}",{n:d.completed_this_week})} · {tl("{p}% of your topics learned",{p:d.percent})}</small></button>}
 function Dashboard({user,toast,onOpen,onStudy,onRoutine,onCalendar,onGo}){
   const unplaced=user.self_registered&&!user.placed,[sme,setSme]=useState(null);useEffect(()=>{api('/study/me').then(setSme).catch(()=>{})},[])
   const [tree,setTree]=useState(null),[today,setToday]=useState(null),[topic,setTopic]=useState(null),[sess,setSess]=useState(null)
-  const [dd,setDd]=useState(null)
+  const [dd,setDd]=useState(null),[mset,setMset]=useState(null)
   useEffect(()=>{if(topic)return;api('/tree').then(setTree).catch(e=>toast(e.message));api('/me/today').then(setToday).catch(()=>{});api('/me/dashboard').then(setDd).catch(()=>{})},[topic,toast])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={user.role}/>
+  if(mset)return <McqPlay id={mset} back={()=>setMset(null)} toast={toast} openTopic={x=>{setMset(null);setTopic(x)}}/>
   const hour=new Date().getHours(),hi=hour<12?'Good morning, {name}':hour<17?'Good afternoon, {name}':'Good evening, {name}'
   const seen=new Map(),courses=[]
   for(const p of tree||[])for(const s of p.semesters)for(const c of s.courses){const at=seen.get(c.id),item={p,s,c,topics:c.units.flatMap(un=>un.topics.map(t=>({...t,unit:un})))}
@@ -1259,6 +1270,7 @@ function Dashboard({user,toast,onOpen,onStudy,onRoutine,onCalendar,onGo}){
   const resume=(today?.focus||[]).filter(f=>f.kind==='resume').sort((a,b)=>(b.last_read||'').localeCompare(a.last_read||''))[0]||(today?.focus||[]).find(f=>f.kind==='next')
   return <><Bar title={tl(hi,{name:firstName(user.name)})}/><div className="main">
     <Invitations/><CourseInvites onGo={onGo}/>
+    {user.role==='student'&&<WelcomeBack openTopic={setTopic} toast={toast} onSet={setMset}/>}
     <SessionCard toast={toast} onRoutine={onRoutine} openTopic={setTopic} onStudy={onStudy} refresh={topic} onLoad={setSess}/>
     {dd&&<DoNext d={dd} openTopic={setTopic} onOpen={onOpen} onGo={onGo} onCalendar={onCalendar} session={!!sess?.routine}/>}
     {dd&&<ThisWeek d={dd} onGo={onGo}/>}
@@ -1289,6 +1301,28 @@ function RecallCard({open}){
     <Reveal label={tl("Think, then tap for the answer")}><Md>{d.answer}</Md><button className="link" onClick={()=>open(d.topic_id)}>{tl("Open {title}",{title:d.title})}</button></Reveal></div>}
 const WD=[0,1,2,3,4,5,6],wd=i=>new Date(2024,0,1+i).toLocaleDateString(locale(),{weekday:'short'})  // Monday first; 1 Jan 2024 was a Monday. Names in the reader's language
 const nextStudyDay=n=>!n?'':n.in===1?tl('tomorrow'):wd(n.weekday)  // worked out by the server, which counts days the way the students' college does
+// a short knowledge check on one topic: five bank questions, or (if the bank is short and they agree) a new AI set
+const topicCheck=async(topic_id,confirm,toast)=>{const go=source=>api('/mcq/attempts',{method:'POST',body:{mode:'topic',source,size:5,topic_id,request_id:rid()}})
+  try{return (await go('bank')).id}catch(e){if(e.status!==409){toast(e.message)}else if(await confirm({title:tl("Not enough bank questions here"),body:tl("Make a new AI set for this check instead? It counts toward your MCQ sets."),ok:tl("A new AI set")})){try{return (await go('ai')).id}catch(e2){toast(e2.message)}}}
+  return null}
+// back after a break (S39): a short summary and a choice of where to start. Nothing is reset; the student picks, or just closes it
+const PATH_LABEL={resume:"Pick up where you left off",revise:"Revise what was hard",check:"A short knowledge check",next:"Go on to the next topic"}
+function WelcomeBack({openTopic,toast,onSet}){
+  const confirm=useConfirm(),[w,setW]=useState(null),[busy,setBusy]=useState(false)
+  useEffect(()=>{api('/me/welcome').then(setW).catch(()=>{})},[])
+  if(!w?.show)return null
+  const act=async what=>{setBusy(true);try{const r=await api('/me/welcome',{method:'POST',body:{what}});setW(r);if(what==='spread')toast(r.spread===1?tl("1 topic moved to the coming week"):tl("{n} topics moved to the coming week",{n:r.spread}))}catch(e){toast(e.message)}setBusy(false)}
+  const go=async p=>{if(p.key==='check'){setBusy(true);const id=await topicCheck(p.topic_id,confirm,toast);setBusy(false);if(id)onSet(id)}else openTopic(p.topic_id)}
+  const a=w.assignments||{},rv=w.revision||{}
+  return <div className="qbox welcome"><b>{tl("Welcome back")}</b>
+    <p style={{margin:'4px 0'}}>{w.last?tl("Last time you were on {topic} in {course}.",{topic:w.last.topic,course:w.last.course}):tl("Good to see you again.")}{w.progress?' '+tl("You had {p}% of that course done, and it is all still there.",{p:w.progress.percent}):''}</p>
+    {(a.open_count>0||a.closed?.length>0)&&<p className="known" style={{margin:'4px 0'}}>{[a.open_count>0&&(a.open_count===1?tl("1 assignment is open: {title}, due {due}",{title:a.open[0].title,due:a.open[0].due.replace('T',' ')}):tl("{n} assignments are open; the next is due {due}",{n:a.open_count,due:a.open[0].due.replace('T',' ')})),
+      a.closed?.length>0&&(a.closed.length===1?tl("1 closed while you were away"):tl("{n} closed while you were away",{n:a.closed.length}))].filter(Boolean).join(' · ')}</p>}
+    {rv.due>0&&<p className="known" style={{margin:'4px 0'}}>{rv.due===1?tl("1 topic is due for revision: {t}",{t:rv.top[0].title}):tl("{n} topics are due for revision. Start with {t}.",{n:rv.due,t:rv.top.map(x=>x.title).join(', ')})}{rv.due>3&&<>{" "}<button className="link" disabled={busy} onClick={()=>act('spread')}>{tl("Spread the rest over the coming week")}</button></>}</p>}
+    {w.paths?.length>0&&<><p style={{margin:'8px 0 4px'}}>{tl("Where would you like to start?")}</p>
+      {w.paths.map(p=><button key={p.key} className="row rowbtn" disabled={busy} onClick={()=>go(p)}><div>{tl(PATH_LABEL[p.key])}<small>{p.key==='revise'&&p.topics?.length>1?p.topics.map(x=>x.title+(x.percent!=null?' ('+x.percent+'%)':'')).join(', '):p.title}</small></div><ChevronRight size={18}/></button>)}</>}
+    {w.easing&&<p className="known" style={{margin:'8px 0 4px'}}>{tl("For the next {n} days your session is shorter, with revision first.",{n:w.ease_days})}{" "}<button className="link" disabled={busy} onClick={()=>act('usual')}>{tl("Keep my usual plan")}</button></p>}
+    <button className="btn ghost" disabled={busy} onClick={()=>act('hide')}>{tl("Close")}</button></div>}
 function SessionCard({toast,onRoutine,openTopic,onStudy,refresh,onLoad}){  // today's one session, from the student's own routine
   const [v,setV]=useState(null),[busy,setBusy]=useState(false)
   useEffect(()=>{api('/me/session').then(x=>{setV(x);onLoad?.(x)}).catch(()=>{})},[refresh])
@@ -1298,11 +1332,12 @@ function SessionCard({toast,onRoutine,openTopic,onStudy,refresh,onLoad}){  // to
   const extra=async()=>{setBusy(true);try{const x=await api('/me/session',{method:'POST'});setV(x);onLoad?.(x)}catch(e){toast(e.message)}setBusy(false)}
   const r=v.routine,ss=v.session,left=ss?.items.filter(x=>!x.done)||[]
   return <div className="hero session"><div className="shead"><small>{tl("Today's session · {minutes} min",{minutes:r.minutes})}{r.at?' · '+r.at:''}</small><button className="schip" onClick={onRoutine} aria-label={tl("Change my routine")}><Clock size={14}/>{" "}{tl("Routine")}</button></div>
+    {v.easing&&<p style={{margin:'6px 0 0'}}>{tl("A lighter session this week while you settle back in.")}</p>}
     {v.missed>=2&&!v.studied_today&&<p style={{margin:'6px 0 0'}}>{tl("Welcome back. Today is just one session, the same as always. No catching up needed.")}</p>}
     {!ss&&<><h2 style={{fontSize:22}}>{tl("Rest day")}</h2><p>{tl("Your next session is {nextStudyDay}.",{nextStudyDay:nextStudyDay(v.next_day)})}</p><button className="btn inv" disabled={busy} onClick={extra}>{tl("Study anyway")}</button></>}
     {ss&&ss.caught_up&&<><h2 style={{fontSize:22}}>{tl("All caught up")}</h2><p>{tl("Nothing is left to study right now. Well done.")}</p></>}
     {ss&&!ss.caught_up&&<>{ss.done?<h2 style={{fontSize:22}}><Check size={22}/>{" "}{tl("Done for today")}</h2>:<h2 style={{fontSize:22}}>{left.length}{" "}{tl("of {length} to go",{length:ss.items.length})}</h2>}
-      <ul className="sitems">{ss.items.map((x,i)=><li key={i}><button className={'sitem'+(x.done?' done':'')} onClick={()=>open(x)}><span className="sx">{x.done?<Check size={16}/>:x.kind==='review'?<RotateCcw size={16}/>:<Play size={16}/>}</span><span><b>{x.title}</b><small>{x.course}</small></span></button></li>)}</ul>
+      <ul className="sitems">{ss.items.map((x,i)=><li key={i}><button className={'sitem'+(x.done?' done':'')} onClick={()=>open(x)}><span className="sx">{x.done?<Check size={16}/>:(x.kind==='review'||x.kind==='revise')?<RotateCcw size={16}/>:<Play size={16}/>}</span><span><b>{x.title}</b><small>{x.kind==='revise'?tl("Revise")+' · '+x.course:x.course}</small></span></button></li>)}</ul>
       {!ss.done&&<button className="btn inv" onClick={()=>open(left[0])}>{left.length===ss.items.length?tl("Start"):tl("Continue")}: {left[0].title}</button>}
       {ss.done&&<p>{tl("See you {nextStudyDay}.",{nextStudyDay:nextStudyDay(v.next_day)})}</p>}</>}
     <p className="splan">{v.plan.left?tl("{left} topics left · at this pace, done by {v}",{left:v.plan.left,v:new Date(v.plan.finish+'T00:00').toLocaleDateString(undefined,{day:'numeric',month:'short'})}):tl("Nothing left in your courses")}{v.plan.late>0?tl(" · {late} would miss their deadline. {v}",{late:v.plan.late,v:v.plan.advice||''}):''}</p></div>}
@@ -1466,6 +1501,7 @@ function LearningPage({toast,role}){
           e.unit&&e.kind!=='unit_done'&&e.kind!=='unit_restart'?e.unit:'',e.course&&!cid?e.course:''].filter(Boolean).join(' · ')}</small></div></div>}/>
         {h.total>h.items.length&&<p className="known">{tl("Showing the latest {n} of {total}. Narrow the dates to see older ones.",{n:h.items.length,total:h.total})}</p>}</>}</>}
   </div></>}
+const Away=({a})=>!a?null:a.back_on?<span className="pill okp sm">{tl("Back since {when}",{when:day(a.back_on)})}</span>:a.state==='long'||a.state==='extended'?<span className="pill sm">{tl("Away {n} days",{n:a.days_away})}</span>:null  // S39, for teachers: a label, never what they did
 function StudentTrends({cid,sid,back,toast}){  // a course's teacher looking at one of its students (S38)
   const [d,setD]=useState(null);useEffect(()=>{api(`/reports/courses/${cid}/students/${sid}/trends`).then(setD).catch(e=>{toast(e.message);back()})},[sid])
   return <><Bar title={d?.student||tl("Performance")} sub={tl("Performance in this course")} back={back}/><div className="main">{!d?<Skeleton rows={3}/>:<TrendsView d={d}/>}</div></>}
@@ -1480,9 +1516,7 @@ function RevisionPage({toast,role}){
   const load=()=>api('/me/revision').then(setD).catch(e=>toast(e.message));useEffect(()=>{if(!topic&&!set)load()},[topic,set])
   if(topic)return <Topic id={topic} tab0="revise" back={()=>setTopic(null)} toast={toast} role={role}/>
   if(set)return <McqPlay id={set} back={()=>setSet(null)} toast={toast} openTopic={setTopic}/>
-  const check=async x=>{setBusy(x.topic_id);const go=source=>api('/mcq/attempts',{method:'POST',body:{mode:'topic',source,size:5,topic_id:x.topic_id,request_id:rid()}})
-    try{setSet((await go('bank')).id)}catch(e){if(e.status!==409){toast(e.message)}else if(await confirm({title:tl("Not enough bank questions here"),body:tl("Make a new AI set for this check instead? It counts toward your MCQ sets."),ok:tl("A new AI set")})){try{setSet((await go('ai')).id)}catch(e2){toast(e2.message)}}}
-    setBusy(null)}
+  const check=async x=>{setBusy(x.topic_id);const id=await topicCheck(x.topic_id,confirm,toast);if(id)setSet(id);setBusy(null)}
   const later=async(x,days)=>{try{const r=await api(`/me/revision/${x.topic_id}/postpone`,{method:'POST',body:{days}});toast(tl("Moved to {day}",{day:day(r.due)}));load()}catch(e){toast(e.message)}}
   const done=async x=>{try{await api(`/topics/${x.topic_id}/revised`,{method:'POST'});toast(tl("Marked as revised"));load()}catch(e){toast(e.message)}}
   const why=x=>[x.weak&&tl("Last check {percent}%",{percent:x.last.percent}),x.wrong>1&&tl("{n} wrong answers so far",{n:x.wrong}),x.not_yet>0&&tl("You found it hard"),!x.checked&&tl("Not checked yet")].filter(Boolean)
@@ -3240,7 +3274,7 @@ function CourseReports({toast,onOpen}){
 function StudentReport({c,back,toast}){
   const [q,setQ]=useState(''),[show,setShow]=useState(''),[sort,setSort]=useState('name')
   const [d,setD]=useState(null),[w,setW]=useState(null),[perf,setPerf]=useState(null);useEffect(()=>{api(`/reports/courses/${c.course_id}/students`).then(setD).catch(e=>toast(e.message));api(`/reports/courses/${c.course_id}/weak-areas`).then(setW).catch(()=>{})},[])
-  const keep={'':()=>true,active:x=>x.active,disabled:x=>!x.active,never:x=>!x.topics_read,behind:x=>x.completion<50,needs:x=>x.needs_study.length>0}[show],seen=x=>x.last_active||''
+  const keep={'':()=>true,active:x=>x.active,disabled:x=>!x.active,never:x=>!x.topics_read,behind:x=>x.completion<50,needs:x=>x.needs_study.length>0,away:x=>x.activity&&(x.activity.state==='extended'||x.activity.state==='long'),back:x=>!!x.activity?.back_on}[show],seen=x=>x.last_active||''
   const by={name:(a,b)=>(a.name||'').localeCompare(b.name||''),low:(a,b)=>a.completion-b.completion,high:(a,b)=>b.completion-a.completion,recent:(a,b)=>seen(b).localeCompare(seen(a)),quiet:(a,b)=>seen(a).localeCompare(seen(b))}[sort]
   const shown=d&&d.students.filter(x=>keep(x)&&has(q,x.name,x.email)).sort(by),{items,total,page,setPage}=useLocalPage(shown,[q,show,sort])
   if(perf)return <StudentTrends cid={c.course_id} sid={perf} back={()=>setPerf(null)} toast={toast}/>
@@ -3249,10 +3283,10 @@ function StudentReport({c,back,toast}){
     <ClassTrends cid={c.course_id}/>
     {d&&!d.students.length&&<p className="known">{tl("No students are enrolled for this course yet.")}</p>}
     {d?.students.length>5&&<><div className="search"><Search size={18}/><input type="search" aria-label={tl("Search students")} placeholder={tl("Search by name or email")} value={q} onChange={e=>setQ(e.target.value)}/></div>
-      <div className="filters fit"><Opts label={tl("Show")} value={show} set={setShow} items={[['',tl("All students")],['active',tl("Active")],['disabled',tl("Disabled")],['never',tl("Never opened a topic")],['behind',tl("Under 50% completed")],['needs',tl("Need attention")]]}/>
+      <div className="filters fit"><Opts label={tl("Show")} value={show} set={setShow} items={[['',tl("All students")],['active',tl("Active")],['disabled',tl("Disabled")],['never',tl("Never opened a topic")],['behind',tl("Under 50% completed")],['needs',tl("Need attention")],['away',tl("Away from learning")],['back',tl("Back after a break")]]}/>
         <Opts label={tl("Sort by")} value={sort} set={setSort} items={[['name',tl("Sort: name")],['low',tl("Sort: lowest completion first")],['high',tl("Sort: highest completion first")],['recent',tl("Sort: recently active first")],['quiet',tl("Sort: longest inactive first")]]}/></div>
       {!total&&<p className="known">{tl("Nothing matches.")}</p>}</>}
-    {!d&&<Skeleton/>}{items.map(x=><div className="row" key={x.email}><div>{x.name}{!x.active&&<span className="pill off sm">{tl("Disabled")}</span>}<small>{x.completion}{tl("% completed · {topics_completed}/{topics} done, {topics_read} opened{v} · last active",{topics_completed:x.topics_completed,topics:x.topics,topics_read:x.topics_read,v:c.quizzes?' · quizzes '+x.quizzes_taken+'/'+x.quizzes+(x.avg_quiz_percent!=null?', avg '+x.avg_quiz_percent+'%':''):''})}{" "}{day(x.last_active)}</small>{(x.strong.length>0||x.needs_study.length>0)&&<small>{x.strong.length>0&&tl("Strong: {strong}",{strong:x.strong.join(', ')})}{x.strong.length>0&&x.needs_study.length>0&&' · '}{x.needs_study.length>0&&tl("Needs attention: {needs_study}",{needs_study:x.needs_study.join(', ')})}</small>}<Bar2 v={x.completion}/></div>{x.user_id&&<button className="btn ghost sm" onClick={()=>setPerf(x.user_id)}>{tl("Performance")}</button>}</div>)}
+    {!d&&<Skeleton/>}{items.map(x=><div className="row" key={x.email}><div>{x.name}{!x.active&&<span className="pill off sm">{tl("Disabled")}</span>}{" "}<Away a={x.activity}/><small>{x.completion}{tl("% completed · {topics_completed}/{topics} done, {topics_read} opened{v} · last active",{topics_completed:x.topics_completed,topics:x.topics,topics_read:x.topics_read,v:c.quizzes?' · quizzes '+x.quizzes_taken+'/'+x.quizzes+(x.avg_quiz_percent!=null?', avg '+x.avg_quiz_percent+'%':''):''})}{" "}{day(x.last_active)}</small>{(x.strong.length>0||x.needs_study.length>0)&&<small>{x.strong.length>0&&tl("Strong: {strong}",{strong:x.strong.join(', ')})}{x.strong.length>0&&x.needs_study.length>0&&' · '}{x.needs_study.length>0&&tl("Needs attention: {needs_study}",{needs_study:x.needs_study.join(', ')})}</small>}<Bar2 v={x.completion}/></div>{x.user_id&&<button className="btn ghost sm" onClick={()=>setPerf(x.user_id)}>{tl("Performance")}</button>}</div>)}
     <Pager page={page} total={total} onPage={setPage}/>
     {d?.students.length>0&&<button className="btn ghost" onClick={()=>fetchFile(`/reports/courses/${c.course_id}/students?format=csv`,'students-'+c.course.replace(/\s+/g,'_')+'.csv',toast)}>{tl("Download students CSV")}</button>}</div></>}
 function Reports({role,toast}){
