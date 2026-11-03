@@ -43,7 +43,8 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Learning(val status: String = "not_started")
 /** ask the teacher: a student's question about a topic, and its thread with the course's teacher */
 @Serializable data class QuestionRow(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val updated: String? = null,
-                                     val last: String = "", val unread: Boolean = false, val student: String? = null, val message: Boolean = false)
+                                     val last: String = "", val unread: Boolean = false, val student: String? = null, val message: Boolean = false,
+                                     val label: String = "", val at: String? = null)  // label (S40): pending, follow_up, answered or resolved
 @Serializable data class QuestionPage(val total: Int = 0, val items: List<QuestionRow> = emptyList())
 @Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
 /** a course a teacher offers, as a student sees it in Join a course */
@@ -60,7 +61,10 @@ import kotlinx.serialization.json.JsonObject
                                      val file: FileRef? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
                                         val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false, val teacher: Boolean = false, val can_share: Boolean = false,
-                                        val student: String? = null, val can_withdraw: Boolean = false)
+                                        val student: String? = null, val can_withdraw: Boolean = false,
+                                        val label: String = "", val unit: String = "", val ai: AiContext? = null, val answered_by: String? = null, val at: String? = null)
+/** S40: the AI answer a question was asked from, as the server kept it: what was asked and a short excerpt of the answer */
+@Serializable data class AiContext(val q: String = "", val a: String = "")
 /** a teacher's marked model answer for a topic */
 @Serializable data class MAPart(val text: String = "", val marks: Double = 0.0)
 @Serializable data class ModelAnswer(val question: String = "", val parts: List<MAPart> = emptyList(), val total: Double = 0.0, val by: String = "")
@@ -93,7 +97,7 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Hit(val id: Int, val title: String, val unit: String = "", val course: String = "", val snippet: String = "", val in_title: Boolean = false)
 @Serializable data class MineHit(val topic_id: Int, val title: String = "", val kind: String = "notes", val snippet: String = "")  // the student's own notes or a highlight's note that match
 @Serializable data class SearchOut(val q: String = "", val results: List<Hit> = emptyList(), val confident: Boolean = false, val mine: List<MineHit> = emptyList())
-@Serializable data class Answer(val text: String, val cached: Boolean = false, val support: Boolean = false, val via: String? = null)
+@Serializable data class Answer(val text: String, val cached: Boolean = false, val support: Boolean = false, val via: String? = null, val id: Int? = null)
 @Serializable data class PhotoText(val text: String = "", val ocr: Boolean = false)
 
 @Serializable data class Question(val id: Int, val text: String, val options: List<String>, val image: String = "", val option_images: List<String> = emptyList())
@@ -145,7 +149,7 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Highlights(val items: List<Highlight> = emptyList(), val total: Int = 0)
 @Serializable data class Explained(val explain: LineExplain)
 @Serializable data class Where(val program: String = "", val semester: String = "", val course: String = "", val topic: String = "")
-@Serializable data class Doubt(val phrase: String = "", val where: Where? = null, val passage: String = "", val my_passage: String = "", val saved: String? = null, val ai_left: Int? = null)
+@Serializable data class Doubt(val phrase: String = "", val where: Where? = null, val passage: String = "", val my_passage: String = "", val saved: String? = null, val ai_left: Int? = null, val saved_id: Int? = null)
 
 @Serializable data class SQuestion(val text: String, val options: List<String>, val topic: String = "")
 @Serializable data class StudyQuiz(val id: Int, val kind: String, val topic_id: Int? = null, val topic: String = "", val pass_percent: Int = 60, val questions: List<SQuestion> = emptyList())

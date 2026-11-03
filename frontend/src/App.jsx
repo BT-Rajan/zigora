@@ -97,7 +97,7 @@ export default function App(){
     :guardian?[cal,...(teacher?[['offered',GraduationCap,tl("Offered courses")],['learn',BookOpen,tl("Course content")]]:[]),['classes',Megaphone,tl("Classes and announcements")],...(teacher?[['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],asg]:[]),['aikey',Sparkles,tl("My AI key")],['about',Info,tl("About")]]  // a parent or teacher: their students on Home, and the AI key their school students use
     :admin?ADMIN_SECTIONS.map(([k,I,l,pages])=>[pages[0][0],I,tl(l),k])
     :[['learn',BookOpen,tl("Courses")],['offered',GraduationCap,tl("Offered courses")],cal,asg,['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['bookmarks',Bookmark,tl("Bookmarks")],['highlights',Highlighter,tl("My highlights")],['reports',BarChart3,tl("Reports")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[]),['about',Info,tl("About")]]
-  return <Ctx.Provider value={{menu:()=>setOpen(true),appName:name,confirm,role:user.role,aiOff:!!user.ai_off,level:user.level}}>  {/* aiOff: a school student with no parent's or teacher's key studies without AI */}
+  return <Ctx.Provider value={{menu:()=>setOpen(true),go,appName:name,confirm,role:user.role,aiOff:!!user.ai_off,level:user.level}}>  {/* aiOff: a school student with no parent's or teacher's key studies without AI */}
     <TopBar user={user} lang={lang} pickLang={pickLang} theme={theme} pickTheme={pickTheme} onMenu={()=>setOpen(true)} onHome={()=>go('home')} onAccount={()=>go('profile')} onOut={signOut} onNote={()=>go('home')} page={page}/>
     {page!=='search'&&!guardian&&<GlobalSearch key={findQ.n} onFind={find} onPhoto={user.ai_off?null:()=>go('photo')}/>}{page==='photo'&&<PhotoAsk toast={toast}/>}
     <OfflineBar/>{admin&&<SectionTabs page={page} go={go}/>}<div id="pageslot"/>
@@ -865,7 +865,9 @@ function FlagsPage({toast,back}){
 // ---- ask the teacher: a student's question about a topic goes to the teacher of its course (an admin when it has none), who answers in a
 // ---- short thread. Unlike "This looks wrong?" it is not anonymous: the teacher sees who asked
 const Q_STATE={waiting:['Waiting for your teacher','var(--warn)'],answered:['Answered','var(--ok)'],closed:['Closed','var(--mut)']}
-const QChip=({s,teacher})=>{const [l,c]=Q_STATE[s]||Q_STATE.waiting;return <span className="chip" style={{color:c}}>{tl(s==='waiting'&&teacher?'Waiting for your answer':l)}</span>}
+const Q_LABEL={pending:['Pending','var(--warn)'],follow_up:['Follow-up','var(--warn)'],answered:['Answered','var(--ok)'],resolved:['Resolved','var(--mut)']}  // S40, for the student
+const QChip=({s,teacher,label})=>{if(label&&!teacher&&Q_LABEL[label]){const [l,c]=Q_LABEL[label];return <span className="chip" style={{color:c}}>{tl(l)}</span>}
+  const [l,c]=Q_STATE[s]||Q_STATE.waiting;return <span className="chip" style={{color:c}}>{tl(s==='waiting'&&teacher?'Waiting for your answer':l)}</span>}
 // a photo with a question or an answer (working on paper, a diagram): picked or taken, shrunk in the browser, shown before sending
 function PhotoPick({photo,setPhoto,toast}){
   const pick=async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;try{setPhoto(await shrink(f))}catch(x){toast(x.message)}}
@@ -873,13 +875,24 @@ function PhotoPick({photo,setPhoto,toast}){
     :<label className="btn ghost photopick"><Camera size={16}/> {tl("Add a photo")}<input type="file" accept="image/*" onChange={pick} hidden/></label>}
 const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}
   {m.file&&<a className="msgfile" href={at(m.file.url)} download={m.file.name}><FileText size={18}/><span>{m.file.name}</span><small>{tl("Download")}</small></a>}</>
-function AskTeacher({tid,excerpt,close,toast}){
-  const [text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[sim,setSim]=useState([]),[open,setOpen]=useState({})
+function AskTeacher({tid,excerpt,ai,aiText,close,toast,onDone}){  // ai: {kind,id} of the AI answer it is asked from (S40); the server looks it up itself
+  const {go:goTo}=useContext(Ctx),[text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[sim,setSim]=useState([]),[open,setOpen]=useState({}),[review,setReview]=useState(false),[done,setDone]=useState(null),rq=useRef(rid())
   useEffect(()=>{const q=[excerpt,text].filter(Boolean).join(' ').trim();if(q.split(/\s+/).length<2){setSim([]);return}  // answers the teacher already shared that look like this one
     const h=setTimeout(()=>api(`/topics/${tid}/similar?q=${encodeURIComponent(q.slice(0,500))}`).then(r=>setSim(r.items)).catch(()=>{}),500);return()=>clearTimeout(h)},[text,tid,excerpt])
-  const send=async()=>{setBusy(true);try{await api(`/topics/${tid}/questions`,{method:'POST',body:{text,excerpt:excerpt||'',photo:photo||''}});toast(tl("Sent. Your teacher's answer will be in My questions."));close()}catch(e){toast(srv(e.message))}setBusy(false)}
+  const send=async()=>{setBusy(true);try{setDone(await api(`/topics/${tid}/questions`,{method:'POST',body:{text,excerpt:excerpt||'',photo:photo||'',request_id:rq.current,...(ai?.id?{ai}:{})}}))}catch(e){toast(srv(e.message))}setBusy(false)}  // the same id on a retry: never two questions
+  if(done)return <Sheet close={close}><h3>{tl("Sent to your teacher")}</h3>
+    <p>{done.answered_by?tl("{name} will see it with the topic{ai}.",{name:done.answered_by,ai:done.ai?tl(" and the AI's explanation"):''}):tl("No teacher is assigned to this course yet. Your question is kept, and your school's admins can see it.")}</p>
+    <p className="known">{[done.course,done.unit,done.topic].filter(Boolean).join(' › ')}{' · '}<QChip s={done.status} label={done.label}/></p>
+    <button className="btn" onClick={()=>{close();onDone?onDone():goTo?.('questions')}}>{tl("See my questions")}</button><button className="btn ghost" onClick={close}>{tl("Back to the topic")}</button></Sheet>
+  if(review)return <Sheet close={close}><h3>{tl("Check before sending")}</h3>
+    {excerpt&&<p className="hltext" style={{marginBottom:10}}>“{excerpt}”</p>}
+    {aiText&&<div className="qbox"><small className="steplab">{tl("The AI's explanation (your teacher sees a short part of it)")}</small><div className="prose"><Md>{aiText.length>600?aiText.slice(0,600)+'…':aiText}</Md></div></div>}
+    <div className="qbox"><small className="steplab">{tl("Your question")}</small><p style={{whiteSpace:'pre-wrap',margin:0}}>{text}</p>{photo&&<img className="msgimg" src={photo} alt={tl("Your photo")}/>}</div>
+    <p className="known">{tl("Your teacher sees your name and the topic you ask about.")}</p>
+    <button className="btn" disabled={busy} onClick={send}>{busy?tl("Sending…"):tl("Send to my teacher")}</button><button className="btn ghost" disabled={busy} onClick={()=>setReview(false)}>{tl("Edit")}</button></Sheet>
   return <Sheet close={close}><h3>{tl("Ask my teacher")}</h3>
     {excerpt&&<p className="hltext" style={{marginBottom:10}}>“{excerpt}”</p>}
+    {aiText&&<p className="known" style={{marginTop:0}}>{tl("The AI's explanation goes with it, so your teacher knows what you already read.")}</p>}
     <label htmlFor="tqtext">{tl("Your question")}</label><textarea id="tqtext" rows={4} maxLength={1000} value={text} onChange={e=>setText(e.target.value)} placeholder={tl("What would you like your teacher to explain?")}/>
     <small className="known">{tl("For maths, write it between dollar signs, like $x^2 + y^2$.")}</small>
     {sim.length>0&&<div className="simq"><b>{tl("Already answered for your class")}</b><small className="known" style={{display:'block'}}>{tl("Check these first. If one answers it, there's no need to send.")}</small>
@@ -887,8 +900,7 @@ function AskTeacher({tid,excerpt,close,toast}){
         {open[x.id]?<div className="thread">{rest.map(m=><div key={m.id} className={'msg'+(m.teacher?' teach':'')}><small>{m.teacher?m.who:tl("A student")}</small><MsgBody m={m}/></div>)}</div>
           :<button className="link" onClick={()=>setOpen(o=>({...o,[x.id]:true}))}>{tl(rest.length===1?"Show the answer":"Show the {n} replies",{n:rest.length})}</button>}</div>})}</div>}
     <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
-    <p className="known">{tl("Your teacher sees your name and the topic you ask about.")}</p>
-    <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):tl("Send to my teacher")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
+    <button className="btn" disabled={text.trim().length<3&&!(photo&&!text.trim())} onClick={()=>setReview(true)}>{tl("Review and send")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
 function QuestionThread({id,back,toast}){
   const confirm=useConfirm(),[q,setQ]=useState(null),[text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(false),{role}=useContext(Ctx)
   useEffect(()=>{api('/questions/'+id).then(setQ).catch(e=>{toast(srv(e.message));back()})},[id])
@@ -901,8 +913,10 @@ function QuestionThread({id,back,toast}){
     try{setQ(await api(`/questions/${id}/share`,{method:'POST',body:{shared:on}}));toast(on?tl("Shared with the class"):tl("No longer shared"))}catch(e){toast(srv(e.message))}}
   if(topic)return <Topic id={q.topic_id} back={()=>setTopic(false)} toast={toast} role={role}/>
   return <><Bar title={q?q.topic:tl("Question")} sub={q?[q.course,q.student].filter(Boolean).join(' · '):''} back={back}/><div className="main">
-    {!q?<Skeleton/>:<><div className="tools" style={{justifyContent:'space-between',alignItems:'center'}}><span><QChip s={q.status} teacher={q.teacher}/>{q.shared&&<>{" "}<span className="chip">{tl("Shared with the class")}</span></>}{q.message&&<>{" "}<span className="chip">{tl("Message from your teacher")}</span></>}</span>{q.topic_id&&<button className="link" onClick={()=>setTopic(true)}>{tl("Open the topic")}</button>}</div>
+    {!q?<Skeleton/>:<><div className="tools" style={{justifyContent:'space-between',alignItems:'center'}}><span><QChip s={q.status} teacher={q.teacher} label={q.label}/>{q.shared&&<>{" "}<span className="chip">{tl("Shared with the class")}</span></>}{q.message&&<>{" "}<span className="chip">{tl("Message from your teacher")}</span></>}</span>{q.topic_id&&<button className="link" onClick={()=>setTopic(true)}>{tl("Open the topic")}</button>}</div>
       {q.excerpt&&<p className="hltext" style={{margin:'8px 0 12px'}}>“{q.excerpt}”</p>}
+      {!q.teacher&&!q.message&&<p className="known" style={{margin:'4px 0 8px'}}>{[q.unit,q.at&&tl("Sent {when}",{when:when(q.at)}),q.answered_by?tl("To {name}",{name:q.answered_by}):tl("No teacher assigned yet; your school's admins can see it")].filter(Boolean).join(' · ')}</p>}
+      {q.ai&&<details className="qbox"><summary className="known">{q.teacher?tl("What the AI had explained"):tl("The AI's explanation you sent with it")}</summary>{q.ai.q&&<p className="hltext">“{q.ai.q}”</p>}<p className="known" style={{whiteSpace:'pre-wrap'}}>{q.ai.a}</p></details>}
       <div className="thread">{q.messages.map(m=><div key={m.id} className={'msg'+(m.mine?' mine':'')+(m.teacher?' teach':'')}><small>{m.mine?tl("You"):m.who}{' · '}{when(m.at)}</small><MsgBody m={m}/></div>)}</div>
       {q.teacher&&(q.can_share||q.shared)&&<button className="btn ghost" onClick={()=>share(!q.shared)}>{q.shared?tl("Stop sharing with the class"):tl("Share with the class")}</button>}
       {q.status==='closed'?<p className="known">{tl("This question is closed.")}</p>:<><label htmlFor="tqr">{q.teacher?tl("Your answer"):tl("Reply")}</label>
@@ -929,8 +943,8 @@ function MyQuestions({toast}){
   return <><Bar title={tl("My questions")} sub={d?pl(d.items.length,'question'):''}/><div className="main">
     {!d?<Skeleton/>:!d.items.length?<p className="known">{tl("No questions yet. On any topic, tap Ask my teacher, or choose it under Not clear? on a phrase you highlighted.")}</p>
       :<Paged rows={d.items} render={x=><QRow key={x.id} x={x} onOpen={()=>setOpen(x.id)}/>}/>}</div></>}
-const QRow=({x,onOpen,teacher})=><button className="card ward" onClick={onOpen}><span className="wtop"><b>{x.topic}</b>{x.unread?<span className="chip">{tl("New answer")}</span>:<QChip s={x.status} teacher={teacher}/>}</span>
-  <span className="known">{[x.course,x.student].filter(Boolean).join(' · ')}</span><span style={{display:'block',marginTop:4,overflowWrap:'anywhere'}}>{x.last}</span></button>
+const QRow=({x,onOpen,teacher})=><button className="card ward" onClick={onOpen}><span className="wtop"><b>{x.topic}</b>{x.unread?<span className="chip">{tl("New answer")}</span>:<QChip s={x.status} teacher={teacher} label={x.label}/>}</span>
+  <span className="known">{[x.course,x.student,!teacher&&x.at&&day(x.at.slice(0,10))].filter(Boolean).join(' · ')}</span><span style={{display:'block',marginTop:4,overflowWrap:'anywhere'}}>{x.last}</span></button>
 // a teacher's inbox: questions waiting for their answer first (oldest first), or every question on their courses
 function TeacherQuestions({toast,back}){
   const [view,setView]=useState('waiting'),[open,setOpen]=useState(null)
@@ -2451,7 +2465,7 @@ function DoubtBox({tid,askState,phrase,close,toast}){
   const [askT,setAskT]=useState(false),[d,setD]=useState(null),[ans,setAns]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState('')
   useEffect(()=>{setD(null);setAns(null);setErr('');api(`/topics/${tid}/doubt`,{method:'POST',body:{phrase}}).then(setD).catch(e=>{toast(e.message);close()})},[tid,phrase])
   const ask=async()=>{setBusy(true);setErr('');try{setAns(await api(`/topics/${tid}/doubt/ask`,{method:'POST',body:{phrase}}))}catch(e){setErr(e.message)}setBusy(false)}
-  const shown=ans||(d?.saved?{text:d.saved,cached:true}:null)
+  const shown=ans||(d?.saved?{text:d.saved,cached:true,id:d.saved_id}:null)
   return <><div className="tools" style={{justifyContent:'space-between'}}><b>{tl("Not clear?")}</b><button className="ic sm" aria-label={tl("Close")} onClick={close}><X size={16}/></button></div>
     <p className="hltext" style={{marginTop:8}}>“{phrase}”</p>
     {!d?<Skeleton/>:<>
@@ -2464,8 +2478,9 @@ function DoubtBox({tid,askState,phrase,close,toast}){
           <p className="known">{tl("Only the names of your program, semester, course and topic and this phrase are sent. Your notes never are.")}{d.ai_left!=null&&d.ai_left<=10?' '+tl("{n} left today.",{n:d.ai_left}):''}</p>
           {err&&<p className="known">{err}</p>}</>}
       {role==='student'&&askState==='on'&&<button className="link" style={{marginTop:12}} onClick={()=>setAskT(true)}><MessageCircle size={14}/> {tl("Still not clear? Ask my teacher")}</button>}
-      {askT&&<AskTeacher tid={tid} excerpt={phrase} close={()=>setAskT(false)} toast={toast}/>}</>}</>}
+      {askT&&<AskTeacher tid={tid} excerpt={phrase} ai={shown?.id?{kind:'doubt',id:shown.id}:null} aiText={shown&&!shown.support?shown.text:''} close={()=>setAskT(false)} toast={toast}/>}</>}</>}
 function Reader({t,auto,toast,onList,close}){
+  const {role}=useContext(Ctx),[askX,setAskX]=useState(null)
   const [list,setList]=useState(null),[panel,setPanel]=useState(false),[doubt,setDoubt]=useState(null),[noteFor,setNoteFor]=useState(null),[fs,setFs]=useState(!!document.fullscreenElement),box=useRef(null),frame=useRef(null),hl=useRef(null),now=useRef([])
   const inter=t.content_format==='interactive',ready=list!==null
   now.current=list||[]
@@ -2517,7 +2532,9 @@ function Reader({t,auto,toast,onList,close}){
         {list?.length?<Paged rows={list} render={h=><HlItem key={h.id} h={{...h,tid:t.id}} toast={toast} focus={noteFor===h.id} onExplain={aiOn?()=>explain(h.id):null} onGo={()=>goTo(h.id)} onSaved={r=>{setList(l=>l.map(x=>x.id===r.id?r:x));setNoteFor(null)}} onDrop={()=>drop(h.id)}/>}/>:<p className="known">{tl("None yet.")}</p>}</aside>}</div>
     {exp&&<div className="rexp" role="status"><div className="rexph"><small>{tl("What this means")}</small><button className="ic sm" aria-label={tl("Close")} onClick={()=>setExp(null)}><X size={15}/></button></div>
       <p className="rexpq">“{(list?.find(x=>x.id===exp.hid)?.text||'').slice(0,140)}{(list?.find(x=>x.id===exp.hid)?.text||'').length>140?'…':''}”</p>
-      {exp.busy?<p className="known">{tl("Thinking…")}</p>:exp.err?<p className="known">{exp.err}</p>:<><Md>{exp.text||''}</Md><FlagLink source="topic" id={exp.id} topicId={t.id}/></>}</div>}</div>}
+      {exp.busy?<p className="known">{tl("Thinking…")}</p>:exp.err?<p className="known">{exp.err}</p>:<><Md>{exp.text||''}</Md><FlagLink source="topic" id={exp.id} topicId={t.id}/>
+        {role==='student'&&t.ask==='on'&&exp.id&&<button className="link" style={{display:'block',marginTop:6}} onClick={()=>setAskX({excerpt:(list?.find(x=>x.id===exp.hid)?.text||'').slice(0,600),ai:{kind:'topic',id:exp.id},aiText:exp.text||''})}><MessageCircle size={14}/> {tl("Still not clear? Ask my teacher")}</button>}</>}</div>}
+      {askX&&<AskTeacher tid={t.id} excerpt={askX.excerpt} ai={askX.ai} aiText={askX.aiText} close={()=>setAskX(null)} toast={toast}/>}</div>}
 
 const TOPIC_CONFIG_TEMPLATE=`---
 title: 1. Introduction and learning objectives

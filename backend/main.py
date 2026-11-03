@@ -287,6 +287,10 @@ class TeacherQuestion(Base):  # a student's question to the teacher of a topic's
     at = Column(DateTime, default=dt.datetime.utcnow); updated = Column(DateTime, default=dt.datetime.utcnow); seen = Column(DateTime, nullable=True)  # seen: when the student last read it
     shared = Column(Boolean, default=False)  # the teacher shared it with the class: everyone on the topic reads it, without who asked
     subject = Column(String(200), nullable=True); started_by = Column(Integer, nullable=True)  # a message the teacher started (no topic): its subject and who wrote it
+    request_id = Column(String(64), nullable=True)  # S40: the app's id for this ask, so a retry or a double tap gets the same question back
+    ai_kind = Column(String(10), nullable=True); ai_ref = Column(Integer, nullable=True)  # S40: the AI answer it was asked from (doubt, topic or private, and its id)
+    ai_context = Column(Text, nullable=True)  # S40: JSON {"q", "a"}: what was asked of the AI and a short excerpt of its answer (never the whole conversation)
+    __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_teacher_questions_user_request"),)
 class TeacherReply(Base):  # one message in a question's thread, the student's first question included
     __tablename__ = "teacher_replies"
     id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
@@ -977,6 +981,11 @@ def attempt_request_id(c):  # quiz_attempts.request_id, one per person and submi
     _addcol("quiz_attempts", "request_id", "VARCHAR(64) NULL")(c); ins = inspect(c)
     if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("quiz_attempts") + ins.get_unique_constraints("quiz_attempts")):
         c.execute(text("CREATE UNIQUE INDEX uq_quiz_attempts_user_request ON quiz_attempts (user_id, request_id)"))
+def question_context(c):  # S40: teacher_questions.request_id (one per student and ask) and the AI answer a question was asked from
+    for col, typ in (("request_id", "VARCHAR(64) NULL"), ("ai_kind", "VARCHAR(10) NULL"), ("ai_ref", "INTEGER NULL"), ("ai_context", "TEXT NULL")): _addcol("teacher_questions", col, typ)(c)
+    ins = inspect(c)
+    if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("teacher_questions") + ins.get_unique_constraints("teacher_questions")):
+        c.execute(text("CREATE UNIQUE INDEX uq_teacher_questions_user_request ON teacher_questions (user_id, request_id)"))
 def study_attempts_once(c):  # study_attempts.request_id (one per person and submission), and when the two-day mastery rule began: a topic mastered
     # before keeps its stars (only adds data)
     _addcol("study_attempts", "request_id", "VARCHAR(64) NULL")(c); ins = inspect(c)
@@ -1034,7 +1043,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0047_assignment_window", assignment_window),
               ("0048_course_completion", lambda c: [_addcol("topics", "optional", "BOOLEAN NOT NULL DEFAULT 0")(c), Base.metadata.create_all(c, tables=[CourseCompletion.__table__])]),
               ("0049_learning_cycles", lambda c: Base.metadata.create_all(c, tables=[LearningCycle.__table__])),
-              ("0050_return_reminders", _addcol("users", "return_reminders", "BOOLEAN NOT NULL DEFAULT 1"))]
+              ("0050_return_reminders", _addcol("users", "return_reminders", "BOOLEAN NOT NULL DEFAULT 1")),
+              ("0051_question_context", question_context)]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -5104,23 +5114,55 @@ def similar_questions(tid: int, q: str = "", u: User = Depends(me), s: Session =
         if n >= (1 if x.topic_id == tid and len(want) <= 3 else 2): scored.append((n + (1 if x.topic_id == tid else 0), x))
     scored.sort(key=lambda p: -p[0]); tops = {k.id: k.title for k in s.query(Topic).filter(Topic.id.in_([x.topic_id for _, x in scored[:3]] or [0]))}
     return {"items": [{"id": x.id, "topic_id": x.topic_id, "topic": tops.get(x.topic_id, ""), "excerpt": x.excerpt, "mine": x.user_id == u.id, "messages": tq_msgs(s, x, u, None)} for _, x in scored[:3]]}
-class AskTeacherIn(BaseModel): text: str = ""; excerpt: str = ""; photo: str = ""
+class AskAI(BaseModel): kind: str; id: int
+class AskTeacherIn(BaseModel): text: str = ""; excerpt: str = ""; photo: str = ""; request_id: str = ""; ai: AskAI | None = None
+TQ_AI_CHARS = 1200
+def ai_answer_text(raw):  # the readable part of a kept AI answer (some are JSON with a "text"; revision sheets are JSON too)
+    try: d = json.loads(raw)
+    except (ValueError, TypeError): return raw or ""
+    if isinstance(d, dict) and isinstance(d.get("text"), str): return d["text"]
+    if isinstance(d, dict): return " ".join(str(x.get("point") or x) if isinstance(x, dict) else str(x) for v in d.values() if isinstance(v, list) for x in v)
+    return raw or ""
+def ai_context_for(s, u, t, ai):  # S40: the AI answer a question was asked from, looked up here (never taken from the app): {"q", "a"}, or a 400
+    if ai.kind == "doubt": row = s.get(DoubtAnswer, ai.id); ok = row is not None and row.topic_id == t.id; q = row.phrase if ok else ""
+    elif ai.kind == "topic": row = s.get(AICache, ai.id); ok = row is not None and row.topic_id == t.id; q = ""
+    elif ai.kind == "private": row = s.get(PrivateAnswer, ai.id); ok = row is not None and row.topic_id == t.id and row.user_id == u.id; q = ""
+    else: raise HTTPException(400, "Unknown AI answer")
+    if not ok: raise HTTPException(400, "That AI answer is not from this topic")
+    a = " ".join(ai_answer_text(row.text).split())
+    return {"q": q, "a": a[:TQ_AI_CHARS] + ("…" if len(a) > TQ_AI_CHARS else "")}
 @app.post("/api/topics/{tid}/questions")
 def ask_teacher(tid: int, b: AskTeacherIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
     if u.role != "student": raise HTTPException(403, "Students ask their teacher")
     if ask_state(u) == "pro": raise HTTPException(403, TQ_PRO)
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
-    check_topic_access(u, t, s); text_ = tq_text(b.text, bool(b.photo))
+    check_topic_access(u, t, s); text_ = tq_text(b.text, bool(b.photo)); rid = (b.request_id or "").strip()[:64] or None
+    if rid:  # S40: sent again (a retry, a double tap): the question already made, not a second one
+        again = s.query(TeacherQuestion).filter_by(user_id=u.id, request_id=rid).first()
+        if again: return tq_json(again, u, s)
+    ctx = ai_context_for(s, u, t, b.ai) if b.ai else None
     if s.query(func.count(TeacherQuestion.id)).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= TQ_DAILY:
         raise HTTPException(429, "You have asked 10 questions today. Ask more tomorrow.")
     cid = topic_course_id(t, s); excerpt = " ".join((b.excerpt or "").split())[:600] or None
     img = tq_photo(s, u, b.photo)
-    q = TeacherQuestion(user_id=u.id, topic_id=t.id, course_id=cid, excerpt=excerpt); s.add(q); s.flush()
-    s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, image=img)); s.commit()
+    q = TeacherQuestion(user_id=u.id, topic_id=t.id, course_id=cid, excerpt=excerpt, request_id=rid, ai_kind=b.ai.kind if ctx else None, ai_ref=b.ai.id if ctx else None,
+                        ai_context=json.dumps(ctx, ensure_ascii=False) if ctx else None)
+    try: s.add(q); s.flush(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, image=img)); s.commit()
+    except IntegrityError:  # the same ask arrived twice at the same moment: one question either way
+        s.rollback(); again = s.query(TeacherQuestion).filter_by(user_id=u.id, request_id=rid).first()
+        if img:
+            try: os.remove(os.path.join(UPLOADS, "questions", img))  # this copy's photo isn't needed: the first one kept its own
+            except OSError: pass
+        if again: return tq_json(again, u, s)
+        raise
     for x in tq_teachers(s, cid):
         notify(s, x, "question", "A question from {name} on {app}", "{name} asked a question about {topic}. Open {app} to answer it.", run=bg.add_task, name=u.name, topic=t.title)
     return tq_json(q, u, s)
+def tq_label(s, q):  # S40, for people: pending (no teacher reply yet), follow_up (the student wrote again after one), answered, resolved (closed)
+    if q.status == "closed": return "resolved"
+    if q.status == "answered": return "answered"
+    return "follow_up" if s.query(TeacherReply.id).filter(TeacherReply.question_id == q.id, TeacherReply.user_id != q.user_id).first() else "pending"
 def tq_row(q, t, c, last, who=None):
     return {"id": q.id, "topic_id": q.topic_id, "topic": t.title if t else (q.subject or ""), "message": bool(q.started_by), "course": c.name if c else "", "status": q.status, "updated": utc_iso(q.updated),
             "last": (last or "")[:160], **({"student": who} if who is not None else {})}
@@ -5133,7 +5175,7 @@ def my_questions(u: User = Depends(me), s: Session = Depends(db)):
     rows = s.query(TeacherQuestion, Topic, Course).outerjoin(Topic, Topic.id == TeacherQuestion.topic_id).outerjoin(Course, Course.id == TeacherQuestion.course_id) \
         .filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status != "withdrawn").order_by(TeacherQuestion.updated.desc()).limit(100).all()
     last = tq_last(s, [q.id for q, _, _ in rows])
-    return {"items": [{**tq_row(q, t, c, last.get(q.id)), "unread": q.status == "answered" and (q.seen is None or q.seen < q.updated)} for q, t, c in rows]}
+    return {"items": [{**tq_row(q, t, c, last.get(q.id)), "label": tq_label(s, q), "at": utc_iso(q.at), "unread": q.status == "answered" and (q.seen is None or q.seen < q.updated)} for q, t, c in rows]}
 @app.get("/api/questions")
 def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0, u: User = Depends(author), s: Session = Depends(db)):
     """Students' questions to this teacher (every course's for admins): waiting for an answer first, oldest first; or all of them, newest first."""
@@ -5150,7 +5192,11 @@ def tq_json(q, u, s):
     t, c = s.get(Topic, q.topic_id) if q.topic_id else None, s.get(Course, q.course_id) if q.course_id else None
     asker = s.get(User, q.user_id); teach = q.user_id != u.id
     msgs = tq_msgs(s, q, u, (asker.name if asker else ""))
+    co = s.get(Course, q.course_id) if q.course_id else None; owner = s.get(User, co.faculty_owner_id) if co and co.faculty_owner_id else None
+    un = s.get(Unit, t.unit_id) if t and t.unit_id else None
     return {**tq_row(q, t, c, msgs[-1]["text"] if msgs else "", asker.name if teach and asker else None), "excerpt": q.excerpt, "messages": msgs, "teacher": teach, "shared": bool(q.shared),
+            "label": tq_label(s, q), "at": utc_iso(q.at), "unit": un.name if un else "", "ai": json.loads(q.ai_context) if q.ai_context else None,
+            "answered_by": owner.name if owner and owner.active else None,  # None: no teacher assigned yet; the question is kept and the admins see it
             "can_share": teach and any(m["teacher"] for m in msgs), "can_withdraw": not teach and not q.started_by and not any(m["teacher"] for m in msgs)}
 def tq_msgs(s, q, u, asker_name):  # asker_name None: the class's view, where the student who asked is not named
     return [{"id": r.id, "mine": r.user_id == u.id, "teacher": r.user_id != q.user_id, "who": (w.name if w else "") if r.user_id != q.user_id else asker_name,
@@ -5948,7 +5994,7 @@ def doubt_local(tid: int, b: DoubtIn, u: User = Depends(me), s: Session = Depend
     _, qh = doubt_key(u, t, phrase, s); hit = s.query(DoubtAnswer).filter_by(qhash=qh).first() if key_for(u, s) else None
     if hit: hit.hits += 1; s.commit(); note_use(s, u, "doubt", hit.id, hit.author_id)
     return {"phrase": phrase, "where": {"program": f["program"], "semester": f["semester"], "course": f["course"], "topic": f["title"]},
-            "passage": passage_around(words_of(t.content, fmt_of(t)), phrase), "my_passage": passage_around(mine, phrase) if mine else "", "saved": hit.text if hit else None,
+            "passage": passage_around(words_of(t.content, fmt_of(t)), phrase), "my_passage": passage_around(mine, phrase) if mine else "", "saved": hit.text if hit else None, "saved_id": hit.id if hit else None,
             "ai_left": max(0, DOUBT_DAILY - s.query(func.count(AIEgress.id)).filter(AIEgress.user_id == u.id, AIEgress.kind == "doubt", AIEgress.ok == True, AIEgress.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar()) if u.role == "student" else None}  # noqa: E712
 @app.post("/api/topics/{tid}/doubt/ask")
 async def doubt_ask(tid: int, b: DoubtIn, u: User = Depends(me), s: Session = Depends(db)):
@@ -5957,16 +6003,17 @@ async def doubt_ask(tid: int, b: DoubtIn, u: User = Depends(me), s: Session = De
     if crisis(phrase): return {"text": SUPPORT.get(u.lang or "en", SUPPORT["en"]), "cached": False, "support": True}
     key = key_or_fail(u, s); lite_search_left(u, s); prompt, qh = doubt_key(u, t, phrase, s)
     hit = s.query(DoubtAnswer).filter_by(qhash=qh).first()
-    if hit: hit.hits += 1; s.commit(); note_use(s, u, "doubt", hit.id, hit.author_id); return {"text": hit.text, "cached": True}
+    if hit: hit.hits += 1; s.commit(); note_use(s, u, "doubt", hit.id, hit.author_id); return {"text": hit.text, "cached": True, "id": hit.id}
     if not is_staff(u) and s.query(func.count(AIEgress.id)).filter(AIEgress.user_id == u.id, AIEgress.kind == "doubt", AIEgress.ok == True, AIEgress.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= DOUBT_DAILY:  # noqa: E712
         raise HTTPException(429, f"You have used today's {DOUBT_DAILY} AI doubts. Try again tomorrow, or reread the passage above.")
     f = full(t, s)
     msg = f"Program: {f['program']}\nSemester: {f['semester']}\nCourse: {f['course']}\nTopic: {f['title']}\n\nThe student does not understand this phrase:\n{phrase}"
     text, tokens = await ask_ai(u, s, key, prompt, msg, max_tokens=500, kind="doubt", topic_id=tid)
     lite_search_used(u, s)
-    try: s.add(DoubtAnswer(qhash=qh, topic_id=tid, phrase=phrase[:300], text=text, tokens=tokens, author_id=author_of(u))); s.commit()
-    except Exception: s.rollback()
-    return {"text": text, "cached": False}
+    row = DoubtAnswer(qhash=qh, topic_id=tid, phrase=phrase[:300], text=text, tokens=tokens, author_id=author_of(u))
+    try: s.add(row); s.commit()
+    except Exception: s.rollback(); row = None
+    return {"text": text, "cached": False, "id": row.id if row else None}
 @app.get("/api/admin/egress")
 def egress_report(days: int = 30, _: User = Depends(admin), s: Session = Depends(db)):
     """What has left for the AI provider, by kind: requests, characters sent and failures. Sizes only, never the text."""
