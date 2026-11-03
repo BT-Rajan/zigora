@@ -4425,6 +4425,77 @@ async def explain_passage(tid: int, b: ExplainIn, u: User = Depends(me), s: Sess
     try: s.add(row); s.commit()
     except Exception: s.rollback(); row = None
     return {"explain": {"id": row.id if row else None, "text": d["text"]}}
+# ---- revision schedule (S35): when to revise each topic of a teacher's course, worked out from the evidence every time it is asked for, never stored, so
+# ---- a corrected result recalculates by itself. The same rule as study courses (schedule_review, REVIEW_DAYS 1/3/7/14/30): a topic enters when it is
+# ---- marked learned (or at its first evidence) and is due a day later; a check (an MCQ set or a test, scored on that topic's questions) at 80%+ moves
+# ---- it to the next interval, under 60% brings it back the next day, in between keeps the interval; reading its sheet ("Mark as revised") counts as a
+# ---- review at the same interval and never moves it on; postponing adds 1, 3 or 7 days.
+POSTPONE_DAYS = (1, 3, 7)
+def revision_events(s, uid):  # {topic id: [(at, kind, value)]} and {topic id: wrong answers} from what the student did
+    ev, wrong, not_yet = defaultdict(list), defaultdict(int), defaultdict(int)
+    for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == uid, Progress.completed_at.isnot(None)): ev[tid].append((at, "learned", None))
+    sets = defaultdict(lambda: [0, 0])
+    for aid, at, tid, ok in s.query(McqAttempt.id, McqAttempt.submitted_at, McqAttemptItem.topic_id, McqAttemptItem.ok).join(McqAttemptItem, McqAttemptItem.attempt_id == McqAttempt.id) \
+            .filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted", McqAttemptItem.topic_id.isnot(None)):
+        k = sets[(aid, at, tid)]; k[0] += bool(ok); k[1] += 1; wrong[tid] += not ok
+    for (aid, at, tid), (ok, n) in sets.items(): ev[tid].append((at, "check", ok / n))
+    for a in s.query(Attempt).filter(Attempt.user_id == uid, Attempt.snapshot.isnot(None), Attempt.detail.isnot(None)):
+        per = defaultdict(lambda: [0, 0])
+        for d, x in zip(json.loads(a.detail), json.loads(a.snapshot)):
+            if x and x.get("topic_id"): per[x["topic_id"]][0] += bool(d[1]); per[x["topic_id"]][1] += 1; wrong[x["topic_id"]] += not d[1]
+        for tid, (ok, n) in per.items(): ev[tid].append((a.at, "check", ok / n))
+    for tid, kind, outcome, at in s.query(StepLog.topic_id, StepLog.kind, StepLog.outcome, StepLog.at).filter(StepLog.user_id == uid, StepLog.kind.in_(("revised", "postpone", "check"))):
+        if kind == "revised": ev[tid].append((at, "read", None))
+        elif kind == "postpone": ev[tid].append((at, "postpone", int(outcome or 1)))
+        elif outcome == "not_yet": not_yet[tid] += 1  # "Not quite" on a quick check: a topic they find hard (it orders the list; it is not a score)
+    return ev, wrong, not_yet
+def revision_replay(events):  # one topic's schedule from its evidence, oldest first: {step, due, last, checks, last_ratio}; None until it enters
+    step, due, last, checks, ratio = 0, None, None, 0, None
+    for at, kind, v in sorted(events, key=lambda e: e[0]):
+        if kind == "postpone":
+            if due is not None: due = max(due, at) + dt.timedelta(days=v)
+            continue
+        if kind == "check":
+            checks += 1; ratio = v
+            step = min(step + 1, len(REVIEW_DAYS)) if v >= 0.8 else 0 if v < 0.6 else step
+        due = at + dt.timedelta(days=REVIEW_DAYS[max(step - 1, 0)]); last = (kind, at, v)  # learned, read or checked: the next one is an interval away
+    return {"step": step, "due": due, "last": last, "checks": checks, "last_ratio": ratio} if due else None
+def revision_plan(s, u, now=None):  # every scheduled topic the student can still open, with why it matters
+    now = now or dt.datetime.utcnow(); ev, wrong, not_yet = revision_events(s, u.id)
+    names = {t["id"]: (t["title"], t["unit"], c["name"]) for c in mcq_courses(u, s) for t in c["topics"]}
+    out = []
+    for tid, e in ev.items():
+        if tid not in names: continue
+        r = revision_replay(e)
+        if not r: continue
+        title, unit, course = names[tid]
+        out.append({"topic_id": tid, "title": title, "unit": unit, "course": course, "due": local_day(r["due"]).isoformat(), "due_at": utc_iso(r["due"]), "step": r["step"],
+                    "interval": REVIEW_DAYS[max(r["step"] - 1, 0)], "last": {"kind": r["last"][0], "at": utc_iso(r["last"][1]), "percent": round(100 * r["last"][2]) if r["last"][0] == "check" else None},
+                    "checked": r["checks"] > 0, "weak": r["last_ratio"] is not None and r["last_ratio"] < 0.6, "wrong": wrong.get(tid, 0), "not_yet": not_yet.get(tid, 0)})
+    return out
+@app.get("/api/me/revision")
+def my_revision(u: User = Depends(me), s: Session = Depends(db)):
+    """What to revise: overdue, due today, coming up in the next week, and what was revised or checked in the last week. Weak topics, ones with
+    repeated mistakes and ones marked hard come first."""
+    now = dt.datetime.utcnow(); today = local_day(now).isoformat(); week = (local_day(now) + dt.timedelta(days=7)).isoformat()
+    items = revision_plan(s, u, now)
+    rank = lambda x: (not x["weak"], -(x["wrong"] + x["not_yet"]), x["due"], x["title"])
+    recent = sorted([x for x in items if x["last"]["kind"] in ("read", "check") and x["last"]["at"] and dt.datetime.fromisoformat(x["last"]["at"][:-1]) >= now - dt.timedelta(days=7)],
+                    key=lambda x: x["last"]["at"], reverse=True)
+    return {"overdue": sorted([x for x in items if x["due"] < today], key=rank), "today": sorted([x for x in items if x["due"] == today], key=rank),
+            "upcoming": sorted([x for x in items if today < x["due"] <= week], key=lambda x: (x["due"], x["title"])), "recent": recent[:10], "intervals": REVIEW_DAYS}
+class PostponeIn(BaseModel): days: int
+@app.post("/api/me/revision/{tid}/postpone")
+def postpone_revision(tid: int, b: PostponeIn, u: User = Depends(me), s: Session = Depends(db)):  # later, by 1, 3 or 7 days: changes the date, never the evidence
+    if b.days not in POSTPONE_DAYS: raise HTTPException(400, "Postpone by 1, 3 or 7 days")
+    if not any(x["topic_id"] == tid for x in revision_plan(s, u)): raise HTTPException(404, "This topic isn't on your revision list")
+    s.add(StepLog(user_id=u.id, topic_id=tid, kind="postpone", outcome=str(b.days))); s.commit()
+    x = next(x for x in revision_plan(s, u) if x["topic_id"] == tid); return {"due": x["due"]}
+def revision_notes(u, s):  # the bell (and the daily email): one line a day when topics are due
+    if u.role != "student": return []
+    d = my_revision(u=u, s=s); n, late = len(d["today"]) + len(d["overdue"]), len(d["overdue"])
+    if not n: return []
+    return [{"key": f"revise:{local_day(dt.datetime.utcnow()).isoformat()}", "text": f"Topics to revise: {n}", "sub": f"{late} overdue" if late else ""}]
 # ---- "this looks wrong": a student flags an AI reply; the topic's teachers see it (never who sent it) and write it again or let it stand ----
 class FlagIn(BaseModel): source: str; id: int | None = None; topic_id: int | None = None; kind: str = ""; excerpt: str = ""; reason: str = ""
 FLAG_DAILY = 20
@@ -6859,7 +6930,7 @@ def notes_for(u, s):  # [{key, text, sub}]: staff get what needs attention, stud
     if u.role == "student":
         asks = [{"key": f"invite:{l.id}", "text": f"{g.name} wants to follow your progress", "sub": "Accept or decline on Home"} for l, g in invitations(s, u.id)]
         return asks + enrol_notes(u, s) + tq_answered(u, s) + ann_notes(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
-                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + assign_notes(u, s) + cal_notes(u, s)
+                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + assign_notes(u, s) + revision_notes(u, s) + cal_notes(u, s)
     return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + enrol_notes(u, s) + (ann_notes(u, s) if u.role == "admin" else [])
 @app.get("/api/me/notifications")
 def my_notifications(u: User = Depends(me), s: Session = Depends(db)):

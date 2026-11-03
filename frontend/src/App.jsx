@@ -93,7 +93,7 @@ export default function App(){
   // the side menu (the logo goes Home; search, change password, theme and sign out are in the header)
   const cal=['calendar',CalendarDays,tl("Calendar")]
   const asg=['assign',ClipboardCheck,tl("Assigned tests")],teacher=guardian&&user.relation==='teacher'
-  const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],cal,['join',Plus,tl("Join a course")],['saved',Bookmark,tl("Saved")],['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("My questions")],['progress',TrendingUp,tl("My progress")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
+  const links=student?[['learn',GraduationCap,tl("My courses")],['assigned',ClipboardCheck,tl("Assigned to me")],['mcq',ListChecks,tl("MCQ practice")],['revision',RotateCcw,tl("Revision")],cal,['join',Plus,tl("Join a course")],['saved',Bookmark,tl("Saved")],['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("My questions")],['progress',TrendingUp,tl("My progress")],['build',Upload,tl("Build a course")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[])]  // a short menu: routine lives in My progress, About in the footer
     :guardian?[cal,...(teacher?[['offered',GraduationCap,tl("Offered courses")],['learn',BookOpen,tl("Course content")]]:[]),['classes',Megaphone,tl("Classes and announcements")],...(teacher?[['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],asg]:[]),['aikey',Sparkles,tl("My AI key")],['about',Info,tl("About")]]  // a parent or teacher: their students on Home, and the AI key their school students use
     :admin?ADMIN_SECTIONS.map(([k,I,l,pages])=>[pages[0][0],I,tl(l),k])
     :[['learn',BookOpen,tl("Courses")],['offered',GraduationCap,tl("Offered courses")],cal,asg,['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['bookmarks',Bookmark,tl("Bookmarks")],['highlights',Highlighter,tl("My highlights")],['reports',BarChart3,tl("Reports")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[]),['about',Info,tl("About")]]
@@ -105,7 +105,7 @@ export default function App(){
     {page==='routine'&&student&&<RoutinePage toast={toast} done={()=>go('home')}/>}
     {page==='home'&&guardian&&<GuardianHome user={user} toast={toast} onKey={()=>go('aikey')} onCalendar={()=>go('calendar')} onGo={go}/>}{page==='home'&&!student&&!guardian&&<StaffHome user={user} toast={toast} open={openIn} goUsers={p=>{usersPlan=p;go(p==='awaiting'?'parents':'students')}} goSettings={t=>{settingsTab=t;go('ai')}}/>}
     {page==='search'&&<SearchPage key={findQ.n} initial={findQ.q} user={user} toast={toast}/>}{page==='learn'&&<Learn key={String(start)} start={start} user={user} toast={toast} appName={name} onGo={go} onStudy={openStudy}/>}
-    {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}
+    {page==='progress'&&user.role==='student'&&<Insights toast={toast} role={user.role} onRoutine={()=>go('routine')}/>}{page==='saved'&&student&&<Saved toast={toast} role={user.role}/>}{page==='revision'&&student&&<RevisionPage toast={toast} role={user.role}/>}
     {page==='build'&&user.role==='student'&&<StudyHome key={JSON.stringify(studyStart)} start={studyStart} toast={toast}/>}
     {page==='bookmarks'&&!admin&&<Bookmarks toast={toast} role={user.role}/>}{page==='highlights'&&!admin&&<MyHighlights toast={toast} role={user.role}/>}
     {page==='users'&&admin&&<Users key="all" toast={toast} me={user}/>}{page==='teachers'&&admin&&<Users key="faculty" role="faculty" toast={toast} me={user}/>}{page==='students'&&admin&&<Users key="student" role="student" toast={toast} me={user}/>}{page==='parents'&&admin&&<Users key="guardian" role="guardian" toast={toast} me={user}/>}{page==='courses'&&admin&&<AdminCourses toast={toast} onOpen={openIn}/>}{page==='programs'&&admin&&<Programs toast={toast} onOpen={openIn}/>}
@@ -1379,6 +1379,31 @@ function AdaptCard({toast}){
     {(taps>0||d.checks>0)&&<button className="btn ghost" onClick={reset}>{tl("Start fresh")}</button>}</div></>}
 
 const uploadImg=async f=>{const r=await fetch(ROOT+'/api/uploads',{method:'POST',headers:{'Content-Type':f.type||'application/octet-stream',Authorization:'Bearer '+localStorage.t},body:f}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(tl(j.detail||'Upload failed'));return j.url}
+// what to revise and when (S35): worked out on the server from what the student did; a check (an MCQ set) moves a topic on, reading its sheet doesn't
+const REV_GROUPS=[['overdue','Overdue'],['today','Due today'],['upcoming','Coming up this week']]
+function RevisionPage({toast,role}){
+  const confirm=useConfirm(),[d,setD]=useState(null),[topic,setTopic]=useState(null),[set,setSet]=useState(null),[busy,setBusy]=useState(null)
+  const load=()=>api('/me/revision').then(setD).catch(e=>toast(e.message));useEffect(()=>{if(!topic&&!set)load()},[topic,set])
+  if(topic)return <Topic id={topic} tab0="revise" back={()=>setTopic(null)} toast={toast} role={role}/>
+  if(set)return <McqPlay id={set} back={()=>setSet(null)} toast={toast} openTopic={setTopic}/>
+  const check=async x=>{setBusy(x.topic_id);const go=source=>api('/mcq/attempts',{method:'POST',body:{mode:'topic',source,size:5,topic_id:x.topic_id,request_id:rid()}})
+    try{setSet((await go('bank')).id)}catch(e){if(e.status!==409){toast(e.message)}else if(await confirm({title:tl("Not enough bank questions here"),body:tl("Make a new AI set for this check instead? It counts toward your MCQ sets."),ok:tl("A new AI set")})){try{setSet((await go('ai')).id)}catch(e2){toast(e2.message)}}}
+    setBusy(null)}
+  const later=async(x,days)=>{try{const r=await api(`/me/revision/${x.topic_id}/postpone`,{method:'POST',body:{days}});toast(tl("Moved to {day}",{day:day(r.due)}));load()}catch(e){toast(e.message)}}
+  const done=async x=>{try{await api(`/topics/${x.topic_id}/revised`,{method:'POST'});toast(tl("Marked as revised"));load()}catch(e){toast(e.message)}}
+  const why=x=>[x.weak&&tl("Last check {percent}%",{percent:x.last.percent}),x.wrong>1&&tl("{n} wrong answers so far",{n:x.wrong}),x.not_yet>0&&tl("You found it hard"),!x.checked&&tl("Not checked yet")].filter(Boolean)
+  const Row=({x,actions})=><div className="card ward"><span className="wtop"><b>{x.title}</b><span className="chip">{x.due<new Date().toISOString().slice(0,10)?tl("due {when}",{when:day(x.due)}):day(x.due)}</span></span>
+    <small className="known">{x.course}{x.unit?' · '+x.unit:''}{' · '}{x.interval===1?tl("every day"):tl("every {n} days",{n:x.interval})}</small>
+    {why(x).length>0&&<small className="known">{why(x).join(' · ')}</small>}
+    {actions&&<div className="two" style={{marginTop:8}}><button className="btn" onClick={()=>setTopic(x.topic_id)}>{tl("Revise now")}</button><button className="btn ghost" disabled={busy===x.topic_id} onClick={()=>check(x)}>{busy===x.topic_id?tl("Starting…"):tl("Check myself")}</button></div>}
+    {actions&&<span className="tools" style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6}}><button className="tool" onClick={()=>done(x)}>{tl("Mark as revised")}</button>{[1,3,7].map(n=><button key={n} className="tool" onClick={()=>later(x,n)}>{tl("Later: {n} d",{n})}</button>)}</span>}</div>
+  return <><Bar title={tl("Revision")} sub={d?tl("{n} to revise now",{n:d.overdue.length+d.today.length}):''}/><div className="main">
+    {!d&&<Skeleton rows={3}/>}
+    {d&&<p className="known" style={{marginTop:0}}>{tl("Topics come back after {days} days, further apart each time you pass a check (80% or more) and sooner when one goes badly. Reading the sheet counts as revising, not as a check.",{days:d.intervals.join(', ')})}</p>}
+    {d&&!d.overdue.length&&!d.today.length&&!d.upcoming.length&&<p className="known">{tl("Nothing to revise yet. Topics you mark as learned, or check yourself on, come here when it is time to revise them.")}</p>}
+    {d&&REV_GROUPS.map(([k,l])=>d[k].length>0&&<Fragment key={k}><h3 className="sec">{tl(l)} ({d[k].length})</h3><Paged rows={d[k]} render={x=><Row key={x.topic_id} x={x} actions={k!=='upcoming'}/>}/></Fragment>)}
+    {d?.recent.length>0&&<><h3 className="sec">{tl("Recently revised")}</h3>{d.recent.map(x=><div key={x.topic_id} className="row"><div>{x.title}<small>{x.last.kind==='check'?tl("Checked: {percent}%",{percent:x.last.percent}):tl("Read the sheet")}{' · '}{when(x.last.at)}</small></div><span className="chip">{tl("next {when}",{when:day(x.due)})}</span></div>)}</>}
+  </div></>}
 // a topic's revision sheet (S34): written once when asked for, shown three ways from the same sheet; "your focus" comes from the student's own results
 const REV_FORMATS=[['quick','Quick'],['detailed','Detailed'],['exam','Exam']]
 function TopicRevision({id,toast}){
@@ -2045,13 +2070,13 @@ function HistorySheet({tid,close,done,toast}){
     {!list?<div className="sk"/>:!list.length?<p className="known">{tl("No versions recorded yet. They appear the next time this topic is saved.")}</p>
       :<Paged rows={list} render={x=><button key={x.id} className="row" style={{width:'100%',textAlign:'start',background:'none'}} onClick={()=>open(x)}><div>{x.saved_at&&!(x.by===null&&x.note.startsWith('Before'))?when(x.saved_at):tl("Before history began")}<small>{x.note}{x.by?' · '+x.by:''}</small></div>{x.current&&<span className="pill">{tl("Current")}</span>}<ChevronRight size={16}/></button>}/>}
     <button className="btn ghost" onClick={close}>{tl("Close")}</button></Sheet>}
-function Topic({id:first,back,toast,role}){
+function Topic({id:first,back,toast,role,tab0}){
   const confirm=useConfirm()
   const {aiOff}=useContext(Ctx)
   useLearnClock()  // a lite person's learning minutes
   const [mcq,setMcq]=useState(false),[report,setReport]=useState(false),[practice,setPractice]=useState(null),[checking,setChecking]=useState(''),[reading,setReading]=useState(false),[hls,setHls]=useState([]),[tr,setTr]=useState(null)
   useEffect(()=>{setTr(null)},[first])
-  const [id,setId]=useState(first),[editing,setEditing]=useState(false),[v,setV]=useState(0),[t,setT]=useState(null),[tab,setTab]=useState('notes'),[known,setKnown]=useState([]),[ai,setAi]=useState({}),[aiOk,setAiOk]=useState(null),[ownKey,setOwnKey]=useState(false),[aiMsg,setAiMsg]=useState(''),[busy,setBusy]=useState(false),[bm,setBm]=useState(false),[pv,setPv]=useState(false),[hist,setHist]=useState(false),[cp,setCp]=useState(false),[gone,setGone]=useState('')
+  const [id,setId]=useState(first),[editing,setEditing]=useState(false),[v,setV]=useState(0),[t,setT]=useState(null),[tab,setTab]=useState(tab0||'notes'),[known,setKnown]=useState([]),[ai,setAi]=useState({}),[aiOk,setAiOk]=useState(null),[ownKey,setOwnKey]=useState(false),[aiMsg,setAiMsg]=useState(''),[busy,setBusy]=useState(false),[bm,setBm]=useState(false),[pv,setPv]=useState(false),[hist,setHist]=useState(false),[cp,setCp]=useState(false),[gone,setGone]=useState('')
   const [mat,setMat]=useState(false),[askT,setAskT]=useState(false),[upNext,setUpNext]=useState(null),opened=useRef(false),jump=nid=>{opened.current=false;setUpNext(null);setGone('');setT(null);setTab('notes');setAi({});setAiMsg('');setKnown([]);setEditing(false);setId(nid);window.scrollTo(0,0)},learn=r=>setT(p=>({...p,status:r.status,overdue:r.overdue,late:r.late,completed_at:r.completed_at}))
   useEffect(()=>{api('/topics/'+id).then(x=>{setT(x);setBm(!!x.bookmarked)
     if(!opened.current){opened.current=true;api(`/topics/${id}/read`,{method:'POST'}).then(r=>{setKnown(r.known);learn(r)}).catch(()=>{})}}).catch(e=>{toast(e.message);if(/unavailable right now/.test(e.message))setGone(e.message)})},[id,v])  // opening starts it, after the page has loaded
