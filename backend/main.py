@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from guardrails import GUARDRAILS, GUARD_VERSION, SUPPORT, checked, crisis, fence
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime, Boolean, UniqueConstraint, Date, func, or_, and_, inspect, text, case
 from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.dialects import mysql as _mysql_dialect
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, object_session
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -214,6 +215,7 @@ class Attempt(Base):
     id = Column(Integer, primary_key=True); quiz_id = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), index=True); user_id = Column(Integer, ForeignKey("users.id"), index=True)
     score = Column(Integer); total = Column(Integer); percent = Column(Integer); at = Column(DateTime, default=dt.datetime.utcnow)
     detail = Column(Text, nullable=True)  # JSON [[question_id, 1 or 0, chosen index or null], ...] (older rows have no chosen index) so strengths and weak areas can be worked out; null on attempts made before this existed
+    snapshot = Column(Text().with_variant(_mysql_dialect.MEDIUMTEXT(), "mysql", "mariadb"), nullable=True)  # JSON list, in detail's order: each question as the student saw it (null where it was gone before copies were kept)
 class Progress(Base):  # one row per student and topic, made when they first open it. No row = not started; completed_at null = in progress
     __tablename__ = "progress"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id")); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"))
@@ -937,6 +939,15 @@ def guardian_columns(c):  # sign-in names for children, a guardian's relation, a
     for col, typ in (("username", "VARCHAR(40) NULL"), ("relation", "VARCHAR(10) NULL"), ("level", "VARCHAR(8) NULL")): _addcol("users", col, typ)(c)
     if not any(set(ix.get("column_names") or []) == {"username"} for ix in inspect(c).get_indexes("users") + [dict(column_names=u["column_names"]) for u in inspect(c).get_unique_constraints("users")]):
         c.execute(text("CREATE UNIQUE INDEX ux_users_username ON users (username)"))
+def attempt_question_copies(c):  # quiz_attempts.snapshot, filled for past attempts from the questions that are still there (a question still
+    # carrying its id was never saved again since, so it is what the student saw); a question already gone stays gone. Only adds data; one quiz at a time
+    _addcol("quiz_attempts", "snapshot", "MEDIUMTEXT NULL" if c.dialect.name in ("mysql", "mariadb") else "TEXT NULL")(c)
+    for (qid,) in c.execute(text("SELECT DISTINCT quiz_id FROM quiz_attempts WHERE snapshot IS NULL AND detail IS NOT NULL")).all():
+        qs = {r.id: question_snap(r) for r in c.execute(text("SELECT id, text, options, correct, explanation, topic_id, area, image, option_images FROM quiz_questions WHERE quiz_id = :q"), {"q": qid})}
+        for aid, detail in c.execute(text("SELECT id, detail FROM quiz_attempts WHERE quiz_id = :q AND snapshot IS NULL AND detail IS NOT NULL"), {"q": qid}).all():
+            try: ids = [d[0] for d in json.loads(detail)]
+            except (ValueError, TypeError, IndexError, KeyError): continue  # unreadable: left as it is
+            c.execute(text("UPDATE quiz_attempts SET snapshot = :v WHERE id = :i AND snapshot IS NULL"), {"v": json.dumps([qs.get(i) for i in ids], ensure_ascii=False), "i": aid})
 MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")), ("0002_subjects_semester_id", _addcol("subjects", "semester_id", "INT NULL")),
               ("0003_users_program_id", _addcol("users", "program_id", "INT NULL")), ("0004_users_semester", _addcol("users", "semester", "INT NULL")),
               ("0005_users_must_change", _addcol("users", "must_change", "TINYINT(1) NOT NULL DEFAULT 0")), ("0006_topics_published", _addcol("topics", "published", "TINYINT(1) NOT NULL DEFAULT 1")),
@@ -975,7 +986,7 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                   ("start_told", "DATETIME NULL"), ("end_told", "DATETIME NULL"), ("paused_at", "DATETIME NULL"))]
                   + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))]
                   + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)]),
-              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL"))]
+              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL")), ("0043_attempt_question_copies", attempt_question_copies)]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -2623,7 +2634,7 @@ MAX_QUESTIONS = 200  # a course test; a unit quiz stays short
 def max_questions(q): return 100 if q.unit_id else MAX_QUESTIONS
 class QuizIn(BaseModel): unit_id: int = 0; course_id: int = 0; title: str; pass_percent: int = 50; published: bool = False; reveal: bool = False  # unit_id for a unit quiz, else course_id for a course test
 class QuestionIn(BaseModel):
-    text: str; options: list[str]; correct: int; explanation: str = ""; topic_id: int | None = None
+    text: str; options: list[str]; correct: int; explanation: str = ""; topic_id: int | None = None; id: int | None = None  # id: the saved question this edits
     area: str = ""; image: str = ""; option_images: list[str] = []  # images are urls from POST /api/uploads
 class QuestionsIn(BaseModel): questions: list[QuestionIn]
 class AttemptIn(BaseModel): answers: list[int | None]
@@ -2663,7 +2674,7 @@ def latest_batches(s, user_ids, quiz_ids):
     atts = s.query(Attempt).filter(Attempt.id.in_(ids or [0])).all(); quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}
     qm = defaultdict(dict)
     for x in s.query(Question).filter(Question.quiz_id.in_(set(quizzes) or {0})): qm[x.quiz_id][x.id] = x
-    return [(a.user_id, quizzes[a.quiz_id], qm[a.quiz_id], json.loads(a.detail)) for a in atts if a.quiz_id in quizzes]
+    return [(a.user_id, quizzes[a.quiz_id], attempt_questions(a, qm[a.quiz_id]), json.loads(a.detail)) for a in atts if a.quiz_id in quizzes]
 def area_context(batches, s):
     tids = {x.topic_id for _, _, qm, _ in batches for x in qm.values() if x.topic_id}
     topics = {t.id: t for t in s.query(Topic).filter(Topic.id.in_(tids or {0}))}
@@ -2772,8 +2783,15 @@ def set_questions(qid: int, b: QuestionsIn, u: User = Depends(author), s: Sessio
     q = quiz_or_404(qid, s); need_edit(u, quiz_course_id(q, s), s)
     if len(b.questions) > max_questions(q): raise HTTPException(400, f"A quiz can have up to {max_questions(q)} questions")
     rows = [clean_question(q, x, i, s) for i, x in enumerate(b.questions, 1)]
-    s.query(Question).filter_by(quiz_id=qid).delete()  # past attempts keep their scores; their per-question review covers the questions that still match
-    for i, v in enumerate(rows): s.add(Question(quiz_id=qid, pos=i, **v))
+    have = {x.id: x for x in s.query(Question).filter_by(quiz_id=qid)}; kept = set()
+    for i, (x, v) in enumerate(zip(b.questions, rows)):
+        old = have.get(x.id) if x.id not in kept else None
+        if old is not None and json.loads(old.options) == json.loads(v["options"]) and old.correct == v["correct"]:  # the same question, reworded or re-pictured: it keeps its id, so its class figures carry on
+            for k, val in v.items(): setattr(old, k, val)
+            old.pos = i; kept.add(old.id)
+        else: s.add(Question(quiz_id=qid, pos=i, **v))  # new, or its choices or answer changed: a new question, so answers given to the old choices aren't counted against it
+    for qid_, old in have.items():
+        if qid_ not in kept: s.delete(old)  # past attempts keep their own copy of it (Attempt.snapshot)
     s.commit(); return {"ok": True, "count": len(rows)}
 # ---- shared question bank ----
 def q_sig(text, opts, correct): return hashlib.sha1(json.dumps([text.strip().lower(), [o.strip().lower() for o in opts], correct]).encode()).hexdigest()
@@ -2862,6 +2880,11 @@ def get_quiz(qid: int, u: User = Depends(me), s: Session = Depends(db)):
             "questions": [{**question_view(x), **({"correct": x.correct, "explanation": x.explanation, "topic_id": x.topic_id, "area": x.area or ""} if staff_view else {})} for x in qs],
             **({"topics": quiz_topics(q, s)} if staff_view else {}),
             "attempts": len(mine), "best": max([a.percent for a in mine], default=None), "latest": mine[-1].percent if mine else None, "latest_id": mine[-1].id if mine else None}
+def question_snap(x):  # a question as an attempt keeps it: everything needed to review it later, whatever happens to the quiz
+    return {**question_view(x), "correct": x.correct, "explanation": x.explanation or "", "topic_id": x.topic_id, "area": x.area or ""}
+def attempt_questions(a, current):  # {question id: question} for one attempt: its own copies where it has them, else the quiz's questions as they are now
+    if not a.snapshot: return current
+    return {x["id"]: SimpleNamespace(**{**x, "options": json.dumps(x["options"]), "option_images": json.dumps(x["option_images"]) if x["option_images"] else None}) for x in json.loads(a.snapshot) if x}
 def question_view(x):  # what anyone taking the quiz may see of a question
     return {"id": x.id, "text": x.text, "options": json.loads(x.options), "image": x.image or "", "option_images": [v or "" for v in json.loads(x.option_images)] if x.option_images else []}
 def quiz_topics(q, s):  # the topics a question of this quiz may be tied to
@@ -2890,7 +2913,8 @@ def attempt_quiz(qid: int, b: AttemptIn, u: User = Depends(me), s: Session = Dep
     results = [{"chosen": a, "ok": a == x.correct, **({"correct": x.correct, "explanation": x.explanation} if key else {})} for a, x in zip(b.answers, qs)]
     score = sum(r["ok"] for r in results); pct = round(100 * score / len(qs))
     detail = [[x.id, int(r["ok"]), a] for x, r, a in zip(qs, results, b.answers)]
-    at = Attempt(quiz_id=qid, user_id=u.id, score=score, total=len(qs), percent=pct, detail=json.dumps(detail)); s.add(at); s.commit()
+    at = Attempt(quiz_id=qid, user_id=u.id, score=score, total=len(qs), percent=pct, detail=json.dumps(detail),
+                 snapshot=json.dumps([question_snap(x) for x in qs], ensure_ascii=False)); s.add(at); s.commit()
     areas = areas_for([(u.id, q, {x.id: x for x in qs}, detail)], s, is_staff(u), u.id)
     return {"attempt_id": at.id, "score": score, "total": len(qs), "percent": pct, "passed": pct >= q.pass_percent, "pass_percent": q.pass_percent, "reveal": key, "results": results, "areas": areas,
             "summary": area_summary(areas)}
@@ -2993,7 +3017,7 @@ def quiz_results(qid: int, format: str = "json", u: User = Depends(author), s: S
     by = defaultdict(list)
     for a in atts:
         if a.user_id in people: by[a.user_id].append(a)
-    aud = students_in(cid, s); ctx_batches = [(uid, q, qm, json.loads(L[-1].detail)) for uid, L in by.items() if L[-1].detail]
+    aud = students_in(cid, s); ctx_batches = [(uid, q, attempt_questions(L[-1], qm), json.loads(L[-1].detail)) for uid, L in by.items() if L[-1].detail]
     ctx = area_context(ctx_batches, s); mine = {b[0]: tally([b], ctx, True) for b in ctx_batches}
     students = []
     for uid, L in by.items():
@@ -3045,7 +3069,7 @@ def attempt_detail(aid: int, u: User = Depends(me), s: Session = Depends(db)):
     q = quiz_or_404(a.quiz_id, s); cid = quiz_course_id(q, s); staff_view = u.role == "admin" or can_edit(u, cid, s)
     if a.user_id != u.id and not staff_view: raise HTTPException(403, "You can only see your own attempts")
     key = staff_view or bool(q.reveal)
-    qm = {x.id: x for x in s.query(Question).filter_by(quiz_id=q.id)}; detail = json.loads(a.detail) if a.detail else []
+    qm = attempt_questions(a, {x.id: x for x in s.query(Question).filter_by(quiz_id=q.id)}); detail = json.loads(a.detail) if a.detail else []
     topics = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_({x.topic_id for x in qm.values() if x.topic_id} or {0}))}
     items, gone = [], 0
     for d in detail:
