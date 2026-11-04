@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -134,7 +135,7 @@ fun ClassesScreen(back: (() -> Unit)?) {
                         // a class or a note: one choice of two, as a segmented button (Android's own pattern for it)
                         androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                             listOf("class" to tl("A class"), "note" to tl("An announcement")).forEachIndexed { i, (k, t) ->
-                                androidx.compose.material3.SegmentedButton(f["kind"] == k, { set("kind", k) }, androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2)) { Text(t, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                                SegmentedButton(f["kind"] == k, { set("kind", k) }, shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2)) { Text(t, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                             }
                         }
                         if (d.courses.size > 1) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

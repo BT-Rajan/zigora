@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Unarchive
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -108,7 +109,7 @@ fun OfferForm(c: Offer?, close: () -> Unit, done: (Offer) -> Unit) {
             Text(tl("Who may join"), style = MaterialTheme.typography.labelLarge)
             androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf("enroll" to tl("Students I accept"), "open" to tl("Anyone, at once")).forEachIndexed { i, (k, t) ->
-                    androidx.compose.material3.SegmentedButton(access == k, { access = k }, androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2)) { Text(t, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                    SegmentedButton(access == k, { access = k }, shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2)) { Text(t, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                 }
             }
             if (access == "enroll") Row(Modifier.fillMaxWidth().toggleable(apps, role = Role.Switch) { apps = it }, verticalAlignment = Alignment.CenterVertically) {
