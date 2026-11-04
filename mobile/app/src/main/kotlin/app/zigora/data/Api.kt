@@ -48,6 +48,12 @@ class Api(private val store: Store, private val keep: java.io.File? = null, priv
         json.decodeFromJsonElement(de, call(method, path, body))
     suspend fun raw(method: String, path: String, body: JsonElement? = null): JsonElement = call(method, path, body)
 
+    /** S43: a file only signed-in people may have (a teacher's document or video): its bytes */
+    suspend fun bytes(path: String): ByteArray = withContext(Dispatchers.IO) {
+        val req = Request.Builder().url("$base/api$path").get().apply { store.token?.let { header("Authorization", "Bearer $it") } }.build()
+        http.newCall(req).execute().use { r -> if (!r.isSuccessful) throw ApiError(I18n.t("This file is no longer available"), r.code); r.body?.bytes() ?: ByteArray(0) }
+    }
+
     /** a file sent as it is (study material), like the web's upload */
     suspend fun upload(path: String, bytes: ByteArray): JsonElement = call("POST", path, null, bytes)
 

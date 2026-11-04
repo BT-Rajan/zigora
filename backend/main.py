@@ -161,6 +161,22 @@ class TopicVersion(Base):  # a snapshot of a topic's text each time it is saved,
     title = Column(String(200)); content = Column(Text); sample_content = Column(Text); question_pattern = Column(Text); guideline = Column(Text)
     content_format = Column(String(10), default="markdown")
     saved_by = Column(Integer, nullable=True); saved_at = Column(DateTime, default=dt.datetime.utcnow); note = Column(String(200), default="")
+class TeacherResource(Base):  # S43: a teacher's own material for a course, one of its units, or one topic (note, worked example, image, document, video, link)
+    __tablename__ = "teacher_resources"
+    id = Column(Integer, primary_key=True); course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True)
+    unit_id = Column(Integer, ForeignKey("units.id", ondelete="CASCADE"), nullable=True, index=True); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)
+    kind = Column(String(10)); status = Column(String(10), default="draft")  # draft (its teachers only), published (the course's students), archived (kept, shown to nobody)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); created_at = Column(DateTime, default=dt.datetime.utcnow); updated_at = Column(DateTime, default=dt.datetime.utcnow)
+    version = Column(Integer, default=1)  # the latest saved version; students always get this one while it is published
+    position = Column(Integer, default=0)
+class ResourceVersion(Base):  # S43: every saved state of a resource, never overwritten; a file is shared by the versions that didn't replace it
+    __tablename__ = "resource_versions"
+    id = Column(Integer, primary_key=True); resource_id = Column(Integer, ForeignKey("teacher_resources.id", ondelete="CASCADE"), index=True); number = Column(Integer)
+    title = Column(String(200)); description = Column(Text, nullable=True); body = Column(Text, nullable=True)  # body: Markdown with $maths$ (a note or worked example)
+    url = Column(String(500), nullable=True); image = Column(String(80), nullable=True)  # a link or video link; an image kept like the topics' pictures (/api/uploads/...)
+    file = Column(String(60), nullable=True); file_name = Column(String(200), nullable=True)  # a document or video file under uploads/resources, served only to those who may see it
+    saved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); saved_at = Column(DateTime, default=dt.datetime.utcnow)
+    __table_args__ = (UniqueConstraint("resource_id", "number", name="uq_resource_versions_number"),)
 class Quiz(Base):  # a multiple-choice quiz attached to a unit, or an MCQ test for a whole course (unit_id null; course_id is then its real parent)
     __tablename__ = "quizzes"
     id = Column(Integer, primary_key=True); unit_id = Column(Integer, ForeignKey("units.id", ondelete="CASCADE"), index=True, nullable=True); course_id = Column(Integer, index=True)
@@ -439,7 +455,7 @@ ORIGINS = [o.strip() for o in (os.getenv("ALLOWED_ORIGINS") or "").split(",") if
 if ORIGINS: app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["*"], allow_headers=["*"])
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # the app bundle is ~850 KB; compressed it is about a quarter of that
 GSI = "https://accounts.google.com/gsi/"  # Sign in with Google: its script, the frame with its button, and its style, as Google's own CSP guide lists them
-CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' " + GSI + "style; font-src 'self' data:; "
+CSP = ("default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline' " + GSI + "style; font-src 'self' data:; "
        "script-src 'self' " + GSI + "client; frame-src 'self' " + GSI + "; connect-src 'self' " + GSI + "; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
 FRAME_PATH = re.compile(r"^/api/(topics/\d+/frame|topics/\d+/diagram/frame|frame-preview/[\w-]+)$")
 SKIP_AUDIT = re.compile(r"/(read|bookmark|attempt|complete)$|/ai/|^/api/me/lang$")  # student reading activity is already tracked as progress; a language choice is only a preference
@@ -1059,7 +1075,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0051_question_context", question_context),
               ("0052_doubt_responses", lambda c: [_addcol("teacher_replies", "edited_at", "DATETIME NULL")(c), _addcol("teacher_questions", "helpful", "BOOLEAN NULL")(c),
                                                   _addcol("teacher_questions", "resolved_at", "DATETIME NULL")(c), _addcol("teacher_questions", "reopens", "INTEGER NOT NULL DEFAULT 0")(c),
-                                                  Base.metadata.create_all(c, tables=[ReplyEdit.__table__, QuestionEvent.__table__])])]
+                                                  Base.metadata.create_all(c, tables=[ReplyEdit.__table__, QuestionEvent.__table__])]),
+              ("0053_teacher_resources", lambda c: Base.metadata.create_all(c, tables=[TeacherResource.__table__, ResourceVersion.__table__]))]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -5938,6 +5955,147 @@ def message_file(name: str, n: str = ""):  # the link is the key (128 random bit
     shown = re.sub(r'[^\w .()-]', "_", n)[:150] or name
     return FileResponse(path, media_type=MSG_FILE_TYPES.get(name.rsplit(".", 1)[-1], "application/octet-stream"), filename=shown,
                         headers={"Cache-Control": "private, max-age=31536000", "X-Content-Type-Options": "nosniff"})
+# ---- teacher resources (S43): a course's teacher adds material of their own to the course, a unit or a topic; students see the published ones inside the
+# ---- topic they are studying. Every save is a new version (the earlier ones stay); documents and videos are served only to people who may see them.
+RES_KINDS = ("note", "example", "image", "document", "video", "link")
+RES_STATUS = ("draft", "published", "archived")
+RES_VIDEO_TYPES = {"mp4": "video/mp4", "webm": "video/webm"}
+class ResFile(BaseModel): name: str; data: str
+class ResourceIn(BaseModel):
+    course_id: int = 0; unit_id: int | None = None; topic_id: int | None = None; kind: str = "note"; title: str = ""; description: str = ""
+    body: str = ""; url: str = ""; image: str = ""; file: ResFile | None = None; publish: bool = False
+def res_place(s, b):  # (course id, unit id, topic id) checked to belong together; the topic decides its unit and course
+    if b.topic_id:
+        t = s.get(Topic, b.topic_id)
+        if not t: raise HTTPException(400, "Choose a topic of this course")
+        return topic_course_id(t, s), t.unit_id, t.id
+    if b.unit_id:
+        un = s.get(Unit, b.unit_id)
+        if not un: raise HTTPException(400, "Choose a unit of this course")
+        return un.course_id, un.id, None
+    if not b.course_id or not s.get(Course, b.course_id): raise HTTPException(400, "Choose a course")
+    return b.course_id, None, None
+def save_resource_file(f, video):
+    name = re.sub(r"[\\/\x00-\x1f]", "", (f.name or "").strip())[-150:] or "file"; ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    types = RES_VIDEO_TYPES if video else MSG_FILE_TYPES
+    if ext not in types: raise HTTPException(400, "Upload an MP4 or WebM video" if video else "Send a PDF, Word, PowerPoint, Excel, text, CSV, ZIP or image file")
+    try: raw = base64.b64decode(f.data.split(",", 1)[-1], validate=False)
+    except Exception: raise HTTPException(400, "That file could not be read")
+    if not raw or len(raw) > MSG_FILE_MAX: raise HTTPException(400, "Keep the file under 15 MB")
+    if video and not (raw[4:8] == b"ftyp" or raw[:4] == b"\x1aE\xdf\xa3"): raise HTTPException(400, "That does not look like an MP4 or WebM video")
+    if ext == "pdf" and not raw.startswith(b"%PDF"): raise HTTPException(400, "That does not look like a PDF")
+    stored = os.urandom(16).hex() + "." + ext; d = os.path.join(UPLOADS, "resources"); os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, stored), "wb") as out: out.write(raw)
+    return stored, name
+def res_version(s, r, n=None):
+    return s.query(ResourceVersion).filter_by(resource_id=r.id, number=n or r.version).first()
+def res_json(s, r, v, staff=False, names=None):
+    names = names or {}
+    out = {"id": r.id, "kind": r.kind, "course_id": r.course_id, "unit_id": r.unit_id, "topic_id": r.topic_id, "level": "topic" if r.topic_id else "unit" if r.unit_id else "course",
+           "title": v.title, "description": v.description or "", "body": v.body or "", "url": v.url or "", "image": v.image or "",
+           "file": {"name": v.file_name or "file", "url": f"/resources/{r.id}/file?v={v.number}", "video": (v.file or "").rsplit(".", 1)[-1] in RES_VIDEO_TYPES} if v.file else None,
+           "version": v.number, "updated": utc_iso(r.updated_at)}
+    if staff: out.update({"status": r.status, "created_by": names.get(r.created_by, ""), "created_at": utc_iso(r.created_at), "saved_by": names.get(v.saved_by, ""), "saved_at": utc_iso(v.saved_at)})
+    return out
+def res_values(s, b, keep=None):  # the new version's fields from the request; a file not replaced carries over (no copy)
+    title = " ".join((b.title or "").split())[:200]
+    if not title: raise HTTPException(400, "Give it a title")
+    if b.kind not in RES_KINDS: raise HTTPException(400, "Choose note, worked example, image, document, video or link")
+    v = {"title": title, "description": (b.description or "").strip()[:2000] or None, "body": None, "url": None, "image": None, "file": None, "file_name": None}
+    if b.kind in ("note", "example"):
+        if len((b.body or "").strip()) < 3: raise HTTPException(400, "Write the note first")
+        v["body"] = b.body.strip()[:20000]
+    elif b.kind == "image":
+        img = (b.image or "").strip()
+        if not re.fullmatch(r"/api/uploads/[0-9a-f]{32}\.(png|jpg|gif|webp)", img): raise HTTPException(400, "Upload the picture first")
+        v["image"] = img
+    elif b.kind == "link" or (b.kind == "video" and not b.file and (b.url or "").strip()):
+        u = (b.url or "").strip()
+        if not re.fullmatch(r"https://[^\s<>\"']{4,490}", u): raise HTTPException(400, "Paste a link starting with https://")
+        v["url"] = u
+    if b.kind in ("document", "video") and not v["url"]:
+        if b.file: v["file"], v["file_name"] = save_resource_file(b.file, b.kind == "video")
+        elif keep and keep.file: v["file"], v["file_name"] = keep.file, keep.file_name
+        else: raise HTTPException(400, "Attach the video, or paste its link" if b.kind == "video" else "Attach the document")
+    return v
+@app.get("/api/courses/{cid}/resources")
+def course_resources(cid: int, u: User = Depends(author), s: Session = Depends(db)):  # every resource of the course, for its teachers: drafts and archived ones too
+    if not s.get(Course, cid): raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s)
+    rs = s.query(TeacherResource).filter_by(course_id=cid).order_by(TeacherResource.status, TeacherResource.updated_at.desc()).all()
+    vs = {(v.resource_id, v.number): v for v in s.query(ResourceVersion).filter(ResourceVersion.resource_id.in_([r.id for r in rs] or [0]))}
+    names = {x.id: x.name for x in s.query(User).filter(User.id.in_({r.created_by for r in rs} | {v.saved_by for v in vs.values()} or {0}))}
+    return {"items": [res_json(s, r, vs[(r.id, r.version)], True, names) for r in rs if (r.id, r.version) in vs]}
+@app.post("/api/resources")
+def new_resource(b: ResourceIn, u: User = Depends(author), s: Session = Depends(db)):
+    cid, uid, tid = res_place(s, b)
+    if b.course_id and cid != b.course_id: raise HTTPException(400, "That unit or topic is not in this course")
+    need_edit(u, cid, s); v = res_values(s, b); now = dt.datetime.utcnow()
+    r = TeacherResource(course_id=cid, unit_id=uid, topic_id=tid, kind=b.kind, status="published" if b.publish else "draft", created_by=u.id, created_at=now, updated_at=now, version=1)
+    s.add(r); s.flush(); s.add(ResourceVersion(resource_id=r.id, number=1, saved_by=u.id, saved_at=now, **v)); s.commit()
+    return res_json(s, r, res_version(s, r), True, {u.id: u.name})
+@app.put("/api/resources/{rid}")
+def edit_resource(rid: int, b: ResourceIn, u: User = Depends(author), s: Session = Depends(db)):
+    """A new version (the earlier ones stay). Students get it at once if the resource is published; its place in the syllabus and its kind stay."""
+    r = s.get(TeacherResource, rid)
+    if not r: raise HTTPException(404, "Resource not found")
+    need_edit(u, r.course_id, s); b.kind = r.kind; old = res_version(s, r); v = res_values(s, b, keep=old); now = dt.datetime.utcnow()
+    if all(getattr(old, k) == v[k] for k in v): return res_json(s, r, old, True, {u.id: u.name})  # nothing changed: no empty version
+    r.version += 1; r.updated_at = now; s.add(ResourceVersion(resource_id=r.id, number=r.version, saved_by=u.id, saved_at=now, **v))
+    if b.publish and r.status == "draft": r.status = "published"
+    s.commit(); return res_json(s, r, res_version(s, r), True, {u.id: u.name})
+class ResStatusIn(BaseModel): status: str
+@app.post("/api/resources/{rid}/status")
+def resource_status(rid: int, b: ResStatusIn, u: User = Depends(author), s: Session = Depends(db)):  # publish, back to draft, or archive (nothing is deleted)
+    r = s.get(TeacherResource, rid)
+    if not r: raise HTTPException(404, "Resource not found")
+    need_edit(u, r.course_id, s)
+    if b.status not in RES_STATUS: raise HTTPException(400, "Choose draft, published or archived")
+    r.status = b.status; r.updated_at = dt.datetime.utcnow(); s.commit(); return res_json(s, r, res_version(s, r), True, {})
+@app.get("/api/resources/{rid}/versions")
+def resource_versions(rid: int, u: User = Depends(author), s: Session = Depends(db)):  # who saved what and when, newest first; the current one marked
+    r = s.get(TeacherResource, rid)
+    if not r: raise HTTPException(404, "Resource not found")
+    need_edit(u, r.course_id, s); vs = s.query(ResourceVersion).filter_by(resource_id=rid).order_by(ResourceVersion.number.desc()).all()
+    names = {x.id: x.name for x in s.query(User).filter(User.id.in_({v.saved_by for v in vs} or {0}))}
+    return {"current": r.version, "status": r.status, "items": [{**res_json(s, r, v, True, names), "current": v.number == r.version} for v in vs]}
+def res_visible(s, u, r):  # may this person see this resource (and so its file)?
+    if can_edit(u, r.course_id, s): return True
+    if r.status != "published": return False
+    check_course_access(u, r.course_id, s)
+    if r.unit_id:
+        un = s.get(Unit, r.unit_id)
+        if not un or un.archived_at: return False
+    if r.topic_id:
+        t = s.get(Topic, r.topic_id)
+        if not t or t.published is False or topic_off(s, t): return False
+    return True
+@app.get("/api/topics/{tid}/resources")
+def topic_resources(tid: int, u: User = Depends(me), s: Session = Depends(db)):
+    """The teacher resources for this topic: its own, its unit's and its course's, published ones only for students (a course's teachers also see drafts)."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s); cid = topic_course_id(t, s); staff = can_edit(u, cid, s)
+    q = s.query(TeacherResource).filter(TeacherResource.course_id == cid, or_(TeacherResource.topic_id == tid, and_(TeacherResource.topic_id.is_(None), or_(TeacherResource.unit_id == t.unit_id, TeacherResource.unit_id.is_(None)))))
+    q = q.filter(TeacherResource.status.in_(("published", "draft") if staff else ("published",)))
+    rs = q.order_by(case((TeacherResource.topic_id.isnot(None), 0), (TeacherResource.unit_id.isnot(None), 1), else_=2), TeacherResource.position, TeacherResource.id).all()
+    vs = {(v.resource_id, v.number): v for v in s.query(ResourceVersion).filter(ResourceVersion.resource_id.in_([r.id for r in rs] or [0]))}
+    return {"items": [res_json(s, r, vs[(r.id, r.version)], staff) for r in rs if (r.id, r.version) in vs]}
+@app.get("/api/resources/{rid}/file")
+def resource_file(rid: int, v: int = 0, u: User = Depends(me), s: Session = Depends(db)):
+    """A resource's document or video, only to someone who may see the resource. Students get the current version only; its teachers any version."""
+    r = s.get(TeacherResource, rid)
+    if not r or not res_visible(s, u, r): raise HTTPException(404, "Not found")
+    n = v or r.version
+    if n != r.version and not can_edit(u, r.course_id, s): raise HTTPException(404, "Not found")
+    x = res_version(s, r, n)
+    if not x or not x.file: raise HTTPException(404, "Not found")
+    path = os.path.join(UPLOADS, "resources", x.file)
+    if not re.fullmatch(r"[0-9a-f]{32}\.[a-z0-9]{2,4}", x.file) or not os.path.exists(path): raise HTTPException(404, "This file is no longer available")
+    ext = x.file.rsplit(".", 1)[-1]; shown = re.sub(r'[^\w .()-]', "_", x.file_name or "")[:150] or x.file
+    return FileResponse(path, media_type=RES_VIDEO_TYPES.get(ext) or MSG_FILE_TYPES.get(ext, "application/octet-stream"), filename=shown,
+                        content_disposition_type="inline" if ext in RES_VIDEO_TYPES or ext in ("pdf", "png", "jpg", "jpeg") else "attachment",
+                        headers={"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"})
 def send_messages(s, c, author_u, people, subject, text, bg, file=None):
     now = dt.datetime.utcnow(); stored, shown = file or (None, None)
     for st in people:

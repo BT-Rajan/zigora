@@ -146,6 +146,7 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
                 if (aiOn && (!t.content.isNullOrBlank() || t.my_notes != null)) Steps(id, student, t.diagram, openDiagram)  // no gist from a topic's name alone: from its notes, or the student's own
                 Body(t, me, aiOn, aiOff, known, openReader = { openReader(id) }, openMaterial = { openMaterial(t.course_id, t.course) })
                 if (student) OutlinedButton(onClick = { openMcq(id) }, modifier = Modifier.fillMaxWidth()) { Text(tl("MCQ practice on this topic")) }
+                TopicResourcesList(id)
                 ClassQuestionsList(id)
                 if (t.ask != null && !asking) OutlinedButton(onClick = {
                     if (t.ask == "pro") scope.launch { snack.showSnackbar(tl("Asking your teacher comes with Pro. See AI help on your profile.")) } else asking = true

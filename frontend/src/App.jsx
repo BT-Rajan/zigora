@@ -2,7 +2,7 @@ import {useState,useEffect,useCallback,useRef,createContext,useContext,Children,
 import {createPortal} from 'react-dom'
 import {Md,Body} from './content.jsx'
 import {ROOT,at} from './base.js'
-import {ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone} from 'lucide-react'
+import {ExternalLink,ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone} from 'lucide-react'
 import '@fontsource/bricolage-grotesque/600.css'
 import '@fontsource/bricolage-grotesque/800.css'
 import '@fontsource/instrument-sans/400.css'
@@ -594,7 +594,7 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   const confirm=useConfirm()
   const isAdmin=user.role==='admin',staff=user.role!=='student'
   const [mat,setMat]=useState(false),[rev,setRev]=useState(null)
-  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[fin,setFin]=useState(null)
+  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[resM,setResM]=useState(null),[fin,setFin]=useState(null)
   const load=()=>api('/tree').then(setTree).catch(e=>toast(e.message));useEffect(()=>{load()},[t,ed,qz,qe,sheet,arch,qr])
   const landed=useRef(!!start?.length);useEffect(()=>{const real=tree.filter(x=>!x.offered);if(landed.current||user.role!=='student'||real.length!==1)return;landed.current=true;const p=real[0],c=p.semesters.find(x=>x.current)||(p.semesters.length===1?p.semesters[0]:null);setNav(c?[p.id,c.id]:[p.id])},[tree])
   const prog=tree.find(x=>x.id===nav[0]),sem=prog?.semesters.find(x=>x.id===nav[1]),co=sem?.courses.find(x=>x.id===nav[2]),unit=co?.units.find(x=>x.id===nav[3])
@@ -609,6 +609,7 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   if(rev)return <RevisionSheet uid={rev} toast={toast} back={()=>setRev(null)}/>
   if(gb)return <Gradebook cid={gb} back={()=>setGb(null)} toast={toast} role={user.role}/>
   if(fin)return <CourseFinishers cid={fin} back={()=>setFin(null)} toast={toast}/>
+  if(resM)return <ResourceManager cid={resM} back={()=>setResM(null)} toast={toast}/>
   if(ed)return <TopicEditor role={user.role} toast={toast} edit={ed.id?ed:null} unitId={ed.unit_id} done={()=>setEd(null)} cancel={()=>setEd(null)}/>
   const last=cyc?.relearn?Object.fromEntries([...cyc.relearn.weak.map(x=>[x.id,tl("Weak last time")]),...cyc.relearn.strong.map(x=>[x.id,tl("Strong last time")])]):{}
   const tsub=x=>[x.published===false&&'Draft · students cannot see it',x.optional&&tl("Optional"),x.status!=='completed'&&last[x.id],x.learning_due_at&&(staff?'Due '+when(x.learning_due_at):tl("Your teacher's date")+': '+day(x.learning_due_at)),
@@ -662,7 +663,8 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,course_id:co.id})}><Pencil size={16}/></button></>}</div>}/>}
       {mayEdit&&!co.shared&&<button className="btn ghost" onClick={()=>setQe({course_id:co.id,csvFirst:true})}><Upload size={16}/>{" "}{tl("New MCQ test from a CSV")}</button>}
       {mayEdit&&<button className="btn ghost" onClick={()=>setGb(co.id)}><BarChart3 size={16}/>{" "}{tl("Gradebook: final scores for every test")}</button>}
-      {mayEdit&&<button className="btn ghost" onClick={()=>setFin(co.id)}><ClipboardCheck size={16}/>{" "}{tl("Who has finished this course")}</button>}</>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setFin(co.id)}><ClipboardCheck size={16}/>{" "}{tl("Who has finished this course")}</button>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setResM(co.id)}><FileText size={16}/>{" "}{tl("Teacher resources")}</button>}</>}
     {unit&&(unit.quizzes.length>0||mayEdit)&&<><h3 className="sec">{tl("Quizzes")}</h3>
       {<Paged rows={unit.quizzes} render={(q,i)=><div key={q.id} className="card"><button className="hit" onClick={()=>setQz(q.id)}><span className="dot" style={{background:COL[(i+3)%5]}}>?</span><div><b>{q.title}</b><span>{q.questions}{" "}{tl("questions · pass {pass_percent}%",{pass_percent:q.pass_percent})}{q.best!=null?tl(" · best {best}%",{best:q.best}):''}{q.published?'':tl(" · Draft")}</span></div>{q.best!=null&&q.best>=q.pass_percent&&<span className="marks"><Check size={16}/></span>}</button>
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,unit_id:unit.id,unitTopics:unit.topics.map(t=>({id:t.id,title:t.title}))})}><Pencil size={16}/></button></>}</div>}/>}
@@ -954,6 +956,73 @@ function QuestionThread({id,back,toast}){
         <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):q.status==='closed'?tl("Reopen and send"):tl("Send")}</button>
         {q.status!=='closed'&&<button className="btn ghost" onClick={end}>{q.teacher?tl("Mark resolved"):tl("Close the question")}</button>}
         {q.can_withdraw&&<button className="btn ghost" onClick={withdraw}>{tl("Withdraw the question")}</button>}</>}</>}</div></>}  {/* before any answer: take it back */}
+// ---- teacher resources (S43): material a course's teacher adds to the course, a unit or a topic. Students see the published ones inside the topic;
+// ---- documents and videos come through a signed-in download, never a bare link
+const RES_KIND={note:'Note',example:'Worked example',image:'Image',document:'Document',video:'Video',link:'Link'}
+const RES_LEVEL={topic:'This topic',unit:'This unit',course:'This course'}
+function ResFile({f,toast}){
+  const [src,setSrc]=useState(null),[busy,setBusy]=useState(false)
+  useEffect(()=>()=>{if(src)URL.revokeObjectURL(src)},[src])
+  const load=async()=>{setBusy(true);try{const r=await fetch(ROOT+'/api'+f.url,{headers:{Authorization:'Bearer '+localStorage.t}});if(!r.ok)throw new Error(tl("This file is no longer available"))
+    const u=URL.createObjectURL(await r.blob());if(f.video)setSrc(u);else{const a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}}catch(e){toast(e.message)}setBusy(false)}
+  if(f.video&&src)return <video className="resvideo" src={src} controls playsInline/>
+  return <button className="msgfile" style={{width:'100%'}} disabled={busy} onClick={load}>{f.video?<Play size={18}/>:<FileText size={18}/>}<span>{f.name}</span><small>{busy?tl("Loading…"):f.video?tl("Play"):tl("Download")}</small></button>}
+function ResBody({r,toast,onUnclear}){
+  return <>{r.description&&<p className="known" style={{margin:'4px 0'}}>{r.description}</p>}
+    {(r.kind==='note'||r.kind==='example')&&<><div className="prose"><Md>{r.body}</Md></div>{onUnclear&&<button className="link" onClick={onUnclear}>{tl("Not clear? Ask about a phrase")}</button>}</>}
+    {r.kind==='image'&&r.image&&<a href={at(r.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(r.image)} alt={r.title} loading="lazy"/></a>}
+    {r.url&&(r.kind==='video'?<VideoCards text={r.url}/>:null)}{r.url&&(r.kind==='link'||(r.kind==='video'&&!(r.url.match(VIDEO_RE)||[]).length))&&<a className="msgfile" href={r.url} target="_blank" rel="noreferrer noopener"><ExternalLink size={18}/><span>{r.url.replace(/^https:\/\//,'').slice(0,60)}</span><small>{tl("Open")}</small></a>}
+    {r.file&&<ResFile f={r.file} toast={toast}/>}</>}
+function TopicResources({t,toast}){
+  const [d,setD]=useState(null),[open,setOpen]=useState({}),[ask,setAsk]=useState(null),[phrase,setPhrase]=useState('')
+  useEffect(()=>{api(`/topics/${t.id}/resources`).then(r=>setD(r.items)).catch(()=>setD([]))},[t.id])
+  if(!d?.length)return null
+  return <><h3 className="sec">{tl("Teacher resources")}</h3>{d.map(r=><div key={r.id} className="qbox">
+    <button className="hit" style={{width:'100%',textAlign:'start'}} onClick={()=>setOpen(o=>({...o,[r.id]:!o[r.id]}))} aria-expanded={!!open[r.id]}><b>{r.title}</b><small className="known" style={{display:'block'}}>{[tl(RES_KIND[r.kind]),tl(RES_LEVEL[r.level]),r.status==='draft'&&tl("Draft: students can't see it")].filter(Boolean).join(' · ')}</small></button>
+    {open[r.id]&&<ResBody r={r} toast={toast} onUnclear={t.published!==false?()=>{setAsk(r);setPhrase('')}:null}/>}</div>)}
+    {ask&&<Sheet close={()=>setAsk(null)}><h3>{tl("Not clear?")}</h3><p className="known">{tl("Copy or type the words from “{title}” that you don't follow.",{title:ask.title})}</p>
+      <input value={phrase} maxLength={120} onChange={e=>setPhrase(e.target.value)} aria-label={tl("The phrase")}/>
+      {phrase.trim().length>=2&&<DoubtBox key={phrase} tid={t.id} askState={t.ask} phrase={phrase.trim()} close={()=>setAsk(null)} toast={toast}/>}</Sheet>}</>}
+// a course's teacher manages its resources: add, edit (each save a new version), publish, archive; nothing is deleted
+function ResourceManager({cid,toast,back}){
+  const confirm=useConfirm(),[d,setD]=useState(null),[tree,setTree]=useState(null),[ed,setEd]=useState(null),[hist,setHist]=useState(null),[busy,setBusy]=useState(false),[prev,setPrev]=useState(false)
+  const load=()=>api(`/courses/${cid}/resources`).then(r=>setD(r.items)).catch(e=>{toast(e.message);back()});useEffect(()=>{load();api('/tree').then(tr=>{for(const p of tr)for(const sm of p.semesters)for(const c of sm.courses)if(c.id===cid)setTree(c)}).catch(()=>{})},[cid])
+  const blank={kind:'note',title:'',description:'',body:'',url:'',image:'',file:null,unit_id:0,topic_id:0}
+  const pickFile=e=>{const x=e.target.files?.[0];e.target.value='';if(!x)return;if(x.size>15*1024*1024){toast(tl("Keep the file under 15 MB"));return}
+    const rd=new FileReader();rd.onload=()=>setEd(v=>({...v,file:{name:x.name,data:rd.result}}));rd.onerror=()=>toast(tl("That file could not be read"));rd.readAsDataURL(x)}
+  const pickImg=async e=>{const x=e.target.files?.[0];e.target.value='';if(!x)return;try{const url=await uploadImg(x);setEd(v=>({...v,image:url}))}catch(er){toast(er.message)}}
+  const save=async publish=>{setBusy(true);try{const b={...ed,course_id:cid,unit_id:ed.unit_id||null,topic_id:ed.topic_id||null,publish,file:ed.file||null}
+      if(ed.id)await api(`/resources/${ed.id}`,{method:'PUT',body:b});else await api('/resources',{method:'POST',body:b});toast(publish?tl("Published"):tl("Saved as a draft"));setEd(null);load()}catch(e){toast(srv(e.message))}setBusy(false)}
+  const status=async(r,st)=>{if(st==='archived'&&!await confirm({title:tl("Archive “{title}”?",{title:r.title}),body:tl("Students stop seeing it. Nothing is deleted: its versions stay, and you can publish it again."),ok:tl("Archive")}))return
+    try{await api(`/resources/${r.id}/status`,{method:'POST',body:{status:st}});load()}catch(e){toast(srv(e.message))}}
+  const units=tree?.units||[],topics=units.find(u=>u.id===ed?.unit_id)?.topics||[]
+  if(ed)return <><Bar title={ed.id?tl("Edit resource"):tl("New resource")} back={()=>setEd(null)}/><div className="main">
+    {!ed.id&&<><label>{tl("Where")}</label><div className="qopt"><select aria-label={tl("Unit")} value={ed.unit_id} onChange={e=>setEd({...ed,unit_id:+e.target.value,topic_id:0})}><option value={0}>{tl("The whole course")}</option>{units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>
+      {ed.unit_id>0&&<select aria-label={tl("Topic")} value={ed.topic_id} onChange={e=>setEd({...ed,topic_id:+e.target.value})}><option value={0}>{tl("The whole unit")}</option>{topics.map(x=><option key={x.id} value={x.id}>{x.title}</option>)}</select>}</div>
+      <label>{tl("Kind")}</label><div className="seg" style={{gridTemplateColumns:'repeat(3,1fr)'}}>{Object.entries(RES_KIND).map(([k,l])=><button key={k} className={ed.kind===k?'on':''} aria-pressed={ed.kind===k} onClick={()=>setEd({...ed,kind:k})}>{tl(l)}</button>)}</div></>}
+    <label htmlFor="rt">{tl("Title")}</label><input id="rt" maxLength={200} value={ed.title} onChange={e=>setEd({...ed,title:e.target.value})}/>
+    <label htmlFor="rd">{tl("Description or instructions (optional)")}</label><textarea id="rd" rows={2} maxLength={2000} value={ed.description} onChange={e=>setEd({...ed,description:e.target.value})}/>
+    {(ed.kind==='note'||ed.kind==='example')&&<><label htmlFor="rb">{ed.kind==='example'?tl("The worked example"):tl("The note")}</label>
+      <textarea id="rb" rows={10} maxLength={20000} value={ed.body} onChange={e=>setEd({...ed,body:e.target.value})} placeholder={tl("Markdown. Maths between dollar signs, like $x^2$. Number the steps of a worked example.")}/>
+      <button className="link" onClick={()=>setPrev(!prev)}>{prev?tl("Hide preview"):tl("Preview")}</button>{prev&&<div className="qbox prose"><Md>{ed.body}</Md></div>}</>}
+    {ed.kind==='image'&&<>{ed.image&&<img className="msgimg" src={at(ed.image)} alt=""/>}<label className="btn ghost photopick"><Upload size={16}/> {ed.image?tl("Replace the picture"):tl("Upload a picture")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={pickImg} hidden/></label></>}
+    {(ed.kind==='link'||ed.kind==='video')&&<><label htmlFor="ru">{ed.kind==='video'?tl("Video link (or attach a short video below)"):tl("Link")}</label><input id="ru" value={ed.url} maxLength={490} placeholder="https://" onChange={e=>setEd({...ed,url:e.target.value})}/></>}
+    {(ed.kind==='document'||(ed.kind==='video'&&!ed.url))&&<>{ed.file?<div className="msgfile"><FileText size={18}/><span>{ed.file.name}</span><button className="ic sm" aria-label={tl("Remove the file")} onClick={()=>setEd({...ed,file:null})}><X size={16}/></button></div>
+      :<label className="btn ghost photopick"><Upload size={16}/> {ed.kind==='video'?tl("Attach a video (MP4, up to 15 MB)"):ed.id?tl("Replace the document"):tl("Attach the document")}<input type="file" accept={ed.kind==='video'?'video/mp4,video/webm':'.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip,image/png,image/jpeg'} onChange={pickFile} hidden/></label>}
+      {ed.id&&!ed.file&&ed.current_file&&<p className="known">{tl("Keeps {name} unless you attach another.",{name:ed.current_file})}</p>}</>}
+    {ed.id&&<p className="known">{tl("Saving makes a new version. The earlier ones are kept.")}</p>}
+    <button className="btn" disabled={busy||!ed.title.trim()} onClick={()=>save(true)}>{ed.status==='published'?tl("Save"):tl("Publish")}</button>
+    {ed.status!=='published'&&<button className="btn ghost" disabled={busy||!ed.title.trim()} onClick={()=>save(false)}>{tl("Save as a draft")}</button>}</div></>
+  if(hist)return <><Bar title={hist.title} sub={tl("Versions")} back={()=>setHist(null)}/><div className="main">{hist.items.map(v=><div key={v.version} className="qbox"><small className="known">{[tl("Version {n}",{n:v.version}),v.current&&tl("current"),v.saved_by,when(v.saved_at)].filter(Boolean).join(' · ')}</small><b style={{display:'block'}}>{v.title}</b><ResBody r={v} toast={toast}/></div>)}</div></>
+  const where=r=>{const u=units.find(x=>x.id===r.unit_id),tp=u?.topics.find(x=>x.id===r.topic_id);return tp?tp.title:u?u.name:tl("The whole course")}
+  return <><Bar title={tl("Teacher resources")} sub={tree?.name||''} back={back}/><div className="main">
+    <p className="known" style={{marginTop:0}}>{tl("Your own notes, worked examples, pictures, documents, videos and links, placed on the course, a unit or a topic. Students see published ones inside the topic they are studying.")}</p>
+    <button className="btn" onClick={()=>setEd(blank)}><Plus size={16}/> {tl("Add a resource")}</button>
+    {!d?<Skeleton/>:!d.length?<p className="known">{tl("No resources yet.")}</p>:d.map(r=><div key={r.id} className="qbox"><div className="wtop"><b>{r.title}</b><span className="chip" style={{color:r.status==='published'?'var(--ok)':'var(--mut)'}}>{tl({draft:'Draft',published:'Published',archived:'Archived'}[r.status])}</span></div>
+      <small className="known">{[tl(RES_KIND[r.kind]),where(r),tl("Version {n}",{n:r.version}),r.saved_by&&tl("saved by {name}",{name:r.saved_by}),when(r.saved_at)].filter(Boolean).join(' · ')}</small>
+      <div className="tools" style={{flexWrap:'wrap'}}><button onClick={()=>setEd({...blank,...r,file:null,current_file:r.file?.name,unit_id:r.unit_id||0,topic_id:r.topic_id||0})}>{tl("Edit")}</button>
+        {r.status!=='published'&&<button onClick={()=>status(r,'published')}>{tl("Publish")}</button>}{r.status==='published'&&<button onClick={()=>status(r,'draft')}>{tl("Unpublish")}</button>}
+        {r.status!=='archived'&&<button onClick={()=>status(r,'archived')}>{tl("Archive")}</button>}<button onClick={async()=>{try{setHist({title:r.title,...await api(`/resources/${r.id}/versions`)})}catch(e){toast(e.message)}}}>{tl("Versions")}</button></div></div>)}</div></>}
 // under a topic: questions the teacher shared with the class, each with its answers; who asked is never shown
 function ClassQuestions({tid}){
   const [d,setD]=useState(null),[open,setOpen]=useState({})
@@ -2338,6 +2407,7 @@ function Topic({id:first,back,toast,role,tab0}){
     {role==='student'&&<div className="mine"><span>{t.learning_due_at&&<>{tl("Your teacher's date")}: {day(t.learning_due_at)} · </>}{t.status==='completed'?tl("You marked this as learned"):tl("Not marked as learned yet")}</span>
       {t.status==='completed'?<button className="link" onClick={()=>setDone(false)}>{tl("Undo")}</button>:<button className="link" onClick={()=>setDone(true)}>{tl("I've learned this")}</button>}
       {t.status!=='not_started'&&<button className="link" onClick={redo}>{tl("Start over")}</button>}</div>}
+    <TopicResources t={t} toast={toast}/>
     {t.published!==false&&<ClassQuestions tid={t.id}/>}
     {t.ask&&t.published!==false&&<button className={'btn ghost'+(t.ask==='pro'?' locked':'')} onClick={()=>t.ask==='pro'?toast(tl("Asking your teacher comes with Pro. See AI help on your profile.")):setAskT(true)}>{t.ask==='pro'?<Lock size={16}/>:<MessageCircle size={16}/>}{" "}{tl("Ask my teacher")}{t.ask==='pro'&&<span className="pill sm">{tl("Pro")}</span>}</button>}
     {askT&&<AskTeacher tid={t.id} close={()=>setAskT(false)} toast={toast}/>}

@@ -46,6 +46,11 @@ import kotlinx.serialization.json.JsonObject
                                      val last: String = "", val unread: Boolean = false, val student: String? = null, val message: Boolean = false,
                                      val label: String = "", val at: String? = null)  // label (S40): pending, follow_up, answered or resolved
 @Serializable data class QuestionPage(val total: Int = 0, val items: List<QuestionRow> = emptyList())
+/** S43: a teacher's resource as a topic shows it (the published version; drafts only to the course's teachers) */
+@Serializable data class ResFileRef(val name: String = "file", val url: String = "", val video: Boolean = false)
+@Serializable data class TopicRes(val id: Int, val kind: String = "", val level: String = "", val title: String = "", val description: String = "", val body: String = "",
+                                  val url: String = "", val image: String = "", val file: ResFileRef? = null, val status: String? = null)
+@Serializable data class TopicResList(val items: List<TopicRes> = emptyList())
 /** S42: the doubt management centre (GET /questions with filters, /questions/summary, /questions/report) */
 @Serializable data class DoubtRow(val id: Int, val student: String = "", val course: String = "", val unit: String = "", val topic: String = "", val preview: String = "",
                                   val at: String? = null, val updated: String? = null, val label: String = "", val teacher: String? = null, val waiting_hours: Double? = null,
