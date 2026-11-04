@@ -46,7 +46,7 @@ private fun ResourceCard(r: TopicRes) {
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf("") }
     val ctx = LocalContext.current; val a = api(); val scope = rememberCoroutineScope()
-    Panel(Modifier.padding(bottom = 8.dp), onClick = { open = !open }) {
+    Panel(Modifier.padding(bottom = 8.dp), onClick = { if (!open) scope.launch { runCatching { a.raw("POST", "/resources/${r.id}/opened") } }; open = !open }) {  // S45: opening is recorded (only that)
         Column {
             Text(r.title, style = MaterialTheme.typography.titleSmall)
             Quiet(listOfNotNull(kindLabel(r.kind), levelLabel(r.level), if (r.status == "draft") tl("Draft: students can't see it") else null).joinToString(" · "))

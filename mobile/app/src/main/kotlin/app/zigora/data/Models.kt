@@ -314,3 +314,23 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class CalWho(val id: Int, val name: String)
 @Serializable data class CalResp(val items: List<CalItem> = emptyList(), val today: String = "", val student: CalWho? = null, val students: List<CalWho> = emptyList())
 @Serializable data class CalLink(val on: Boolean = false, val path: String? = null)
+// S45: learning support plans (a teacher's extra practice for chosen students, read from what they do after it starts)
+@Serializable data class IvSide(val right: Int = 0, val asked: Int = 0, val sittings: Int = 0, val percent: Int? = null)
+@Serializable data class IvKind(val before: IvSide = IvSide(), val after: IvSide = IvSide(), val established: Boolean = false, val change: Int? = null, val direction: String? = null)
+@Serializable data class IvCompare(val test: IvKind = IvKind(), val practice: IvKind = IvKind(), val overall: String = "not_established")
+@Serializable data class IvActState(val id: Int, val kind: String = "", val topic_id: Int? = null, val ref_id: Int? = null, val size: Int? = null, val required: Boolean = true,
+                                    val removed: Boolean = false, val state: String = "todo", val evidence: String = "", val label: String = "")
+@Serializable data class IvStudent(val user_id: Int, val name: String = "", val assigned_at: String? = null, val removed: Boolean = false, val reason: String = "", val progress: String = "not_started",
+                                   val done: Int = 0, val required: Int = 0, val overdue: Boolean = false, val needs_review: Boolean = false, val outcome: String? = null, val outcome_note: String = "",
+                                   val reviewed_at: String? = null, val comparison: IvCompare = IvCompare(), val activities: List<IvActState> = emptyList())
+@Serializable data class IvActivity(val id: Int, val kind: String = "", val topic_id: Int? = null, val ref_id: Int? = null, val size: Int? = null, val required: Boolean = true,
+                                    val added_at: String? = null, val removed_at: String? = null, val label: String = "")
+@Serializable data class IvCounts(val students: Int = 0, val not_started: Int = 0, val in_progress: Int = 0, val completed: Int = 0, val needs_review: Int = 0, val overdue: Int = 0)
+@Serializable data class IvTopic(val id: Int, val title: String = "")
+@Serializable data class IvPlan(val id: Int, val course_id: Int = 0, val course: String = "", val title: String = "", val description: String = "", val criteria: String = "", val status: String = "",
+                                val topics: List<IvTopic> = emptyList(), val target: String? = null, val counts: IvCounts = IvCounts(),
+                                val activities: List<IvActivity> = emptyList(), val students: List<IvStudent> = emptyList())
+@Serializable data class IvPlans(val items: List<IvPlan> = emptyList())
+@Serializable data class MySupportPlan(val id: Int, val title: String = "", val description: String = "", val course: String = "", val target: String? = null, val topics: List<IvTopic> = emptyList(),
+                                       val progress: String = "", val done: Int = 0, val required: Int = 0, val activities: List<IvActState> = emptyList())
+@Serializable data class MySupport(val items: List<MySupportPlan> = emptyList())
