@@ -156,7 +156,7 @@ fun AreaList(areas: List<Area>, staff: Boolean = false, onStudy: ((Int) -> Unit)
             Text(stringResource(title) + " (${l.size})", style = MaterialTheme.typography.titleSmall,
                  color = when (k) { "strong" -> Color(0xFF2E7D5B); "needs_study" -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.tertiary })
             if (hint != 0 && !staff) Quiet(stringResource(hint))
-            Paged(l, key = k) { x ->
+            Paged(l, key = k, grouped = false) { x ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(x.title)

@@ -72,16 +72,17 @@ fun SupportCard(openTopic: (Int) -> Unit, openQuiz: (Int) -> Unit, openSet: (Int
         }
     }
     d.items.forEach { p ->
-        Panel {
-            androidx.compose.foundation.layout.Column {
-                Text(tl("Extra practice from your teacher"), style = MaterialTheme.typography.titleSmall)
+        Group {  // the plan's words on top, then each activity as a row of the same surface
+            androidx.compose.foundation.layout.Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Text(tl("Extra practice from your teacher"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Text(p.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
                 Quiet(listOfNotNull(p.course, p.target?.let { tl("aim to finish by {date}", "date" to ivShow(it)) }, tl("{a} of {n} done", "a" to p.done, "n" to p.required)).joinToString(" · "))
                 if (p.description.isNotEmpty()) Quiet(p.description, Modifier.padding(top = 4.dp))
-                p.activities.forEach { x ->
-                    val click: (() -> Unit)? = if (busy) null else { { go(p, x) } }
-                    RowLink((if (x.state == "done") "✓ " else "") + ivAct(x.kind, x.label, x.size), listOfNotNull(if (x.state != "todo") ivState(x) else null, if (!x.required) tl("Optional") else null).joinToString(" · "), onClick = click)
-                }
+            }
+            p.activities.forEach { x ->
+                GroupLine()
+                val click: (() -> Unit)? = if (busy) null else { { go(p, x) } }
+                RowLink((if (x.state == "done") "✓ " else "") + ivAct(x.kind, x.label, x.size), listOfNotNull(if (x.state != "todo") ivState(x) else null, if (!x.required) tl("Optional") else null).joinToString(" · "), onClick = click)
             }
         }
     }

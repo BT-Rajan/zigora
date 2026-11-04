@@ -5,6 +5,11 @@ package app.zigora.ui
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.outlined.Schema
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Quiz
+import androidx.compose.material.icons.outlined.QuestionAnswer
+import androidx.compose.material.icons.filled.Check
 import android.annotation.SuppressLint
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -145,37 +150,12 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
                 val aiOff = (ai.state as? Load.Ok)?.value?.off == true  // no parent's or teacher's key: the notes only
                 if (aiOn && (!t.content.isNullOrBlank() || t.my_notes != null)) Steps(id, student, t.diagram, openDiagram)  // no gist from a topic's name alone: from its notes, or the student's own
                 Body(t, me, aiOn, aiOff, known, openReader = { openReader(id) }, openMaterial = { openMaterial(t.course_id, t.course) })
-                if (student) OutlinedButton(onClick = { openMcq(id) }, modifier = Modifier.fillMaxWidth()) { Text(tl("MCQ practice on this topic")) }
-                TopicResourcesList(id)
-                ClassQuestionsList(id)
-                if (t.ask != null && !asking) OutlinedButton(onClick = {
-                    if (t.ask == "pro") scope.launch { snack.showSnackbar(tl("Asking your teacher comes with Pro. See AI help on your profile.")) } else asking = true
-                }, modifier = Modifier.fillMaxWidth()) {
-                    if (t.ask == "pro") { Icon(Icons.Outlined.Lock, null, Modifier.size(16.dp)); Text(" " + tl("Ask my teacher") + " · " + tl("Pro")) } else Text(tl("Ask my teacher"))
-                }
-                if (asking) AskTeacherBox(id) { sent -> asking = false; if (sent) scope.launch { snack.showSnackbar(tl("Sent. Your teacher's answer will be in My questions.")) } }  // the Per topic way in; the bank needs no AI
-                if (student) TextButton(onClick = { reporting = true }) { Text(tl("Report a problem with these notes")) }
-                if (reporting) NotesReport(id, close = { reporting = false }) { scope.launch { snack.showSnackbar(tl("Thanks. Your teacher will check the notes.")) } }
-                if (student && aiOn && (!t.empty || t.my_notes != null)) {  // nothing to ask about: no notes, theirs or the teacher's
-                    SectionTitle(stringResource(R.string.test_yourself))
-                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  // buttons go to a new line rather than squeeze their text
-                        listOf("mcq" to R.string.five_quick, "quiz" to R.string.full_quiz_10).forEach { (k, l) ->
-                            OutlinedButton(enabled = practising.isEmpty(), onClick = { scope.launch {
-                                practising = k
-                                try { openPractice(a.send("POST", "/topics/$id/practice", buildJsonObject { put("kind", k) }, StudyQuiz.serializer()).id) }
-                                catch (e: Exception) { snack.showSnackbar(e.message.orEmpty()) }
-                                practising = ""
-                            } }) { Text(stringResource(if (practising == k) (if (k == "mcq") R.string.writing_questions else R.string.writing_quiz) else l)) }
-                        }
-                    }
-                    Quiet(stringResource(R.string.practice_note), Modifier.padding(top = 4.dp))
-                }
-                if (student) {
-                    Gap(16)
+                if (student) {  // the one main action after reading: say it is learned (or take that back)
+                    Gap(4)
                     Panel {
-                        Text(stringResource(if (status == "completed") R.string.you_marked_learned else R.string.not_marked_yet), style = MaterialTheme.typography.bodyMedium)
-                        t.learning_due_at?.let { Quiet(stringResource(R.string.teachers_date, day(it))) }
-                        TextButton(onClick = {
+                        Text(stringResource(if (status == "completed") R.string.you_marked_learned else R.string.not_marked_yet), style = MaterialTheme.typography.titleSmall)
+                        t.learning_due_at?.let { Quiet(stringResource(R.string.teachers_date, day(it)), Modifier.padding(top = 2.dp)) }
+                        val mark = {
                             val on = status != "completed"
                             scope.launch {
                                 try { status = a.send(if (on) "PUT" else "DELETE", "/topics/$id/complete", null, Learning.serializer()).status
@@ -184,9 +164,14 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
                                       if (on) runCatching { a.get("/me/session", SessionOut.serializer()).session?.items }.getOrNull()  // today's session leads on to its next part
                                           ?.takeIf { items -> items.any { it.id == id && it.kind != "review" && it.src != "study" } }?.let { upNext = it } }
                                 catch (e: Exception) { snack.showSnackbar(e.message.orEmpty()) }
-                            }
-                        }) { Text(stringResource(if (status == "completed") R.string.undo else R.string.ive_learned_this)) }
-                        if (status != "not_started") TextButton(onClick = { redoAsk = true }) { Text(tl("Start over")) }
+                            }; Unit
+                        }
+                        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (status == "completed") OutlinedButton(onClick = mark) { Text(stringResource(R.string.undo)) }
+                            else Button(onClick = mark) { Icon(Icons.Filled.Check, null, Modifier.size(18.dp)); Text(" " + stringResource(R.string.ive_learned_this)) }
+                            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                            if (status != "not_started") TextButton(onClick = { redoAsk = true }) { Text(tl("Start over")) }
+                        }
                     }
                     if (redoAsk) androidx.compose.material3.AlertDialog(onDismissRequest = { redoAsk = false }, title = { Text(tl("Start this topic over?")) },
                         text = { Text(tl("It goes back to not started, so you can study it again. Your quiz scores and your streak stay.")) },
@@ -202,11 +187,42 @@ fun TopicScreen(id: Int, me: Me, back: () -> Unit, jump: (Int) -> Unit, openRead
                         val nx = items.firstOrNull { !it.done }
                         when {
                             nx == null -> Quiet(stringResource(R.string.session_all_done))
-                            nx.kind != "review" && nx.src != "study" -> Button(onClick = { jump(nx.id) }) { Text(stringResource(R.string.next_colon) + " " + nx.title) }
-                            else -> OutlinedButton(onClick = back) { Text(stringResource(R.string.back_for_next_part) + " " + nx.title) }
+                            nx.kind != "review" && nx.src != "study" -> Button(onClick = { jump(nx.id) }, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.next_colon) + " " + nx.title) }
+                            else -> OutlinedButton(onClick = back, modifier = Modifier.padding(top = 8.dp)) { Text(stringResource(R.string.back_for_next_part) + " " + nx.title) }
                         }
                     }
                 }
+                TopicResourcesList(id)
+                ClassQuestionsList(id)
+                if (student) {  // practising and asking: one list, each a row
+                    val canTest = aiOn && (!t.empty || t.my_notes != null)  // nothing to ask about: no notes, theirs or the teacher's
+                    val practise = { k: String -> scope.launch {
+                        practising = k
+                        try { openPractice(a.send("POST", "/topics/$id/practice", buildJsonObject { put("kind", k) }, StudyQuiz.serializer()).id) }
+                        catch (e: Exception) { snack.showSnackbar(e.message.orEmpty()) }
+                        practising = ""
+                    }; Unit }
+                    SectionTitle(stringResource(R.string.test_yourself))
+                    val rows = mutableListOf<@Composable () -> Unit>()
+                    rows.add { ListRow(tl("MCQ practice on this topic"), tl("Questions from the bank, with answers explained"), onClick = { openMcq(id) }, leading = { RowIcon(Icons.Outlined.Checklist) }) }
+                    if (canTest) {
+                        rows.add { ListRow(stringResource(if (practising == "mcq") R.string.writing_questions else R.string.five_quick), "",
+                                           onClick = if (practising.isEmpty()) ({ practise("mcq") }) else null, leading = { RowIcon(Icons.Outlined.Bolt) }) }
+                        rows.add { ListRow(stringResource(if (practising == "quiz") R.string.writing_quiz else R.string.full_quiz_10), "",
+                                           onClick = if (practising.isEmpty()) ({ practise("quiz") }) else null, leading = { RowIcon(Icons.Outlined.Quiz) }) }
+                    }
+                    if (t.ask != null && !asking) rows.add {
+                        ListRow(tl("Ask my teacher") + (if (t.ask == "pro") " · " + tl("Pro") else ""), "",
+                                onClick = { if (t.ask == "pro") scope.launch { snack.showSnackbar(tl("Asking your teacher comes with Pro. See AI help on your profile.")) } else asking = true },
+                                leading = { RowIcon(if (t.ask == "pro") Icons.Outlined.Lock else Icons.Outlined.QuestionAnswer) })
+                    }
+                    RowsOf(rows)
+                    if (canTest) Quiet(stringResource(R.string.practice_note))
+                }
+                if (asking) AskTeacherBox(id) { sent -> asking = false; if (sent) scope.launch { snack.showSnackbar(tl("Sent. Your teacher's answer will be in My questions.")) } }  // the Per topic way in; the bank needs no AI
+                if (!student && t.ask != null && !asking) OutlinedButton(onClick = { asking = true }, modifier = Modifier.fillMaxWidth()) { Text(tl("Ask my teacher")) }
+                if (student) TextButton(onClick = { reporting = true }) { Text(tl("Report a problem with these notes")) }
+                if (reporting) NotesReport(id, close = { reporting = false }) { scope.launch { snack.showSnackbar(tl("Thanks. Your teacher will check the notes.")) } }
                 t.nav?.takeIf { it.total > 1 }?.let { n ->
                     Gap(16)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -402,7 +418,7 @@ private fun Notes(t: TopicFull, me: Me, aiOn: Boolean, openReader: () -> Unit, o
     val hl = rememberLoad("tophl", t.id) { get("/topics/${t.id}/highlights", Highlights.serializer()).items }
     (hl.state as? Load.Ok)?.value?.takeIf { it.isNotEmpty() }?.let { list ->
         SectionTitle(stringResource(R.string.your_highlights_n, list.size))
-        Paged(list, key = t.id) { h ->
+        Paged(list, key = t.id, grouped = false) { h ->
             HlItem(h, onGo = openReader, onExplain = null, onSaved = { hl.reload() }, topicId = t.id,
                    onDrop = { scope.launch { runCatching { a.raw("DELETE", "/me/highlights/${h.id}") }; hl.reload() } })
         }

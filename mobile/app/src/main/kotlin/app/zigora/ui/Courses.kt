@@ -3,6 +3,9 @@ package app.zigora.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -52,7 +55,7 @@ fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, openJoi
     val tree = rememberLoad("tree") { get("/tree", ListSerializer(ProgramNode.serializer())) }
     Scaffold(topBar = { TopAppBar(title = { Text(tl("My courses")) }, actions = {
         IconButton(onClick = openSearch) { Icon(Icons.Outlined.Search, stringResource(R.string.tab_search)) } }) }) { pad ->
-        Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Loaded(tree) { list ->
                 val courses = coursesOf(list)
                 if (courses.isEmpty() && me.self_registered && !me.placed) NotPlacedYet(me, openStudy, openJoin)
@@ -60,11 +63,10 @@ fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, openJoi
                 else if (courses.isEmpty()) Quiet(stringResource(R.string.not_enrolled))
                 else CourseList(courses, open)
             }
-            Gap(16)
-            ListRow(tl("Join a course"), tl("Courses teachers offer: accept an invitation, join, or ask to join"), onClick = openJoin, leading = { RowIcon(Icons.Outlined.GroupAdd) })
-            Gap(8)
-            ListRow(tl("Build a course"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
-                    leading = { RowIcon(Icons.Outlined.AutoStories) })
+            SectionTitle(tl("More ways to learn"))
+            Rows({ ListRow(tl("Join a course"), tl("Courses teachers offer: accept an invitation, join, or ask to join"), onClick = openJoin, leading = { RowIcon(Icons.Outlined.GroupAdd) }) },
+                 { ListRow(tl("Build a course"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
+                           leading = { RowIcon(Icons.Outlined.AutoStories) }) })
         }
     }
 }
@@ -81,14 +83,15 @@ fun CourseScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openQuiz: 
         TopAppBar(title = { Text(c?.name ?: "") }, scrollBehavior = scroll,
                   navigationIcon = { IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } })
     }) { pad ->
-        Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+        Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Loaded(tree) {
                 if (c == null) { Problem(stringResource(R.string.course_unavailable)); return@Loaded }
                 val ts = c.units.flatMap { it.topics }; val k = ts.count { it.has_notes }
-                ListRow(if (k > 0) tl("Your notes in {k} of {length} topics", "k" to k, "length" to ts.size) else tl("Bring your own notes"),
-                        if (k > 0) tl("Add or update your material") else tl("Upload your PDF or Word notes. They are filed under this course's topics, for you only."),
-                        onClick = { openMaterial(c.id, c.name) }, leading = { RowIcon(Icons.Outlined.UploadFile) })
-                if (ts.any { it.status != "not_started" }) TextButton(onClick = { redoAsk = true }) { Text(tl("Start this course over")) }
+                val done = ts.count { it.status == "completed" }
+                if (ts.isNotEmpty()) Column {  // where the course stands, at a glance
+                    Text(tl("{done} of {total} topics marked as learned", "done" to done, "total" to ts.size), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ScoreBar(100 * done / ts.size)
+                }
                 if (redoAsk) androidx.compose.material3.AlertDialog(onDismissRequest = { redoAsk = false }, title = { Text(tl("Start {name} over?", "name" to c.name)) },
                     text = { Text(tl("Every topic goes back to not started, so you can study the course again. Your quiz scores and your streak stay.")) },
                     confirmButton = { TextButton(onClick = { redoAsk = false; scope.launch { runCatching { a.raw("POST", "/courses/${c.id}/redo") }; tree.reload() } }) { Text(tl("Start over")) } },
@@ -96,12 +99,19 @@ fun CourseScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openQuiz: 
                 if (c.tests.any { it.published && it.questions > 0 }) SectionTitle(tl("MCQ tests"))
                 Tests(c.tests, openQuiz)
                 c.units.forEach { un ->
-                    SectionTitle(un.name)
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(un.name, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+                        if (un.topics.isNotEmpty()) TextButton(onClick = { openRevision(un.id) }) { Icon(Icons.Outlined.Description, null, Modifier.size(18.dp)); Text(" " + tl("Revision sheet")) }
+                    }
                     if (un.topics.isEmpty()) Quiet(stringResource(R.string.no_topics_yet))
-                    else TextButton(onClick = { openRevision(un.id) }) { Icon(Icons.Outlined.Description, null); Text("  " + tl("Revision sheet")) }
                     Paged(un.topics, key = un.id) { t -> TopicRow(t) { openTopic(t.id) } }
                     Tests(un.quizzes, openQuiz)
                 }
+                SectionTitle(tl("Your material"))
+                Rows({ ListRow(if (k > 0) tl("Your notes in {k} of {length} topics", "k" to k, "length" to ts.size) else tl("Bring your own notes"),
+                               if (k > 0) tl("Add or update your material") else tl("Upload your PDF or Word notes. They are filed under this course's topics, for you only."),
+                               onClick = { openMaterial(c.id, c.name) }, leading = { RowIcon(Icons.Outlined.UploadFile) }) })
+                if (ts.any { it.status != "not_started" }) TextButton(onClick = { redoAsk = true }) { Text(tl("Start this course over")) }
             }
         }
     }
@@ -111,11 +121,9 @@ fun CourseScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openQuiz: 
 private fun Tests(list: List<QuizRef>, open: (Int) -> Unit) {
     val ready = list.filter { it.published && it.questions > 0 }
     if (ready.isEmpty()) return
-    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        ready.forEach { q ->
+    Paged(ready) { q ->
             ListRow(q.title, "${q.questions} " + tl("questions · pass {pass_percent}%", "pass_percent" to q.pass_percent) +
                     (q.best?.let { tl(" · best {best}%", "best" to it) } ?: "") + (if (q.best != null && q.best >= q.pass_percent) "  ✓" else ""), onClick = { open(q.id) }, leading = { RowIcon(Icons.Outlined.Quiz) })
-        }
     }
 }
 

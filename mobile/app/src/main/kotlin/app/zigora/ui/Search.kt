@@ -89,7 +89,7 @@ fun SearchScreen(initial: String, back: () -> Unit, openTopic: (Int) -> Unit, op
                 if (f.results.isEmpty()) Quiet(stringResource(R.string.nothing_in_topics))
                 else {
                     SectionTitle(stringResource(R.string.in_your_topics))
-                    Paged(f.results, key = f.q) { h ->
+                    Paged(f.results, key = f.q, grouped = false) { h ->
                         ListItem(modifier = Modifier.clickableRounded { openTopic(h.id) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                             headlineContent = { Text(h.title) }, overlineContent = { Text(listOf(h.course, h.unit).filter { it.isNotEmpty() }.joinToString(" › ")) },
                             supportingContent = { Text(h.snippet, maxLines = 3) })

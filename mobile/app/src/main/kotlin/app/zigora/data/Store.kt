@@ -37,7 +37,7 @@ class Store(context: Context, private val sealer: Sealer = Keystore) {
 
     /** Material You colours from the wallpaper, or Zigora's own */
     var wallpaper: Boolean
-        get() = prefs.getBoolean("wallpaper", true)
+        get() = prefs.getBoolean("wallpaper", false)  // Zigora's own plum unless the student picks their wallpaper's colours
         set(v) = prefs.edit { putBoolean("wallpaper", v) }
 
     /** the college's name for the app, as its server calls it (the web's header shows the same) */

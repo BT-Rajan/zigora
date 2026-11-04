@@ -171,7 +171,7 @@ fun NotificationsScreen(back: () -> Unit, openTopic: (Int) -> Unit, openQuestion
             Loaded(n) { r ->
                 if (r.mail) DigestToggle(r.digest)
                 if (r.items.isEmpty()) Quiet(stringResource(R.string.no_notifications))
-                Paged(r.items) { x ->
+                Paged(r.items, grouped = false) { x ->
                     val tid = x.key.substringAfter(":").toIntOrNull().takeIf { !x.key.startsWith("quiz") }
                     val qid = x.key.takeIf { it.startsWith("answer:") }?.split(":")?.getOrNull(1)?.toIntOrNull()  // the teacher answered a question
                     ListItem(modifier = if (qid != null) Modifier.clickableRounded { openQuestion(qid) } else if (tid != null) Modifier.clickableRounded { openTopic(tid) } else Modifier,
