@@ -102,7 +102,9 @@ class TeachTest {
         signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         tab("Struggles"); tap("Class insight"); see("students were active"); shot("16-class-insight")
         tap("Hardness of Water"); see("Ask the AI what the evidence suggests"); shot("17-insight-topic")
-        tap("Meena Kumar"); see("Sittings"); shot("18-insight-student")
+        // her name is also under the doubts she wrote; the student row is the one that opens
+        see("Meena Kumar"); rule.onAllNodes(hasText("Meena Kumar") and hasClickAction()).onFirst().performScrollTo().performClick()
+        see("Sittings"); shot("18-insight-student")
     }
 
     /** a support plan made for Meena (through the API, as on the web), then the teacher follows it on the phone */
