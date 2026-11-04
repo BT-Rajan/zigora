@@ -97,7 +97,7 @@ class AskTest {
         signIn("stu@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
-        tap("Softening Methods"); see("Ask my teacher"); shot("6a-softening"); tap("Ask my teacher"); shot("6b-after-ask-tap"); see("Your teacher sees your name")
+        tap("Softening Methods"); see("Ask my teacher"); tap("Ask my teacher"); see("Your teacher sees your name")
         rule.onNode(hasSetTextAction()).performTextInput("Why does bicarbonate break down when boiling?")
         see("Already answered for your class"); rule.onAllNodesWithText("Already answered", substring = true).onFirst().performScrollTo(); shot("6-similar")
     }

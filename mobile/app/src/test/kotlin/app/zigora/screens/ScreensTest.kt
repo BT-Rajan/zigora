@@ -127,7 +127,7 @@ class ScreensTest {
         see("Engineering Chemistry"); rule.onNodeWithText("Saved").performClick()
         see("Bookmarks"); shot("13-saved")
         rule.onNodeWithText("Highlights").performClick(); see("All colours"); shot("14-highlights")
-        rule.onNode(hasText("Progress") and hasClickAction()).performClick(); see("Study routine"); shot("15-progress")
+        rule.onNode(hasText("Progress") and hasClickAction()).performClick(); see("Study routine"); see("Topics learned"); shot("15-progress")  // once it has loaded
         rule.onNodeWithText("Set or change your study days").performClick(); see("Minutes a session"); shot("16-routine")
         rule.onNodeWithText("Save routine").performScrollTo().performClick()
         see("Study routine"); rule.onNode(hasText("Home") and hasClickAction()).performClick()

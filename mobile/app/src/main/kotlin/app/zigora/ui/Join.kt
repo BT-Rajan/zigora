@@ -116,13 +116,13 @@ fun JoinScreen(back: () -> Unit, openStudy: () -> Unit = {}, openCourse: (Int) -
                     }
                 }
             }
-            if (mine.isNotEmpty()) { SectionTitle(tl("Your offered courses")); Paged(mine, "mine") { card(it) } }
+            if (mine.isNotEmpty()) { SectionTitle(tl("Your offered courses")); Paged(mine, "mine", grouped = false) { card(it) } }
             SectionTitle(tl("Courses you can join"))
             if (others.isEmpty()) {  // nothing to join: the two ways on
                 Quiet(tl("No courses are open to join right now. You can ask your teacher for an invitation, or start learning now by building a course from your own notes."))
                 ListRow(tl("Build a course from your own notes"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
                         leading = { RowIcon(Icons.Outlined.AutoStories) })
-            } else Paged(others, "others") { card(it) }
+            } else Paged(others, "others", grouped = false) { card(it) }
         }
     }
 }
