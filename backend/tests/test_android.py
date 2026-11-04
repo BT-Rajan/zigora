@@ -14,13 +14,14 @@ class Res:
     def json(self): return self.data
 
 def test_the_newest_published_apk_is_found_and_asked_for_once_a_day(env, monkeypatch):
-    calls = []
-    monkeypatch.setattr(main.httpx, "get", lambda url, **k: calls.append(url) or Res(REL))
+    calls, seen_kw = [], []
+    monkeypatch.setattr(main.httpx, "get", lambda url, **k: calls.append(url) or seen_kw.append(k) or Res(REL))
     main.android_seen.update(at=-1e12, release=None)
     r = env.c.get("/api/app/android"); assert r.status_code == 200  # no sign-in needed: the home page asks
     assert r.json() == {"version": "1.0.7", "code": 7, "date": "2026-10-24T03:20:00Z", "size": 4000000,
                         "url": "https://github.com/o/r/releases/download/android-v1.0.7/zigora-1.0.7.apk"}
     assert calls == [f"https://api.github.com/repos/{main.ANDROID_REPO}/releases"]
+    assert seen_kw[0].get("follow_redirects") is True  # a renamed repository answers with a redirect: followed, not taken as "no app yet"
     env.c.get("/api/app/android"); assert len(calls) == 1  # the day's answer is kept
     t = main.android_seen["at"]
     assert main.android_release(t + main.ANDROID_CHECK - 1)["code"] == 7 and len(calls) == 1

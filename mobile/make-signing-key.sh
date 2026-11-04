@@ -6,7 +6,7 @@
 # every future version of the app must be signed with this same key, or phones will refuse the update.
 set -euo pipefail
 
-REPO="${REPO:-BT-Rajan/iniyavan}"
+REPO="${REPO:-BT-Rajan/zigora}"
 DIR="${ZIGORA_KEY_DIR:-$HOME/zigora-signing}"
 KS="$DIR/zigora.keystore"
 ALIAS="zigora"
