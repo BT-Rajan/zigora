@@ -28,6 +28,8 @@ import app.zigora.data.Store
 import app.zigora.data.Me
 import app.zigora.data.json
 import app.zigora.ui.ZigoraRoot
+import app.zigora.ui.coursesOf
+import app.zigora.data.ProgramNode
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
@@ -98,8 +100,8 @@ class ScreensTest {
         signIn()
         runBlocking {  // the course's teacher makes a support plan for Meena on Boiler Troubles, through the API, as on the web
             val me = json.decodeFromString(Me.serializer(), app.store.userJson!!)
-            val tree = app.api.get("/tree", kotlinx.serialization.builtins.ListSerializer(app.zigora.data.ProgramNode.serializer()))
-            val c = app.zigora.ui.coursesOf(tree).first { it.name == "Engineering Chemistry" }
+            val tree = app.api.get("/tree", kotlinx.serialization.builtins.ListSerializer(ProgramNode.serializer()))
+            val c = coursesOf(tree).first { it.name == "Engineering Chemistry" }
             val tid = c.units.flatMap { it.topics }.first { it.title == "Boiler Troubles" }.id
             val student = app.store.token
             app.store.token = app.api.send("POST", "/login", buildJsonObject { put("email", "teacher@mail.com"); put("password", "pw123456") }, LoginOut.serializer()).token
