@@ -46,7 +46,7 @@ Optional, under **Variables**: `ZIGORA_SERVER` = your server's address (for exam
 Without the key the workflow still builds and checks the app, and keeps the APK as a download on the workflow run, but publishes nothing.
 To publish right away instead of waiting for the daily run: Actions → Android → Run workflow.
 
-Server settings (`backend/.env`): `ANDROID_REPO` is the GitHub repository whose releases carry the APK (default `BT-Rajan/iniyavan`; empty turns it off).
+Server settings (`backend/.env`): `ANDROID_REPO` is the GitHub repository whose releases carry the APK (default `BT-Rajan/zigora`; empty turns it off).
 
 ## Building it yourself
 

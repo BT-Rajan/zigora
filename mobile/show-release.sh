@@ -4,7 +4,7 @@
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
 env_of() { sed -n "s/^$1=//p" .env | tail -1 | tr -d "\"'"; }
-if grep -q '^ANDROID_REPO=' .env; then REPO=$(env_of ANDROID_REPO); else REPO=BT-Rajan/iniyavan; fi
+if grep -q '^ANDROID_REPO=' .env; then REPO=$(env_of ANDROID_REPO); else REPO=BT-Rajan/zigora; fi
 [ -n "$REPO" ] || { echo "ANDROID_REPO is empty: nothing to show."; exit 0; }
 HOST=$(env_of HOST); PORT=$(env_of PORT); case "${HOST:-0.0.0.0}" in 0.0.0.0|::) HOST=127.0.0.1;; esac
 BASE="http://${HOST:-127.0.0.1}:${PORT:-5252}"
@@ -12,7 +12,7 @@ KEY=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(("android-refresh:"+s
 # the version this commit's release carries (a shallow clone can't count it: then just look once)
 WANT=0; [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = false ] && WANT=$(bash mobile/version.sh)
 newest() {
-  curl -fsS -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/releases?per_page=10" | python3 -c '
+  curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/releases?per_page=10" | python3 -c '
 import sys, json, re
 v = [int(m.group(1)) for r in json.load(sys.stdin) if not r.get("draft") and not r.get("prerelease")
      for m in [re.fullmatch(r"android-v1\.0\.(\d+)", r.get("tag_name") or "")] if m]

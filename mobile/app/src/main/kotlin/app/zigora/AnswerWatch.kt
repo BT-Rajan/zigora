@@ -52,8 +52,11 @@ class AnswerWatch(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
     private fun note(app: ZigoraApp, id: Int, title: String, text: String, extra: (Intent) -> Unit) {
         val open = PendingIntent.getActivity(app, id, Intent(app, MainActivity::class.java).setAction(OPEN).also(extra)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        NotificationManagerCompat.from(app).notify(id, NotificationCompat.Builder(app, CHANNEL).setSmallIcon(R.drawable.ic_launcher_monochrome).setContentTitle(title).setContentText(text)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true).build())
+        val n = NotificationCompat.Builder(app, CHANNEL).setSmallIcon(R.drawable.ic_launcher_monochrome).setContentTitle(title).setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setContentIntent(open).setAutoCancel(true).build()
+        // checked here, right before showing it, and a permission taken back in the meantime only means no note
+        if (ContextCompat.checkSelfPermission(app, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        try { NotificationManagerCompat.from(app).notify(id, n) } catch (e: SecurityException) { }  // no note, nothing else
     }
     /** a student's or parent's new classes and announcements, each mentioned once */
     private suspend fun classes(app: ZigoraApp) {

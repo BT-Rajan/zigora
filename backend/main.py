@@ -8453,7 +8453,7 @@ def version():
             "hint": None if SERVER_HEAD and screens and SERVER_HEAD == screens else "The screens are older than the server code (or were never built). Run ./run.sh, or: cd frontend && npm ci && npm run build, then restart."}
 # ---- the Android app: GitHub Actions builds it in mobile/ and publishes each version as a release tagged android-v<version>. The server looks
 # ---- once a day for the newest one, so the home page and the app itself can offer it (version, date and the download link) ----
-ANDROID_REPO = os.getenv("ANDROID_REPO", "BT-Rajan/iniyavan")  # owner/name of the GitHub repository whose releases carry the APK; empty turns this off
+ANDROID_REPO = os.getenv("ANDROID_REPO", "BT-Rajan/zigora")  # owner/name of the GitHub repository whose releases carry the APK; empty turns this off. A renamed repository still works (GitHub redirects)
 ANDROID_CHECK = 24 * 3600; ANDROID_RETRY = 3600  # seconds between checks, and before trying again after GitHub could not be reached
 android_seen = {"at": 0.0, "release": None}
 def android_release(now=None):
@@ -8463,7 +8463,7 @@ def android_release(now=None):
     if now - android_seen["at"] < (ANDROID_CHECK if android_seen["release"] else ANDROID_RETRY): return android_seen["release"]
     android_seen["at"] = now
     try:
-        r = httpx.get(f"https://api.github.com/repos/{ANDROID_REPO}/releases", params={"per_page": 20}, timeout=10,
+        r = httpx.get(f"https://api.github.com/repos/{ANDROID_REPO}/releases", params={"per_page": 20}, timeout=10, follow_redirects=True,
                       headers={"Accept": "application/vnd.github+json", "User-Agent": "zigora-server"})
         r.raise_for_status()
         for rel in r.json():
