@@ -365,12 +365,10 @@ fun StudyCourseScreen(id: Int, back: () -> Unit, setup: () -> Unit, openTopic: (
             if (all.size > 12) OutlinedTextField(find, { find = it }, Modifier.fillMaxWidth(), singleLine = true, leadingIcon = { Icon(Icons.Outlined.Search, null) }, placeholder = { Text(tl("Find a topic")) })
             val q = find.trim().lowercase()
             val rows = cc.units.flatMap { u -> u.topics.filter { q.isEmpty() || q in it.title.lowercase() || q in it.summary.lowercase() }.map { u to it } }
-            Paged(rows, key = "$id/$q", grouped = false) { (u, t) ->
-                val i = rows.indexOfFirst { it.second.id == t.id }
-                if (i == 0 || rows[i - 1].first.id != u.id) SectionTitle(u.title)
+            rows.groupBy { it.first.id }.values.forEach { inUnit -> SectionTitle(inUnit.first().first.title); Paged(inUnit, key = "$id/$q/${inUnit.first().first.id}") { (_, t) ->  // each unit: its title, then its topics on one surface
                 RowLink(t.title + (if (t.stars > 0) "  " + "★".repeat(t.stars) else "") + (if (t.due) "  ·  " + tl("Review due") else ""),
                         t.summary + (t.best?.let { tl("{v}best quiz {best}%", "v" to if (t.summary.isNotEmpty()) " · " else "", "best" to it) } ?: ""), { openTopic(t.id) })
-            }
+            } }
             if (p != null && p.areas.isNotEmpty()) {
                 SectionTitle(tl("From your quizzes")); Quiet(tl("Your best quiz score in each topic, weakest first."))
                 Paged(p.areas, key = "ar") { ar -> RowLink(ar.title + "  ·  " + tl(AREA_LABEL[ar.status].orEmpty()), tl("Best quiz {percent}%", "percent" to ar.percent), ar.topic_id?.let { { openTopic(it) } }) { ScoreBar(ar.percent) } }

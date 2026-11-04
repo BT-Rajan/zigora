@@ -202,7 +202,8 @@ fun stamp(iso: String): String = runCatching {
 
 /** a percentage as a thin bar */
 @Composable
-fun ScoreBar(v: Int?) = androidx.compose.material3.LinearProgressIndicator(progress = { (v ?: 0).coerceIn(0, 100) / 100f }, Modifier.fillMaxWidth().padding(top = 4.dp))
+fun ScoreBar(v: Int?) = androidx.compose.material3.LinearProgressIndicator(progress = { (v ?: 0).coerceIn(0, 100) / 100f }, Modifier.fillMaxWidth().padding(top = 4.dp),
+    drawStopIndicator = {})  // no dot at the end: a quiet bar, as on the web
 
 /** a screen with a title (and a line under it), a back arrow and scrolling content */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)

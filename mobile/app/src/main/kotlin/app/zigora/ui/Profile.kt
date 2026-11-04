@@ -34,6 +34,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -85,7 +90,7 @@ fun ProfileScreen(me: Me, wallpaper: (Boolean) -> Unit, themeOf: (String) -> Uni
     var asking by remember { mutableStateOf(false) }
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> remind = ok; app.store.reminders = ok; Reminders.schedule(ctx, ok) }
     Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.tab_me)) }) }) { pad ->
-        Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Loaded(p) { pr ->
                 Panel {
                     Text(pr.name, style = MaterialTheme.typography.titleLarge)
@@ -97,9 +102,9 @@ fun ProfileScreen(me: Me, wallpaper: (Boolean) -> Unit, themeOf: (String) -> Uni
                     SectionTitle(stringResource(R.string.rewards))
                     Panel {
                         Text(pluralStringResource(R.plurals.points, r.points, r.points), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary)
-                        Quiet(stringResource(R.string.rewards_how, r.per, r.points_per))
-                        LinearProgressIndicator(progress = { r.toward_next.toFloat() / r.per.coerceAtLeast(1) }, Modifier.fillMaxWidth().padding(vertical = 8.dp))
-                        Quiet(stringResource(R.string.toward_next, r.toward_next, r.per))
+                        ScoreBar(100 * r.toward_next / r.per.coerceAtLeast(1))
+                        Quiet(stringResource(R.string.toward_next, r.toward_next, r.per), Modifier.padding(top = 4.dp))
+                        Text(stringResource(R.string.rewards_how, r.per, r.points_per), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
                         if (r.top.isNotEmpty()) {
                             SectionTitle(stringResource(R.string.most_used))
                             r.top.forEach { s -> ListItem(headlineContent = { Text(s.label) }, trailingContent = { Text("${s.uses}") }) }
@@ -107,43 +112,56 @@ fun ProfileScreen(me: Me, wallpaper: (Boolean) -> Unit, themeOf: (String) -> Uni
                     }
                 }
             }
+            val flat = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)  // rows of a group: its surface shows through
             SectionTitle(stringResource(R.string.settings))
-            ListItem(leadingContent = { Icon(Icons.Outlined.Translate, null) }, headlineContent = { Text(stringResource(R.string.language)) },
-                     supportingContent = { Text(stringResource(R.string.language_hint)) })
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                LANGS.forEachIndexed { i, (code, name) ->
-                    SegmentedButton(lang == code, shape = SegmentedButtonDefaults.itemShape(i, LANGS.size), onClick = {
-                        lang = code
-                        scope.launch { runCatching { app.api.raw("PUT", "/me/lang", buildJsonObject { put("lang", code) }) } }
-                        lm.applicationLocales = LocaleList.forLanguageTags(code) // Android 13's per-app language: the app restarts in it
-                    }) { Text(name) }
+            Group {
+                ListItem(colors = flat, leadingContent = { Icon(Icons.Outlined.Translate, null) }, headlineContent = { Text(stringResource(R.string.language)) },
+                         supportingContent = { Text(stringResource(R.string.language_hint)) })
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+                    LANGS.forEachIndexed { i, (code, name) ->
+                        SegmentedButton(lang == code, shape = SegmentedButtonDefaults.itemShape(i, LANGS.size), onClick = {
+                            lang = code
+                            scope.launch { runCatching { app.api.raw("PUT", "/me/lang", buildJsonObject { put("lang", code) }) } }
+                            lm.applicationLocales = LocaleList.forLanguageTags(code) // Android 13's per-app language: the app restarts in it
+                        }) { Text(name) }
+                    }
                 }
-            }
-            ListItem(leadingContent = { Icon(Icons.Outlined.DarkMode, null) }, headlineContent = { Text(stringResource(R.string.theme)) })
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf("system" to R.string.theme_auto, "light" to R.string.theme_light, "dark" to R.string.theme_dark).forEachIndexed { i, (k, l) ->
-                    SegmentedButton(theme == k, shape = SegmentedButtonDefaults.itemShape(i, 3), onClick = { theme = k; themeOf(k) }) { Text(stringResource(l)) }
+                GroupLine()
+                ListItem(colors = flat, leadingContent = { Icon(Icons.Outlined.DarkMode, null) }, headlineContent = { Text(stringResource(R.string.theme)) })
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
+                    listOf("system" to R.string.theme_auto, "light" to R.string.theme_light, "dark" to R.string.theme_dark).forEachIndexed { i, (k, l) ->
+                        SegmentedButton(theme == k, shape = SegmentedButtonDefaults.itemShape(i, 3), onClick = { theme = k; themeOf(k) }) { Text(stringResource(l)) }
+                    }
                 }
+                GroupLine()
+                ListItem(colors = flat, leadingContent = { Icon(Icons.Outlined.Palette, null) }, headlineContent = { Text(stringResource(R.string.wallpaper_colours)) },
+                         supportingContent = { Text(stringResource(R.string.wallpaper_colours_hint)) }, trailingContent = { Switch(colours, { colours = it; wallpaper(it) }) })
+                GroupLine()
+                ListItem(colors = flat, leadingContent = { Icon(Icons.Outlined.NotificationsNone, null) }, headlineContent = { Text(stringResource(R.string.daily_note)) },
+                         supportingContent = { Text(stringResource(R.string.daily_note_hint)) },
+                         trailingContent = { Switch(remind, { on ->
+                             if (on && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notify.launch(Manifest.permission.POST_NOTIFICATIONS)
+                             else { remind = on; app.store.reminders = on; Reminders.schedule(ctx, on) }
+                         }) })
             }
-            ListItem(headlineContent = { Text(stringResource(R.string.wallpaper_colours)) }, supportingContent = { Text(stringResource(R.string.wallpaper_colours_hint)) },
-                     trailingContent = { Switch(colours, { colours = it; wallpaper(it) }) })
-            ListItem(headlineContent = { Text(stringResource(R.string.daily_note)) }, supportingContent = { Text(stringResource(R.string.daily_note_hint)) },
-                     trailingContent = { Switch(remind, { on ->
-                         if (on && ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) notify.launch(Manifest.permission.POST_NOTIFICATIONS)
-                         else { remind = on; app.store.reminders = on; Reminders.schedule(ctx, on) }
-                     }) })
             SectionTitle(stringResource(R.string.account))
-            ListItem(modifier = Modifier.clickableRounded(openPassword), leadingContent = { Icon(Icons.Outlined.Password, null) }, headlineContent = { Text(stringResource(R.string.change_password)) })
-            if (me.self_registered) ListItem(modifier = Modifier.clickableRounded(openKey), leadingContent = { Icon(Icons.Outlined.Key, null) }, headlineContent = { Text(stringResource(R.string.my_ai_key)) })
+            Group {
+                ListItem(colors = flat, modifier = Modifier.clickable(onClick = openPassword), leadingContent = { Icon(Icons.Outlined.Password, null) }, headlineContent = { Text(stringResource(R.string.change_password)) })
+                if (me.self_registered) { GroupLine(); ListItem(colors = flat, modifier = Modifier.clickable(onClick = openKey), leadingContent = { Icon(Icons.Outlined.Key, null) }, headlineContent = { Text(stringResource(R.string.my_ai_key)) }) }
+            }
             SectionTitle(stringResource(R.string.about_app))
-            ListItem(modifier = Modifier.clickableRounded { about = true }, leadingContent = { Icon(Icons.Outlined.Info, null) }, headlineContent = { Text(stringResource(R.string.about)) })
             val rel = rememberLoad("update") { runCatching { get("/app/android", AndroidRelease.serializer()) }.getOrNull() }
             val newer = (rel.state as? Load.Ok)?.value?.takeIf { (it.code ?: 0) > BuildConfig.VERSION_CODE && it.url != null }
-            ListItem(headlineContent = { Text(stringResource(R.string.version_n, BuildConfig.VERSION_NAME)) },
-                     supportingContent = { Text(if (newer != null) stringResource(R.string.update_ready, newer.version.orEmpty()) else stringResource(R.string.server_n, app.api.base.removePrefix("https://"))) },
-                     trailingContent = { if (newer != null) TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(newer.url))) }) { Text(stringResource(R.string.update)) } })
-            ListItem(modifier = Modifier.clickableRounded { asking = true }, leadingContent = { Icon(Icons.AutoMirrored.Outlined.Logout, null) },
-                     headlineContent = { Text(stringResource(R.string.sign_out)) })
+            Group {
+                ListItem(colors = flat, modifier = Modifier.clickable { about = true }, leadingContent = { Icon(Icons.Outlined.Info, null) }, headlineContent = { Text(stringResource(R.string.about)) })
+                GroupLine()
+                ListItem(colors = flat, leadingContent = { Icon(Icons.Outlined.PhoneAndroid, null) }, headlineContent = { Text(stringResource(R.string.version_n, BuildConfig.VERSION_NAME)) },
+                         supportingContent = { Text(if (newer != null) stringResource(R.string.update_ready, newer.version.orEmpty()) else stringResource(R.string.server_n, app.api.base.removePrefix("https://"))) },
+                         trailingContent = { if (newer != null) TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(newer.url))) }) { Text(stringResource(R.string.update)) } })
+                GroupLine()
+                ListItem(colors = flat, modifier = Modifier.clickable { asking = true }, leadingContent = { Icon(Icons.AutoMirrored.Outlined.Logout, null, tint = MaterialTheme.colorScheme.error) },
+                         headlineContent = { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) })
+            }
         }
     }
     if (about) AlertDialog(onDismissRequest = { about = false }, confirmButton = { TextButton(onClick = { about = false }) { Text(stringResource(R.string.close)) } },
