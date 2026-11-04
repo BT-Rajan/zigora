@@ -163,7 +163,7 @@ fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, open
 
 @Composable
 fun CourseList(courses: List<CourseNode>, open: (Int) -> Unit) {
-    val ctx = LocalContext.current; val toast = rememberToast()
+    val toast = rememberToast(); val unavailable = stringResource(R.string.course_unavailable)
     Paged(courses) { c ->
         val topics = c.units.flatMap { it.topics }
         val done = topics.count { it.status == "completed" }; val opened = topics.count { it.status != "not_started" }
@@ -176,7 +176,7 @@ fun CourseList(courses: List<CourseNode>, open: (Int) -> Unit) {
             if (c.archived) stringResource(R.string.course_unavailable)
             else listOfNotNull(pluralStringResource(R.plurals.topics, topics.size, topics.size),
                 if (opened > 0) stringResource(R.string.n_opened, opened) else null, if (done > 0) stringResource(R.string.n_learned, done) else null).joinToString(" · "),
-            onClick = { if (c.archived) toast(ctx.getString(R.string.course_unavailable)) else open(c.id) },
+            onClick = { if (c.archived) toast(unavailable) else open(c.id) },
             leading = { if (c.archived) RowIcon(Icons.Outlined.Lock) else Dot(c.name, CourseColors[i % CourseColors.size]) },
             trailing = if (c.archived) ({}) else null)
     }
