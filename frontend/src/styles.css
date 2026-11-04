@@ -245,6 +245,7 @@ textarea.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:
 .schip{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:99px;background:rgba(255,255,255,.16);color:inherit;font-size:13px;font-weight:600;flex:none}
 .sfile{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.sfile .chip{margin:0}.sfile .tool{margin:0}
 .chip.none{background:transparent;border:1px solid var(--line);color:var(--mut)}
+.chip.on{background:var(--vio);color:#fff}
 
 /* ---- Zigora enterprise layer ---- */
 @media (min-width:600px) and (max-width:899px){:root{--w:760px}.main{padding-inline-start:24px;padding-inline-end:24px}.bar{padding-inline-start:24px;padding-inline-end:24px}.stats{grid-template-columns:repeat(4,1fr)}}
@@ -564,3 +565,6 @@ a.btn,a.tool{text-decoration:none}
 
 .revline{padding:6px 0;border-top:1px solid var(--line)}.revline:first-of-type{border-top:0}.revline .prose p{margin:4px 0}.revline .tool{margin-top:2px}
 .spark{display:flex;align-items:flex-end;gap:2px;height:28px;min-width:40px;max-width:120px;flex-shrink:0}.spark i{flex:1;min-width:3px;background:var(--acc);border-radius:2px 2px 0 0;opacity:.8}
+.vcard{text-decoration:none}
+.dqstats .stat{cursor:pointer;text-align:start}.dqstats .stat.on{outline:2px solid var(--acc)}
+.resvideo{width:100%;max-height:60vh;border-radius:10px;margin-top:6px;background:#000}

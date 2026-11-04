@@ -33,7 +33,7 @@ def test_the_local_step_sends_nothing_and_shows_where_the_phrase_sits(env, monke
 
 def test_only_the_labels_and_the_phrase_go_to_the_ai_never_the_notes(env, monkeypatch):
     t = setup(env, monkeypatch)
-    r = ask(env, env.stu, t, "bicarbonates").json(); assert r == {"text": "Hardness is dissolved calcium and magnesium.", "cached": False}
+    r = ask(env, env.stu, t, "bicarbonates").json(); assert r == {"text": "Hardness is dissolved calcium and magnesium.", "cached": False, "id": r["id"]} and r["id"]  # S40: its id, to ask the teacher about it
     sent = " ".join(m["content"] for m in Spy.sent[0])
     assert "bicarbonates" in sent and "Program:" in sent and "Semester:" in sent and "Course:" in sent and "Topic:" in sent
     assert "Temporary hardness comes from" not in sent and "Boiling removes it" not in sent and "holds salts" not in sent  # no notes

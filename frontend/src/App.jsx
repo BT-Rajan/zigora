@@ -2,7 +2,7 @@ import {useState,useEffect,useCallback,useRef,createContext,useContext,Children,
 import {createPortal} from 'react-dom'
 import {Md,Body} from './content.jsx'
 import {ROOT,at} from './base.js'
-import {ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone} from 'lucide-react'
+import {ExternalLink,ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone} from 'lucide-react'
 import '@fontsource/bricolage-grotesque/600.css'
 import '@fontsource/bricolage-grotesque/800.css'
 import '@fontsource/instrument-sans/400.css'
@@ -97,7 +97,7 @@ export default function App(){
     :guardian?[cal,...(teacher?[['offered',GraduationCap,tl("Offered courses")],['learn',BookOpen,tl("Course content")]]:[]),['classes',Megaphone,tl("Classes and announcements")],...(teacher?[['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],asg]:[]),['aikey',Sparkles,tl("My AI key")],['about',Info,tl("About")]]  // a parent or teacher: their students on Home, and the AI key their school students use
     :admin?ADMIN_SECTIONS.map(([k,I,l,pages])=>[pages[0][0],I,tl(l),k])
     :[['learn',BookOpen,tl("Courses")],['offered',GraduationCap,tl("Offered courses")],cal,asg,['classes',Megaphone,tl("Classes and announcements")],['questions',MessageCircle,tl("Student questions")],['struggles',AlertTriangle,tl("Where students struggle")],['mcqbank',ListChecks,tl("MCQ bank")],['mcq',ClipboardList,tl("MCQ practice")],['bookmarks',Bookmark,tl("Bookmarks")],['highlights',Highlighter,tl("My highlights")],['reports',BarChart3,tl("Reports")],...(user.self_registered?[['aikey',Sparkles,tl("My AI key")]]:[]),['about',Info,tl("About")]]
-  return <Ctx.Provider value={{menu:()=>setOpen(true),appName:name,confirm,role:user.role,aiOff:!!user.ai_off,level:user.level}}>  {/* aiOff: a school student with no parent's or teacher's key studies without AI */}
+  return <Ctx.Provider value={{menu:()=>setOpen(true),go,appName:name,confirm,role:user.role,aiOff:!!user.ai_off,level:user.level}}>  {/* aiOff: a school student with no parent's or teacher's key studies without AI */}
     <TopBar user={user} lang={lang} pickLang={pickLang} theme={theme} pickTheme={pickTheme} onMenu={()=>setOpen(true)} onHome={()=>go('home')} onAccount={()=>go('profile')} onOut={signOut} onNote={()=>go('home')} page={page}/>
     {page!=='search'&&!guardian&&<GlobalSearch key={findQ.n} onFind={find} onPhoto={user.ai_off?null:()=>go('photo')}/>}{page==='photo'&&<PhotoAsk toast={toast}/>}
     <OfflineBar/>{admin&&<SectionTabs page={page} go={go}/>}<div id="pageslot"/>
@@ -486,7 +486,15 @@ function SelfReg({cfg,run}){
     <LiteLimits cfg={cfg} run={run}/>
     <h3 className="sec">{tl("Time away from learning")}</h3>
     <p className="known">{tl("Counted from learning (topics opened or learned, tests, MCQ sets), never from just opening the app. After the first number of days a student gets a welcome back and a lighter week; teachers see who is away.")}</p>
-    <BreakDays cfg={cfg} run={run}/></>}
+    <BreakDays cfg={cfg} run={run}/>
+    <h3 className="sec">{tl("Response targets for student doubts")}</h3>
+    <p className="known">{tl("Optional. When set, a doubt is marked overdue in the teachers' list after this many hours without an answer. Plain hours: nights, weekends and holidays count. 0 means no target.")}</p>
+    <DoubtHours cfg={cfg} run={run}/></>}
+function DoubtHours({cfg,run}){  // S42: hours to a first answer and to a reply after a follow-up; 0: no target
+  const [v,setV]=useState(null),cur=v||{a:String(cfg.doubt_hours?.[0]??0),b:String(cfg.doubt_hours?.[1]??0)}
+  return <><div className="two"><div><label htmlFor="dh1">{tl("First answer within (hours)")}</label><input id="dh1" type="number" min="0" max="720" value={cur.a} onChange={e=>setV({...cur,a:e.target.value})}/></div>
+    <div><label htmlFor="dh2">{tl("Reply to a follow-up within (hours)")}</label><input id="dh2" type="number" min="0" max="720" value={cur.b} onChange={e=>setV({...cur,b:e.target.value})}/></div></div>
+    <button className="btn ghost" onClick={()=>run(()=>api('/admin/settings',{method:'PUT',body:{doubt_hours:[+cur.a||0,+cur.b||0]}}).then(()=>setV(null)),'Saved')}>{tl("Save")}</button></>}
 function BreakDays({cfg,run}){  // S39: when time away counts as an extended break, and when as a long one
   const [v,setV]=useState(null),cur=v||{a:String(cfg.break_days?.[0]??7),b:String(cfg.break_days?.[1]??30)}
   return <><div className="two"><div><label htmlFor="bd1">{tl("Extended break after (days)")}</label><input id="bd1" type="number" min="1" max="364" value={cur.a} onChange={e=>setV({...cur,a:e.target.value})}/></div>
@@ -586,7 +594,7 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   const confirm=useConfirm()
   const isAdmin=user.role==='admin',staff=user.role!=='student'
   const [mat,setMat]=useState(false),[rev,setRev]=useState(null)
-  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[fin,setFin]=useState(null)
+  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[ci,setCi]=useState(null),[resM,setResM]=useState(null),[fin,setFin]=useState(null),[sp,setSp]=useState(null)
   const load=()=>api('/tree').then(setTree).catch(e=>toast(e.message));useEffect(()=>{load()},[t,ed,qz,qe,sheet,arch,qr])
   const landed=useRef(!!start?.length);useEffect(()=>{const real=tree.filter(x=>!x.offered);if(landed.current||user.role!=='student'||real.length!==1)return;landed.current=true;const p=real[0],c=p.semesters.find(x=>x.current)||(p.semesters.length===1?p.semesters[0]:null);setNav(c?[p.id,c.id]:[p.id])},[tree])
   const prog=tree.find(x=>x.id===nav[0]),sem=prog?.semesters.find(x=>x.id===nav[1]),co=sem?.courses.find(x=>x.id===nav[2]),unit=co?.units.find(x=>x.id===nav[3])
@@ -601,6 +609,9 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   if(rev)return <RevisionSheet uid={rev} toast={toast} back={()=>setRev(null)}/>
   if(gb)return <Gradebook cid={gb} back={()=>setGb(null)} toast={toast} role={user.role}/>
   if(fin)return <CourseFinishers cid={fin} back={()=>setFin(null)} toast={toast}/>
+  if(resM)return <ResourceManager cid={resM} back={()=>setResM(null)} toast={toast}/>
+  if(ci)return <ClassInsight cid={ci} back={()=>setCi(null)} toast={toast}/>
+  if(sp)return <SupportPlans cid={sp} back={()=>setSp(null)} toast={toast}/>
   if(ed)return <TopicEditor role={user.role} toast={toast} edit={ed.id?ed:null} unitId={ed.unit_id} done={()=>setEd(null)} cancel={()=>setEd(null)}/>
   const last=cyc?.relearn?Object.fromEntries([...cyc.relearn.weak.map(x=>[x.id,tl("Weak last time")]),...cyc.relearn.strong.map(x=>[x.id,tl("Strong last time")])]):{}
   const tsub=x=>[x.published===false&&'Draft · students cannot see it',x.optional&&tl("Optional"),x.status!=='completed'&&last[x.id],x.learning_due_at&&(staff?'Due '+when(x.learning_due_at):tl("Your teacher's date")+': '+day(x.learning_due_at)),
@@ -654,7 +665,10 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,course_id:co.id})}><Pencil size={16}/></button></>}</div>}/>}
       {mayEdit&&!co.shared&&<button className="btn ghost" onClick={()=>setQe({course_id:co.id,csvFirst:true})}><Upload size={16}/>{" "}{tl("New MCQ test from a CSV")}</button>}
       {mayEdit&&<button className="btn ghost" onClick={()=>setGb(co.id)}><BarChart3 size={16}/>{" "}{tl("Gradebook: final scores for every test")}</button>}
-      {mayEdit&&<button className="btn ghost" onClick={()=>setFin(co.id)}><ClipboardCheck size={16}/>{" "}{tl("Who has finished this course")}</button>}</>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setFin(co.id)}><ClipboardCheck size={16}/>{" "}{tl("Who has finished this course")}</button>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setResM(co.id)}><FileText size={16}/>{" "}{tl("Teacher resources")}</button>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setCi(co.id)}><BarChart3 size={16}/>{" "}{tl("Class insight")}</button>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setSp(co.id)}><Target size={16}/>{" "}{tl("Support plans")}</button>}</>}
     {unit&&(unit.quizzes.length>0||mayEdit)&&<><h3 className="sec">{tl("Quizzes")}</h3>
       {<Paged rows={unit.quizzes} render={(q,i)=><div key={q.id} className="card"><button className="hit" onClick={()=>setQz(q.id)}><span className="dot" style={{background:COL[(i+3)%5]}}>?</span><div><b>{q.title}</b><span>{q.questions}{" "}{tl("questions · pass {pass_percent}%",{pass_percent:q.pass_percent})}{q.best!=null?tl(" · best {best}%",{best:q.best}):''}{q.published?'':tl(" · Draft")}</span></div>{q.best!=null&&q.best>=q.pass_percent&&<span className="marks"><Check size={16}/></span>}</button>
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,unit_id:unit.id,unitTopics:unit.topics.map(t=>({id:t.id,title:t.title}))})}><Pencil size={16}/></button></>}</div>}/>}
@@ -865,21 +879,38 @@ function FlagsPage({toast,back}){
 // ---- ask the teacher: a student's question about a topic goes to the teacher of its course (an admin when it has none), who answers in a
 // ---- short thread. Unlike "This looks wrong?" it is not anonymous: the teacher sees who asked
 const Q_STATE={waiting:['Waiting for your teacher','var(--warn)'],answered:['Answered','var(--ok)'],closed:['Closed','var(--mut)']}
-const QChip=({s,teacher})=>{const [l,c]=Q_STATE[s]||Q_STATE.waiting;return <span className="chip" style={{color:c}}>{tl(s==='waiting'&&teacher?'Waiting for your answer':l)}</span>}
+const Q_LABEL={pending:['Pending','var(--warn)'],follow_up:['Follow-up','var(--warn)'],answered:['Answered','var(--ok)'],resolved:['Resolved','var(--mut)']}  // S40, for the student
+const QChip=({s,teacher,label})=>{if(label&&!teacher&&Q_LABEL[label]){const [l,c]=Q_LABEL[label];return <span className="chip" style={{color:c}}>{tl(l)}</span>}
+  const [l,c]=Q_STATE[s]||Q_STATE.waiting;return <span className="chip" style={{color:c}}>{tl(s==='waiting'&&teacher?'Waiting for your answer':l)}</span>}
 // a photo with a question or an answer (working on paper, a diagram): picked or taken, shrunk in the browser, shown before sending
 function PhotoPick({photo,setPhoto,toast}){
   const pick=async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;try{setPhoto(await shrink(f))}catch(x){toast(x.message)}}
   return photo?<div className="qphoto"><img src={photo} alt={tl("Your photo")}/><button className="ic sm" aria-label={tl("Remove the photo")} onClick={()=>setPhoto(null)}><X size={16}/></button></div>
     :<label className="btn ghost photopick"><Camera size={16}/> {tl("Add a photo")}<input type="file" accept="image/*" onChange={pick} hidden/></label>}
-const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}
+// S41: a video link in a message shows as a card that opens it (no thumbnails: the page loads no pictures from other sites)
+const VIDEO_RE=/https:\/\/(?:www\.)?(youtube\.com\/watch\?[^\s)]*v=[\w-]{6,}[^\s)]*|youtu\.be\/[\w-]{6,}[^\s)]*|vimeo\.com\/\d+[^\s)]*|drive\.google\.com\/[^\s)]+|[^\s)]+\.(?:mp4|webm|mov)(?:\?[^\s)]*)?)/gi
+const videoHost=u=>/youtu/.test(u)?'YouTube':/vimeo/.test(u)?'Vimeo':/drive\.google/.test(u)?'Google Drive':tl("Video")
+const VideoCards=({text})=>{const urls=[...new Set((text||'').match(VIDEO_RE)||[])].slice(0,3);return urls.map(u=><a key={u} className="msgfile vcard" href={u} target="_blank" rel="noreferrer noopener"><Play size={18}/><span>{tl("Watch video")}</span><small>{videoHost(u)}</small></a>)}
+const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}<VideoCards text={m.text}/>{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}
   {m.file&&<a className="msgfile" href={at(m.file.url)} download={m.file.name}><FileText size={18}/><span>{m.file.name}</span><small>{tl("Download")}</small></a>}</>
-function AskTeacher({tid,excerpt,close,toast}){
-  const [text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[sim,setSim]=useState([]),[open,setOpen]=useState({})
+function AskTeacher({tid,excerpt,ai,aiText,close,toast,onDone}){  // ai: {kind,id} of the AI answer it is asked from (S40); the server looks it up itself
+  const {go:goTo}=useContext(Ctx),[text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[sim,setSim]=useState([]),[open,setOpen]=useState({}),[review,setReview]=useState(false),[done,setDone]=useState(null),rq=useRef(rid())
   useEffect(()=>{const q=[excerpt,text].filter(Boolean).join(' ').trim();if(q.split(/\s+/).length<2){setSim([]);return}  // answers the teacher already shared that look like this one
     const h=setTimeout(()=>api(`/topics/${tid}/similar?q=${encodeURIComponent(q.slice(0,500))}`).then(r=>setSim(r.items)).catch(()=>{}),500);return()=>clearTimeout(h)},[text,tid,excerpt])
-  const send=async()=>{setBusy(true);try{await api(`/topics/${tid}/questions`,{method:'POST',body:{text,excerpt:excerpt||'',photo:photo||''}});toast(tl("Sent. Your teacher's answer will be in My questions."));close()}catch(e){toast(srv(e.message))}setBusy(false)}
+  const send=async()=>{setBusy(true);try{setDone(await api(`/topics/${tid}/questions`,{method:'POST',body:{text,excerpt:excerpt||'',photo:photo||'',request_id:rq.current,...(ai?.id?{ai}:{})}}))}catch(e){toast(srv(e.message))}setBusy(false)}  // the same id on a retry: never two questions
+  if(done)return <Sheet close={close}><h3>{tl("Sent to your teacher")}</h3>
+    <p>{done.answered_by?tl("{name} will see it with the topic{ai}.",{name:done.answered_by,ai:done.ai?tl(" and the AI's explanation"):''}):tl("No teacher is assigned to this course yet. Your question is kept, and your school's admins can see it.")}</p>
+    <p className="known">{[done.course,done.unit,done.topic].filter(Boolean).join(' › ')}{' · '}<QChip s={done.status} label={done.label}/></p>
+    <button className="btn" onClick={()=>{close();onDone?onDone():goTo?.('questions')}}>{tl("See my questions")}</button><button className="btn ghost" onClick={close}>{tl("Back to the topic")}</button></Sheet>
+  if(review)return <Sheet close={close}><h3>{tl("Check before sending")}</h3>
+    {excerpt&&<p className="hltext" style={{marginBottom:10}}>“{excerpt}”</p>}
+    {aiText&&<div className="qbox"><small className="steplab">{tl("The AI's explanation (your teacher sees a short part of it)")}</small><div className="prose"><Md>{aiText.length>600?aiText.slice(0,600)+'…':aiText}</Md></div></div>}
+    <div className="qbox"><small className="steplab">{tl("Your question")}</small><p style={{whiteSpace:'pre-wrap',margin:0}}>{text}</p>{photo&&<img className="msgimg" src={photo} alt={tl("Your photo")}/>}</div>
+    <p className="known">{tl("Your teacher sees your name and the topic you ask about.")}</p>
+    <button className="btn" disabled={busy} onClick={send}>{busy?tl("Sending…"):tl("Send to my teacher")}</button><button className="btn ghost" disabled={busy} onClick={()=>setReview(false)}>{tl("Edit")}</button></Sheet>
   return <Sheet close={close}><h3>{tl("Ask my teacher")}</h3>
     {excerpt&&<p className="hltext" style={{marginBottom:10}}>“{excerpt}”</p>}
+    {aiText&&<p className="known" style={{marginTop:0}}>{tl("The AI's explanation goes with it, so your teacher knows what you already read.")}</p>}
     <label htmlFor="tqtext">{tl("Your question")}</label><textarea id="tqtext" rows={4} maxLength={1000} value={text} onChange={e=>setText(e.target.value)} placeholder={tl("What would you like your teacher to explain?")}/>
     <small className="known">{tl("For maths, write it between dollar signs, like $x^2 + y^2$.")}</small>
     {sim.length>0&&<div className="simq"><b>{tl("Already answered for your class")}</b><small className="known" style={{display:'block'}}>{tl("Check these first. If one answers it, there's no need to send.")}</small>
@@ -887,12 +918,18 @@ function AskTeacher({tid,excerpt,close,toast}){
         {open[x.id]?<div className="thread">{rest.map(m=><div key={m.id} className={'msg'+(m.teacher?' teach':'')}><small>{m.teacher?m.who:tl("A student")}</small><MsgBody m={m}/></div>)}</div>
           :<button className="link" onClick={()=>setOpen(o=>({...o,[x.id]:true}))}>{tl(rest.length===1?"Show the answer":"Show the {n} replies",{n:rest.length})}</button>}</div>})}</div>}
     <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
-    <p className="known">{tl("Your teacher sees your name and the topic you ask about.")}</p>
-    <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):tl("Send to my teacher")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
+    <button className="btn" disabled={text.trim().length<3&&!(photo&&!text.trim())} onClick={()=>setReview(true)}>{tl("Review and send")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
 function QuestionThread({id,back,toast}){
   const confirm=useConfirm(),[q,setQ]=useState(null),[text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(false),{role}=useContext(Ctx)
+  const [file,setFile]=useState(null),[ed,setEd]=useState(null),[hist,setHist]=useState(null),box=useRef(null)
   useEffect(()=>{api('/questions/'+id).then(setQ).catch(e=>{toast(srv(e.message));back()})},[id])
-  const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text,photo:photo||''}}));setText('');setPhoto(null)}catch(e){toast(srv(e.message))}setBusy(false)}
+  const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text,photo:photo||'',...(file?{file}:{})}}));setText('');setPhoto(null);setFile(null)}catch(e){toast(srv(e.message))}setBusy(false)}
+  const pickDoc=e=>{const x=e.target.files?.[0];e.target.value='';if(!x)return;if(x.size>15*1024*1024){toast(tl("Keep the file under 15 MB"));return}
+    const rd=new FileReader();rd.onload=()=>setFile({name:x.name,data:rd.result});rd.onerror=()=>toast(tl("That file could not be read"));rd.readAsDataURL(x)}
+  const got=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/understood`,{method:'POST'}));toast(tl("Glad it's clear now"))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const still=()=>{box.current?.focus();box.current?.scrollIntoView({block:'center'})}
+  const saveEdit=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies/${ed.id}`,{method:'PUT',body:{text:ed.text}}));setEd(null)}catch(e){toast(srv(e.message))}setBusy(false)}
+  const showHist=async m=>{try{setHist({m,...await api(`/questions/${id}/replies/${m.id}/edits`)})}catch(e){toast(srv(e.message))}}
   const end=async()=>{if(!await confirm({title:tl("Close this question?"),body:tl("Nobody can reply after this. A new question can be asked from the topic."),ok:tl("Close it")}))return
     try{setQ(await api(`/questions/${id}/close`,{method:'POST'}))}catch(e){toast(srv(e.message))}}
   const withdraw=async()=>{if(!await confirm({title:tl("Withdraw this question?"),body:tl("It is deleted and leaves your teacher's list. They may already have had an email about it."),ok:tl("Withdraw"),danger:true}))return
@@ -901,16 +938,292 @@ function QuestionThread({id,back,toast}){
     try{setQ(await api(`/questions/${id}/share`,{method:'POST',body:{shared:on}}));toast(on?tl("Shared with the class"):tl("No longer shared"))}catch(e){toast(srv(e.message))}}
   if(topic)return <Topic id={q.topic_id} back={()=>setTopic(false)} toast={toast} role={role}/>
   return <><Bar title={q?q.topic:tl("Question")} sub={q?[q.course,q.student].filter(Boolean).join(' · '):''} back={back}/><div className="main">
-    {!q?<Skeleton/>:<><div className="tools" style={{justifyContent:'space-between',alignItems:'center'}}><span><QChip s={q.status} teacher={q.teacher}/>{q.shared&&<>{" "}<span className="chip">{tl("Shared with the class")}</span></>}{q.message&&<>{" "}<span className="chip">{tl("Message from your teacher")}</span></>}</span>{q.topic_id&&<button className="link" onClick={()=>setTopic(true)}>{tl("Open the topic")}</button>}</div>
+    {!q?<Skeleton/>:<><div className="tools" style={{justifyContent:'space-between',alignItems:'center'}}><span><QChip s={q.status} teacher={q.teacher} label={q.label}/>{q.shared&&<>{" "}<span className="chip">{tl("Shared with the class")}</span></>}{q.message&&<>{" "}<span className="chip">{tl("Message from your teacher")}</span></>}</span>{q.topic_id&&<button className="link" onClick={()=>setTopic(true)}>{tl("Open the topic")}</button>}</div>
       {q.excerpt&&<p className="hltext" style={{margin:'8px 0 12px'}}>“{q.excerpt}”</p>}
-      <div className="thread">{q.messages.map(m=><div key={m.id} className={'msg'+(m.mine?' mine':'')+(m.teacher?' teach':'')}><small>{m.mine?tl("You"):m.who}{' · '}{when(m.at)}</small><MsgBody m={m}/></div>)}</div>
+      {!q.teacher&&!q.message&&<p className="known" style={{margin:'4px 0 8px'}}>{[q.unit,q.at&&tl("Sent {when}",{when:when(q.at)}),q.answered_by?tl("To {name}",{name:q.answered_by}):tl("No teacher assigned yet; your school's admins can see it")].filter(Boolean).join(' · ')}</p>}
+      {q.ai&&<details className="qbox"><summary className="known">{q.teacher?tl("What the AI had explained"):tl("The AI's explanation you sent with it")}</summary>{q.ai.q&&<p className="hltext">“{q.ai.q}”</p>}<p className="known" style={{whiteSpace:'pre-wrap'}}>{q.ai.a}</p></details>}
+      <div className="thread">{q.messages.map(m=><div key={m.id} className={'msg'+(m.mine?' mine':'')+(m.teacher?' teach':'')}><small>{m.mine?tl("You"):m.who}{' · '}{when(m.at)}{m.edited&&<>{' · '}<button className="link" onClick={()=>showHist(m)}>{tl("edited")}</button></>}
+        {q.teacher&&m.mine&&m.teacher&&ed?.id!==m.id&&<>{' · '}<button className="link" onClick={()=>setEd({id:m.id,text:m.text})}>{tl("Edit")}</button></>}</small>
+        {ed?.id===m.id?<><textarea rows={4} maxLength={1000} value={ed.text} onChange={e=>setEd({...ed,text:e.target.value})} aria-label={tl("Edit your answer")}/><p className="known">{tl("The earlier wording is kept, and the answer shows it was edited.")}</p>
+          <button className="btn" disabled={busy||ed.text.trim().length<3} onClick={saveEdit}>{tl("Save")}</button><button className="btn ghost" onClick={()=>setEd(null)}>{tl("Cancel")}</button></>:<MsgBody m={m}/>}</div>)}</div>
+      {hist&&<Sheet close={()=>setHist(null)}><h3>{tl("Earlier versions")}</h3>{hist.items.map((x,i)=><div key={i} className="qbox"><small className="known">{tl("Until {when}",{when:when(x.until)})}</small><div className="prose"><Md>{x.text}</Md></div></div>)}
+        <div className="qbox"><small className="known">{tl("Now")}</small><div className="prose"><Md>{hist.now}</Md></div></div><button className="btn ghost" onClick={()=>setHist(null)}>{tl("Close")}</button></Sheet>}
+      {!q.teacher&&q.label==='answered'&&<div className="qbox"><b>{tl("Was this explanation helpful?")}</b><div className="two" style={{marginTop:8}}><button className="btn" disabled={busy} onClick={got}>{tl("Yes, I understand now")}</button><button className="btn ghost" onClick={still}>{tl("I still have a doubt")}</button></div></div>}
       {q.teacher&&(q.can_share||q.shared)&&<button className="btn ghost" onClick={()=>share(!q.shared)}>{q.shared?tl("Stop sharing with the class"):tl("Share with the class")}</button>}
-      {q.status==='closed'?<p className="known">{tl("This question is closed.")}</p>:<><label htmlFor="tqr">{q.teacher?tl("Your answer"):tl("Reply")}</label>
-        <textarea id="tqr" rows={3} maxLength={1000} value={text} onChange={e=>setText(e.target.value)}/>
+      {q.status==='closed'&&!q.can_reopen?<p className="known">{q.helpful?tl("Resolved: you said it's clear now."):tl("This question is closed.")}{!q.teacher&&!q.message?' '+tl("For something new, ask from the topic."):''}</p>:<>
+        {q.status==='closed'&&<p className="known">{tl("Resolved. Still unsure? You can reopen it ({n} left, within 14 days of resolving).",{n:q.reopens_left})}</p>}
+        <label htmlFor="tqr">{q.teacher?tl("Your answer"):q.status==='closed'||q.label==='answered'?tl("I still have a doubt"):tl("Reply")}</label>
+        <textarea id="tqr" ref={box} rows={3} maxLength={1000} value={text} onChange={e=>setText(e.target.value)} placeholder={q.teacher?tl("Explain it. Maths between dollar signs, like $x^2$. Paste a video link to show it as a card."):''}/>
         <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
-        <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):tl("Send")}</button>
-        <button className="btn ghost" onClick={end}>{tl("Close the question")}</button>
+        {q.teacher&&(file?<div className="msgfile" style={{marginTop:8}}><FileText size={18}/><span>{file.name}</span><button className="ic sm" aria-label={tl("Remove the file")} onClick={()=>setFile(null)}><X size={16}/></button></div>
+          :<label className="btn ghost photopick"><Upload size={16}/> {tl("Attach material")}<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip,image/png,image/jpeg" onChange={pickDoc} hidden/></label>)}
+        <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):q.status==='closed'?tl("Reopen and send"):tl("Send")}</button>
+        {q.status!=='closed'&&<button className="btn ghost" onClick={end}>{q.teacher?tl("Mark resolved"):tl("Close the question")}</button>}
         {q.can_withdraw&&<button className="btn ghost" onClick={withdraw}>{tl("Withdraw the question")}</button>}</>}</>}</div></>}  {/* before any answer: take it back */}
+// ---- classroom learning intelligence (S44): for a course's teachers, where students struggle, read from existing records. Every figure shows its sample;
+// ---- a topic is judged only once enough students have enough evidence; suggestions show the evidence behind them; the AI explains only when asked
+const CI_STATUS={needs_study:['Needs attention','var(--bad)'],getting_there:['Needs revision','var(--warn)'],strong:['Strong','var(--ok)'],not_assessed:['Not assessed yet','var(--mut)']}
+const CI_CAT={attention:'Needs attention',revision:'Needs revision',insufficient:'Not enough evidence yet',studied_not_assessed:'Studied, not assessed',not_studied:'Not studied yet',strong:'Strong'}
+const ciRec=r=>({explain:[tl("Explain this topic again in class"),tl("{n} of {of} students with enough evidence need attention",r)],
+  common:[tl("Prepare one explanation for a shared doubt"),tl("{n} students asked about: {words}",{n:r.n,words:(r.words||[]).join(', ')})],
+  practice:[tl("Assign targeted MCQs on the idea behind a commonly missed question"),tl("{n} of {of} answers chose the same wrong option: “{question}”",r)],
+  revise:[tl("Point students to the revision sheet"),tl("{n} students marked it learned, but their results say it hasn't settled yet",r)],
+  individual:[tl("Consider individual support"),tl("{n} students keep scoring low after 3 or more sittings",r)],
+  keep:[tl("Keep the current approach"),tl("Accuracy rose from {from}% to {to}% in the last 30 days",r)]}[r.key]||[r.key,''])
+const ciAcc=a=>a.asked?tl("{p}% of {n} answers, {k} students",{p:a.percent,n:a.asked,k:a.students}):tl("none yet")
+const CiChip=({st})=>{const [l,c]=CI_STATUS[st]||CI_STATUS.not_assessed;return <span className="chip" style={{color:c}}>{tl(l)}</span>}
+function ClassInsight({cid,toast,back}){
+  const [f,setF]=useState({unit_id:0,since:'',until:''}),[d,setD]=useState(null),[open,setOpen]=useState(null)
+  const qs=new URLSearchParams(Object.entries(f).filter(([,v])=>v).map(([k,v])=>[k,String(v)])).toString()
+  useEffect(()=>{setD(null);api(`/reports/courses/${cid}/topics?${qs}`).then(setD).catch(e=>{toast(e.message);back()})},[qs])
+  if(open)return <ClassTopic cid={cid} tid={open} f={f} toast={toast} back={()=>setOpen(null)}/>
+  const r=d?.rule
+  return <><Bar title={tl("Class insight")} sub={d?d.course:''} back={back}/><div className="main">
+    <div className="qopt"><select aria-label={tl("Unit")} value={f.unit_id} onChange={e=>setF({...f,unit_id:+e.target.value})}><option value={0}>{tl("All units")}</option>{(d?.units||[]).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
+    <div className="qopt"><label className="known">{tl("From")}{" "}<input type="date" value={f.since} onChange={e=>setF({...f,since:e.target.value})}/></label><label className="known">{tl("To")}{" "}<input type="date" value={f.until} onChange={e=>setF({...f,until:e.target.value})}/></label></div>
+    {!d?<Skeleton rows={4}/>:<>
+      <p className="known" style={{marginTop:0}}>{tl("{a} of {n} students were active in this period.",{a:d.active,n:d.students})}{' '}{tl("Opening a topic counts as studied, and marking it learned is the student's own word; neither shows understanding. Understanding comes from tests and MCQ practice: a student needs {q}+ questions over {k}+ sittings, and a topic needs {m}+ such students before it is judged.",{q:r.student.min_questions,k:r.student.min_sittings,m:r.min_assessed})}</p>
+      <details className="known"><summary>{tl("How a topic is judged")}</summary><p>{tl("Needs attention: {s}% or more of the students with enough evidence need attention, and at least one more sign: {d}+ students raised doubts, or {w}% or more of the answers to a question ({m}+ answers) chose the same wrong option. Needs revision: {s}% or more need revision or attention. Strong: otherwise.",{s:r.share,d:r.doubt_students,w:r.wrong_share,m:r.wrong_min})}</p></details>
+      {d.topics.map(t=><button key={t.topic_id} className="card ward" onClick={()=>setOpen(t.topic_id)}><span className="wtop"><b>{t.title}</b><CiChip st={t.status}/></span>
+        <small className="known">{[tl("studied {a}/{n}",{a:t.studied,n:t.students}),tl("learned {a}",{a:t.learned}),tl("assessed {a}",{a:t.assessed}),tl("enough evidence {a}",{a:t.evidence})].join(' · ')}</small>
+        {t.evidence>0&&<small className="known" style={{display:'block'}}>{tl("Strong {a} · needs revision {b} · needs attention {c}",{a:t.strong,b:t.needs_revision,c:t.needs_attention})}</small>}
+        <small className="known" style={{display:'block'}}>{tl("Tests")}: {ciAcc(t.tests)} · {tl("Practice")}: {ciAcc(t.practice)}</small>
+        {(t.doubts>0||t.not_clear>0)&&<small className="known" style={{display:'block'}}>{tl("Doubts {a} ({u} unresolved) · “Not clear?” {b}",{a:t.doubts,u:t.unresolved,b:t.not_clear})}</small>}
+        {t.trend&&<small className="known" style={{display:'block'}}>{tl("Accuracy {a}% before the last 30 days ({n} answers), {b}% since ({m})",{a:t.trend.before,n:t.trend.before_asked,b:t.trend.recent,m:t.trend.recent_asked})}</small>}
+        {t.recommendations.length>0&&<span style={{display:'block',marginTop:6}}>{t.recommendations.map((x,k)=>{const [a,b]=ciRec(x);return <small key={k} style={{display:'block'}}>{'→ '}<span style={{fontWeight:600}}>{a}</span>{b?' — '+b:''}</small>})}</span>}</button>)}</>}</div></>}
+function ClassTopic({cid,tid,f,toast,back}){
+  const [d,setD]=useState(null),[cat,setCat]=useState(''),[page,setPage]=useState(0),[ai,setAi]=useState(null),[busy,setBusy]=useState(false),[stu,setStu]=useState(null),[plan,setPlan]=useState(null)
+  const base=`/reports/courses/${cid}/topics/${tid}`,qs=new URLSearchParams({...(f.since?{since:f.since}:{}),...(f.until?{until:f.until}:{})}).toString()
+  useEffect(()=>{api(`${base}?${qs}&category=${cat}&limit=${PAGE}&offset=${page*PAGE}`).then(setD).catch(e=>{toast(e.message);back()})},[cat,page])
+  if(stu)return <ClassStudent cid={cid} tid={tid} sid={stu} toast={toast} back={()=>setStu(null)}/>
+  if(plan==='new')return <SupportEditor cid={cid} tids={[tid]} pick toast={toast} done={p=>setPlan(p.id)} cancel={()=>setPlan(null)}/>
+  if(plan)return <SupportPlan id={plan} toast={toast} back={()=>setPlan(null)}/>
+  const explain=async()=>{setBusy(true);try{setAi(await api(`${base}/explain?${qs}`,{method:'POST'}))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const t=d?.topic
+  return <><Bar title={t?t.title:tl("Topic")} sub={tl("Class insight")} back={back}/><div className="main">{!d?<Skeleton rows={4}/>:<>
+    <p style={{marginTop:0}}><CiChip st={t.status}/>{' '}<small className="known">{tl("{e} of {n} students have enough evidence",{e:t.evidence,n:t.students})}</small></p>
+    {(d.categories.attention>0||d.categories.revision>0)&&<button className="btn ghost" onClick={()=>setPlan('new')}><Target size={16}/>{" "}{tl("Create a support plan for these students")}</button>}
+    <div className="qbox"><b>{tl("Ask the AI what the evidence suggests")}</b><p className="known" style={{margin:'4px 0'}}>{tl("It gets only the figures below, the commonly missed questions and the doubts' words, never names, and must cite them. Nothing is decided for you.")}</p>
+      {!ai?<button className="btn ghost" disabled={busy} onClick={explain}><Sparkles size={16}/> {busy?tl("Thinking…"):tl("Explain this topic's difficulties")}</button>:<>
+        <div className="prose"><Md>{ai.text}</Md></div>
+        {ai.unverified_numbers.length>0&&<p className="known" style={{color:'var(--bad)'}}>{tl("Check these numbers: they aren't in the evidence: {list}",{list:ai.unverified_numbers.join(', ')})}</p>}
+        <details><summary className="known">{tl("The evidence it was given ({n} lines)",{n:ai.evidence.length})}</summary>{ai.evidence.map(e=><p key={e.id} className="known" style={{margin:'4px 0'}}><b>[{e.id}]</b> {e.text}</p>)}</details></>}</div>
+    {d.common_wrong.length>0&&<><h3 className="sec">{tl("Questions many got wrong the same way")}</h3>{d.common_wrong.map(q=><div key={q.key} className="qbox"><div className="prose"><Md>{q.text}</Md></div>
+      <small className="known">{tl("{n} answers from {k} students · {source}",{n:q.answered,k:q.students,source:q.source==='practice'?tl("MCQ practice"):q.source})}</small>
+      {(q.options||[]).map((o,k)=><div key={k} className="row" style={{padding:'4px 0'}}><div>{k===q.correct?'✓ ':k===q.wrong_option?'✗ ':''}{String(o)}<small>{k===q.correct?tl("correct"):tl("chosen wrongly {n}×",{n:q.picks[k]||0})}</small></div></div>)}</div>)}</>}
+    {(d.doubt_groups.length>0||d.other_doubts.length>0)&&<><h3 className="sec">{tl("Doubts")}</h3>
+      {d.doubt_groups.map((g,k)=><details key={k} className="qbox"><summary><b>{tl("{n} students asked about: {words}",{n:g.students,words:g.words.join(', ')})}</b></summary>{g.doubts.map(x=><p key={x.id} className="known">“{x.text}” — {x.student}</p>)}</details>)}
+      {d.other_doubts.length>0&&<details className="qbox"><summary>{tl("Other doubts ({n})",{n:d.other_doubts.length})}</summary>{d.other_doubts.map(x=><p key={x.id} className="known">“{x.text}” — {x.student}</p>)}</details>}</>}
+    <h3 className="sec">{tl("Students")}</h3><p className="known" style={{marginTop:0}}>{tl("Grouped by what their records show, not ranked.")}</p>
+    <div className="filters fit" style={{flexWrap:'wrap'}}><button className={'chip'+(cat===''?' on':'')} onClick={()=>{setCat('');setPage(0)}}>{tl("All")} ({Object.values(d.categories).reduce((a,b)=>a+b,0)})</button>
+      {Object.entries(CI_CAT).map(([k,l])=>d.categories[k]>0&&<button key={k} className={'chip'+(cat===k?' on':'')} onClick={()=>{setCat(k);setPage(0)}}>{tl(l)} ({d.categories[k]})</button>)}</div>
+    {d.students.map(x=><button key={x.id} className="row rowbtn" onClick={()=>setStu(x.id)}><div>{x.name}<small>{[tl(CI_CAT[x.category]),x.asked?tl("{p}% of {n} answers over {k} sittings",{p:x.percent,n:x.asked,k:x.sittings}):'',x.improving&&tl("improving"),x.repeated_errors>0&&tl("{n} questions wrong twice or more",{n:x.repeated_errors}),x.learned&&tl("marked learned"),x.doubts>0&&(x.doubts===1?tl("1 doubt"):tl("{n} doubts",{n:x.doubts}))].filter(Boolean).join(' · ')}</small></div><ChevronRight size={18}/></button>)}
+    <Pager page={page} total={d.total} onPage={setPage}/></>}</div></>}
+function ClassStudent({cid,tid,sid,toast,back}){
+  const [d,setD]=useState(null);useEffect(()=>{api(`/reports/courses/${cid}/topics/${tid}/students/${sid}`).then(setD).catch(e=>{toast(e.message);back()})},[sid])
+  return <><Bar title={d?.student||''} sub={d?.topic||''} back={back}/><div className="main">{!d?<Skeleton/>:<>
+    <p style={{marginTop:0}}>{d.label?<CiChip st={d.label}/>:<span className="chip">{tl("Not assessed yet")}</span>}{' '}<small className="known">{[d.studied?tl("opened the topic"):tl("hasn't opened the topic"),d.learned&&tl("marked learned"),d.last_read&&tl("last read {when}",{when:when(d.last_read)})].filter(Boolean).join(' · ')}</small></p>
+    <h3 className="sec">{tl("Sittings")}</h3>{!d.sittings.length?<p className="known">{tl("No tests or MCQ sets on this topic yet.")}</p>:d.sittings.map((x,k)=><div key={k} className="row"><div>{x.kind==='test'?tl("Test"):tl("MCQ practice")}<small>{when(x.at)} · {tl("{a} of {n} right",{a:x.right,n:x.asked})} ({x.percent}%)</small></div></div>)}
+    {d.repeated_errors.length>0&&<><h3 className="sec">{tl("Questions got wrong twice or more")}</h3>{d.repeated_errors.map((x,k)=><div key={k} className="qbox"><div className="prose"><Md>{x.text}</Md></div><small className="known">{tl("Wrong {n} times; usually chose “{o}”; correct: “{c}”",{n:x.times_wrong,o:x.chosen!=null?String(x.options[x.chosen]):'?',c:x.correct!=null?String(x.options[x.correct]):'?'})}</small></div>)}</>}
+    <h3 className="sec">{tl("Revision")}</h3><p className="known">{d.revised.length?tl("Read the revision sheet {n} times, last {when}",{n:d.revised.length,when:when(d.revised[d.revised.length-1])}):tl("Hasn't read the revision sheet.")}</p>
+    {d.doubts.length>0&&<><h3 className="sec">{tl("Doubts")}</h3>{d.doubts.map(q=><div key={q.id} className="qbox"><QChip s="" label={q.label}/><div className="thread">{q.messages.map((m,k)=><div key={k} className={'msg'+(m.teacher?' teach':'')}><small>{m.teacher?tl("Teacher"):d.student} · {when(m.at)}</small><div className="prose"><Md>{m.text}</Md></div></div>)}</div></div>)}</>}</>}</div></>}
+// ---- learning support plans (S45): a course's teacher gathers existing activities for chosen students. Progress comes from what the students do after
+// ---- they are assigned; the outcome compares the same topics before and after (tests and practice apart) and waits for enough evidence; the teacher decides
+const IV_KIND={study:'Study the topic',revise:'Read the revision sheet',mcq:'MCQ practice',test:'Take the test',resource:'Open the teacher resource',ask:'Ask your teacher about it',relearn:'Learn the topic again from the start'}
+const IV_PROG={not_started:'Not started',in_progress:'In progress',completed:'Completed'}
+const IV_STATUS={draft:'Draft',active:'Active',completed:'Completed',cancelled:'Cancelled'}
+const IV_OUT={improved:'Improved',partly:'Partly improved',not_yet:'Not yet improved',more_support:'Needs more support'}
+const IV_OVERALL={not_established:'Outcome not yet established',rose:'Accuracy rose',fell:'Accuracy fell',steady:'About the same',mixed:'Tests and practice moved differently'}
+const IV_EV={learned:'learned',opened:'opened',read:'read',asked:'asked','learned again':'learned again','started over':'started over'}
+const ivEv=e=>IV_EV[e]?tl(IV_EV[e]):e
+const ivDay=s=>s?new Date(new Date(s).getTime()-1).toLocaleDateString('en-CA'):''  // the server keeps the end of the chosen day; this gives the day back
+const ivShow=s=>s?new Date(new Date(s).getTime()-1).toLocaleDateString(locale(),{day:'numeric',month:'short'}):''
+const ivAct=a=>tl(IV_KIND[a.kind]||a.kind)+(a.label?': '+a.label:'')+(a.kind==='mcq'&&a.size?' · '+tl("{n} questions",{n:a.size}):'')
+const ivReason=w=>w.topics.filter(x=>x.category!=='strong').map(x=>x.title+': '+tl(CI_CAT[x.category])+(x.asked?' · '+tl("{p}% of {n} answers over {k} sittings",{p:x.percent,n:x.asked,k:x.sittings}):'')+(x.doubts?' · '+(x.doubts===1?tl("1 doubt"):tl("{n} doubts",{n:x.doubts})):'')).join('; ')
+function IvCompare({c}){  // before and after on the plan's topics: shown with the number of answers, never as proof the plan caused it
+  const side=(k,l)=>{const x=c[k];if(!x.before.asked&&!x.after.asked)return null
+    return <small className="known" style={{display:'block'}}>{tl(l)}: {x.before.asked?tl("{p}% of {n} answers",{p:x.before.percent,n:x.before.asked}):tl("none")}{' → '}{x.after.asked?tl("{p}% of {n} answers",{p:x.after.percent,n:x.after.asked}):tl("none yet")}{x.established?'':' · '+tl("not enough yet")}</small>}
+  return <><b style={{display:'block'}}>{tl(IV_OVERALL[c.overall])}</b>{side('test',"Tests")}{side('practice',"Practice")}</>}
+function SupportPlans({cid,toast,back}){
+  const [d,setD]=useState(null),[open,setOpen]=useState(null),[ed,setEd]=useState(null),[st,setSt]=useState('')
+  const load=()=>api(`/interventions?course_id=${cid}&status=${st}`).then(setD).catch(e=>{toast(e.message);back()});useEffect(()=>{if(!open&&!ed)load()},[open,ed,st])
+  if(ed)return <SupportEditor cid={cid} toast={toast} done={p=>{setEd(null);setOpen(p.id)}} cancel={()=>setEd(null)}/>
+  if(open)return <SupportPlan id={open} toast={toast} back={()=>setOpen(null)}/>
+  return <><Bar title={tl("Support plans")} sub={d?.items[0]?.course||''} back={back}/><div className="main">
+    <p className="known" style={{marginTop:0}}>{tl("Extra practice for chosen students, made from what the course already has. Progress comes from what they do after the plan starts.")}</p>
+    <button className="btn" onClick={()=>setEd(true)}><Plus size={16}/>{" "}{tl("New support plan")}</button>
+    <div className="filters fit" style={{flexWrap:'wrap'}}>{['',...Object.keys(IV_STATUS)].map(k=><button key={k} className={'chip'+(st===k?' on':'')} onClick={()=>setSt(k)}>{k?tl(IV_STATUS[k]):tl("All")}</button>)}</div>
+    {!d?<Skeleton rows={2}/>:!d.items.length?<p className="known">{tl("No support plans yet.")}</p>:d.items.map(p=><button key={p.id} className="card ward" onClick={()=>setOpen(p.id)}>
+      <span className="wtop"><b>{p.title}</b><span className="chip">{tl(IV_STATUS[p.status])}</span></span>
+      <small className="known">{p.topics.map(t=>t.title).join(', ')}{p.target?' · '+tl("target {date}",{date:ivShow(p.target)}):''}</small>
+      <small className="known" style={{display:'block'}}>{[pl(p.counts.students,'student'),tl("{n} completed",{n:p.counts.completed}),tl("{n} in progress",{n:p.counts.in_progress}),tl("{n} not started",{n:p.counts.not_started}),p.counts.needs_review>0&&tl("{n} to review",{n:p.counts.needs_review}),p.counts.overdue>0&&tl("{n} past the target",{n:p.counts.overdue})].filter(Boolean).join(' · ')}</small></button>)}</div></>}
+function SupportEditor({cid,plan,tids,pick,toast,done,cancel}){  // new, or an edit of an active plan: kept activities and students keep their history
+  const [o,setO]=useState(null),[busy,setBusy]=useState(false),[sug,setSug]=useState(null),[add,setAdd]=useState(null)
+  const [f,setF]=useState(()=>plan?{title:plan.title,description:plan.description,criteria:plan.criteria,target:ivDay(plan.target),topic_ids:plan.topics.map(t=>t.id),
+    activities:plan.activities.filter(a=>!a.removed_at).map(a=>({id:a.id,kind:a.kind,topic_id:a.topic_id,ref_id:a.ref_id,size:a.size,required:a.required,label:a.label})),
+    student_ids:plan.students.filter(x=>!x.removed).map(x=>x.user_id),reasons:Object.fromEntries(plan.students.map(x=>[x.user_id,x.reason]))}
+    :{title:'',description:'',criteria:'',target:'',topic_ids:tids||[],activities:[],student_ids:[],reasons:{}})
+  const tq=f.topic_ids.join(',')
+  useEffect(()=>{api(`/courses/${cid}/support-options?topic_ids=${tq}`).then(r=>{setO(r)
+    if(pick&&!plan)setF(v=>{if(v.student_ids.length)return v;const ws=r.students.filter(w=>w.topics.some(x=>x.category==='attention'||x.category==='revision'))
+      return {...v,title:v.title||tl("Extra practice: {topics}",{topics:r.topics.filter(t=>v.topic_ids.includes(t.id)).map(t=>t.title).join(', ')}),student_ids:ws.map(w=>w.id),reasons:Object.fromEntries(ws.map(w=>[w.id,ivReason(w)]))}})}).catch(e=>{toast(e.message);cancel()})},[tq])
+  if(!o)return <><Bar title={tl("Support plan")} back={cancel}/><div className="main"><Skeleton rows={3}/></div></>
+  const tname=id=>o.topics.find(t=>t.id===id)?.title||''
+  const label=a=>a.label||(a.kind==='test'?o.tests.find(q=>q.id===a.ref_id)?.title:a.kind==='resource'?o.resources.find(r=>r.id===a.ref_id)?.title:tname(a.topic_id))||''
+  const togT=id=>setF(v=>({...v,topic_ids:v.topic_ids.includes(id)?v.topic_ids.filter(x=>x!==id):[...v.topic_ids,id]}))
+  const togS=w=>setF(v=>v.student_ids.includes(w.id)?{...v,student_ids:v.student_ids.filter(x=>x!==w.id)}:{...v,student_ids:[...v.student_ids,w.id],reasons:{...v.reasons,[w.id]:v.reasons[w.id]||ivReason(w)}})
+  const setA=(k,p)=>setF(v=>({...v,activities:v.activities.map((a,i)=>i===k?{...a,...p}:a)}))
+  const move=(k,d)=>setF(v=>{const a=[...v.activities],j=k+d;if(j<0||j>=a.length)return v;[a[k],a[j]]=[a[j],a[k]];return {...v,activities:a}})
+  const addOk=add&&(add.kind==='test'?add.ref_id:add.kind==='resource'?add.ref_id:add.topic_id)
+  const suggest=async()=>{setBusy(true);try{setSug(await api('/interventions/suggest',{method:'POST',body:{course_id:cid,topic_ids:f.topic_ids}}))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const save=async activate=>{setBusy(true);try{const b={...f,course_id:cid,reasons:Object.fromEntries(Object.entries(f.reasons).map(([k,v])=>[k,v||''])),activate}
+    const p=plan?await api('/interventions/'+plan.id,{method:'PUT',body:b}):await api('/interventions',{method:'POST',body:b});done(p)}catch(e){toast(srv(e.message))}setBusy(false)}
+  return <><Bar title={plan?tl("Edit support plan"):tl("New support plan")} back={cancel}/><div className="main">
+    <h3 className="sec first">{tl("Topics")}</h3><div className="filters fit" style={{flexWrap:'wrap'}}>{o.topics.map(t=><button key={t.id} className={'chip'+(f.topic_ids.includes(t.id)?' on':'')} aria-pressed={f.topic_ids.includes(t.id)} onClick={()=>togT(t.id)}>{t.title}</button>)}</div>
+    <label htmlFor="ivt">{tl("Title")}</label><input id="ivt" value={f.title} maxLength={200} onChange={e=>setF({...f,title:e.target.value})}/>
+    <label htmlFor="ivd">{tl("Instructions for the students (optional)")}</label><textarea id="ivd" rows={3} value={f.description} maxLength={4000} onChange={e=>setF({...f,description:e.target.value})}/>
+    <label htmlFor="ivg">{tl("Target date (optional)")}</label><input id="ivg" type="date" value={f.target} onChange={e=>setF({...f,target:e.target.value})}/>
+    <label htmlFor="ivc">{tl("How you will judge it (optional, for you)")}</label><input id="ivc" value={f.criteria} maxLength={2000} onChange={e=>setF({...f,criteria:e.target.value})} placeholder={tl("For example: 70% or more in two practice sets")}/>
+    <h3 className="sec">{tl("Activities")}</h3>
+    {!f.activities.length&&<p className="known" style={{marginTop:0}}>{tl("Add what the students should do, in order.")}</p>}
+    {f.activities.map((a,k)=><div key={k} className="row"><div>{k+1}. {tl(IV_KIND[a.kind])}{label(a)?': '+label(a):''}
+      <small><label className="chk" style={{padding:"4px 0"}}><input type="checkbox" checked={a.required!==false} onChange={e=>setA(k,{required:e.target.checked})}/>{" "}{tl("Required")}</label>{a.kind==='mcq'&&<>{' · '}<select aria-label={tl("Questions")} value={a.size||10} onChange={e=>setA(k,{size:+e.target.value})}>{[5,10,15,20].map(n=><option key={n} value={n}>{tl("{n} questions",{n})}</option>)}</select></>}</small></div>
+      <button className="ic sm" aria-label={tl("Move up")} onClick={()=>move(k,-1)}><ArrowUp size={15}/></button><button className="ic sm" aria-label={tl("Move down")} onClick={()=>move(k,1)}><ArrowDown size={15}/></button>
+      <button className="ic sm" aria-label={tl("Remove")} onClick={()=>setF(v=>({...v,activities:v.activities.filter((_,i)=>i!==k)}))}><X size={15}/></button></div>)}
+    {f.topic_ids.length>0&&!add&&<div className="qopt"><button className="btn ghost" onClick={()=>setAdd({kind:'study',topic_id:f.topic_ids[0],size:10,required:true})}><Plus size={16}/>{" "}{tl("Add an activity")}</button>
+      <button className="btn ghost" disabled={busy} onClick={suggest}><Sparkles size={16}/>{" "}{busy?tl("Thinking…"):tl("Suggest activities (AI)")}</button></div>}
+    {add&&<div className="qbox"><select aria-label={tl("Activity")} value={add.kind} onChange={e=>setAdd({...add,kind:e.target.value,ref_id:null})}>{Object.entries(IV_KIND).map(([k,l])=><option key={k} value={k}>{tl(l)}</option>)}</select>
+      {add.kind==='test'?<select aria-label={tl("Test")} value={add.ref_id||''} onChange={e=>setAdd({...add,ref_id:+e.target.value})}><option value="">{o.tests.length?tl("Choose a test"):tl("No published test asks about these topics")}</option>{o.tests.map(q=><option key={q.id} value={q.id}>{q.title} ({tl("{n} questions",{n:q.questions})})</option>)}</select>
+      :add.kind==='resource'?<select aria-label={tl("Resource")} value={add.ref_id||''} onChange={e=>setAdd({...add,ref_id:+e.target.value})}><option value="">{o.resources.length?tl("Choose a resource"):tl("No published resource for these topics")}</option>{o.resources.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
+      :<select aria-label={tl("Topic")} value={add.topic_id||''} onChange={e=>setAdd({...add,topic_id:+e.target.value})}>{f.topic_ids.map(id=><option key={id} value={id}>{tname(id)}{add.kind==='mcq'?' ('+tl("{n} bank questions",{n:o.topics.find(t=>t.id===id)?.bank||0})+')':''}</option>)}</select>}
+      <div className="qopt"><button className="btn" disabled={!addOk} onClick={()=>{setF(v=>({...v,activities:[...v.activities,{...add,size:add.kind==='mcq'?add.size:null}]}));setAdd(null)}}>{tl("Add")}</button><button className="btn ghost" onClick={()=>setAdd(null)}>{tl("Cancel")}</button></div></div>}
+    {sug&&<div className="qbox"><b>{tl("Suggested by AI from what the course already has")}</b>{sug.note&&<p className="known" style={{margin:'4px 0'}}>{sug.note}</p>}
+      {!sug.activities.length?<p className="known">{tl("No suggestion this time.")}</p>:sug.activities.map((a,k)=><p key={k} className="known" style={{margin:'4px 0'}}>{k+1}. <b>{ivAct({...a,label:label(a)})}</b>{a.why?' — '+a.why:''}</p>)}
+      <details><summary className="known">{tl("The evidence it was given ({n} lines)",{n:sug.evidence.length})}</summary>{sug.evidence.map((e,k)=><p key={k} className="known" style={{margin:'4px 0'}}><b>[E{k+1}]</b> {e}</p>)}</details>
+      <div className="qopt">{sug.activities.length>0&&<button className="btn" onClick={()=>{setF(v=>({...v,activities:[...v.activities,...sug.activities.map(a=>({kind:a.kind,topic_id:a.topic_id||null,ref_id:a.ref_id||null,size:a.size||null,required:true}))]}));setSug(null)}}>{tl("Use these")}</button>}<button className="btn ghost" onClick={()=>setSug(null)}>{tl("Close")}</button></div></div>}
+    <h3 className="sec">{tl("Students")}</h3><p className="known" style={{marginTop:0}}>{tl("Each with what their records show on these topics. The reason stays with you; students don't see it.")}</p>
+    {o.students.map(w=>{const on=f.student_ids.includes(w.id);return <div key={w.id} className="row"><div style={{flex:1}}><label className="chk" style={{padding:"4px 0"}}><input type="checkbox" checked={on} onChange={()=>togS(w)}/>{" "}{w.name}</label>
+      <small>{w.topics.map(x=>x.title+': '+tl(CI_CAT[x.category])+(x.asked?' ('+x.percent+'%)':'')).join(' · ')}</small>
+      {on&&<input aria-label={tl("Reason for {name}",{name:w.name})} value={f.reasons[w.id]||''} maxLength={500} onChange={e=>setF({...f,reasons:{...f.reasons,[w.id]:e.target.value}})} placeholder={tl("Why this student (for you)")}/>}</div></div>})}
+    <div className="qopt" style={{marginTop:12}}>{(!plan||plan.status==='draft')&&<button className="btn ghost" disabled={busy} onClick={()=>save(false)}>{tl("Save as draft")}</button>}
+      <button className="btn" disabled={busy||!f.title.trim()||!f.activities.length||!f.student_ids.length||!f.topic_ids.length} onClick={()=>save(true)}>{plan?.status==='active'?tl("Save changes"):tl("Save and start")}</button></div>
+    {plan?.status==='active'&&<p className="known">{tl("Students hear about it once if activities or students change. Removed activities stay in the history where they were done.")}</p>}</div></>}
+function SupportPlan({id,toast,back}){
+  const confirm=useConfirm(),[p,setP]=useState(null),[ed,setEd]=useState(false),[stu,setStu]=useState(null),[busy,setBusy]=useState(false)
+  const load=()=>api('/interventions/'+id).then(setP).catch(e=>{toast(e.message);back()});useEffect(()=>{load()},[id])
+  if(!p)return <><Bar title={tl("Support plan")} back={back}/><div className="main"><Skeleton rows={3}/></div></>
+  if(ed)return <SupportEditor cid={p.course_id} plan={p} toast={toast} done={x=>{setP(x);setEd(false)}} cancel={()=>setEd(false)}/>
+  if(stu)return <SupportStudent p={p} sid={stu} toast={toast} back={()=>setStu(null)} onSaved={setP}/>
+  const status=async s=>{if(s!=='active'&&!await confirm({title:s==='completed'?tl("Mark this plan completed?"):tl("Cancel this plan?"),body:tl("Students will no longer see it. Its records stay."),ok:s==='completed'?tl("Mark completed"):tl("Cancel the plan")}))return
+    setBusy(true);try{setP(await api(`/interventions/${id}/status`,{method:'POST',body:{status:s}}))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const c=p.counts,live=p.status==='draft'||p.status==='active'
+  return <><Bar title={p.title} sub={tl(IV_STATUS[p.status])} back={back}/><div className="main">
+    <p className="known" style={{marginTop:0}}>{p.topics.map(t=>t.title).join(', ')}{p.target?' · '+tl("target {date}",{date:ivShow(p.target)}):''}</p>
+    {p.description&&<p style={{whiteSpace:'pre-wrap'}}>{p.description}</p>}{p.criteria&&<p className="known">{tl("How you will judge it")}: {p.criteria}</p>}
+    <p className="known">{[pl(c.students,'student'),tl("{n} completed",{n:c.completed}),tl("{n} in progress",{n:c.in_progress}),tl("{n} not started",{n:c.not_started}),c.needs_review>0&&tl("{n} to review",{n:c.needs_review}),c.overdue>0&&tl("{n} past the target",{n:c.overdue})].filter(Boolean).join(' · ')}</p>
+    {live&&<div className="qopt"><button className="btn ghost" onClick={()=>setEd(true)}><Pencil size={16}/>{" "}{tl("Edit")}</button>
+      {p.status==='draft'&&<button className="btn" disabled={busy} onClick={()=>status('active')}>{tl("Start the plan")}</button>}
+      {p.status==='active'&&<button className="btn ghost" disabled={busy} onClick={()=>status('completed')}>{tl("Mark completed")}</button>}
+      <button className="btn ghost" disabled={busy} onClick={()=>status('cancelled')}>{tl("Cancel the plan")}</button></div>}
+    <h3 className="sec">{tl("Activities")}</h3>{p.activities.map((a,k)=><div key={a.id} className="row" style={a.removed_at?{opacity:.6}:null}><div>{k+1}. {ivAct(a)}<small>{[a.required?tl("Required"):tl("Optional"),a.removed_at&&tl("removed {when}",{when:day(a.removed_at)})].filter(Boolean).join(' · ')}</small></div></div>)}
+    <h3 className="sec">{tl("Students")}</h3><p className="known" style={{marginTop:0}}>{tl("Before and after compare the same topics, tests and practice apart. A change needs {q}+ answers over {k}+ sittings after the start; it doesn't show the plan caused it.",{q:5,k:2})}</p>
+    {p.students.map(x=><button key={x.user_id} className="row rowbtn" style={x.removed?{opacity:.6}:null} onClick={()=>setStu(x.user_id)}><div>{x.name}
+      <small>{[x.removed?tl("Removed from the plan"):x.assigned_at?tl(IV_PROG[x.progress])+' · '+tl("{a} of {n} done",{a:x.done,n:x.required}):tl("Not started yet: the plan is a draft"),x.overdue&&tl("past the target"),x.needs_review&&tl("to review"),x.outcome&&tl(IV_OUT[x.outcome]),x.assigned_at&&tl(IV_OVERALL[x.comparison.overall])].filter(Boolean).join(' · ')}</small></div><ChevronRight size={18}/></button>)}</div></>}
+function SupportStudent({p,sid,toast,back,onSaved}){
+  const x=p.students.find(y=>y.user_id===sid),[out,setOut]=useState(x?.outcome||''),[note,setNote]=useState(x?.outcome_note||''),[busy,setBusy]=useState(false)
+  if(!x)return null
+  const save=async()=>{setBusy(true);try{onSaved(await api(`/interventions/${p.id}/students/${sid}/review`,{method:'POST',body:{outcome:out,note}}));toast(tl("Saved"));back()}catch(e){toast(srv(e.message))}setBusy(false)}
+  return <><Bar title={x.name} sub={p.title} back={back}/><div className="main">
+    {x.reason&&<p className="known" style={{marginTop:0}}>{tl("Why")}: {x.reason}</p>}
+    <p>{x.assigned_at?tl("In the plan since {when}",{when:day(x.assigned_at)}):tl("Not started yet: the plan is a draft")}{x.removed?' · '+tl("Removed from the plan"):''}</p>
+    <h3 className="sec">{tl("Activities")}</h3>{x.activities.map(a=>{const pa=p.activities.find(y=>y.id===a.id)||a;return <div key={a.id} className="row" style={a.removed?{opacity:.6}:null}><div>{a.state==='done'?'✓ ':a.state==='started'?'… ':'○ '}{ivAct(pa)}
+      <small>{[a.state==='done'?tl("Done"):a.state==='started'?tl("Started"):tl("Not yet"),a.evidence&&ivEv(a.evidence),!a.required&&tl("Optional"),a.removed&&tl("removed, done before")].filter(Boolean).join(' · ')}</small></div></div>})}
+    <p className="known">{tl("Opening a resource only shows it was opened, not that it was understood.")}</p>
+    <h3 className="sec">{tl("Before and after")}</h3><div className="qbox"><IvCompare c={x.comparison}/><small className="known" style={{display:'block',marginTop:4}}>{tl("Same topics, before the plan and since. This doesn't show the plan caused the change.")}</small></div>
+    {x.assigned_at&&<><h3 className="sec">{tl("Your review")}</h3><div className="filters fit" style={{flexWrap:'wrap'}}>{Object.entries(IV_OUT).map(([k,l])=><button key={k} className={'chip'+(out===k?' on':'')} onClick={()=>setOut(k)}>{tl(l)}</button>)}</div>
+      <textarea rows={3} value={note} maxLength={2000} onChange={e=>setNote(e.target.value)} aria-label={tl("Note")} placeholder={tl("A note for yourself (optional)")}/>
+      <button className="btn" disabled={busy||!out} onClick={save}>{tl("Save review")}</button>{x.reviewed_at&&<p className="known">{tl("Last reviewed {when}",{when:when(x.reviewed_at)})}</p>}</>}</div></>}
+// what a student sees: the plan in supportive words, each activity one tap away; done ticks come from what they did, never from a box they tick
+function MySupport({toast,openTopic,onSet,onQuiz}){
+  const confirm=useConfirm(),[d,setD]=useState(null),[busy,setBusy]=useState(false)
+  useEffect(()=>{api('/me/support').then(r=>setD(r.items)).catch(()=>{})},[])
+  if(!d?.length)return null
+  const go=async(p,a)=>{if(a.kind==='test')return onQuiz(a.ref_id);if(a.kind==='revise')return openTopic(a.topic_id,'revise')
+    if(a.kind==='mcq'){setBusy(true);const run=source=>api('/mcq/attempts',{method:'POST',body:{mode:'topic',source,size:a.size||10,topic_id:a.topic_id,request_id:rid()}})
+      try{onSet((await run('bank')).id)}catch(e){if(e.status!==409)toast(e.message);else if(await confirm({title:tl("Not enough bank questions here"),body:tl("Make a new AI set instead? It counts toward your MCQ sets."),ok:tl("A new AI set")})){try{onSet((await run('ai')).id)}catch(e2){toast(e2.message)}}}
+      setBusy(false);return}
+    openTopic(a.topic_id||p.topics[0]?.id)}
+  return <>{d.map(p=><div key={p.id} className="qbox welcome"><b>{tl("Extra practice from your teacher")}</b>
+    <p style={{margin:'4px 0'}}>{p.title}<small className="known" style={{display:'block'}}>{p.course}{p.target?' · '+tl("aim to finish by {date}",{date:ivShow(p.target)}):''} · {tl("{a} of {n} done",{a:p.done,n:p.required})}</small></p>
+    {p.description&&<p className="known" style={{whiteSpace:'pre-wrap',margin:'4px 0'}}>{p.description}</p>}
+    {p.activities.map(a=><button key={a.id} className="row rowbtn" disabled={busy} onClick={()=>go(p,a)}><div>{a.state==='done'?<Check size={15}/>:null}{" "}{ivAct(a)}<small>{[a.state==='done'?tl("Done"):a.state==='started'?tl("Started"):'',!a.required&&tl("Optional")].filter(Boolean).join(' · ')}</small></div><ChevronRight size={18}/></button>)}</div>)}</>}
+// ---- teacher resources (S43): material a course's teacher adds to the course, a unit or a topic. Students see the published ones inside the topic;
+// ---- documents and videos come through a signed-in download, never a bare link
+const RES_KIND={note:'Note',example:'Worked example',image:'Image',document:'Document',video:'Video',link:'Link'}
+const RES_LEVEL={topic:'This topic',unit:'This unit',course:'This course'}
+function ResFile({f,toast}){
+  const [src,setSrc]=useState(null),[busy,setBusy]=useState(false)
+  useEffect(()=>()=>{if(src)URL.revokeObjectURL(src)},[src])
+  const load=async()=>{setBusy(true);try{const r=await fetch(ROOT+'/api'+f.url,{headers:{Authorization:'Bearer '+localStorage.t}});if(!r.ok)throw new Error(tl("This file is no longer available"))
+    const u=URL.createObjectURL(await r.blob());if(f.video)setSrc(u);else{const a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}}catch(e){toast(e.message)}setBusy(false)}
+  if(f.video&&src)return <video className="resvideo" src={src} controls playsInline/>
+  return <button className="msgfile" style={{width:'100%'}} disabled={busy} onClick={load}>{f.video?<Play size={18}/>:<FileText size={18}/>}<span>{f.name}</span><small>{busy?tl("Loading…"):f.video?tl("Play"):tl("Download")}</small></button>}
+function ResBody({r,toast,onUnclear}){
+  return <>{r.description&&<p className="known" style={{margin:'4px 0'}}>{r.description}</p>}
+    {(r.kind==='note'||r.kind==='example')&&<><div className="prose"><Md>{r.body}</Md></div>{onUnclear&&<button className="link" onClick={onUnclear}>{tl("Not clear? Ask about a phrase")}</button>}</>}
+    {r.kind==='image'&&r.image&&<a href={at(r.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(r.image)} alt={r.title} loading="lazy"/></a>}
+    {r.url&&(r.kind==='video'?<VideoCards text={r.url}/>:null)}{r.url&&(r.kind==='link'||(r.kind==='video'&&!(r.url.match(VIDEO_RE)||[]).length))&&<a className="msgfile" href={r.url} target="_blank" rel="noreferrer noopener"><ExternalLink size={18}/><span>{r.url.replace(/^https:\/\//,'').slice(0,60)}</span><small>{tl("Open")}</small></a>}
+    {r.file&&<ResFile f={r.file} toast={toast}/>}</>}
+function TopicResources({t,toast}){
+  const [d,setD]=useState(null),[open,setOpen]=useState({}),[ask,setAsk]=useState(null),[phrase,setPhrase]=useState('')
+  useEffect(()=>{api(`/topics/${t.id}/resources`).then(r=>setD(r.items)).catch(()=>setD([]))},[t.id])
+  if(!d?.length)return null
+  return <><h3 className="sec">{tl("Teacher resources")}</h3>{d.map(r=><div key={r.id} className="qbox">
+    <button className="hit" style={{width:'100%',textAlign:'start'}} onClick={()=>{if(!open[r.id])api(`/resources/${r.id}/opened`,{method:'POST'}).catch(()=>{});setOpen(o=>({...o,[r.id]:!o[r.id]}))}} aria-expanded={!!open[r.id]}><b>{r.title}</b><small className="known" style={{display:'block'}}>{[tl(RES_KIND[r.kind]),tl(RES_LEVEL[r.level]),r.status==='draft'&&tl("Draft: students can't see it")].filter(Boolean).join(' · ')}</small></button>
+    {open[r.id]&&<ResBody r={r} toast={toast} onUnclear={t.published!==false?()=>{setAsk(r);setPhrase('')}:null}/>}</div>)}
+    {ask&&<Sheet close={()=>setAsk(null)}><h3>{tl("Not clear?")}</h3><p className="known">{tl("Copy or type the words from “{title}” that you don't follow.",{title:ask.title})}</p>
+      <input value={phrase} maxLength={120} onChange={e=>setPhrase(e.target.value)} aria-label={tl("The phrase")}/>
+      {phrase.trim().length>=2&&<DoubtBox key={phrase} tid={t.id} askState={t.ask} phrase={phrase.trim()} close={()=>setAsk(null)} toast={toast}/>}</Sheet>}</>}
+// a course's teacher manages its resources: add, edit (each save a new version), publish, archive; nothing is deleted
+function ResourceManager({cid,toast,back}){
+  const confirm=useConfirm(),[d,setD]=useState(null),[tree,setTree]=useState(null),[ed,setEd]=useState(null),[hist,setHist]=useState(null),[busy,setBusy]=useState(false),[prev,setPrev]=useState(false)
+  const load=()=>api(`/courses/${cid}/resources`).then(r=>setD(r.items)).catch(e=>{toast(e.message);back()});useEffect(()=>{load();api('/tree').then(tr=>{for(const p of tr)for(const sm of p.semesters)for(const c of sm.courses)if(c.id===cid)setTree(c)}).catch(()=>{})},[cid])
+  const blank={kind:'note',title:'',description:'',body:'',url:'',image:'',file:null,unit_id:0,topic_id:0}
+  const pickFile=e=>{const x=e.target.files?.[0];e.target.value='';if(!x)return;if(x.size>15*1024*1024){toast(tl("Keep the file under 15 MB"));return}
+    const rd=new FileReader();rd.onload=()=>setEd(v=>({...v,file:{name:x.name,data:rd.result}}));rd.onerror=()=>toast(tl("That file could not be read"));rd.readAsDataURL(x)}
+  const pickImg=async e=>{const x=e.target.files?.[0];e.target.value='';if(!x)return;try{const url=await uploadImg(x);setEd(v=>({...v,image:url}))}catch(er){toast(er.message)}}
+  const save=async publish=>{setBusy(true);try{const b={...ed,course_id:cid,unit_id:ed.unit_id||null,topic_id:ed.topic_id||null,publish,file:ed.file||null}
+      if(ed.id)await api(`/resources/${ed.id}`,{method:'PUT',body:b});else await api('/resources',{method:'POST',body:b});toast(publish?tl("Published"):tl("Saved as a draft"));setEd(null);load()}catch(e){toast(srv(e.message))}setBusy(false)}
+  const status=async(r,st)=>{if(st==='archived'&&!await confirm({title:tl("Archive “{title}”?",{title:r.title}),body:tl("Students stop seeing it. Nothing is deleted: its versions stay, and you can publish it again."),ok:tl("Archive")}))return
+    try{await api(`/resources/${r.id}/status`,{method:'POST',body:{status:st}});load()}catch(e){toast(srv(e.message))}}
+  const units=tree?.units||[],topics=units.find(u=>u.id===ed?.unit_id)?.topics||[]
+  if(ed)return <><Bar title={ed.id?tl("Edit resource"):tl("New resource")} back={()=>setEd(null)}/><div className="main">
+    {!ed.id&&<><label>{tl("Where")}</label><div className="qopt"><select aria-label={tl("Unit")} value={ed.unit_id} onChange={e=>setEd({...ed,unit_id:+e.target.value,topic_id:0})}><option value={0}>{tl("The whole course")}</option>{units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>
+      {ed.unit_id>0&&<select aria-label={tl("Topic")} value={ed.topic_id} onChange={e=>setEd({...ed,topic_id:+e.target.value})}><option value={0}>{tl("The whole unit")}</option>{topics.map(x=><option key={x.id} value={x.id}>{x.title}</option>)}</select>}</div>
+      <label>{tl("Kind")}</label><div className="seg" style={{gridTemplateColumns:'repeat(3,1fr)'}}>{Object.entries(RES_KIND).map(([k,l])=><button key={k} className={ed.kind===k?'on':''} aria-pressed={ed.kind===k} onClick={()=>setEd({...ed,kind:k})}>{tl(l)}</button>)}</div></>}
+    <label htmlFor="rt">{tl("Title")}</label><input id="rt" maxLength={200} value={ed.title} onChange={e=>setEd({...ed,title:e.target.value})}/>
+    <label htmlFor="rd">{tl("Description or instructions (optional)")}</label><textarea id="rd" rows={2} maxLength={2000} value={ed.description} onChange={e=>setEd({...ed,description:e.target.value})}/>
+    {(ed.kind==='note'||ed.kind==='example')&&<><label htmlFor="rb">{ed.kind==='example'?tl("The worked example"):tl("The note")}</label>
+      <textarea id="rb" rows={10} maxLength={20000} value={ed.body} onChange={e=>setEd({...ed,body:e.target.value})} placeholder={tl("Markdown. Maths between dollar signs, like $x^2$. Number the steps of a worked example.")}/>
+      <button className="link" onClick={()=>setPrev(!prev)}>{prev?tl("Hide preview"):tl("Preview")}</button>{prev&&<div className="qbox prose"><Md>{ed.body}</Md></div>}</>}
+    {ed.kind==='image'&&<>{ed.image&&<img className="msgimg" src={at(ed.image)} alt=""/>}<label className="btn ghost photopick"><Upload size={16}/> {ed.image?tl("Replace the picture"):tl("Upload a picture")}<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={pickImg} hidden/></label></>}
+    {(ed.kind==='link'||ed.kind==='video')&&<><label htmlFor="ru">{ed.kind==='video'?tl("Video link (or attach a short video below)"):tl("Link")}</label><input id="ru" value={ed.url} maxLength={490} placeholder="https://" onChange={e=>setEd({...ed,url:e.target.value})}/></>}
+    {(ed.kind==='document'||(ed.kind==='video'&&!ed.url))&&<>{ed.file?<div className="msgfile"><FileText size={18}/><span>{ed.file.name}</span><button className="ic sm" aria-label={tl("Remove the file")} onClick={()=>setEd({...ed,file:null})}><X size={16}/></button></div>
+      :<label className="btn ghost photopick"><Upload size={16}/> {ed.kind==='video'?tl("Attach a video (MP4, up to 15 MB)"):ed.id?tl("Replace the document"):tl("Attach the document")}<input type="file" accept={ed.kind==='video'?'video/mp4,video/webm':'.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip,image/png,image/jpeg'} onChange={pickFile} hidden/></label>}
+      {ed.id&&!ed.file&&ed.current_file&&<p className="known">{tl("Keeps {name} unless you attach another.",{name:ed.current_file})}</p>}</>}
+    {ed.id&&<p className="known">{tl("Saving makes a new version. The earlier ones are kept.")}</p>}
+    <button className="btn" disabled={busy||!ed.title.trim()} onClick={()=>save(true)}>{ed.status==='published'?tl("Save"):tl("Publish")}</button>
+    {ed.status!=='published'&&<button className="btn ghost" disabled={busy||!ed.title.trim()} onClick={()=>save(false)}>{tl("Save as a draft")}</button>}</div></>
+  if(hist)return <><Bar title={hist.title} sub={tl("Versions")} back={()=>setHist(null)}/><div className="main">{hist.items.map(v=><div key={v.version} className="qbox"><small className="known">{[tl("Version {n}",{n:v.version}),v.current&&tl("current"),v.saved_by,when(v.saved_at)].filter(Boolean).join(' · ')}</small><b style={{display:'block'}}>{v.title}</b><ResBody r={v} toast={toast}/></div>)}</div></>
+  const where=r=>{const u=units.find(x=>x.id===r.unit_id),tp=u?.topics.find(x=>x.id===r.topic_id);return tp?tp.title:u?u.name:tl("The whole course")}
+  return <><Bar title={tl("Teacher resources")} sub={tree?.name||''} back={back}/><div className="main">
+    <p className="known" style={{marginTop:0}}>{tl("Your own notes, worked examples, pictures, documents, videos and links, placed on the course, a unit or a topic. Students see published ones inside the topic they are studying.")}</p>
+    <button className="btn" onClick={()=>setEd(blank)}><Plus size={16}/> {tl("Add a resource")}</button>
+    {!d?<Skeleton/>:!d.length?<p className="known">{tl("No resources yet.")}</p>:d.map(r=><div key={r.id} className="qbox"><div className="wtop"><b>{r.title}</b><span className="chip" style={{color:r.status==='published'?'var(--ok)':'var(--mut)'}}>{tl({draft:'Draft',published:'Published',archived:'Archived'}[r.status])}</span></div>
+      <small className="known">{[tl(RES_KIND[r.kind]),where(r),tl("Version {n}",{n:r.version}),r.saved_by&&tl("saved by {name}",{name:r.saved_by}),when(r.saved_at)].filter(Boolean).join(' · ')}</small>
+      <div className="tools" style={{flexWrap:'wrap'}}><button onClick={()=>setEd({...blank,...r,file:null,current_file:r.file?.name,unit_id:r.unit_id||0,topic_id:r.topic_id||0})}>{tl("Edit")}</button>
+        {r.status!=='published'&&<button onClick={()=>status(r,'published')}>{tl("Publish")}</button>}{r.status==='published'&&<button onClick={()=>status(r,'draft')}>{tl("Unpublish")}</button>}
+        {r.status!=='archived'&&<button onClick={()=>status(r,'archived')}>{tl("Archive")}</button>}<button onClick={async()=>{try{setHist({title:r.title,...await api(`/resources/${r.id}/versions`)})}catch(e){toast(e.message)}}}>{tl("Versions")}</button></div></div>)}</div></>}
 // under a topic: questions the teacher shared with the class, each with its answers; who asked is never shown
 function ClassQuestions({tid}){
   const [d,setD]=useState(null),[open,setOpen]=useState({})
@@ -929,18 +1242,53 @@ function MyQuestions({toast}){
   return <><Bar title={tl("My questions")} sub={d?pl(d.items.length,'question'):''}/><div className="main">
     {!d?<Skeleton/>:!d.items.length?<p className="known">{tl("No questions yet. On any topic, tap Ask my teacher, or choose it under Not clear? on a phrase you highlighted.")}</p>
       :<Paged rows={d.items} render={x=><QRow key={x.id} x={x} onOpen={()=>setOpen(x.id)}/>}/>}</div></>}
-const QRow=({x,onOpen,teacher})=><button className="card ward" onClick={onOpen}><span className="wtop"><b>{x.topic}</b>{x.unread?<span className="chip">{tl("New answer")}</span>:<QChip s={x.status} teacher={teacher}/>}</span>
-  <span className="known">{[x.course,x.student].filter(Boolean).join(' · ')}</span><span style={{display:'block',marginTop:4,overflowWrap:'anywhere'}}>{x.last}</span></button>
+const QRow=({x,onOpen,teacher})=><button className="card ward" onClick={onOpen}><span className="wtop"><b>{x.topic}</b>{x.unread?<span className="chip">{tl("New answer")}</span>:<QChip s={x.status} teacher={teacher} label={x.label}/>}</span>
+  <span className="known">{[x.course,x.student,!teacher&&x.at&&day(x.at.slice(0,10))].filter(Boolean).join(' · ')}</span><span style={{display:'block',marginTop:4,overflowWrap:'anywhere'}}>{x.last}</span></button>
 // a teacher's inbox: questions waiting for their answer first (oldest first), or every question on their courses
+// the doubt management centre (S42): counts, a filtered and sorted list (the server pages it), and a report; a doubt opens in the same thread page (S41)
+const DQ_COUNTS=[['pending','Pending'],['follow_up','Follow-up'],['answered','Answered'],['resolved','Resolved']]
+const hrs=h=>h==null?'':h<48?tl("{n} h",{n:Math.round(h)}):tl("{n} days",{n:Math.round(h/24)})
 function TeacherQuestions({toast,back}){
-  const [view,setView]=useState('waiting'),[open,setOpen]=useState(null)
-  const {items,total,page,setPage,ready,reload}=usePaged(o=>`/questions?status=${view}&limit=${PAGE}&offset=${o}`,[view],toast)
-  if(open)return <QuestionThread id={open} back={()=>{setOpen(null);reload()}} toast={toast}/>
-  return <><Bar title={tl("Student questions")} sub={ready?pl(total,'question'):''} back={back}/><div className="main">
-    <Tabs label={tl("Which questions")} items={[['waiting',tl("Waiting for you")],['all',tl("All")]]} value={view} onChange={setView}/>
-    {!ready?<Skeleton/>:!items.length?<p className="known">{view==='waiting'?tl("No question is waiting for you."):tl("No questions yet.")}</p>
-      :items.map(x=><QRow key={x.id} x={x} teacher onOpen={()=>setOpen(x.id)}/>)}
-    <Pager page={page} total={total} onPage={setPage}/></div></>}
+  const {role}=useContext(Ctx),admin=role==='admin'
+  const [open,setOpen]=useState(null),[tab,setTab]=useState('list'),[sum,setSum]=useState(null),[n,setN]=useState(0)
+  const [f,setF]=useState({label:'',course_id:0,unit_id:0,q:'',since:'',until:'',sort:'priority',overdue:false,unassigned:false,teacher_id:0}),set=(k,v)=>setF(x=>({...x,[k]:v}))
+  useEffect(()=>{api('/questions/summary').then(setSum).catch(e=>toast(e.message))},[n])
+  const qs=new URLSearchParams(Object.entries(f).filter(([,v])=>v&&v!==0).map(([k,v])=>[k,String(v)])).toString()
+  const {items,total,page,setPage,ready,reload}=usePaged(o=>`/questions?${qs}&limit=${PAGE}&offset=${o}`,[qs],toast)
+  if(open)return <QuestionThread id={open} back={()=>{setOpen(null);reload();setN(x=>x+1)}} toast={toast}/>
+  const units=sum?.courses.find(c=>c.id===f.course_id)?.units||[]
+  const chip=(k,l,v,extra={})=>v==null?null:<button key={k} className={'stat'+((f.label===k&&!extra.flag)||(extra.flag&&f[extra.flag])?' on':'')} onClick={()=>setF(x=>extra.flag?{...x,[extra.flag]:!x[extra.flag],label:''}:{...x,label:x.label===k?'':k,overdue:false,unassigned:false})}><b>{v}</b><small className="known">{tl(l)}</small></button>
+  return <><Bar title={tl("Student questions")} sub={ready&&tab==='list'?pl(total,'question'):''} back={back}/><div className="main">
+    <Tabs label={tl("View")} items={[['list',tl("Doubts")],['report',tl("Report")]]} value={tab} onChange={setTab}/>
+    {tab==='report'?<DoubtReport toast={toast}/>:<>
+    {sum&&<div className="stats dqstats">{DQ_COUNTS.map(([k,l])=>chip(k,l,sum[k]))}{chip('overdue','Overdue',sum.overdue,{flag:'overdue'})}{admin&&chip('unassigned','No teacher',sum.unassigned,{flag:'unassigned'})}</div>}
+    {sum&&sum.overdue==null&&<p className="known" style={{marginTop:0}}>{tl("No response target is set, so nothing is marked overdue.")}{admin?' '+tl("Set one in Settings."):''}</p>}
+    {sum&&sum.overdue!=null&&<p className="known" style={{marginTop:0}}>{[sum.targets.first_hours&&tl("Overdue: no first answer within {a} h",{a:sum.targets.first_hours}),sum.targets.followup_hours&&tl("no reply to a follow-up within {b} h",{b:sum.targets.followup_hours})].filter(Boolean).join('; ')}{' '}{tl("(plain hours: nights and weekends count).")}</p>}
+    <div className="search"><Search size={18}/><input type="search" aria-label={tl("Search doubts")} placeholder={tl("Search by student, question or topic")} value={f.q} onChange={e=>set('q',e.target.value)}/></div>
+    <div className="qopt"><select aria-label={tl("Course")} value={f.course_id} onChange={e=>setF(x=>({...x,course_id:+e.target.value,unit_id:0}))}><option value={0}>{tl("All courses")}</option>{(sum?.courses||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+      {f.course_id>0&&<select aria-label={tl("Unit")} value={f.unit_id} onChange={e=>set('unit_id',+e.target.value)}><option value={0}>{tl("All units")}</option>{units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}
+      {admin&&sum?.teachers?.length>0&&<select aria-label={tl("Teacher")} value={f.teacher_id} onChange={e=>set('teacher_id',+e.target.value)}><option value={0}>{tl("All teachers")}</option>{sum.teachers.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>}
+      <select aria-label={tl("Sort by")} value={f.sort} onChange={e=>set('sort',e.target.value)}>{[['priority',tl("Oldest unanswered first")],['followups',tl("Follow-ups first")],['submitted',tl("Newest submitted")],['updated',tl("Latest activity")]].map(([k,l])=><option key={k} value={k}>{l}</option>)}</select></div>
+    <div className="qopt"><label className="known">{tl("From")}{" "}<input type="date" value={f.since} onChange={e=>set('since',e.target.value)}/></label><label className="known">{tl("To")}{" "}<input type="date" value={f.until} onChange={e=>set('until',e.target.value)}/></label></div>
+    {!ready?<Skeleton/>:!items.length?<p className="known">{tl("No doubts match.")}</p>:items.map(x=><DoubtRow key={x.id} x={x} onOpen={()=>setOpen(x.id)}/>)}
+    <Pager page={page} total={total} onPage={setPage}/></>}</div></>}
+const DoubtRow=({x,onOpen})=><button className="card ward" onClick={onOpen}><span className="wtop"><b>{x.topic||x.course}</b><span><QChip s={x.status} label={x.label}/>{x.overdue&&<>{" "}<span className="chip" style={{color:'var(--bad)'}}>{tl("Overdue")}</span></>}</span></span>
+  <span className="known">{[x.student,x.course,x.unit].filter(Boolean).join(' · ')}</span><span style={{display:'block',marginTop:4,overflowWrap:'anywhere'}}>{x.preview}</span>
+  <small className="known" style={{display:'block',marginTop:4}}>{[tl("Asked {when}",{when:when(x.at)}),tl("last activity {when}",{when:when(x.updated)}),x.waiting_hours!=null&&tl("waiting {t}",{t:hrs(x.waiting_hours)}),x.teacher?tl("Teacher: {name}",{name:x.teacher}):tl("No teacher assigned"),x.reopens>0&&tl("reopened {n}×",{n:x.reopens})].filter(Boolean).join(' · ')}</small></button>
+function DoubtReport({toast}){
+  const [d,setD]=useState(null),[days,setDays]=useState(90)
+  useEffect(()=>{setD(null);api('/questions/report?days='+days).then(setD).catch(e=>toast(e.message))},[days])
+  const table=(rows,extra)=>rows.map(r=><div key={r.id} className="row"><div>{r.name}<small>{[extra&&extra(r),(r.doubts===1?tl("1 doubt"):tl("{n} doubts",{n:r.doubts})),r.pending&&tl("{n} pending",{n:r.pending}),r.follow_up&&tl("{n} follow-ups",{n:r.follow_up}),r.reopened&&tl("{n} reopened",{n:r.reopened})].filter(Boolean).join(' · ')}</small></div></div>)
+  return <><div className="qopt"><select aria-label={tl("Period")} value={days} onChange={e=>setDays(+e.target.value)}>{[30,90,365].map(n=><option key={n} value={n}>{tl("Last {n} days",{n})}</option>)}</select></div>
+    {!d?<Skeleton/>:!d.total?<p className="known">{tl("No doubts in this period.")}</p>:<>
+    <div className="stats"><div className="stat"><b>{d.total}</b><small className="known">{tl("Doubts")}</small></div><div className="stat"><b>{d.pending}</b><small className="known">{tl("Pending")}</small></div>
+      <div className="stat"><b>{d.follow_up}</b><small className="known">{tl("Follow-up")}</small></div><div className="stat"><b>{d.reopened}</b><small className="known">{tl("Reopened")}</small></div></div>
+    <p className="known">{tl("Counts of doubts asked in this period, by where they came from. No AI is involved.")}</p>
+    <h3 className="sec">{tl("Topics with the most doubts")}</h3>{table(d.by_topic,r=>[r.course,r.unit].filter(Boolean).join(' › '))}
+    <h3 className="sec">{tl("By course")}</h3>{table(d.by_course)}
+    {d.by_unit.length>0&&<><h3 className="sec">{tl("By unit")}</h3>{table(d.by_unit)}</>}
+    {d.asks_again.length>0&&<><h3 className="sec">{tl("Students who often ask again")}</h3><p className="known" style={{marginTop:0}}>{tl("Wrote again after an answer at least twice in this period.")}</p>
+      {d.asks_again.map(x=><div key={x.id} className="row"><div>{x.name}<small>{tl("{n} follow-ups",{n:x.follow_ups})}</small></div></div>)}</>}</>}</>}
 // ---- announcements and classes: a teacher posts a note to a course, or schedules a class with a video link (Google Meet, Zoom). Students and
 // ---- parents read them here and join a class from here; a class is also in their calendars, and they are told by email, in the bell and on the phone
 const classWhen=x=>x.starts_at?new Date(x.starts_at).toLocaleString(locale(),{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+' · '+tl("{n} min",{n:x.minutes}):''
@@ -1259,9 +1607,10 @@ function ThisWeek({d,onGo}){
 function Dashboard({user,toast,onOpen,onStudy,onRoutine,onCalendar,onGo}){
   const unplaced=user.self_registered&&!user.placed,[sme,setSme]=useState(null);useEffect(()=>{api('/study/me').then(setSme).catch(()=>{})},[])
   const [tree,setTree]=useState(null),[today,setToday]=useState(null),[topic,setTopic]=useState(null),[sess,setSess]=useState(null)
-  const [dd,setDd]=useState(null),[mset,setMset]=useState(null)
+  const [dd,setDd]=useState(null),[mset,setMset]=useState(null),[ttab,setTtab]=useState(null),[qz,setQz]=useState(null)
   useEffect(()=>{if(topic)return;api('/tree').then(setTree).catch(e=>toast(e.message));api('/me/today').then(setToday).catch(()=>{});api('/me/dashboard').then(setDd).catch(()=>{})},[topic,toast])
-  if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={user.role}/>
+  if(topic)return <Topic id={topic} tab0={ttab} back={()=>{setTopic(null);setTtab(null)}} toast={toast} role={user.role}/>
+  if(qz)return <QuizPlay id={qz} back={()=>setQz(null)} toast={toast} role={user.role}/>
   if(mset)return <McqPlay id={mset} back={()=>setMset(null)} toast={toast} openTopic={x=>{setMset(null);setTopic(x)}}/>
   const hour=new Date().getHours(),hi=hour<12?'Good morning, {name}':hour<17?'Good afternoon, {name}':'Good evening, {name}'
   const seen=new Map(),courses=[]
@@ -1271,6 +1620,7 @@ function Dashboard({user,toast,onOpen,onStudy,onRoutine,onCalendar,onGo}){
   return <><Bar title={tl(hi,{name:firstName(user.name)})}/><div className="main">
     <Invitations/><CourseInvites onGo={onGo}/>
     {user.role==='student'&&<WelcomeBack openTopic={setTopic} toast={toast} onSet={setMset}/>}
+    {user.role==='student'&&<MySupport toast={toast} openTopic={(id,tab)=>{setTtab(tab||null);setTopic(id)}} onSet={setMset} onQuiz={setQz}/>}
     <SessionCard toast={toast} onRoutine={onRoutine} openTopic={setTopic} onStudy={onStudy} refresh={topic} onLoad={setSess}/>
     {dd&&<DoNext d={dd} openTopic={setTopic} onOpen={onOpen} onGo={onGo} onCalendar={onCalendar} session={!!sess?.routine}/>}
     {dd&&<ThisWeek d={dd} onGo={onGo}/>}
@@ -2260,6 +2610,7 @@ function Topic({id:first,back,toast,role,tab0}){
     {role==='student'&&<div className="mine"><span>{t.learning_due_at&&<>{tl("Your teacher's date")}: {day(t.learning_due_at)} · </>}{t.status==='completed'?tl("You marked this as learned"):tl("Not marked as learned yet")}</span>
       {t.status==='completed'?<button className="link" onClick={()=>setDone(false)}>{tl("Undo")}</button>:<button className="link" onClick={()=>setDone(true)}>{tl("I've learned this")}</button>}
       {t.status!=='not_started'&&<button className="link" onClick={redo}>{tl("Start over")}</button>}</div>}
+    <TopicResources t={t} toast={toast}/>
     {t.published!==false&&<ClassQuestions tid={t.id}/>}
     {t.ask&&t.published!==false&&<button className={'btn ghost'+(t.ask==='pro'?' locked':'')} onClick={()=>t.ask==='pro'?toast(tl("Asking your teacher comes with Pro. See AI help on your profile.")):setAskT(true)}>{t.ask==='pro'?<Lock size={16}/>:<MessageCircle size={16}/>}{" "}{tl("Ask my teacher")}{t.ask==='pro'&&<span className="pill sm">{tl("Pro")}</span>}</button>}
     {askT&&<AskTeacher tid={t.id} close={()=>setAskT(false)} toast={toast}/>}
@@ -2451,7 +2802,7 @@ function DoubtBox({tid,askState,phrase,close,toast}){
   const [askT,setAskT]=useState(false),[d,setD]=useState(null),[ans,setAns]=useState(null),[busy,setBusy]=useState(false),[err,setErr]=useState('')
   useEffect(()=>{setD(null);setAns(null);setErr('');api(`/topics/${tid}/doubt`,{method:'POST',body:{phrase}}).then(setD).catch(e=>{toast(e.message);close()})},[tid,phrase])
   const ask=async()=>{setBusy(true);setErr('');try{setAns(await api(`/topics/${tid}/doubt/ask`,{method:'POST',body:{phrase}}))}catch(e){setErr(e.message)}setBusy(false)}
-  const shown=ans||(d?.saved?{text:d.saved,cached:true}:null)
+  const shown=ans||(d?.saved?{text:d.saved,cached:true,id:d.saved_id}:null)
   return <><div className="tools" style={{justifyContent:'space-between'}}><b>{tl("Not clear?")}</b><button className="ic sm" aria-label={tl("Close")} onClick={close}><X size={16}/></button></div>
     <p className="hltext" style={{marginTop:8}}>“{phrase}”</p>
     {!d?<Skeleton/>:<>
@@ -2464,8 +2815,9 @@ function DoubtBox({tid,askState,phrase,close,toast}){
           <p className="known">{tl("Only the names of your program, semester, course and topic and this phrase are sent. Your notes never are.")}{d.ai_left!=null&&d.ai_left<=10?' '+tl("{n} left today.",{n:d.ai_left}):''}</p>
           {err&&<p className="known">{err}</p>}</>}
       {role==='student'&&askState==='on'&&<button className="link" style={{marginTop:12}} onClick={()=>setAskT(true)}><MessageCircle size={14}/> {tl("Still not clear? Ask my teacher")}</button>}
-      {askT&&<AskTeacher tid={tid} excerpt={phrase} close={()=>setAskT(false)} toast={toast}/>}</>}</>}
+      {askT&&<AskTeacher tid={tid} excerpt={phrase} ai={shown?.id?{kind:'doubt',id:shown.id}:null} aiText={shown&&!shown.support?shown.text:''} close={()=>setAskT(false)} toast={toast}/>}</>}</>}
 function Reader({t,auto,toast,onList,close}){
+  const {role}=useContext(Ctx),[askX,setAskX]=useState(null)
   const [list,setList]=useState(null),[panel,setPanel]=useState(false),[doubt,setDoubt]=useState(null),[noteFor,setNoteFor]=useState(null),[fs,setFs]=useState(!!document.fullscreenElement),box=useRef(null),frame=useRef(null),hl=useRef(null),now=useRef([])
   const inter=t.content_format==='interactive',ready=list!==null
   now.current=list||[]
@@ -2517,7 +2869,9 @@ function Reader({t,auto,toast,onList,close}){
         {list?.length?<Paged rows={list} render={h=><HlItem key={h.id} h={{...h,tid:t.id}} toast={toast} focus={noteFor===h.id} onExplain={aiOn?()=>explain(h.id):null} onGo={()=>goTo(h.id)} onSaved={r=>{setList(l=>l.map(x=>x.id===r.id?r:x));setNoteFor(null)}} onDrop={()=>drop(h.id)}/>}/>:<p className="known">{tl("None yet.")}</p>}</aside>}</div>
     {exp&&<div className="rexp" role="status"><div className="rexph"><small>{tl("What this means")}</small><button className="ic sm" aria-label={tl("Close")} onClick={()=>setExp(null)}><X size={15}/></button></div>
       <p className="rexpq">“{(list?.find(x=>x.id===exp.hid)?.text||'').slice(0,140)}{(list?.find(x=>x.id===exp.hid)?.text||'').length>140?'…':''}”</p>
-      {exp.busy?<p className="known">{tl("Thinking…")}</p>:exp.err?<p className="known">{exp.err}</p>:<><Md>{exp.text||''}</Md><FlagLink source="topic" id={exp.id} topicId={t.id}/></>}</div>}</div>}
+      {exp.busy?<p className="known">{tl("Thinking…")}</p>:exp.err?<p className="known">{exp.err}</p>:<><Md>{exp.text||''}</Md><FlagLink source="topic" id={exp.id} topicId={t.id}/>
+        {role==='student'&&t.ask==='on'&&exp.id&&<button className="link" style={{display:'block',marginTop:6}} onClick={()=>setAskX({excerpt:(list?.find(x=>x.id===exp.hid)?.text||'').slice(0,600),ai:{kind:'topic',id:exp.id},aiText:exp.text||''})}><MessageCircle size={14}/> {tl("Still not clear? Ask my teacher")}</button>}</>}</div>}
+      {askX&&<AskTeacher tid={t.id} excerpt={askX.excerpt} ai={askX.ai} aiText={askX.aiText} close={()=>setAskX(null)} toast={toast}/>}</div>}
 
 const TOPIC_CONFIG_TEMPLATE=`---
 title: 1. Introduction and learning objectives

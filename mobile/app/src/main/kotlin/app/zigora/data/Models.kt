@@ -43,8 +43,55 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Learning(val status: String = "not_started")
 /** ask the teacher: a student's question about a topic, and its thread with the course's teacher */
 @Serializable data class QuestionRow(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val updated: String? = null,
-                                     val last: String = "", val unread: Boolean = false, val student: String? = null, val message: Boolean = false)
+                                     val last: String = "", val unread: Boolean = false, val student: String? = null, val message: Boolean = false,
+                                     val label: String = "", val at: String? = null)  // label (S40): pending, follow_up, answered or resolved
 @Serializable data class QuestionPage(val total: Int = 0, val items: List<QuestionRow> = emptyList())
+/** S44: class insight for a course's teachers (GET /reports/courses/{id}/topics, .../topics/{tid}, .../students/{sid}, POST .../explain) */
+@Serializable data class CiAcc(val percent: Int? = null, val right: Int = 0, val asked: Int = 0, val students: Int = 0)
+@Serializable data class CiTrend(val before: Int? = null, val recent: Int? = null, val before_asked: Int = 0, val recent_asked: Int = 0)
+@Serializable data class CiRec(val key: String = "", val n: Int = 0, val of: Int = 0, val words: List<String> = emptyList(), val question: String = "", val from: Int = 0, val to: Int = 0)
+@Serializable data class CiTopic(val topic_id: Int, val title: String = "", val students: Int = 0, val studied: Int = 0, val learned: Int = 0, val assessed: Int = 0, val evidence: Int = 0,
+                                 val strong: Int = 0, val needs_revision: Int = 0, val needs_attention: Int = 0, val status: String = "not_assessed", val tests: CiAcc = CiAcc(),
+                                 val practice: CiAcc = CiAcc(), val doubts: Int = 0, val unresolved: Int = 0, val not_clear: Int = 0, val trend: CiTrend? = null,
+                                 val recommendations: List<CiRec> = emptyList())
+@Serializable data class CiStudentRule(val min_questions: Int = 5, val min_sittings: Int = 2)
+@Serializable data class CiRule(val min_assessed: Int = 3, val student: CiStudentRule = CiStudentRule())
+@Serializable data class CiCourse(val course: String = "", val students: Int = 0, val active: Int = 0, val units: List<CourseRef> = emptyList(), val rule: CiRule = CiRule(), val topics: List<CiTopic> = emptyList())
+@Serializable data class CiQuestion(val key: String = "", val text: String = "", val options: List<kotlinx.serialization.json.JsonElement> = emptyList(), val correct: Int? = null,
+                                    val source: String = "", val answered: Int = 0, val students: Int = 0, val wrong_option: Int = -1, val wrong_picks: Int = 0, val picks: Map<String, Int> = emptyMap())
+@Serializable data class CiDoubt(val id: Int, val text: String = "", val student: String = "", val status: String = "")
+@Serializable data class CiGroup(val words: List<String> = emptyList(), val students: Int = 0, val doubts: List<CiDoubt> = emptyList())
+@Serializable data class CiStudentRow(val id: Int, val name: String = "", val category: String = "", val sittings: Int = 0, val percent: Int? = null, val asked: Int = 0,
+                                      val improving: Boolean = false, val repeated_errors: Int = 0, val learned: Boolean = false, val doubts: Int = 0)
+@Serializable data class CiTopicDetail(val topic: CiTopic, val common_wrong: List<CiQuestion> = emptyList(), val doubt_groups: List<CiGroup> = emptyList(), val other_doubts: List<CiDoubt> = emptyList(),
+                                       val categories: Map<String, Int> = emptyMap(), val total: Int = 0, val students: List<CiStudentRow> = emptyList())
+@Serializable data class CiEvidence(val id: String = "", val text: String = "")
+@Serializable data class CiExplain(val text: String = "", val evidence: List<CiEvidence> = emptyList(), val unverified_numbers: List<String> = emptyList(), val cached: Boolean = false)
+@Serializable data class CiSitting(val at: String? = null, val kind: String = "", val right: Int = 0, val asked: Int = 0, val percent: Int? = null)
+@Serializable data class CiRepeat(val text: String = "", val options: List<kotlinx.serialization.json.JsonElement> = emptyList(), val correct: Int? = null, val times_wrong: Int = 0, val chosen: Int? = null)
+@Serializable data class CiMsg(val teacher: Boolean = false, val text: String = "", val at: String? = null)
+@Serializable data class CiStuDoubt(val id: Int, val label: String = "", val at: String? = null, val messages: List<CiMsg> = emptyList())
+@Serializable data class CiStudent(val student: String = "", val topic: String = "", val label: String? = null, val studied: Boolean = false, val learned: Boolean = false,
+                                   val sittings: List<CiSitting> = emptyList(), val repeated_errors: List<CiRepeat> = emptyList(), val revised: List<String> = emptyList(), val doubts: List<CiStuDoubt> = emptyList())
+/** S43: a teacher's resource as a topic shows it (the published version; drafts only to the course's teachers) */
+@Serializable data class ResFileRef(val name: String = "file", val url: String = "", val video: Boolean = false)
+@Serializable data class TopicRes(val id: Int, val kind: String = "", val level: String = "", val title: String = "", val description: String = "", val body: String = "",
+                                  val url: String = "", val image: String = "", val file: ResFileRef? = null, val status: String? = null)
+@Serializable data class TopicResList(val items: List<TopicRes> = emptyList())
+/** S42: the doubt management centre (GET /questions with filters, /questions/summary, /questions/report) */
+@Serializable data class DoubtRow(val id: Int, val student: String = "", val course: String = "", val unit: String = "", val topic: String = "", val preview: String = "",
+                                  val at: String? = null, val updated: String? = null, val label: String = "", val teacher: String? = null, val waiting_hours: Double? = null,
+                                  val overdue: Boolean = false, val reopens: Int = 0)
+@Serializable data class DoubtPage(val total: Int = 0, val items: List<DoubtRow> = emptyList())
+@Serializable data class DoubtRef(val id: Int, val name: String = "")
+@Serializable data class DoubtCourse(val id: Int, val name: String = "", val units: List<DoubtRef> = emptyList())
+@Serializable data class DoubtTargets(val first_hours: Int? = null, val followup_hours: Int? = null)
+@Serializable data class DoubtSummary(val pending: Int = 0, val follow_up: Int = 0, val answered: Int = 0, val resolved: Int = 0, val overdue: Int? = null, val unassigned: Int? = null,
+                                      val targets: DoubtTargets = DoubtTargets(), val courses: List<DoubtCourse> = emptyList(), val teachers: List<DoubtRef> = emptyList())
+@Serializable data class DoubtGroup(val id: Int, val name: String = "", val doubts: Int = 0, val pending: Int = 0, val follow_up: Int = 0, val reopened: Int = 0, val unit: String = "", val course: String = "")
+@Serializable data class AskAgain(val id: Int, val name: String = "", val follow_ups: Int = 0)
+@Serializable data class DoubtReport(val days: Int = 90, val total: Int = 0, val pending: Int = 0, val follow_up: Int = 0, val reopened: Int = 0, val by_course: List<DoubtGroup> = emptyList(),
+                                     val by_unit: List<DoubtGroup> = emptyList(), val by_topic: List<DoubtGroup> = emptyList(), val asks_again: List<AskAgain> = emptyList())
 @Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
 /** a course a teacher offers, as a student sees it in Join a course */
 @Serializable data class Offer(val id: Int, val name: String = "", val about: String = "", val starts_on: String? = null, val ends_on: String? = null, val access: String = "enroll",
@@ -57,10 +104,14 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class FileRef(val url: String = "", val name: String = "file")
 @Serializable data class OfferList(val items: List<Offer> = emptyList(), val invited: List<Offer> = emptyList())
 @Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String? = null, val text: String = "", val image: String? = null, val at: String? = null,
-                                     val file: FileRef? = null)
+                                     val file: FileRef? = null, val edited: String? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
                                         val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false, val teacher: Boolean = false, val can_share: Boolean = false,
-                                        val student: String? = null, val can_withdraw: Boolean = false)
+                                        val student: String? = null, val can_withdraw: Boolean = false,
+                                        val label: String = "", val unit: String = "", val ai: AiContext? = null, val answered_by: String? = null, val at: String? = null,
+                                        val helpful: Boolean? = null, val can_reopen: Boolean = false, val reopens_left: Int? = null)  // S41
+/** S40: the AI answer a question was asked from, as the server kept it: what was asked and a short excerpt of the answer */
+@Serializable data class AiContext(val q: String = "", val a: String = "")
 /** a teacher's marked model answer for a topic */
 @Serializable data class MAPart(val text: String = "", val marks: Double = 0.0)
 @Serializable data class ModelAnswer(val question: String = "", val parts: List<MAPart> = emptyList(), val total: Double = 0.0, val by: String = "")
@@ -93,7 +144,7 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Hit(val id: Int, val title: String, val unit: String = "", val course: String = "", val snippet: String = "", val in_title: Boolean = false)
 @Serializable data class MineHit(val topic_id: Int, val title: String = "", val kind: String = "notes", val snippet: String = "")  // the student's own notes or a highlight's note that match
 @Serializable data class SearchOut(val q: String = "", val results: List<Hit> = emptyList(), val confident: Boolean = false, val mine: List<MineHit> = emptyList())
-@Serializable data class Answer(val text: String, val cached: Boolean = false, val support: Boolean = false, val via: String? = null)
+@Serializable data class Answer(val text: String, val cached: Boolean = false, val support: Boolean = false, val via: String? = null, val id: Int? = null)
 @Serializable data class PhotoText(val text: String = "", val ocr: Boolean = false)
 
 @Serializable data class Question(val id: Int, val text: String, val options: List<String>, val image: String = "", val option_images: List<String> = emptyList())
@@ -145,7 +196,7 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Highlights(val items: List<Highlight> = emptyList(), val total: Int = 0)
 @Serializable data class Explained(val explain: LineExplain)
 @Serializable data class Where(val program: String = "", val semester: String = "", val course: String = "", val topic: String = "")
-@Serializable data class Doubt(val phrase: String = "", val where: Where? = null, val passage: String = "", val my_passage: String = "", val saved: String? = null, val ai_left: Int? = null)
+@Serializable data class Doubt(val phrase: String = "", val where: Where? = null, val passage: String = "", val my_passage: String = "", val saved: String? = null, val ai_left: Int? = null, val saved_id: Int? = null)
 
 @Serializable data class SQuestion(val text: String, val options: List<String>, val topic: String = "")
 @Serializable data class StudyQuiz(val id: Int, val kind: String, val topic_id: Int? = null, val topic: String = "", val pass_percent: Int = 60, val questions: List<SQuestion> = emptyList())
@@ -263,3 +314,23 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class CalWho(val id: Int, val name: String)
 @Serializable data class CalResp(val items: List<CalItem> = emptyList(), val today: String = "", val student: CalWho? = null, val students: List<CalWho> = emptyList())
 @Serializable data class CalLink(val on: Boolean = false, val path: String? = null)
+// S45: learning support plans (a teacher's extra practice for chosen students, read from what they do after it starts)
+@Serializable data class IvSide(val right: Int = 0, val asked: Int = 0, val sittings: Int = 0, val percent: Int? = null)
+@Serializable data class IvKind(val before: IvSide = IvSide(), val after: IvSide = IvSide(), val established: Boolean = false, val change: Int? = null, val direction: String? = null)
+@Serializable data class IvCompare(val test: IvKind = IvKind(), val practice: IvKind = IvKind(), val overall: String = "not_established")
+@Serializable data class IvActState(val id: Int, val kind: String = "", val topic_id: Int? = null, val ref_id: Int? = null, val size: Int? = null, val required: Boolean = true,
+                                    val removed: Boolean = false, val state: String = "todo", val evidence: String = "", val label: String = "")
+@Serializable data class IvStudent(val user_id: Int, val name: String = "", val assigned_at: String? = null, val removed: Boolean = false, val reason: String = "", val progress: String = "not_started",
+                                   val done: Int = 0, val required: Int = 0, val overdue: Boolean = false, val needs_review: Boolean = false, val outcome: String? = null, val outcome_note: String = "",
+                                   val reviewed_at: String? = null, val comparison: IvCompare = IvCompare(), val activities: List<IvActState> = emptyList())
+@Serializable data class IvActivity(val id: Int, val kind: String = "", val topic_id: Int? = null, val ref_id: Int? = null, val size: Int? = null, val required: Boolean = true,
+                                    val added_at: String? = null, val removed_at: String? = null, val label: String = "")
+@Serializable data class IvCounts(val students: Int = 0, val not_started: Int = 0, val in_progress: Int = 0, val completed: Int = 0, val needs_review: Int = 0, val overdue: Int = 0)
+@Serializable data class IvTopic(val id: Int, val title: String = "")
+@Serializable data class IvPlan(val id: Int, val course_id: Int = 0, val course: String = "", val title: String = "", val description: String = "", val criteria: String = "", val status: String = "",
+                                val topics: List<IvTopic> = emptyList(), val target: String? = null, val counts: IvCounts = IvCounts(),
+                                val activities: List<IvActivity> = emptyList(), val students: List<IvStudent> = emptyList())
+@Serializable data class IvPlans(val items: List<IvPlan> = emptyList())
+@Serializable data class MySupportPlan(val id: Int, val title: String = "", val description: String = "", val course: String = "", val target: String? = null, val topics: List<IvTopic> = emptyList(),
+                                       val progress: String = "", val done: Int = 0, val required: Int = 0, val activities: List<IvActState> = emptyList())
+@Serializable data class MySupport(val items: List<MySupportPlan> = emptyList())

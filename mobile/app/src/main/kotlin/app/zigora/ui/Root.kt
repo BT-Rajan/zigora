@@ -155,7 +155,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             composable<HomeR> { HomeScreen(me, openTopic = open, openCourse = { nav.navigate(CourseR(it)) }, openQuiz = { nav.navigate(QuizR(it)) },
                                            openNotes = { nav.navigate(NotesR) }, openPhoto = { nav.navigate(PhotoR()) }, openSearch = search,
                                            openRoutine = { nav.navigate(RoutineR) }, openSession = session, openStudy = { nav.navigate(StudyR) }, openMcq = { nav.navigate(McqR()) }, openCalendar = { nav.navigate(CalendarR) }, openProgress = { nav.navigate(ProgressR) }, openPlan = { nav.navigate(MeR) }, openClasses = { nav.navigate(ClassesR) }, openJoin = { nav.navigate(JoinR) },
-                                           openOwn = ownTopic, review = review) }
+                                           openOwn = ownTopic, review = review, openSet = { nav.navigate(McqSetR(it)) }) }
             composable<CoursesR> { CoursesScreen(me, search, openStudy = { nav.navigate(StudyR) }, openJoin = { nav.navigate(JoinR) }) { nav.navigate(CourseR(it)) } }
             composable<StudyR> { StudyHomeScreen(back = { nav.popBackStack() }, open = { id, wizard -> nav.navigate(if (wizard) StudyWizardR(id) else StudyCourseR(id)) },
                                                  openTopic = ownTopic, review = review) }

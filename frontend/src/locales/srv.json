@@ -330,5 +330,9 @@
 [
 "^You have not revised (?<n>\\d+) topics in the last two weeks\\.$",
 "You have not revised {n} topics in the last two weeks."
+],
+[
+"^Students to review in support plans: (?<n>\\d+)$",
+"Students to review in support plans: {n}"
 ]
 ]

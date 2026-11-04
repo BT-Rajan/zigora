@@ -78,12 +78,21 @@ fun MsgBody(m: QuestionMsg) {
     m.file?.let { f -> val ctx = LocalContext.current; val base = api().base
         androidx.compose.material3.OutlinedButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(base + f.url))) } },
             modifier = Modifier.padding(top = 6.dp)) { Text("📎 " + f.name + " · " + tl("Download")) } }
+    val ctx = LocalContext.current
+    VIDEO_LINK.findAll(m.text).map { it.value }.distinct().take(3).forEach { u ->  // S41: a video link shows as a card that opens it
+        androidx.compose.material3.OutlinedButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u))) } },
+            modifier = Modifier.padding(top = 6.dp)) { Text("▶ " + tl("Watch video") + " · " + videoHost(u)) }
+    }
 }
+private val VIDEO_LINK = Regex("""https://(?:www\.)?(youtube\.com/watch\?[^\s)]*v=[\w-]{6,}[^\s)]*|youtu\.be/[\w-]{6,}[^\s)]*|vimeo\.com/\d+[^\s)]*|drive\.google\.com/[^\s)]+|[^\s)]+\.(?:mp4|webm|mov)(?:\?[^\s)]*)?)""", RegexOption.IGNORE_CASE)
+private fun videoHost(u: String) = when { "youtu" in u -> "YouTube"; "vimeo" in u -> "Vimeo"; "drive.google" in u -> "Google Drive"; else -> tl("Video") }
 
 /** the question box, opened in place: what to ask, a photo if it helps, and the phrase it is about when it came from "Not clear?" */
 @Composable
-fun AskTeacherBox(tid: Int, excerpt: String = "", close: (sent: Boolean) -> Unit) {
+fun AskTeacherBox(tid: Int, excerpt: String = "", aiKind: String? = null, aiId: Int? = null, aiText: String = "", close: (sent: Boolean) -> Unit) {
     val a = api(); val scope = rememberCoroutineScope(); val ctx = LocalContext.current
+    val requestId = remember { java.util.UUID.randomUUID().toString() }  // S40: the same id on a retry, so one question however often it is sent
+    var review by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
     var photo by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -96,10 +105,41 @@ fun AskTeacherBox(tid: Int, excerpt: String = "", close: (sent: Boolean) -> Unit
         kotlinx.coroutines.delay(500)
         similar = runCatching { a.get("/topics/$tid/similar?q=" + java.net.URLEncoder.encode(q.take(500), "UTF-8"), ClassQuestions.serializer()).items }.getOrDefault(similar)
     }
+    if (review) {  // S40: what will be sent, before it is
+        Panel {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(tl("Check before sending"), style = MaterialTheme.typography.titleMedium)
+                if (excerpt.isNotEmpty()) Quiet("“$excerpt”")
+                if (aiText.isNotEmpty()) { Quiet(tl("The AI's explanation (your teacher sees a short part of it)")); Quiet(if (aiText.length > 600) aiText.take(600) + "…" else aiText) }
+                Text(tl("Your question"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text(text)
+                if (photo != null) Quiet(tl("Photo"))
+                Quiet(tl("Your teacher sees your name and the topic you ask about."))
+                if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(enabled = !busy, onClick = { scope.launch {
+                        busy = true; err = ""
+                        try {
+                            a.raw("POST", "/topics/$tid/questions", buildJsonObject {
+                                put("text", text.trim()); put("excerpt", excerpt); put("photo", photo.orEmpty()); put("request_id", requestId)
+                                if (aiKind != null && aiId != null) put("ai", buildJsonObject { put("kind", aiKind); put("id", aiId) })
+                            })
+                            if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) allow.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            else close(true)
+                        } catch (e: Exception) { err = I18n.srv(e.message) }
+                        busy = false
+                    } }) { Text(if (busy) tl("Sending…") else tl("Send to my teacher")) }
+                    TextButton(enabled = !busy, onClick = { review = false }) { Text(tl("Edit")) }
+                }
+            }
+        }
+        return
+    }
     Panel {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(tl("Ask my teacher"), style = MaterialTheme.typography.titleMedium)
             if (excerpt.isNotEmpty()) Quiet("“$excerpt”")
+            if (aiText.isNotEmpty()) Quiet(tl("The AI's explanation goes with it, so your teacher knows what you already read."))
             OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth(), minLines = 3, label = { Text(tl("Your question")) },
                               placeholder = { Text(tl("What would you like your teacher to explain?")) })
             Quiet(tl("For maths, write it between dollar signs, like \$x^2 + y^2\$."))
@@ -112,15 +152,7 @@ fun AskTeacherBox(tid: Int, excerpt: String = "", close: (sent: Boolean) -> Unit
             Quiet(tl("Your teacher sees your name and the topic you ask about."))
             if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(enabled = !busy && (text.trim().length >= 3 || (photo != null && text.isBlank())), onClick = { scope.launch {
-                    busy = true; err = ""
-                    try {
-                        a.raw("POST", "/topics/$tid/questions", buildJsonObject { put("text", text.trim()); put("excerpt", excerpt); put("photo", photo.orEmpty()) })
-                        if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) allow.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        else close(true)
-                    } catch (e: Exception) { err = I18n.srv(e.message) }
-                    busy = false
-                } }) { Text(if (busy) tl("Sending…") else tl("Send to my teacher")) }
+                Button(enabled = text.trim().length >= 3 || (photo != null && text.isBlank()), onClick = { err = ""; review = true }) { Text(tl("Review and send")) }
                 TextButton(onClick = { close(false) }) { Text(stringResource(R.string.cancel)) }
             }
         }
@@ -154,7 +186,10 @@ fun ClassQuestionsList(tid: Int) {
     d.items.forEach { x -> SharedQuestion(x) }
 }
 
-private fun stateLabel(s: String) = when (s) { "answered" -> tl("Answered"); "closed" -> tl("Closed"); else -> tl("Waiting for your teacher") }
+private fun stateLabel(s: String, label: String = "") = when (label) {  // S40: the student's words for where a question stands
+    "pending" -> tl("Pending"); "follow_up" -> tl("Follow-up"); "answered" -> tl("Answered"); "resolved" -> tl("Resolved")
+    else -> when (s) { "answered" -> tl("Answered"); "closed" -> tl("Closed"); else -> tl("Waiting for your teacher") }
+}
 
 /** Saved > Questions: the student's questions, newest first, answered ones they haven't read marked */
 @Composable
@@ -164,7 +199,7 @@ fun MyQuestions(openQuestion: (Int) -> Unit, sub: (String) -> Unit) {
         sub(pl(d.items.size, "question"))
         if (d.items.isEmpty()) Quiet(tl("No questions yet. On any topic, tap Ask my teacher, or choose it under Not clear? on a phrase you highlighted."), Modifier.padding(top = 12.dp))
         Paged(d.items) { x ->
-            ListRow(x.topic, listOf(x.course, if (x.unread) tl("New answer") else stateLabel(x.status)).filter { it.isNotEmpty() }.joinToString(" · "), onClick = { openQuestion(x.id) }) {
+            ListRow(x.topic, listOf(x.course, if (x.unread) tl("New answer") else stateLabel(x.status, x.label), x.at?.let { stamp(it) } ?: "").filter { it.isNotEmpty() }.joinToString(" · "), onClick = { openQuestion(x.id) }) {
                 if (x.last.isNotEmpty()) Quiet(x.last, Modifier.padding(top = 4.dp))
             }
         }
@@ -185,16 +220,23 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
     var withdrawing by remember { mutableStateOf(false) }
     Loaded(l) { first ->
         val t = q ?: first
-        Page(t.topic, listOfNotNull(t.course, t.student, stateLabel(t.status)).filter { it.isNotEmpty() }.joinToString(" · "), back = back) {
+        Page(t.topic, listOfNotNull(t.course, t.student, stateLabel(t.status, if (t.teacher) "" else t.label)).filter { it.isNotEmpty() }.joinToString(" · "), back = back) {
             if (t.topic_id > 0) TextButton(onClick = { openTopic(t.topic_id) }) { Text(tl("Open the topic")) }  // a teacher's message has no topic
             t.excerpt?.takeIf { it.isNotEmpty() }?.let { Quiet("“$it”") }
+            if (!t.teacher && t.topic_id > 0) Quiet(listOf(t.unit, t.at?.let { tl("Sent {when}", "when" to stamp(it)) } ?: "",
+                t.answered_by?.let { tl("To {name}", "name" to it) } ?: tl("No teacher assigned yet; your school's admins can see it")).filter { it.isNotEmpty() }.joinToString(" · "))
+            t.ai?.let { c ->  // S40: the AI answer it was asked from
+                Text(if (t.teacher) tl("What the AI had explained") else tl("The AI's explanation you sent with it"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                if (c.q.isNotEmpty()) Quiet("“${c.q}”")
+                Quiet(c.a)
+            }
             if (t.shared) Quiet(if (t.teacher) tl("Shared with the class") else tl("Your teacher shared this with your class, without your name."))
             t.messages.forEach { m ->
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start) {
                     Surface(shape = RoundedCornerShape(16.dp), color = if (m.mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                             modifier = Modifier.widthIn(max = 320.dp)) {
                         Column(Modifier.padding(12.dp)) {
-                            Text((if (m.mine) tl("You") else m.who.orEmpty()) + (m.at?.let { " · " + stamp(it) } ?: ""), style = MaterialTheme.typography.labelSmall,
+                            Text((if (m.mine) tl("You") else m.who.orEmpty()) + (m.at?.let { " · " + stamp(it) } ?: "") + (if (m.edited != null) " · " + tl("edited") else ""), style = MaterialTheme.typography.labelSmall,
                                  color = MaterialTheme.colorScheme.onSurfaceVariant)
                             MsgBody(m)
                         }
@@ -204,9 +246,22 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
             if (t.teacher && (t.can_share || t.shared)) OutlinedButton(onClick = { scope.launch {
                 try { q = a.send("POST", "/questions/$id/share", buildJsonObject { put("shared", !t.shared) }, QuestionThread.serializer()) } catch (e: Exception) { err = I18n.srv(e.message) }
             } }) { Text(if (t.shared) tl("Stop sharing with the class") else tl("Share with the class")) }
-            if (t.status == "closed") Quiet(tl("This question is closed."), Modifier.padding(top = 8.dp))
+            if (!t.teacher && t.label == "answered") Panel(Modifier.padding(top = 8.dp)) {  // S41: did it help?
+                Text(tl("Was this explanation helpful?"), style = MaterialTheme.typography.titleSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    Button(enabled = !busy, onClick = { scope.launch {
+                        busy = true; err = ""
+                        try { q = a.send("POST", "/questions/$id/understood", null, QuestionThread.serializer()); toast(tl("Glad it's clear now")) } catch (e: Exception) { err = I18n.srv(e.message) }
+                        busy = false
+                    } }) { Text(tl("Yes, I understand now")) }
+                }
+                Quiet(tl("Still unsure? Write below: I still have a doubt."))
+            }
+            if (t.status == "closed" && !t.can_reopen) Quiet((if (t.helpful == true) tl("Resolved: you said it's clear now.") else tl("This question is closed.")), Modifier.padding(top = 8.dp))
             else {
-                OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, label = { Text(if (t.teacher) tl("Your answer") else tl("Reply")) })
+                if (t.status == "closed") Quiet(tl("Resolved. Still unsure? You can reopen it ({n} left, within 14 days of resolving).", "n" to (t.reopens_left ?: 0)), Modifier.padding(top = 8.dp))
+                OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2,
+                                  label = { Text(if (t.teacher) tl("Your answer") else if (t.status == "closed" || t.label == "answered") tl("I still have a doubt") else tl("Reply")) })
                 PhotoPick(photo) { photo = it }
                 if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -215,8 +270,8 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                         try { q = a.send("POST", "/questions/$id/replies", buildJsonObject { put("text", text.trim()); put("photo", photo.orEmpty()) }, QuestionThread.serializer()); text = ""; photo = null }
                         catch (e: Exception) { err = I18n.srv(e.message) }
                         busy = false
-                    } }) { Text(if (busy) tl("Sending…") else if (t.teacher) tl("Send answer") else tl("Send")) }
-                    OutlinedButton(onClick = { closing = true }) { Text(tl("Close the question")) }
+                    } }) { Text(if (busy) tl("Sending…") else if (t.teacher) tl("Send answer") else if (t.status == "closed") tl("Reopen and send") else tl("Send")) }
+                    if (t.status != "closed") OutlinedButton(onClick = { closing = true }) { Text(if (t.teacher) tl("Mark resolved") else tl("Close the question")) }
                 }
                 if (t.can_withdraw) TextButton(onClick = { withdrawing = true }) { Text(tl("Withdraw the question")) }  // before any answer: take it back
             }

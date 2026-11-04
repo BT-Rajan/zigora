@@ -87,7 +87,7 @@ fun firstName(n: String): String {  // as on the web: a title stays with the sur
 @Composable
 fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, openQuiz: (Int) -> Unit, openNotes: () -> Unit, openPhoto: () -> Unit,
                openSearch: () -> Unit, openRoutine: () -> Unit, openSession: (app.zigora.data.SessionItem) -> Unit, openStudy: () -> Unit,
-               openOwn: (Int, Int) -> Unit, review: (Int) -> Unit, openMcq: () -> Unit = {}, openCalendar: () -> Unit = {}, openProgress: () -> Unit = {}, openPlan: () -> Unit = {}, openClasses: () -> Unit = {}, openJoin: () -> Unit = {}) {
+               openOwn: (Int, Int) -> Unit, review: (Int) -> Unit, openMcq: () -> Unit = {}, openCalendar: () -> Unit = {}, openProgress: () -> Unit = {}, openPlan: () -> Unit = {}, openClasses: () -> Unit = {}, openJoin: () -> Unit = {}, openSet: (Int) -> Unit = {}) {
     val tree = rememberLoad("tree") { get("/tree", ListSerializer(ProgramNode.serializer())) }
     val zapp = app(); androidx.compose.runtime.LaunchedEffect(tree.state) { if (tree.state !is Load.Loading) zapp.firstScreenReady.value = true }
     val today = rememberLoad("today") { get("/me/today", Today.serializer()) }
@@ -119,6 +119,7 @@ fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, open
                 CourseInvitesCard(openJoin)
                 NextClassCard(openClasses)
                 sess?.let { SessionCard(it, openRoutine, openSession) { n -> sess = n } }
+                if (me.role == "student") SupportCard(openTopic, openQuiz, openSet)  // S45: a teacher's extra practice
                 if (dd != null) {  // what to do next, then this week; with a routine, today's session already lists the topics
                     val items = if (sess?.routine != null) dd.items.filter { !it.key.startsWith("focus_") } else dd.items
                     if (items.isNotEmpty()) SectionTitle(tl("Do next"))
