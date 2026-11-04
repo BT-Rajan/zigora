@@ -486,7 +486,15 @@ function SelfReg({cfg,run}){
     <LiteLimits cfg={cfg} run={run}/>
     <h3 className="sec">{tl("Time away from learning")}</h3>
     <p className="known">{tl("Counted from learning (topics opened or learned, tests, MCQ sets), never from just opening the app. After the first number of days a student gets a welcome back and a lighter week; teachers see who is away.")}</p>
-    <BreakDays cfg={cfg} run={run}/></>}
+    <BreakDays cfg={cfg} run={run}/>
+    <h3 className="sec">{tl("Response targets for student doubts")}</h3>
+    <p className="known">{tl("Optional. When set, a doubt is marked overdue in the teachers' list after this many hours without an answer. Plain hours: nights, weekends and holidays count. 0 means no target.")}</p>
+    <DoubtHours cfg={cfg} run={run}/></>}
+function DoubtHours({cfg,run}){  // S42: hours to a first answer and to a reply after a follow-up; 0: no target
+  const [v,setV]=useState(null),cur=v||{a:String(cfg.doubt_hours?.[0]??0),b:String(cfg.doubt_hours?.[1]??0)}
+  return <><div className="two"><div><label htmlFor="dh1">{tl("First answer within (hours)")}</label><input id="dh1" type="number" min="0" max="720" value={cur.a} onChange={e=>setV({...cur,a:e.target.value})}/></div>
+    <div><label htmlFor="dh2">{tl("Reply to a follow-up within (hours)")}</label><input id="dh2" type="number" min="0" max="720" value={cur.b} onChange={e=>setV({...cur,b:e.target.value})}/></div></div>
+    <button className="btn ghost" onClick={()=>run(()=>api('/admin/settings',{method:'PUT',body:{doubt_hours:[+cur.a||0,+cur.b||0]}}).then(()=>setV(null)),'Saved')}>{tl("Save")}</button></>}
 function BreakDays({cfg,run}){  // S39: when time away counts as an extended break, and when as a long one
   const [v,setV]=useState(null),cur=v||{a:String(cfg.break_days?.[0]??7),b:String(cfg.break_days?.[1]??30)}
   return <><div className="two"><div><label htmlFor="bd1">{tl("Extended break after (days)")}</label><input id="bd1" type="number" min="1" max="364" value={cur.a} onChange={e=>setV({...cur,a:e.target.value})}/></div>
@@ -967,15 +975,50 @@ function MyQuestions({toast}){
 const QRow=({x,onOpen,teacher})=><button className="card ward" onClick={onOpen}><span className="wtop"><b>{x.topic}</b>{x.unread?<span className="chip">{tl("New answer")}</span>:<QChip s={x.status} teacher={teacher} label={x.label}/>}</span>
   <span className="known">{[x.course,x.student,!teacher&&x.at&&day(x.at.slice(0,10))].filter(Boolean).join(' · ')}</span><span style={{display:'block',marginTop:4,overflowWrap:'anywhere'}}>{x.last}</span></button>
 // a teacher's inbox: questions waiting for their answer first (oldest first), or every question on their courses
+// the doubt management centre (S42): counts, a filtered and sorted list (the server pages it), and a report; a doubt opens in the same thread page (S41)
+const DQ_COUNTS=[['pending','Pending'],['follow_up','Follow-up'],['answered','Answered'],['resolved','Resolved']]
+const hrs=h=>h==null?'':h<48?tl("{n} h",{n:Math.round(h)}):tl("{n} days",{n:Math.round(h/24)})
 function TeacherQuestions({toast,back}){
-  const [view,setView]=useState('waiting'),[open,setOpen]=useState(null)
-  const {items,total,page,setPage,ready,reload}=usePaged(o=>`/questions?status=${view}&limit=${PAGE}&offset=${o}`,[view],toast)
-  if(open)return <QuestionThread id={open} back={()=>{setOpen(null);reload()}} toast={toast}/>
-  return <><Bar title={tl("Student questions")} sub={ready?pl(total,'question'):''} back={back}/><div className="main">
-    <Tabs label={tl("Which questions")} items={[['waiting',tl("Waiting for you")],['all',tl("All")]]} value={view} onChange={setView}/>
-    {!ready?<Skeleton/>:!items.length?<p className="known">{view==='waiting'?tl("No question is waiting for you."):tl("No questions yet.")}</p>
-      :items.map(x=><QRow key={x.id} x={x} teacher onOpen={()=>setOpen(x.id)}/>)}
-    <Pager page={page} total={total} onPage={setPage}/></div></>}
+  const {role}=useContext(Ctx),admin=role==='admin'
+  const [open,setOpen]=useState(null),[tab,setTab]=useState('list'),[sum,setSum]=useState(null),[n,setN]=useState(0)
+  const [f,setF]=useState({label:'',course_id:0,unit_id:0,q:'',since:'',until:'',sort:'priority',overdue:false,unassigned:false,teacher_id:0}),set=(k,v)=>setF(x=>({...x,[k]:v}))
+  useEffect(()=>{api('/questions/summary').then(setSum).catch(e=>toast(e.message))},[n])
+  const qs=new URLSearchParams(Object.entries(f).filter(([,v])=>v&&v!==0).map(([k,v])=>[k,String(v)])).toString()
+  const {items,total,page,setPage,ready,reload}=usePaged(o=>`/questions?${qs}&limit=${PAGE}&offset=${o}`,[qs],toast)
+  if(open)return <QuestionThread id={open} back={()=>{setOpen(null);reload();setN(x=>x+1)}} toast={toast}/>
+  const units=sum?.courses.find(c=>c.id===f.course_id)?.units||[]
+  const chip=(k,l,v,extra={})=>v==null?null:<button key={k} className={'stat'+((f.label===k&&!extra.flag)||(extra.flag&&f[extra.flag])?' on':'')} onClick={()=>setF(x=>extra.flag?{...x,[extra.flag]:!x[extra.flag],label:''}:{...x,label:x.label===k?'':k,overdue:false,unassigned:false})}><b>{v}</b><small className="known">{tl(l)}</small></button>
+  return <><Bar title={tl("Student questions")} sub={ready&&tab==='list'?pl(total,'question'):''} back={back}/><div className="main">
+    <Tabs label={tl("View")} items={[['list',tl("Doubts")],['report',tl("Report")]]} value={tab} onChange={setTab}/>
+    {tab==='report'?<DoubtReport toast={toast}/>:<>
+    {sum&&<div className="stats dqstats">{DQ_COUNTS.map(([k,l])=>chip(k,l,sum[k]))}{chip('overdue','Overdue',sum.overdue,{flag:'overdue'})}{admin&&chip('unassigned','No teacher',sum.unassigned,{flag:'unassigned'})}</div>}
+    {sum&&sum.overdue==null&&<p className="known" style={{marginTop:0}}>{tl("No response target is set, so nothing is marked overdue.")}{admin?' '+tl("Set one in Settings."):''}</p>}
+    {sum&&sum.overdue!=null&&<p className="known" style={{marginTop:0}}>{[sum.targets.first_hours&&tl("Overdue: no first answer within {a} h",{a:sum.targets.first_hours}),sum.targets.followup_hours&&tl("no reply to a follow-up within {b} h",{b:sum.targets.followup_hours})].filter(Boolean).join('; ')}{' '}{tl("(plain hours: nights and weekends count).")}</p>}
+    <div className="search"><Search size={18}/><input type="search" aria-label={tl("Search doubts")} placeholder={tl("Search by student, question or topic")} value={f.q} onChange={e=>set('q',e.target.value)}/></div>
+    <div className="qopt"><select aria-label={tl("Course")} value={f.course_id} onChange={e=>setF(x=>({...x,course_id:+e.target.value,unit_id:0}))}><option value={0}>{tl("All courses")}</option>{(sum?.courses||[]).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+      {f.course_id>0&&<select aria-label={tl("Unit")} value={f.unit_id} onChange={e=>set('unit_id',+e.target.value)}><option value={0}>{tl("All units")}</option>{units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>}
+      {admin&&sum?.teachers?.length>0&&<select aria-label={tl("Teacher")} value={f.teacher_id} onChange={e=>set('teacher_id',+e.target.value)}><option value={0}>{tl("All teachers")}</option>{sum.teachers.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select>}
+      <select aria-label={tl("Sort by")} value={f.sort} onChange={e=>set('sort',e.target.value)}>{[['priority',tl("Oldest unanswered first")],['followups',tl("Follow-ups first")],['submitted',tl("Newest submitted")],['updated',tl("Latest activity")]].map(([k,l])=><option key={k} value={k}>{l}</option>)}</select></div>
+    <div className="qopt"><label className="known">{tl("From")}{" "}<input type="date" value={f.since} onChange={e=>set('since',e.target.value)}/></label><label className="known">{tl("To")}{" "}<input type="date" value={f.until} onChange={e=>set('until',e.target.value)}/></label></div>
+    {!ready?<Skeleton/>:!items.length?<p className="known">{tl("No doubts match.")}</p>:items.map(x=><DoubtRow key={x.id} x={x} onOpen={()=>setOpen(x.id)}/>)}
+    <Pager page={page} total={total} onPage={setPage}/></>}</div></>}
+const DoubtRow=({x,onOpen})=><button className="card ward" onClick={onOpen}><span className="wtop"><b>{x.topic||x.course}</b><span><QChip s={x.status} label={x.label}/>{x.overdue&&<>{" "}<span className="chip" style={{color:'var(--bad)'}}>{tl("Overdue")}</span></>}</span></span>
+  <span className="known">{[x.student,x.course,x.unit].filter(Boolean).join(' · ')}</span><span style={{display:'block',marginTop:4,overflowWrap:'anywhere'}}>{x.preview}</span>
+  <small className="known" style={{display:'block',marginTop:4}}>{[tl("Asked {when}",{when:when(x.at)}),tl("last activity {when}",{when:when(x.updated)}),x.waiting_hours!=null&&tl("waiting {t}",{t:hrs(x.waiting_hours)}),x.teacher?tl("Teacher: {name}",{name:x.teacher}):tl("No teacher assigned"),x.reopens>0&&tl("reopened {n}×",{n:x.reopens})].filter(Boolean).join(' · ')}</small></button>
+function DoubtReport({toast}){
+  const [d,setD]=useState(null),[days,setDays]=useState(90)
+  useEffect(()=>{setD(null);api('/questions/report?days='+days).then(setD).catch(e=>toast(e.message))},[days])
+  const table=(rows,extra)=>rows.map(r=><div key={r.id} className="row"><div>{r.name}<small>{[extra&&extra(r),(r.doubts===1?tl("1 doubt"):tl("{n} doubts",{n:r.doubts})),r.pending&&tl("{n} pending",{n:r.pending}),r.follow_up&&tl("{n} follow-ups",{n:r.follow_up}),r.reopened&&tl("{n} reopened",{n:r.reopened})].filter(Boolean).join(' · ')}</small></div></div>)
+  return <><div className="qopt"><select aria-label={tl("Period")} value={days} onChange={e=>setDays(+e.target.value)}>{[30,90,365].map(n=><option key={n} value={n}>{tl("Last {n} days",{n})}</option>)}</select></div>
+    {!d?<Skeleton/>:!d.total?<p className="known">{tl("No doubts in this period.")}</p>:<>
+    <div className="stats"><div className="stat"><b>{d.total}</b><small className="known">{tl("Doubts")}</small></div><div className="stat"><b>{d.pending}</b><small className="known">{tl("Pending")}</small></div>
+      <div className="stat"><b>{d.follow_up}</b><small className="known">{tl("Follow-up")}</small></div><div className="stat"><b>{d.reopened}</b><small className="known">{tl("Reopened")}</small></div></div>
+    <p className="known">{tl("Counts of doubts asked in this period, by where they came from. No AI is involved.")}</p>
+    <h3 className="sec">{tl("Topics with the most doubts")}</h3>{table(d.by_topic,r=>[r.course,r.unit].filter(Boolean).join(' › '))}
+    <h3 className="sec">{tl("By course")}</h3>{table(d.by_course)}
+    {d.by_unit.length>0&&<><h3 className="sec">{tl("By unit")}</h3>{table(d.by_unit)}</>}
+    {d.asks_again.length>0&&<><h3 className="sec">{tl("Students who often ask again")}</h3><p className="known" style={{marginTop:0}}>{tl("Wrote again after an answer at least twice in this period.")}</p>
+      {d.asks_again.map(x=><div key={x.id} className="row"><div>{x.name}<small>{tl("{n} follow-ups",{n:x.follow_ups})}</small></div></div>)}</>}</>}</>}
 // ---- announcements and classes: a teacher posts a note to a course, or schedules a class with a video link (Google Meet, Zoom). Students and
 // ---- parents read them here and join a class from here; a class is also in their calendars, and they are told by email, in the bell and on the phone
 const classWhen=x=>x.starts_at?new Date(x.starts_at).toLocaleString(locale(),{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+' · '+tl("{n} min",{n:x.minutes}):''

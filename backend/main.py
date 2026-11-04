@@ -1925,6 +1925,7 @@ class Cfg(BaseModel):
     keys: dict[str, str] | None = None; models: dict[str, str] | None = None; budgets: dict[str, int] | None = None; remove_keys: list[str] | None = None  # by provider
     lite_searches: int | None = None; lite_minutes: int | None = None  # the free daily allowance of self-registered (lite) people
     break_days: list[int] | None = None  # S39: [extended, long] days away from learning
+    doubt_hours: list[int] | None = None  # S42: [hours to a first answer, hours to answer a follow-up]; 0 turns a target off
     google_client_id: str | None = None  # Sign in with Google: the web client ID (more, comma separated); empty turns it off
 @app.get("/api/admin/settings")
 def get_cfg(_: User = Depends(admin), s: Session = Depends(db)):
@@ -1936,7 +1937,7 @@ def get_cfg(_: User = Depends(admin), s: Session = Depends(db)):
             "vision_set": bool(vk), "vision_hint": ("…" + vk[-4:]) if vk else "", "vision_model": setting(s, "vision_model", VISION_MODEL), "ocr": ocr_ready(),
             "budget": {x: budget(s, x) for x in PROVIDERS},
             "self_registration": setting(s, "self_registration") == "1", "allowed_domains": setting(s, "allowed_domains"), "self_registered_users": s.query(User).filter_by(self_registered=True).count(),
-            "lite": dict(zip(("searches", "minutes"), lite_limits(s))), "break_days": list(break_days(s))}
+            "lite": dict(zip(("searches", "minutes"), lite_limits(s))), "break_days": list(break_days(s)), "doubt_hours": list(doubt_targets(s))}
 @app.put("/api/admin/settings")
 def put_cfg(b: Cfg, _: User = Depends(admin), s: Session = Depends(db)):
     if b.remove_key: s.query(Setting).filter_by(k="deepseek_key").delete()  # turns AI off for everyone until a new key is saved
@@ -1964,6 +1965,9 @@ def put_cfg(b: Cfg, _: User = Depends(admin), s: Session = Depends(db)):
     for k, v in (("vision_key", b.vision_key), ("vision_model", b.vision_model)):
         if v and v.strip() and not (k == "vision_key" and b.remove_vision_key): s.merge(Setting(k=k, v=v.strip()))
     if b.self_registration is not None: s.merge(Setting(k="self_registration", v="1" if b.self_registration else "0"))
+    if b.doubt_hours is not None:
+        if len(b.doubt_hours) != 2 or not all(0 <= h <= 24 * 30 for h in b.doubt_hours): raise HTTPException(400, "Enter two numbers of hours from 0 to 720 (0: no target)")
+        s.merge(Setting(k="doubt_first_hours", v=str(b.doubt_hours[0]))); s.merge(Setting(k="doubt_followup_hours", v=str(b.doubt_hours[1])))
     if b.break_days is not None:
         if len(b.break_days) != 2 or not 1 <= b.break_days[0] < b.break_days[1] <= 365: raise HTTPException(400, "Enter two numbers of days, the second larger: for example 7 and 30")
         s.merge(Setting(k="break_extended_days", v=str(b.break_days[0]))); s.merge(Setting(k="break_long_days", v=str(b.break_days[1])))
@@ -5191,18 +5195,151 @@ def my_questions(u: User = Depends(me), s: Session = Depends(db)):
         .filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status != "withdrawn").order_by(TeacherQuestion.updated.desc()).limit(100).all()
     last = tq_last(s, [q.id for q, _, _ in rows])
     return {"items": [{**tq_row(q, t, c, last.get(q.id)), "label": tq_label(s, q), "at": utc_iso(q.at), "unread": q.status == "answered" and (q.seen is None or q.seen < q.updated)} for q, t, c in rows]}
-@app.get("/api/questions")
-def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0, u: User = Depends(author), s: Session = Depends(db)):
-    """Students' questions to this teacher (every course's for admins): waiting for an answer first, oldest first; or all of them, newest first."""
-    q = tq_for(u, s)
-    if status == "waiting": q = q.filter(TeacherQuestion.status == "waiting").order_by(TeacherQuestion.updated)
-    else: q = q.order_by(TeacherQuestion.updated.desc())
-    total = q.count(); page = q.offset(max(offset, 0)).limit(min(max(limit, 1), 50)).all()
+# ---- the doubt management centre (S42): one list of a teacher's doubts (their own courses'; admins: every course) with counts, filters, search, sort,
+# ---- an optional overdue flag and operational counts. It reads the same records as everything else (teacher_questions, teacher_replies,
+# ---- question_events); a doubt's teacher is its course's owner, so moving doubts to another teacher means changing the course's owner.
+DQ_LABELS = ("pending", "follow_up", "answered", "resolved")
+def doubt_targets(s):  # (hours to a first answer, hours to answer a follow-up); 0: no target. Set by an admin; none by default
+    def h(k):
+        try: return max(0, int(setting(s, k, "0") or 0))
+        except ValueError: return 0
+    return h("doubt_first_hours"), h("doubt_followup_hours")
+def s_exists_teacher_reply():  # SQL: this doubt has a reply from someone other than the student who asked
+    from sqlalchemy import exists
+    return exists().where(TeacherReply.question_id == TeacherQuestion.id, TeacherReply.user_id != TeacherQuestion.user_id)
+def dq_label_filter(label):
+    tr = s_exists_teacher_reply()
+    return {"pending": and_(TeacherQuestion.status == "waiting", ~tr), "follow_up": and_(TeacherQuestion.status == "waiting", tr),
+            "answered": TeacherQuestion.status == "answered", "resolved": TeacherQuestion.status == "closed"}[label]
+def dq_unassigned():  # the course has no active owner: the doubt waits in the admins' queue
+    from sqlalchemy import exists
+    owner_ok = exists().where(Course.id == TeacherQuestion.course_id, User.id == Course.faculty_owner_id, User.active == True)  # noqa: E712
+    return ~owner_ok
+def dq_overdue(s, now=None):  # None when no target is set; else the SQL condition (elapsed hours, no working-hours calendar)
+    first, follow = doubt_targets(s); now = now or dt.datetime.utcnow(); conds = []
+    if first: conds.append(and_(dq_label_filter("pending"), TeacherQuestion.at <= now - dt.timedelta(hours=first)))
+    if follow: conds.append(and_(dq_label_filter("follow_up"), TeacherQuestion.updated <= now - dt.timedelta(hours=follow)))
+    return or_(*conds) if conds else None
+def dq_scope(u, s):  # the doubts this person may manage: questions students asked (not messages a teacher started), not withdrawn
+    return tq_for(u, s).filter(TeacherQuestion.started_by.is_(None))
+def dq_filtered(u, s, label="", course_id=0, unit_id=0, topic_id=0, student="", q="", since="", until="", teacher_id=0, unassigned=False, overdue=False):
+    x = dq_scope(u, s)
+    if label:
+        if label not in DQ_LABELS: raise HTTPException(400, "Choose pending, follow_up, answered or resolved")
+        x = x.filter(dq_label_filter(label))
+    if course_id: x = x.filter(TeacherQuestion.course_id == course_id)
+    if topic_id: x = x.filter(TeacherQuestion.topic_id == topic_id)
+    if unit_id: x = x.filter(TeacherQuestion.topic_id.in_(s.query(Topic.id).filter(Topic.unit_id == unit_id)))
+    if student: x = x.filter(TeacherQuestion.user_id.in_(s.query(User.id).filter(or_(User.name.ilike(f"%{student[:80]}%"), User.email.ilike(f"%{student[:80]}%")))))
+    if q:
+        like = f"%{q.strip()[:100]}%"
+        x = x.filter(or_(TeacherQuestion.user_id.in_(s.query(User.id).filter(User.name.ilike(like))), TeacherQuestion.topic_id.in_(s.query(Topic.id).filter(Topic.title.ilike(like))),
+                         TeacherQuestion.id.in_(s.query(TeacherReply.question_id).filter(TeacherReply.text.ilike(like))), TeacherQuestion.excerpt.ilike(like)))
+    lo, hi = local_bounds(since, until)
+    if lo: x = x.filter(TeacherQuestion.at >= dt.datetime.combine(lo, dt.time()) - dt.timedelta(minutes=DAY_OFFSET))
+    if hi: x = x.filter(TeacherQuestion.at < dt.datetime.combine(hi + dt.timedelta(days=1), dt.time()) - dt.timedelta(minutes=DAY_OFFSET))
+    if teacher_id or unassigned:
+        if u.role != "admin": raise HTTPException(403, "Only admins filter by teacher")
+        if teacher_id: x = x.filter(TeacherQuestion.course_id.in_(s.query(Course.id).filter(Course.faculty_owner_id == teacher_id)))
+        if unassigned: x = x.filter(dq_unassigned())
+    if overdue:
+        cond = dq_overdue(s)
+        x = x.filter(cond) if cond is not None else x.filter(TeacherQuestion.id == -1)  # no target set: nothing is overdue
+    return x
+def dq_rows(s, page, now=None):  # list rows, loaded in a few queries (never one per doubt)
+    now = now or dt.datetime.utcnow(); ids = [x.id for x in page]
     tops = {t.id: t for t in s.query(Topic).filter(Topic.id.in_([x.topic_id for x in page] or [0]))}
+    units = {un.id: un for un in s.query(Unit).filter(Unit.id.in_([t.unit_id for t in tops.values() if t.unit_id] or [0]))}
     cos = {c.id: c for c in s.query(Course).filter(Course.id.in_([x.course_id for x in page if x.course_id] or [0]))}
-    names = {x.id: x.name for x in s.query(User).filter(User.id.in_([x.user_id for x in page] or [0]))}
-    last = tq_last(s, [x.id for x in page])
-    return {"total": total, "items": [tq_row(x, tops.get(x.topic_id), cos.get(x.course_id), last.get(x.id), names.get(x.user_id, "")) for x in page]}
+    people = {x.id: x for x in s.query(User).filter(User.id.in_([x.user_id for x in page] + [c.faculty_owner_id for c in cos.values() if c.faculty_owner_id] or [0]))}
+    first, answered_ids, first_ans, by_id = {}, set(), {}, {x.id: x for x in page}
+    for r in s.query(TeacherReply).filter(TeacherReply.question_id.in_(ids or [0])).order_by(TeacherReply.id):
+        q = by_id[r.question_id]
+        if r.user_id == q.user_id: first.setdefault(r.question_id, r.text)
+        else: answered_ids.add(r.question_id); first_ans.setdefault(r.question_id, r.at)
+    tf, tu = doubt_targets(s); out = []
+    for x in page:
+        t = tops.get(x.topic_id); un = units.get(t.unit_id) if t else None; c = cos.get(x.course_id); owner = people.get(c.faculty_owner_id) if c and c.faculty_owner_id else None
+        label = "resolved" if x.status == "closed" else "answered" if x.status == "answered" else "follow_up" if x.id in answered_ids else "pending"
+        since = x.at if label == "pending" else x.updated if label == "follow_up" else None
+        wait = (now - since).total_seconds() / 3600 if since else None
+        limit = tf if label == "pending" else tu if label == "follow_up" else 0
+        out.append({"id": x.id, "student": people[x.user_id].name if x.user_id in people else "", "course_id": x.course_id, "course": c.name if c else "", "unit": un.name if un else "",
+                    "topic_id": x.topic_id, "topic": t.title if t else "", "preview": (first.get(x.id) or "")[:160], "at": utc_iso(x.at), "updated": utc_iso(x.updated), "label": label,
+                    "status": x.status, "teacher": owner.name if owner and owner.active else None, "waiting_hours": round(wait, 1) if wait is not None else None,
+                    "overdue": bool(limit and wait is not None and wait >= limit), "reopens": x.reopens or 0, "helpful": x.helpful,
+                    "first_response_hours": round((first_ans[x.id] - x.at).total_seconds() / 3600, 1) if x.id in first_ans else None,
+                    "resolution_hours": round((x.resolved_at - x.at).total_seconds() / 3600, 1) if x.resolved_at else None})
+    return out
+DQ_SORTS = ("priority", "submitted", "updated", "followups")
+@app.get("/api/questions")
+def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0, label: str = "", sort: str = "", course_id: int = 0, unit_id: int = 0, topic_id: int = 0,
+                      student: str = "", q: str = "", since: str = "", until: str = "", teacher_id: int = 0, unassigned: bool = False, overdue: bool = False,
+                      u: User = Depends(author), s: Session = Depends(db)):
+    """Students' questions to this teacher (every course's for admins). Without the S42 filters it is the older inbox (waiting first, or all, newest
+    first, teacher-started messages included). With them: the doubt centre's list, filtered and sorted on the server, a page at a time."""
+    if not (label or sort or course_id or unit_id or topic_id or student or q or since or until or teacher_id or unassigned or overdue):
+        x = tq_for(u, s)
+        if status == "waiting": x = x.filter(TeacherQuestion.status == "waiting").order_by(TeacherQuestion.updated)
+        else: x = x.order_by(TeacherQuestion.updated.desc())
+        total = x.count(); page = x.offset(max(offset, 0)).limit(min(max(limit, 1), 50)).all()
+        tops = {t.id: t for t in s.query(Topic).filter(Topic.id.in_([y.topic_id for y in page] or [0]))}
+        cos = {c.id: c for c in s.query(Course).filter(Course.id.in_([y.course_id for y in page if y.course_id] or [0]))}
+        names = {y.id: y.name for y in s.query(User).filter(User.id.in_([y.user_id for y in page] or [0]))}
+        last = tq_last(s, [y.id for y in page])
+        return {"total": total, "items": [tq_row(y, tops.get(y.topic_id), cos.get(y.course_id), last.get(y.id), names.get(y.user_id, "")) for y in page]}
+    if sort and sort not in DQ_SORTS: raise HTTPException(400, "Choose priority, submitted, updated or followups")
+    x = dq_filtered(u, s, label, course_id, unit_id, topic_id, student, q, since, until, teacher_id, unassigned, overdue)
+    waiting = case((TeacherQuestion.status == "waiting", 0), else_=1); fu = case((dq_label_filter("follow_up"), 0), else_=1)
+    order = {"priority": (waiting, case((TeacherQuestion.status == "waiting", TeacherQuestion.updated), else_=None), TeacherQuestion.updated.desc()),  # oldest unanswered first, then the rest newest first
+             "submitted": (TeacherQuestion.at.desc(),), "updated": (TeacherQuestion.updated.desc(),),
+             "followups": (fu, waiting, TeacherQuestion.updated)}[sort or "priority"]
+    total = x.count(); page = x.order_by(*order, TeacherQuestion.id).offset(max(offset, 0)).limit(min(max(limit, 1), 50)).all()
+    return {"total": total, "items": dq_rows(s, page)}
+@app.get("/api/questions/summary")
+def doubt_summary(u: User = Depends(author), s: Session = Depends(db)):  # the centre's counts, from the very same scope and definitions as the list
+    out = {k: dq_scope(u, s).filter(dq_label_filter(k)).count() for k in DQ_LABELS}
+    cond = dq_overdue(s); first, follow = doubt_targets(s)
+    out["overdue"] = dq_scope(u, s).filter(cond).count() if cond is not None else None
+    out["unassigned"] = dq_scope(u, s).filter(dq_unassigned(), TeacherQuestion.status == "waiting").count() if u.role == "admin" else None
+    out["targets"] = {"first_hours": first or None, "followup_hours": follow or None}
+    cids = {c for (c,) in dq_scope(u, s).with_entities(TeacherQuestion.course_id).distinct() if c}
+    out["courses"] = [{"id": c.id, "name": c.name, "units": [{"id": n.id, "name": n.name} for n in s.query(Unit).filter(Unit.course_id == c.id, Unit.archived_at.is_(None)).order_by(*ORDER[Unit])]}
+                      for c in s.query(Course).filter(Course.id.in_(cids or {0})).order_by(Course.name)]
+    out["teachers"] = [{"id": t.id, "name": t.name} for t in s.query(User).filter(User.id.in_(s.query(Course.faculty_owner_id).filter(Course.id.in_(cids or {0})))).order_by(User.name)] if u.role == "admin" else []
+    return out
+@app.get("/api/questions/report")
+def doubt_report(days: int = 90, u: User = Depends(author), s: Session = Depends(db)):
+    """Operational counts over the last days, within the same scope: doubts by course, unit and topic (with what is still waiting), reopened doubts,
+    and students who often ask again after an answer. Counting only; no AI."""
+    days = min(max(days, 7), 365); since = dt.datetime.utcnow() - dt.timedelta(days=days)
+    base = dq_scope(u, s).filter(TeacherQuestion.at >= since)
+    rows = base.with_entities(TeacherQuestion.id, TeacherQuestion.course_id, TeacherQuestion.topic_id, TeacherQuestion.status, TeacherQuestion.reopens, TeacherQuestion.user_id).all()
+    ids = [r.id for r in rows]; replied = {qid for (qid,) in s.query(TeacherReply.question_id).join(TeacherQuestion, TeacherQuestion.id == TeacherReply.question_id)
+                                           .filter(TeacherReply.question_id.in_(ids or [0]), TeacherReply.user_id != TeacherQuestion.user_id)}
+    tops = {t.id: t for t in s.query(Topic).filter(Topic.id.in_({r.topic_id for r in rows} or {0}))}
+    units = {n.id: n for n in s.query(Unit).filter(Unit.id.in_({t.unit_id for t in tops.values()} or {0}))}
+    cos = {c.id: c.name for c in s.query(Course).filter(Course.id.in_({r.course_id for r in rows} or {0}))}
+    def lab(r): return "resolved" if r.status == "closed" else "answered" if r.status == "answered" else "follow_up" if r.id in replied else "pending"
+    def group(key, name):
+        g = {}
+        for r in rows:
+            k = key(r)
+            if k is None: continue
+            x = g.setdefault(k, {"id": k, "name": name(k), "doubts": 0, "pending": 0, "follow_up": 0, "reopened": 0}); x["doubts"] += 1
+            l = lab(r); x["reopened"] += bool(r.reopens)
+            if l in ("pending", "follow_up"): x[l] += 1
+        return sorted(g.values(), key=lambda x: (-x["doubts"], x["name"]))
+    by_topic = group(lambda r: r.topic_id if r.topic_id in tops else None, lambda k: tops[k].title)
+    for x in by_topic: t = tops[x["id"]]; x["unit"] = units[t.unit_id].name if t.unit_id in units else ""; x["course"] = cos.get(units[t.unit_id].course_id, "") if t.unit_id in units else ""
+    asks_again = defaultdict(int)  # a student writing again after an answer: a follow_up event they made
+    for uid, in s.query(QuestionEvent.user_id).join(TeacherQuestion, TeacherQuestion.id == QuestionEvent.question_id).filter(QuestionEvent.question_id.in_(ids or [0]), QuestionEvent.after == "follow_up", QuestionEvent.user_id == TeacherQuestion.user_id):
+        asks_again[uid] += 1
+    names = {x.id: x.name for x in s.query(User).filter(User.id.in_(list(asks_again) or [0]))}
+    return {"days": days, "total": len(rows), "pending": sum(lab(r) == "pending" for r in rows), "follow_up": sum(lab(r) == "follow_up" for r in rows),
+            "reopened": sum(bool(r.reopens) for r in rows), "by_course": group(lambda r: r.course_id, lambda k: cos.get(k, "")),
+            "by_unit": group(lambda r: tops[r.topic_id].unit_id if r.topic_id in tops and tops[r.topic_id].unit_id in units else None, lambda k: units[k].name),
+            "by_topic": by_topic[:20], "asks_again": sorted([{"id": k, "name": names.get(k, ""), "follow_ups": v} for k, v in asks_again.items() if v >= 2], key=lambda x: -x["follow_ups"])[:10]}
 def tq_json(q, u, s):
     t, c = s.get(Topic, q.topic_id) if q.topic_id else None, s.get(Course, q.course_id) if q.course_id else None
     asker = s.get(User, q.user_id); teach = q.user_id != u.id

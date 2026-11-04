@@ -46,6 +46,20 @@ import kotlinx.serialization.json.JsonObject
                                      val last: String = "", val unread: Boolean = false, val student: String? = null, val message: Boolean = false,
                                      val label: String = "", val at: String? = null)  // label (S40): pending, follow_up, answered or resolved
 @Serializable data class QuestionPage(val total: Int = 0, val items: List<QuestionRow> = emptyList())
+/** S42: the doubt management centre (GET /questions with filters, /questions/summary, /questions/report) */
+@Serializable data class DoubtRow(val id: Int, val student: String = "", val course: String = "", val unit: String = "", val topic: String = "", val preview: String = "",
+                                  val at: String? = null, val updated: String? = null, val label: String = "", val teacher: String? = null, val waiting_hours: Double? = null,
+                                  val overdue: Boolean = false, val reopens: Int = 0)
+@Serializable data class DoubtPage(val total: Int = 0, val items: List<DoubtRow> = emptyList())
+@Serializable data class DoubtRef(val id: Int, val name: String = "")
+@Serializable data class DoubtCourse(val id: Int, val name: String = "", val units: List<DoubtRef> = emptyList())
+@Serializable data class DoubtTargets(val first_hours: Int? = null, val followup_hours: Int? = null)
+@Serializable data class DoubtSummary(val pending: Int = 0, val follow_up: Int = 0, val answered: Int = 0, val resolved: Int = 0, val overdue: Int? = null, val unassigned: Int? = null,
+                                      val targets: DoubtTargets = DoubtTargets(), val courses: List<DoubtCourse> = emptyList(), val teachers: List<DoubtRef> = emptyList())
+@Serializable data class DoubtGroup(val id: Int, val name: String = "", val doubts: Int = 0, val pending: Int = 0, val follow_up: Int = 0, val reopened: Int = 0, val unit: String = "", val course: String = "")
+@Serializable data class AskAgain(val id: Int, val name: String = "", val follow_ups: Int = 0)
+@Serializable data class DoubtReport(val days: Int = 90, val total: Int = 0, val pending: Int = 0, val follow_up: Int = 0, val reopened: Int = 0, val by_course: List<DoubtGroup> = emptyList(),
+                                     val by_unit: List<DoubtGroup> = emptyList(), val by_topic: List<DoubtGroup> = emptyList(), val asks_again: List<AskAgain> = emptyList())
 @Serializable data class QuestionList(val items: List<QuestionRow> = emptyList())
 /** a course a teacher offers, as a student sees it in Join a course */
 @Serializable data class Offer(val id: Int, val name: String = "", val about: String = "", val starts_on: String? = null, val ends_on: String? = null, val access: String = "enroll",
