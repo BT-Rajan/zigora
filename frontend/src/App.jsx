@@ -594,7 +594,7 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   const confirm=useConfirm()
   const isAdmin=user.role==='admin',staff=user.role!=='student'
   const [mat,setMat]=useState(false),[rev,setRev]=useState(null)
-  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[resM,setResM]=useState(null),[fin,setFin]=useState(null)
+  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[ci,setCi]=useState(null),[resM,setResM]=useState(null),[fin,setFin]=useState(null)
   const load=()=>api('/tree').then(setTree).catch(e=>toast(e.message));useEffect(()=>{load()},[t,ed,qz,qe,sheet,arch,qr])
   const landed=useRef(!!start?.length);useEffect(()=>{const real=tree.filter(x=>!x.offered);if(landed.current||user.role!=='student'||real.length!==1)return;landed.current=true;const p=real[0],c=p.semesters.find(x=>x.current)||(p.semesters.length===1?p.semesters[0]:null);setNav(c?[p.id,c.id]:[p.id])},[tree])
   const prog=tree.find(x=>x.id===nav[0]),sem=prog?.semesters.find(x=>x.id===nav[1]),co=sem?.courses.find(x=>x.id===nav[2]),unit=co?.units.find(x=>x.id===nav[3])
@@ -610,6 +610,7 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   if(gb)return <Gradebook cid={gb} back={()=>setGb(null)} toast={toast} role={user.role}/>
   if(fin)return <CourseFinishers cid={fin} back={()=>setFin(null)} toast={toast}/>
   if(resM)return <ResourceManager cid={resM} back={()=>setResM(null)} toast={toast}/>
+  if(ci)return <ClassInsight cid={ci} back={()=>setCi(null)} toast={toast}/>
   if(ed)return <TopicEditor role={user.role} toast={toast} edit={ed.id?ed:null} unitId={ed.unit_id} done={()=>setEd(null)} cancel={()=>setEd(null)}/>
   const last=cyc?.relearn?Object.fromEntries([...cyc.relearn.weak.map(x=>[x.id,tl("Weak last time")]),...cyc.relearn.strong.map(x=>[x.id,tl("Strong last time")])]):{}
   const tsub=x=>[x.published===false&&'Draft · students cannot see it',x.optional&&tl("Optional"),x.status!=='completed'&&last[x.id],x.learning_due_at&&(staff?'Due '+when(x.learning_due_at):tl("Your teacher's date")+': '+day(x.learning_due_at)),
@@ -664,7 +665,8 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
       {mayEdit&&!co.shared&&<button className="btn ghost" onClick={()=>setQe({course_id:co.id,csvFirst:true})}><Upload size={16}/>{" "}{tl("New MCQ test from a CSV")}</button>}
       {mayEdit&&<button className="btn ghost" onClick={()=>setGb(co.id)}><BarChart3 size={16}/>{" "}{tl("Gradebook: final scores for every test")}</button>}
       {mayEdit&&<button className="btn ghost" onClick={()=>setFin(co.id)}><ClipboardCheck size={16}/>{" "}{tl("Who has finished this course")}</button>}
-      {mayEdit&&<button className="btn ghost" onClick={()=>setResM(co.id)}><FileText size={16}/>{" "}{tl("Teacher resources")}</button>}</>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setResM(co.id)}><FileText size={16}/>{" "}{tl("Teacher resources")}</button>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setCi(co.id)}><BarChart3 size={16}/>{" "}{tl("Class insight")}</button>}</>}
     {unit&&(unit.quizzes.length>0||mayEdit)&&<><h3 className="sec">{tl("Quizzes")}</h3>
       {<Paged rows={unit.quizzes} render={(q,i)=><div key={q.id} className="card"><button className="hit" onClick={()=>setQz(q.id)}><span className="dot" style={{background:COL[(i+3)%5]}}>?</span><div><b>{q.title}</b><span>{q.questions}{" "}{tl("questions · pass {pass_percent}%",{pass_percent:q.pass_percent})}{q.best!=null?tl(" · best {best}%",{best:q.best}):''}{q.published?'':tl(" · Draft")}</span></div>{q.best!=null&&q.best>=q.pass_percent&&<span className="marks"><Check size={16}/></span>}</button>
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,unit_id:unit.id,unitTopics:unit.topics.map(t=>({id:t.id,title:t.title}))})}><Pencil size={16}/></button></>}</div>}/>}
@@ -956,6 +958,70 @@ function QuestionThread({id,back,toast}){
         <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):q.status==='closed'?tl("Reopen and send"):tl("Send")}</button>
         {q.status!=='closed'&&<button className="btn ghost" onClick={end}>{q.teacher?tl("Mark resolved"):tl("Close the question")}</button>}
         {q.can_withdraw&&<button className="btn ghost" onClick={withdraw}>{tl("Withdraw the question")}</button>}</>}</>}</div></>}  {/* before any answer: take it back */}
+// ---- classroom learning intelligence (S44): for a course's teachers, where students struggle, read from existing records. Every figure shows its sample;
+// ---- a topic is judged only once enough students have enough evidence; suggestions show the evidence behind them; the AI explains only when asked
+const CI_STATUS={needs_study:['Needs attention','var(--bad)'],getting_there:['Needs revision','var(--warn)'],strong:['Strong','var(--ok)'],not_assessed:['Not assessed yet','var(--mut)']}
+const CI_CAT={attention:'Needs attention',revision:'Needs revision',insufficient:'Not enough evidence yet',studied_not_assessed:'Studied, not assessed',not_studied:'Not studied yet',strong:'Strong'}
+const ciRec=r=>({explain:[tl("Explain this topic again in class"),tl("{n} of {of} students with enough evidence need attention",r)],
+  common:[tl("Prepare one explanation for a shared doubt"),tl("{n} students asked about: {words}",{n:r.n,words:(r.words||[]).join(', ')})],
+  practice:[tl("Assign targeted MCQs on the idea behind a commonly missed question"),tl("{n} of {of} answers chose the same wrong option: “{question}”",r)],
+  revise:[tl("Point students to the revision sheet"),tl("{n} students marked it learned, but their results say it hasn't settled yet",r)],
+  individual:[tl("Consider individual support"),tl("{n} students keep scoring low after 3 or more sittings",r)],
+  keep:[tl("Keep the current approach"),tl("Accuracy rose from {from}% to {to}% in the last 30 days",r)]}[r.key]||[r.key,''])
+const ciAcc=a=>a.asked?tl("{p}% of {n} answers, {k} students",{p:a.percent,n:a.asked,k:a.students}):tl("none yet")
+const CiChip=({st})=>{const [l,c]=CI_STATUS[st]||CI_STATUS.not_assessed;return <span className="chip" style={{color:c}}>{tl(l)}</span>}
+function ClassInsight({cid,toast,back}){
+  const [f,setF]=useState({unit_id:0,since:'',until:''}),[d,setD]=useState(null),[open,setOpen]=useState(null)
+  const qs=new URLSearchParams(Object.entries(f).filter(([,v])=>v).map(([k,v])=>[k,String(v)])).toString()
+  useEffect(()=>{setD(null);api(`/reports/courses/${cid}/topics?${qs}`).then(setD).catch(e=>{toast(e.message);back()})},[qs])
+  if(open)return <ClassTopic cid={cid} tid={open} f={f} toast={toast} back={()=>setOpen(null)}/>
+  const r=d?.rule
+  return <><Bar title={tl("Class insight")} sub={d?d.course:''} back={back}/><div className="main">
+    <div className="qopt"><select aria-label={tl("Unit")} value={f.unit_id} onChange={e=>setF({...f,unit_id:+e.target.value})}><option value={0}>{tl("All units")}</option>{(d?.units||[]).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
+    <div className="qopt"><label className="known">{tl("From")}{" "}<input type="date" value={f.since} onChange={e=>setF({...f,since:e.target.value})}/></label><label className="known">{tl("To")}{" "}<input type="date" value={f.until} onChange={e=>setF({...f,until:e.target.value})}/></label></div>
+    {!d?<Skeleton rows={4}/>:<>
+      <p className="known" style={{marginTop:0}}>{tl("{a} of {n} students were active in this period.",{a:d.active,n:d.students})}{' '}{tl("Opening a topic counts as studied, and marking it learned is the student's own word; neither shows understanding. Understanding comes from tests and MCQ practice: a student needs {q}+ questions over {k}+ sittings, and a topic needs {m}+ such students before it is judged.",{q:r.student.min_questions,k:r.student.min_sittings,m:r.min_assessed})}</p>
+      <details className="known"><summary>{tl("How a topic is judged")}</summary><p>{tl("Needs attention: {s}% or more of the students with enough evidence need attention, and at least one more sign: {d}+ students raised doubts, or {w}% or more of the answers to a question ({m}+ answers) chose the same wrong option. Needs revision: {s}% or more need revision or attention. Strong: otherwise.",{s:r.share,d:r.doubt_students,w:r.wrong_share,m:r.wrong_min})}</p></details>
+      {d.topics.map(t=><button key={t.topic_id} className="card ward" onClick={()=>setOpen(t.topic_id)}><span className="wtop"><b>{t.title}</b><CiChip st={t.status}/></span>
+        <small className="known">{[tl("studied {a}/{n}",{a:t.studied,n:t.students}),tl("learned {a}",{a:t.learned}),tl("assessed {a}",{a:t.assessed}),tl("enough evidence {a}",{a:t.evidence})].join(' · ')}</small>
+        {t.evidence>0&&<small className="known" style={{display:'block'}}>{tl("Strong {a} · needs revision {b} · needs attention {c}",{a:t.strong,b:t.needs_revision,c:t.needs_attention})}</small>}
+        <small className="known" style={{display:'block'}}>{tl("Tests")}: {ciAcc(t.tests)} · {tl("Practice")}: {ciAcc(t.practice)}</small>
+        {(t.doubts>0||t.not_clear>0)&&<small className="known" style={{display:'block'}}>{tl("Doubts {a} ({u} unresolved) · “Not clear?” {b}",{a:t.doubts,u:t.unresolved,b:t.not_clear})}</small>}
+        {t.trend&&<small className="known" style={{display:'block'}}>{tl("Accuracy {a}% before the last 30 days ({n} answers), {b}% since ({m})",{a:t.trend.before,n:t.trend.before_asked,b:t.trend.recent,m:t.trend.recent_asked})}</small>}
+        {t.recommendations.length>0&&<span style={{display:'block',marginTop:6}}>{t.recommendations.map((x,k)=>{const [a,b]=ciRec(x);return <small key={k} style={{display:'block'}}>{'→ '}<span style={{fontWeight:600}}>{a}</span>{b?' — '+b:''}</small>})}</span>}</button>)}</>}</div></>}
+function ClassTopic({cid,tid,f,toast,back}){
+  const [d,setD]=useState(null),[cat,setCat]=useState(''),[page,setPage]=useState(0),[ai,setAi]=useState(null),[busy,setBusy]=useState(false),[stu,setStu]=useState(null)
+  const base=`/reports/courses/${cid}/topics/${tid}`,qs=new URLSearchParams({...(f.since?{since:f.since}:{}),...(f.until?{until:f.until}:{})}).toString()
+  useEffect(()=>{api(`${base}?${qs}&category=${cat}&limit=${PAGE}&offset=${page*PAGE}`).then(setD).catch(e=>{toast(e.message);back()})},[cat,page])
+  if(stu)return <ClassStudent cid={cid} tid={tid} sid={stu} toast={toast} back={()=>setStu(null)}/>
+  const explain=async()=>{setBusy(true);try{setAi(await api(`${base}/explain?${qs}`,{method:'POST'}))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const t=d?.topic
+  return <><Bar title={t?t.title:tl("Topic")} sub={tl("Class insight")} back={back}/><div className="main">{!d?<Skeleton rows={4}/>:<>
+    <p style={{marginTop:0}}><CiChip st={t.status}/>{' '}<small className="known">{tl("{e} of {n} students have enough evidence",{e:t.evidence,n:t.students})}</small></p>
+    <div className="qbox"><b>{tl("Ask the AI what the evidence suggests")}</b><p className="known" style={{margin:'4px 0'}}>{tl("It gets only the figures below, the commonly missed questions and the doubts' words, never names, and must cite them. Nothing is decided for you.")}</p>
+      {!ai?<button className="btn ghost" disabled={busy} onClick={explain}><Sparkles size={16}/> {busy?tl("Thinking…"):tl("Explain this topic's difficulties")}</button>:<>
+        <div className="prose"><Md>{ai.text}</Md></div>
+        {ai.unverified_numbers.length>0&&<p className="known" style={{color:'var(--bad)'}}>{tl("Check these numbers: they aren't in the evidence: {list}",{list:ai.unverified_numbers.join(', ')})}</p>}
+        <details><summary className="known">{tl("The evidence it was given ({n} lines)",{n:ai.evidence.length})}</summary>{ai.evidence.map(e=><p key={e.id} className="known" style={{margin:'4px 0'}}><b>[{e.id}]</b> {e.text}</p>)}</details></>}</div>
+    {d.common_wrong.length>0&&<><h3 className="sec">{tl("Questions many got wrong the same way")}</h3>{d.common_wrong.map(q=><div key={q.key} className="qbox"><div className="prose"><Md>{q.text}</Md></div>
+      <small className="known">{tl("{n} answers from {k} students · {source}",{n:q.answered,k:q.students,source:q.source==='practice'?tl("MCQ practice"):q.source})}</small>
+      {(q.options||[]).map((o,k)=><div key={k} className="row" style={{padding:'4px 0'}}><div>{k===q.correct?'✓ ':k===q.wrong_option?'✗ ':''}{String(o)}<small>{k===q.correct?tl("correct"):tl("chosen wrongly {n}×",{n:q.picks[k]||0})}</small></div></div>)}</div>)}</>}
+    {(d.doubt_groups.length>0||d.other_doubts.length>0)&&<><h3 className="sec">{tl("Doubts")}</h3>
+      {d.doubt_groups.map((g,k)=><details key={k} className="qbox"><summary><b>{tl("{n} students asked about: {words}",{n:g.students,words:g.words.join(', ')})}</b></summary>{g.doubts.map(x=><p key={x.id} className="known">“{x.text}” — {x.student}</p>)}</details>)}
+      {d.other_doubts.length>0&&<details className="qbox"><summary>{tl("Other doubts ({n})",{n:d.other_doubts.length})}</summary>{d.other_doubts.map(x=><p key={x.id} className="known">“{x.text}” — {x.student}</p>)}</details>}</>}
+    <h3 className="sec">{tl("Students")}</h3><p className="known" style={{marginTop:0}}>{tl("Grouped by what their records show, not ranked.")}</p>
+    <div className="filters fit" style={{flexWrap:'wrap'}}><button className={'chip'+(cat===''?' on':'')} onClick={()=>{setCat('');setPage(0)}}>{tl("All")} ({Object.values(d.categories).reduce((a,b)=>a+b,0)})</button>
+      {Object.entries(CI_CAT).map(([k,l])=>d.categories[k]>0&&<button key={k} className={'chip'+(cat===k?' on':'')} onClick={()=>{setCat(k);setPage(0)}}>{tl(l)} ({d.categories[k]})</button>)}</div>
+    {d.students.map(x=><button key={x.id} className="row rowbtn" onClick={()=>setStu(x.id)}><div>{x.name}<small>{[tl(CI_CAT[x.category]),x.asked?tl("{p}% of {n} answers over {k} sittings",{p:x.percent,n:x.asked,k:x.sittings}):'',x.improving&&tl("improving"),x.repeated_errors>0&&tl("{n} questions wrong twice or more",{n:x.repeated_errors}),x.learned&&tl("marked learned"),x.doubts>0&&(x.doubts===1?tl("1 doubt"):tl("{n} doubts",{n:x.doubts}))].filter(Boolean).join(' · ')}</small></div><ChevronRight size={18}/></button>)}
+    <Pager page={page} total={d.total} onPage={setPage}/></>}</div></>}
+function ClassStudent({cid,tid,sid,toast,back}){
+  const [d,setD]=useState(null);useEffect(()=>{api(`/reports/courses/${cid}/topics/${tid}/students/${sid}`).then(setD).catch(e=>{toast(e.message);back()})},[sid])
+  return <><Bar title={d?.student||''} sub={d?.topic||''} back={back}/><div className="main">{!d?<Skeleton/>:<>
+    <p style={{marginTop:0}}>{d.label?<CiChip st={d.label}/>:<span className="chip">{tl("Not assessed yet")}</span>}{' '}<small className="known">{[d.studied?tl("opened the topic"):tl("hasn't opened the topic"),d.learned&&tl("marked learned"),d.last_read&&tl("last read {when}",{when:when(d.last_read)})].filter(Boolean).join(' · ')}</small></p>
+    <h3 className="sec">{tl("Sittings")}</h3>{!d.sittings.length?<p className="known">{tl("No tests or MCQ sets on this topic yet.")}</p>:d.sittings.map((x,k)=><div key={k} className="row"><div>{x.kind==='test'?tl("Test"):tl("MCQ practice")}<small>{when(x.at)} · {tl("{a} of {n} right",{a:x.right,n:x.asked})} ({x.percent}%)</small></div></div>)}
+    {d.repeated_errors.length>0&&<><h3 className="sec">{tl("Questions got wrong twice or more")}</h3>{d.repeated_errors.map((x,k)=><div key={k} className="qbox"><div className="prose"><Md>{x.text}</Md></div><small className="known">{tl("Wrong {n} times; usually chose “{o}”; correct: “{c}”",{n:x.times_wrong,o:x.chosen!=null?String(x.options[x.chosen]):'?',c:x.correct!=null?String(x.options[x.correct]):'?'})}</small></div>)}</>}
+    <h3 className="sec">{tl("Revision")}</h3><p className="known">{d.revised.length?tl("Read the revision sheet {n} times, last {when}",{n:d.revised.length,when:when(d.revised[d.revised.length-1])}):tl("Hasn't read the revision sheet.")}</p>
+    {d.doubts.length>0&&<><h3 className="sec">{tl("Doubts")}</h3>{d.doubts.map(q=><div key={q.id} className="qbox"><QChip s="" label={q.label}/><div className="thread">{q.messages.map((m,k)=><div key={k} className={'msg'+(m.teacher?' teach':'')}><small>{m.teacher?tl("Teacher"):d.student} · {when(m.at)}</small><div className="prose"><Md>{m.text}</Md></div></div>)}</div></div>)}</>}</>}</div></>}
 // ---- teacher resources (S43): material a course's teacher adds to the course, a unit or a topic. Students see the published ones inside the topic;
 // ---- documents and videos come through a signed-in download, never a bare link
 const RES_KIND={note:'Note',example:'Worked example',image:'Image',document:'Document',video:'Video',link:'Link'}

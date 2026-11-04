@@ -61,6 +61,9 @@ import kotlinx.serialization.json.put
 @Serializable object OffersR
 @Serializable data class OfferR(val id: Int)
 @Serializable object TeacherHomeR
+@Serializable data class InsightR(val cid: Int)
+@Serializable data class InsightTopicR(val cid: Int, val tid: Int)
+@Serializable data class InsightStudentR(val cid: Int, val tid: Int, val sid: Int)
 
 @Composable
 fun StaffMain(me: Me, incoming: Incoming?, handled: () -> Unit, signOut: () -> Unit) {
@@ -87,7 +90,10 @@ fun StaffMain(me: Me, incoming: Incoming?, handled: () -> Unit, signOut: () -> U
             composable<OfferR> { OfferDetailScreen(it.toRoute<OfferR>().id) { nav.popBackStack() } }
             composable<InboxR> { InboxScreen { nav.navigate(QuestionR(it)) } }
             composable<ClassesR> { ClassesScreen(null) }
-            composable<StrugglesR> { StrugglesScreen { nav.navigate(TopicR(it)) } }
+            composable<StrugglesR> { StrugglesScreen(openInsight = { nav.navigate(InsightR(it)) }) { nav.navigate(TopicR(it)) } }
+            composable<InsightR> { val r = it.toRoute<InsightR>(); ClassInsightScreen(r.cid, back = { nav.popBackStack() }) { t -> nav.navigate(InsightTopicR(r.cid, t)) } }
+            composable<InsightTopicR> { val r = it.toRoute<InsightTopicR>(); ClassTopicScreen(r.cid, r.tid, back = { nav.popBackStack() }) { sid -> nav.navigate(InsightStudentR(r.cid, r.tid, sid)) } }
+            composable<InsightStudentR> { val r = it.toRoute<InsightStudentR>(); ClassStudentScreen(r.cid, r.tid, r.sid, back = { nav.popBackStack() }) }
             composable<StaffMeR> { StaffMeScreen(me, signOut) }
             composable<QuestionR> { QuestionScreen(it.toRoute<QuestionR>().id, back = { nav.popBackStack() }, openTopic = { t -> nav.navigate(TopicR(t)) }) }
             composable<TopicR> { TopicScreen(it.toRoute<TopicR>().id, me, back = { nav.popBackStack() }, jump = { t -> nav.navigate(TopicR(t)) }, openReader = {}, openPractice = {}, openMaterial = { _, _ -> }) }
@@ -201,7 +207,7 @@ private fun DoubtReportView() {
 
 /** per topic, what students did when stuck over the last weeks, most first */
 @Composable
-fun StrugglesScreen(openTopic: (Int) -> Unit) {
+fun StrugglesScreen(openInsight: (Int) -> Unit = {}, openTopic: (Int) -> Unit) {
     var days by rememberSaveable { mutableIntStateOf(30) }
     var toastText by androidx.compose.runtime.remember { mutableStateOf("") }
     var help by androidx.compose.runtime.remember { mutableStateOf<Pair<Int, String>?>(null) }; var helpText by androidx.compose.runtime.remember { mutableStateOf("") }
@@ -227,6 +233,7 @@ fun StrugglesScreen(openTopic: (Int) -> Unit) {
         Quiet(tl("Topics where students got stuck most: questions to you, Not clear? on a phrase, Not quite after a quick check, asking for it more simply, and flagged answers. Counts only, never names."))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(7, 30, 90).forEach { n -> FilterChip(days == n, { days = n }, { Text(tl("Last {n} days", "n" to n)) }) } }
         Loaded(l) { d ->
+            d.courses.forEach { c -> OutlinedButton(onClick = { openInsight(c.id) }, modifier = Modifier.padding(top = 4.dp)) { Text(tl("Class insight") + ": " + c.name) } }  // S44
             if (d.items.isEmpty()) Quiet(tl("No signs of trouble in this period."), Modifier.padding(top = 12.dp))
             d.items.forEachIndexed { i, x ->
                 val bits = listOf(Triple(x.questions, "1 question to you", "{n} questions to you"), Triple(x.doubts, "1 Not clear? tap", "{n} Not clear? taps"),

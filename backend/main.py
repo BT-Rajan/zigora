@@ -4836,6 +4836,239 @@ def class_trends(cid: int, u: User = Depends(author), s: Session = Depends(db)):
                       "retook": len(again), "retake_first": avg([v[0] for v in again]), "retake_latest": avg([v[-1] for v in again])})
     return {"course": c.name, "students": len(aud), "tests": sorted(tests, key=lambda x: x["title"]),
             "months": [{"month": m, "attempts": len(v), "average": avg(v)} for m, v in sorted(months.items())]}
+# ---- classroom learning intelligence (S44): where a course's students are struggling, read from the records already kept (progress, tests, MCQ sets,
+# ---- doubts, "Not clear?", revision, teacher resources). Nothing new is stored. Each student's standing on a topic is the S38 rule (classify); a topic
+# ---- is judged from those standings only once CI_MIN_ASSESSED students have enough evidence. Every count shows its sample size. Opening a topic is
+# ---- "studied"; marking it learned is the student's word; neither is mastery. The AI, only when a teacher asks, explains the evidence it is given.
+CI_MIN_ASSESSED, CI_SHARE, CI_DOUBT_STUDENTS, CI_WRONG_SHARE, CI_WRONG_MIN = 3, 0.4, 3, 0.3, 5
+CI_RULE = {"min_assessed": CI_MIN_ASSESSED, "share": round(100 * CI_SHARE), "doubt_students": CI_DOUBT_STUDENTS, "wrong_share": round(100 * CI_WRONG_SHARE), "wrong_min": CI_WRONG_MIN,
+           "student": {"min_questions": EVIDENCE_MIN_ASKED, "min_sittings": EVIDENCE_MIN_SITTINGS, "strong": STRONG, "weak": WEAK}}
+def ci_bounds(since, until):  # local days -> UTC instants (either may be None)
+    lo, hi = local_bounds(since, until)
+    return (dt.datetime.combine(lo, dt.time()) - dt.timedelta(minutes=DAY_OFFSET) if lo else None,
+            dt.datetime.combine(hi + dt.timedelta(days=1), dt.time()) - dt.timedelta(minutes=DAY_OFFSET) if hi else None)
+def ci_in(at, lo, hi): return at is not None and (lo is None or at >= lo) and (hi is None or at < hi)
+def ci_scope(s, u, cid, unit_id=0):  # (course, active students, live published topics in syllabus order), for the course's teachers only
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s)
+    studs = [x for x in course_users(c, s) if x.active]
+    units = [n for n in s.query(Unit).filter(Unit.course_id == cid, Unit.archived_at.is_(None)).order_by(*ORDER[Unit]) if not unit_id or n.id == unit_id]
+    topics = s.query(Topic).filter(Topic.unit_id.in_([n.id for n in units] or [0]), Topic.published != False, Topic.archived_at.is_(None)).order_by(*ORDER[Topic]).all()  # noqa: E712
+    order = {n.id: k for k, n in enumerate(units)}; topics.sort(key=lambda t: order.get(t.unit_id, 0))
+    return c, studs, units, topics
+def ci_evidence(s, c, uids, tids, lo, hi):
+    """(sittings {(student, topic): [(at, right, asked, kind)]}, questions {key: stats}): tests (one row per submission) and submitted MCQ sets
+    (abandoned or open ones never count), in the window, on these topics."""
+    sits, qs = defaultdict(list), {}
+    def q_stat(key, tid, text, options, correct, source):
+        return qs.setdefault(key, {"key": f"{key[0]}{key[1]}", "topic_id": tid, "text": (text or "")[:500], "options": options, "correct": correct, "source": source,
+                                   "answered": 0, "right": 0, "picks": defaultdict(int), "students": set(), "wrong": defaultdict(lambda: defaultdict(int))})
+    for uid, q, qm, detail, at in all_batches(s, uids, course_quiz_ids(c.id, s)):
+        if not ci_in(at, lo, hi): continue
+        per = defaultdict(lambda: [0, 0])
+        for d in detail:
+            x = qm.get(d[0]); tid = getattr(x, "topic_id", None) if x is not None else None
+            if tid not in tids: continue
+            per[tid][0] += bool(d[1]); per[tid][1] += 1
+            try: opts = json.loads(x.options)
+            except (TypeError, ValueError): opts = []
+            st = q_stat(("t", d[0]), tid, x.text, opts, x.correct, q.title); st["answered"] += 1; st["right"] += bool(d[1]); st["students"].add(uid)
+            ch = d[2] if len(d) > 2 else None
+            if not d[1] and ch is not None: st["picks"][ch] += 1; st["wrong"][uid][ch] += 1
+        for tid, (ok, n) in per.items(): sits[(uid, tid)].append((at, ok, n, "test"))
+    sets = defaultdict(lambda: [None, 0, 0])
+    for aid, uid, at, tid, ok, ch, item, snap in s.query(McqAttempt.id, McqAttempt.user_id, McqAttempt.submitted_at, McqAttemptItem.topic_id, McqAttemptItem.ok, McqAttemptItem.chosen,
+                                                         McqAttemptItem.item_id, McqAttemptItem.snapshot).join(McqAttemptItem, McqAttemptItem.attempt_id == McqAttempt.id) \
+            .filter(McqAttempt.user_id.in_(uids or [0]), McqAttempt.status == "submitted", McqAttemptItem.topic_id.in_(tids or [0])):
+        if not ci_in(at, lo, hi): continue
+        k = sets[(aid, uid, tid)]; k[0] = at; k[1] += bool(ok); k[2] += 1
+        try: x = json.loads(snap or "{}")
+        except ValueError: x = {}
+        key = ("b", item) if item else ("a", hashlib.sha256((x.get("text") or "").encode()).hexdigest()[:12])
+        st = q_stat(key, tid, x.get("text"), x.get("options") or [], x.get("correct"), "practice"); st["answered"] += 1; st["right"] += bool(ok); st["students"].add(uid)
+        if not ok and ch is not None: st["picks"][ch] += 1; st["wrong"][uid][ch] += 1
+    for (aid, uid, tid), (at, ok, n) in sets.items(): sits[(uid, tid)].append((at, ok, n, "practice"))
+    return sits, qs
+def ci_common_wrong(st):  # a wrong option many chose: (option index, share) when CI_WRONG_MIN+ answered and CI_WRONG_SHARE+ of them picked it
+    if st["answered"] < CI_WRONG_MIN or not st["picks"]: return None
+    opt, n = max(st["picks"].items(), key=lambda kv: kv[1])
+    return (opt, n) if n >= CI_WRONG_SHARE * st["answered"] else None
+def ci_doubts(s, uids, tids, lo, hi):  # doubts sent to the teacher, per topic: [(question, first message)], and "Not clear?" taps per topic
+    asked = defaultdict(list)
+    rows = s.query(TeacherQuestion).filter(TeacherQuestion.user_id.in_(uids or [0]), TeacherQuestion.topic_id.in_(tids or [0]), TeacherQuestion.started_by.is_(None), TeacherQuestion.status != "withdrawn").all()
+    rows = [q for q in rows if ci_in(q.at, lo, hi)]
+    first = {}
+    for r in s.query(TeacherReply).filter(TeacherReply.question_id.in_([q.id for q in rows] or [0])).order_by(TeacherReply.id):
+        first.setdefault(r.question_id, r.text)
+    for q in rows: asked[q.topic_id].append((q, first.get(q.id, "")))
+    taps = defaultdict(lambda: [0, set()]); revised = defaultdict(set)
+    for tid, uid, kind, at in s.query(StepLog.topic_id, StepLog.user_id, StepLog.kind, StepLog.at).filter(StepLog.user_id.in_(uids or [0]), StepLog.topic_id.in_(tids or [0]), StepLog.kind.in_(("doubt", "revised"))):
+        if not ci_in(at, lo, hi): continue
+        if kind == "doubt": taps[tid][0] += 1; taps[tid][1].add(uid)
+        else: revised[tid].add(uid)
+    return asked, taps, revised
+def ci_groups(items):  # doubts grouped by the words they share (no AI): [{words, ids}], biggest first
+    groups = []
+    for qid, words in items:
+        best = max(groups, key=lambda g: len(g["words"] & words), default=None)
+        if best and len(best["words"] & words) >= 2: best["ids"].append(qid); best["words"] = best["words"] & words if len(best["words"] & words) >= 2 else best["words"]
+        else: groups.append({"words": set(words), "ids": [qid]})
+    return sorted([g for g in groups if len(g["ids"]) >= 2], key=lambda g: -len(g["ids"]))
+def ci_student_label(sits):
+    return classify([(at, ok, n) for at, ok, n, _ in sits]) if sits else None
+def ci_topic(t, studs, studied, learned, sits, qs, asked, taps, revised, resources, now):
+    uids = [x.id for x in studs]; mine = {uid: sits.get((uid, t.id), []) for uid in uids}
+    labels = {uid: ci_student_label(x) for uid, x in mine.items() if x}
+    ev = [l for l in labels.values() if l != "not_assessed"]; cnt = {k: sum(1 for l in ev if l == k) for k in ("strong", "getting_there", "needs_study")}
+    def acc(kind):
+        ok = sum(x[1] for v in mine.values() for x in v if x[3] == kind); n = sum(x[2] for v in mine.values() for x in v if x[3] == kind)
+        return {"percent": pct(ok, n), "right": ok, "asked": n, "students": sum(1 for v in mine.values() if any(x[3] == kind for x in v))}
+    common = [(st, cw) for st in qs.values() if st["topic_id"] == t.id for cw in [ci_common_wrong(st)] if cw]
+    dq = asked.get(t.id, []); doubt_students = {q.user_id for q, _ in dq} | set(taps[t.id][1])
+    signals = (len(doubt_students) >= CI_DOUBT_STUDENTS) + bool(common)
+    if len(ev) < CI_MIN_ASSESSED: status = "not_assessed"
+    elif cnt["needs_study"] >= CI_SHARE * len(ev) and signals: status = "needs_study"
+    elif cnt["needs_study"] + cnt["getting_there"] >= CI_SHARE * len(ev): status = "getting_there"
+    else: status = "strong"
+    allx = sorted((x for v in mine.values() for x in v), key=lambda x: x[0]); cut = now - dt.timedelta(days=30)
+    before, recent = [x for x in allx if x[0] < cut], [x for x in allx if x[0] >= cut]
+    nb, nr = sum(x[2] for x in before), sum(x[2] for x in recent)
+    trend = {"before": pct(sum(x[1] for x in before), nb), "recent": pct(sum(x[1] for x in recent), nr), "before_asked": nb, "recent_asked": nr} if nb >= EVIDENCE_MIN_ASKED and nr >= EVIDENCE_MIN_ASKED else None
+    told_learned_but = sum(1 for uid, l in labels.items() if uid in learned.get(t.id, set()) and l in ("getting_there", "needs_study"))
+    repeated = sum(1 for uid, l in labels.items() if l == "needs_study" and len(mine[uid]) >= 3)
+    groups = ci_groups([(q.id, tq_words(text + " " + (q.excerpt or ""))) for q, text in dq])
+    recs = []  # suggestions with the evidence behind each; nothing happens on its own
+    if status == "needs_study": recs.append({"key": "explain", "n": cnt["needs_study"], "of": len(ev)})
+    if groups and len({q.user_id for q, _ in dq if q.id in groups[0]["ids"]}) >= CI_DOUBT_STUDENTS: recs.append({"key": "common", "n": len({q.user_id for q, _ in dq if q.id in groups[0]["ids"]}), "words": sorted(groups[0]["words"])[:4]})
+    if common: st, (opt, n) = max(common, key=lambda p: p[1][1] / p[0]["answered"]); recs.append({"key": "practice", "n": n, "of": st["answered"], "question": st["text"][:120]})
+    if told_learned_but >= CI_MIN_ASSESSED: recs.append({"key": "revise", "n": told_learned_but})
+    if repeated: recs.append({"key": "individual", "n": repeated})
+    if trend and trend["recent"] - trend["before"] >= 10: recs.append({"key": "keep", "from": trend["before"], "to": trend["recent"]})
+    active = {uid for uid in uids if mine[uid]} | doubt_students
+    return {"topic_id": t.id, "title": t.title, "unit_id": t.unit_id, "students": len(uids), "studied": len(studied.get(t.id, set()) & set(uids)), "learned": len(learned.get(t.id, set()) & set(uids)),
+            "assessed": len(labels), "evidence": len(ev), "strong": cnt["strong"], "needs_revision": cnt["getting_there"], "needs_attention": cnt["needs_study"],
+            "status": status, "tests": acc("test"), "practice": acc("practice"), "common_wrong": len(common),
+            "doubts": len(dq), "doubt_students": len({q.user_id for q, _ in dq}), "unresolved": sum(1 for q, _ in dq if q.status != "closed"),
+            "not_clear": taps[t.id][0], "not_clear_students": len(taps[t.id][1]), "revised": len(revised.get(t.id, set())), "resources": resources.get(t.id, 0),
+            "active": len(active), "trend": trend, "recommendations": recs}
+def ci_study(s, uids, tids, lo, hi):  # who opened (studied) and who marked learned each topic, in the window
+    studied, learned = defaultdict(set), defaultdict(set)
+    for tab in (Progress, ProgressHistory):
+        for uid, tid, last, done in s.query(tab.user_id, tab.topic_id, tab.last_read, tab.completed_at).filter(tab.user_id.in_(uids or [0]), tab.topic_id.in_(tids or [0])):
+            if ci_in(last, lo, hi) or ci_in(done, lo, hi) or (lo is None and hi is None): studied[tid].add(uid)
+            if done and ci_in(done, lo, hi) or (done and lo is None and hi is None): learned[tid].add(uid)
+    return studied, learned
+def ci_all(s, u, cid, unit_id=0, since="", until="", only=None):
+    c, studs, units, topics = ci_scope(s, u, cid, unit_id)
+    if only: topics = [t for t in topics if t.id == only]
+    lo, hi = ci_bounds(since, until); uids = [x.id for x in studs]; tids = [t.id for t in topics]
+    sits, qs = ci_evidence(s, c, uids, set(tids), lo, hi); asked, taps, revised = ci_doubts(s, uids, tids, lo, hi); studied, learned = ci_study(s, uids, tids, lo, hi)
+    resources = dict(s.query(TeacherResource.topic_id, func.count(TeacherResource.id)).filter(TeacherResource.topic_id.in_(tids or [0]), TeacherResource.status == "published").group_by(TeacherResource.topic_id).all())
+    now = dt.datetime.utcnow()
+    rows = [ci_topic(t, studs, studied, learned, sits, qs, asked, taps, revised, resources, now) for t in topics]
+    return c, studs, units, topics, rows, sits, qs, asked, taps, studied, learned
+@app.get("/api/reports/courses/{cid}/topics")
+def class_topics(cid: int, unit_id: int = 0, since: str = "", until: str = "", u: User = Depends(author), s: Session = Depends(db)):
+    """Every topic of the course (or a unit) for its teachers: who studied it, who was assessed and how they stand, test and practice accuracy apart,
+    doubts and unresolved ones, a trend, and suggestions with the evidence behind them. Sample sizes come with every figure."""
+    c, studs, units, topics, rows, sits, qs, asked, taps, studied, learned = ci_all(s, u, cid, unit_id, since, until)
+    act = {uid for (uid, _), v in sits.items() if v} | {q.user_id for v in asked.values() for q, _ in v} | {uid for v in studied.values() for uid in v}
+    order = {"needs_study": 0, "getting_there": 1, "strong": 2, "not_assessed": 3}
+    return {"course": c.name, "students": len(studs), "active": len(act & {x.id for x in studs}), "units": [{"id": n.id, "name": n.name} for n in s.query(Unit).filter(Unit.course_id == cid, Unit.archived_at.is_(None)).order_by(*ORDER[Unit])],
+            "rule": CI_RULE, "topics": rows, "attention": [r["topic_id"] for r in sorted(rows, key=lambda r: (order[r["status"]], -r["unresolved"])) if r["status"] in ("needs_study", "getting_there")][:5],
+            "window": {"since": since or None, "until": until or None}}
+CI_CAT = ("attention", "revision", "insufficient", "studied_not_assessed", "not_studied", "strong")
+def ci_student_rows(studs, t, sits, studied, learned, asked, qs):
+    out = []
+    for x in studs:
+        v = sorted(sits.get((x.id, t.id), []), key=lambda y: y[0]); l = ci_student_label(v)
+        cat = ("not_studied" if x.id not in studied.get(t.id, set()) else "studied_not_assessed") if not v else \
+              {"not_assessed": "insufficient", "strong": "strong", "getting_there": "revision", "needs_study": "attention"}[l]
+        first, last = (pct(v[0][1], v[0][2]), pct(v[-1][1], v[-1][2])) if len(v) >= 2 else (None, None)
+        rep = sum(1 for st in qs.values() if st["topic_id"] == t.id and sum(st["wrong"].get(x.id, {}).values()) >= 2)
+        out.append({"id": x.id, "name": x.name, "category": cat, "sittings": len(v), "right": sum(y[1] for y in v), "asked": sum(y[2] for y in v),
+                    "percent": pct(sum(y[1] for y in v), sum(y[2] for y in v)), "improving": first is not None and last - first >= 20, "repeated_errors": rep,
+                    "learned": x.id in learned.get(t.id, set()), "doubts": sum(1 for q, _ in asked.get(t.id, []) if q.user_id == x.id)})
+    return sorted(out, key=lambda r: (CI_CAT.index(r["category"]), r["name"].lower()))
+@app.get("/api/reports/courses/{cid}/topics/{tid}")
+def class_topic(cid: int, tid: int, since: str = "", until: str = "", category: str = "", limit: int = 50, offset: int = 0, u: User = Depends(author), s: Session = Depends(db)):
+    """One topic: its figures, the questions many got wrong in the same way (with the options), the doubts grouped by shared words, and its students
+    by where they stand (not a ranking), a page at a time."""
+    c, studs, units, topics, rows, sits, qs, asked, taps, studied, learned = ci_all(s, u, cid, 0, since, until, only=tid)
+    if not topics: raise HTTPException(404, "Topic not found")
+    t = topics[0]; row = rows[0]
+    common = []
+    for st in qs.values():
+        cw = ci_common_wrong(st) if st["topic_id"] == tid else None
+        if cw: common.append({"key": st["key"], "text": st["text"], "options": st["options"], "correct": st["correct"], "source": st["source"], "answered": st["answered"],
+                              "right": st["right"], "students": len(st["students"]), "wrong_option": cw[0], "wrong_picks": cw[1], "picks": dict(st["picks"])})
+    common.sort(key=lambda x: -x["wrong_picks"] / x["answered"])
+    dq = asked.get(tid, []); texts = {q.id: text for q, text in dq}; names = {x.id: x.name for x in studs}
+    groups = [{"words": sorted(g["words"])[:5], "students": len({q.user_id for q, _ in dq if q.id in g["ids"]}),
+               "doubts": [{"id": q.id, "text": texts[q.id][:300], "student": names.get(q.user_id, ""), "status": q.status} for q, _ in dq if q.id in g["ids"]]} for g in ci_groups([(q.id, tq_words(text + " " + (q.excerpt or ""))) for q, text in dq])]
+    grouped = {d["id"] for g in groups for d in g["doubts"]}
+    studs_rows = ci_student_rows(studs, t, sits, studied, learned, asked, qs)
+    cats = {k: sum(1 for r in studs_rows if r["category"] == k) for k in CI_CAT}
+    if category:
+        if category not in CI_CAT: raise HTTPException(400, "Unknown group")
+        studs_rows = [r for r in studs_rows if r["category"] == category]
+    return {"topic": row, "rule": CI_RULE, "common_wrong": common[:20], "doubt_groups": groups,
+            "other_doubts": [{"id": q.id, "text": texts[q.id][:300], "student": names.get(q.user_id, ""), "status": q.status} for q, _ in dq if q.id not in grouped][:30],
+            "categories": cats, "total": len(studs_rows), "students": studs_rows[max(offset, 0):max(offset, 0) + min(max(limit, 1), 100)]}
+@app.get("/api/reports/courses/{cid}/topics/{tid}/students/{sid}")
+def class_topic_student(cid: int, tid: int, sid: int, u: User = Depends(author), s: Session = Depends(db)):
+    """One student on one topic, for the course's teachers: each sitting, the questions they keep getting wrong, revision, and their doubts with the
+    teacher's answers. The student must be on the course's list."""
+    c, studs, units, topics = ci_scope(s, u, cid)
+    t = next((x for x in topics if x.id == tid), None); x = next((y for y in studs if y.id == sid), None)
+    if not t: raise HTTPException(404, "Topic not found")
+    if not x: raise HTTPException(404, "Student not found")
+    sits, qs = ci_evidence(s, c, [sid], {tid}, None, None)
+    v = sorted(sits.get((sid, tid), []), key=lambda y: y[0])
+    rep = [{"text": st["text"][:300], "options": st["options"], "correct": st["correct"], "times_wrong": sum(st["wrong"][sid].values()),
+            "chosen": max(st["wrong"][sid].items(), key=lambda kv: kv[1])[0] if st["wrong"][sid] else None, "source": st["source"]}
+           for st in qs.values() if sum(st["wrong"].get(sid, {}).values()) >= 2]
+    p = s.query(Progress).filter_by(user_id=sid, topic_id=tid).first()
+    revised = [utc_iso(at) for (at,) in s.query(StepLog.at).filter_by(user_id=sid, topic_id=tid, kind="revised").order_by(StepLog.at)]
+    doubts = []
+    for q in s.query(TeacherQuestion).filter(TeacherQuestion.user_id == sid, TeacherQuestion.topic_id == tid, TeacherQuestion.started_by.is_(None), TeacherQuestion.status != "withdrawn").order_by(TeacherQuestion.at):
+        msgs = s.query(TeacherReply).filter_by(question_id=q.id).order_by(TeacherReply.id).all()
+        doubts.append({"id": q.id, "label": tq_label(s, q), "at": utc_iso(q.at), "messages": [{"teacher": m.user_id != sid, "text": m.text[:500], "at": utc_iso(m.at)} for m in msgs]})
+    return {"student": x.name, "topic": t.title, "label": ci_student_label(v), "studied": p is not None, "learned": bool(p and p.completed_at), "last_read": utc_iso(p.last_read) if p else None,
+            "sittings": [{"at": utc_iso(at), "kind": k, "right": ok, "asked": n, "percent": pct(ok, n)} for at, ok, n, k in v], "repeated_errors": rep, "revised": revised, "doubts": doubts, "rule": CI_RULE["student"]}
+CI_PROMPT = ("You help a teacher see where their class struggles with one topic. You are given numbered evidence lines [E1], [E2]... taken from the school's records. "
+             "Use only that evidence. Cite the lines you rely on, like [E3]. Do not state any number, percentage or count that is not written in the evidence. "
+             "Never judge or name individual students. Write: 1) the likely misunderstandings, 2) what to explain again, 3) one alternative example or analogy "
+             "for teaching it. If the evidence is thin, say so plainly. Keep it under 250 words. Answer in the teacher's language.")
+@app.post("/api/reports/courses/{cid}/topics/{tid}/explain")
+async def class_topic_explain(cid: int, tid: int, since: str = "", until: str = "", u: User = Depends(author), s: Session = Depends(db)):
+    """The AI's reading of the evidence, only when a teacher asks. It gets numbered evidence lines worked out here (counts, the questions many got wrong
+    and how, the doubts' words without names) and must cite them; numbers in its answer that aren't in the evidence are flagged. Saved per evidence."""
+    d = class_topic(cid, tid, since, until, "", 1, 0, u, s); r = d["topic"]
+    ev = [f"Topic: {r['title']}. Students in the course: {r['students']}. Opened the topic: {r['studied']}. Marked it learned: {r['learned']}.",
+          f"Students with enough evidence (at least {EVIDENCE_MIN_ASKED} questions over {EVIDENCE_MIN_SITTINGS} sittings): {r['evidence']}; strong {r['strong']}, need revision {r['needs_revision']}, need attention {r['needs_attention']}.",
+          f"Test answers on this topic: {r['tests']['right']} right of {r['tests']['asked']}. MCQ practice answers: {r['practice']['right']} right of {r['practice']['asked']}.",
+          f"Doubts sent to the teacher: {r['doubts']} from {r['doubt_students']} students, {r['unresolved']} not resolved. 'Not clear?' taps: {r['not_clear']} from {r['not_clear_students']} students."]
+    for q in d["common_wrong"][:6]:
+        opts = q["options"] or []; good = opts[q["correct"]] if isinstance(q["correct"], int) and 0 <= q["correct"] < len(opts) else "?"
+        bad = opts[q["wrong_option"]] if 0 <= q["wrong_option"] < len(opts) else "?"
+        ev.append(f"Question: {q['text'][:300]} Correct answer: {good}. Most chosen wrong answer: {bad} ({q['wrong_picks']} of {q['answered']} answers).")
+    for g in d["doubt_groups"][:4]:
+        ev.extend(f"A student's doubt: {x['text'][:250]}" for x in g["doubts"][:3])
+    ev.extend(f"A student's doubt: {x['text'][:250]}" for x in d["other_doubts"][:6])
+    lines = [{"id": f"E{k + 1}", "text": e} for k, e in enumerate(ev)]
+    msg = "\n".join(f"[{x['id']}] {x['text']}" for x in lines)
+    prompt = in_lang(u, CI_PROMPT); chash = hashlib.sha256((prompt + "\n" + msg).encode()).hexdigest()
+    hit = s.query(AICache).filter_by(topic_id=tid, kind="class", chash=chash).first()
+    if hit: text, cached = hit.text, True
+    else:
+        key = key_or_fail(u, s); text, tokens = await ask_ai(u, s, key, prompt, msg, max_tokens=700, kind="class", topic_id=tid); cached = False
+        try: s.add(AICache(topic_id=tid, kind="class", chash=chash, text=text, tokens=tokens)); s.commit()
+        except Exception: s.rollback()
+    allowed = set(re.findall(r"\d+", msg))
+    unverified = sorted({n for n in re.findall(r"(?<![\w\[E])\d+(?:\.\d+)?", text) if n.split(".")[0] not in allowed})
+    return {"text": text, "evidence": lines, "cited": sorted(set(re.findall(r"\[(E\d+)\]", text)), key=lambda e: int(e[1:])), "unverified_numbers": unverified, "cached": cached}
 # ---- achievements (S36): a few milestones worked out from what the student did; no points, nothing for just opening the app
 def my_achievements_list(u, s):
     out = []

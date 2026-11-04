@@ -46,6 +46,33 @@ import kotlinx.serialization.json.JsonObject
                                      val last: String = "", val unread: Boolean = false, val student: String? = null, val message: Boolean = false,
                                      val label: String = "", val at: String? = null)  // label (S40): pending, follow_up, answered or resolved
 @Serializable data class QuestionPage(val total: Int = 0, val items: List<QuestionRow> = emptyList())
+/** S44: class insight for a course's teachers (GET /reports/courses/{id}/topics, .../topics/{tid}, .../students/{sid}, POST .../explain) */
+@Serializable data class CiAcc(val percent: Int? = null, val right: Int = 0, val asked: Int = 0, val students: Int = 0)
+@Serializable data class CiTrend(val before: Int? = null, val recent: Int? = null, val before_asked: Int = 0, val recent_asked: Int = 0)
+@Serializable data class CiRec(val key: String = "", val n: Int = 0, val of: Int = 0, val words: List<String> = emptyList(), val question: String = "", val from: Int = 0, val to: Int = 0)
+@Serializable data class CiTopic(val topic_id: Int, val title: String = "", val students: Int = 0, val studied: Int = 0, val learned: Int = 0, val assessed: Int = 0, val evidence: Int = 0,
+                                 val strong: Int = 0, val needs_revision: Int = 0, val needs_attention: Int = 0, val status: String = "not_assessed", val tests: CiAcc = CiAcc(),
+                                 val practice: CiAcc = CiAcc(), val doubts: Int = 0, val unresolved: Int = 0, val not_clear: Int = 0, val trend: CiTrend? = null,
+                                 val recommendations: List<CiRec> = emptyList())
+@Serializable data class CiStudentRule(val min_questions: Int = 5, val min_sittings: Int = 2)
+@Serializable data class CiRule(val min_assessed: Int = 3, val student: CiStudentRule = CiStudentRule())
+@Serializable data class CiCourse(val course: String = "", val students: Int = 0, val active: Int = 0, val units: List<CourseRef> = emptyList(), val rule: CiRule = CiRule(), val topics: List<CiTopic> = emptyList())
+@Serializable data class CiQuestion(val key: String = "", val text: String = "", val options: List<kotlinx.serialization.json.JsonElement> = emptyList(), val correct: Int? = null,
+                                    val source: String = "", val answered: Int = 0, val students: Int = 0, val wrong_option: Int = -1, val wrong_picks: Int = 0, val picks: Map<String, Int> = emptyMap())
+@Serializable data class CiDoubt(val id: Int, val text: String = "", val student: String = "", val status: String = "")
+@Serializable data class CiGroup(val words: List<String> = emptyList(), val students: Int = 0, val doubts: List<CiDoubt> = emptyList())
+@Serializable data class CiStudentRow(val id: Int, val name: String = "", val category: String = "", val sittings: Int = 0, val percent: Int? = null, val asked: Int = 0,
+                                      val improving: Boolean = false, val repeated_errors: Int = 0, val learned: Boolean = false, val doubts: Int = 0)
+@Serializable data class CiTopicDetail(val topic: CiTopic, val common_wrong: List<CiQuestion> = emptyList(), val doubt_groups: List<CiGroup> = emptyList(), val other_doubts: List<CiDoubt> = emptyList(),
+                                       val categories: Map<String, Int> = emptyMap(), val total: Int = 0, val students: List<CiStudentRow> = emptyList())
+@Serializable data class CiEvidence(val id: String = "", val text: String = "")
+@Serializable data class CiExplain(val text: String = "", val evidence: List<CiEvidence> = emptyList(), val unverified_numbers: List<String> = emptyList(), val cached: Boolean = false)
+@Serializable data class CiSitting(val at: String? = null, val kind: String = "", val right: Int = 0, val asked: Int = 0, val percent: Int? = null)
+@Serializable data class CiRepeat(val text: String = "", val options: List<kotlinx.serialization.json.JsonElement> = emptyList(), val correct: Int? = null, val times_wrong: Int = 0, val chosen: Int? = null)
+@Serializable data class CiMsg(val teacher: Boolean = false, val text: String = "", val at: String? = null)
+@Serializable data class CiStuDoubt(val id: Int, val label: String = "", val at: String? = null, val messages: List<CiMsg> = emptyList())
+@Serializable data class CiStudent(val student: String = "", val topic: String = "", val label: String? = null, val studied: Boolean = false, val learned: Boolean = false,
+                                   val sittings: List<CiSitting> = emptyList(), val repeated_errors: List<CiRepeat> = emptyList(), val revised: List<String> = emptyList(), val doubts: List<CiStuDoubt> = emptyList())
 /** S43: a teacher's resource as a topic shows it (the published version; drafts only to the course's teachers) */
 @Serializable data class ResFileRef(val name: String = "file", val url: String = "", val video: Boolean = false)
 @Serializable data class TopicRes(val id: Int, val kind: String = "", val level: String = "", val title: String = "", val description: String = "", val body: String = "",
