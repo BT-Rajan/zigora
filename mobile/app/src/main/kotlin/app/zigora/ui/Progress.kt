@@ -155,7 +155,7 @@ private fun Bookmarks(openTopic: (Int) -> Unit, sub: (String) -> Unit) {
         }
         if (msg.isNotEmpty()) Quiet(msg)
         val rows = marks(co)
-        Paged(rows, key = co.id) { m ->
+        Paged(rows, key = co.id, grouped = false) { m ->
             val i = rows.indexOf(m)
             if (i == 0 || rows[i - 1].unit != m.unit) SectionTitle(m.unit)
             ListRow(m.t.title, onClick = { openTopic(m.t.id) }, leading = { Dot(m.t.title, CourseColors[i % CourseColors.size]) }, extra = { StatusLine(m.t.status) },

@@ -122,7 +122,7 @@ fun MyMaterialScreen(cid: Int, name: String, back: () -> Unit) {
             Quiet(stringResource(R.string.material_lead))
             SectionTitle(stringResource(R.string.material_step1))
             if (m.sources.isEmpty()) Quiet(stringResource(R.string.no_files_yet, MAX_FILE_MB) + " " + stringResource(if (m.ocr_available) R.string.scanned_ok else R.string.scanned_not_here))
-            Paged(m.sources) { x ->
+            Paged(m.sources, grouped = false) { x ->
                 val i = m.sources.indexOf(x)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text(x.name); Quiet(sourceLine(x)) }
@@ -150,7 +150,7 @@ fun MyMaterialScreen(cid: Int, name: String, back: () -> Unit) {
                 val names = m.syllabus.flatMap { u -> u.topics.map { it.id to it.title } }.toMap(); val filed = m.sections.mapNotNull { it.topic_id }.toSet()
                 val missing = m.syllabus.flatMap { u -> u.topics.filter { it.id !in filed }.map { it.title } }
                 Quiet(stringResource(R.string.notes_cover, m.covered, m.topics) + if (missing.isNotEmpty()) " " + stringResource(R.string.not_covered_yet, missing.take(6).joinToString(", ") + if (missing.size > 6) " +" + (missing.size - 6) else "") else "")
-                Paged(m.sections) { x ->
+                Paged(m.sections, grouped = false) { x ->
                     val i = m.sections.indexOf(x)
                     Panel {
                         if (x.heading.isNotEmpty()) Text(x.heading, style = MaterialTheme.typography.titleSmall) else Text("“" + x.excerpt.take(80) + (if (x.excerpt.length > 80) "…" else "") + "”")

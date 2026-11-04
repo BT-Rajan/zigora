@@ -142,6 +142,7 @@ class ScreensTest {
         see("Which salts cause temporary hardness?"); rule.onNodeWithText("Bicarbonates").performClick()
         rule.onNodeWithText("Calcium carbonate").performScrollTo().performClick(); shot("18-quiz")
         rule.onNodeWithText("Submit answers").performScrollTo().performClick()
+        see("Confirm submission"); rule.onNodeWithText("Confirm submission").performClick()  // the test asks before it is submitted
         see("2 / 2 · 100%"); shot("19-quiz-result")
         rule.onNodeWithText("Review answers").performClick(); see("Your answer"); shot("20-attempt")
     }

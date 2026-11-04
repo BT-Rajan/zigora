@@ -365,7 +365,7 @@ fun StudyCourseScreen(id: Int, back: () -> Unit, setup: () -> Unit, openTopic: (
             if (all.size > 12) OutlinedTextField(find, { find = it }, Modifier.fillMaxWidth(), singleLine = true, leadingIcon = { Icon(Icons.Outlined.Search, null) }, placeholder = { Text(tl("Find a topic")) })
             val q = find.trim().lowercase()
             val rows = cc.units.flatMap { u -> u.topics.filter { q.isEmpty() || q in it.title.lowercase() || q in it.summary.lowercase() }.map { u to it } }
-            Paged(rows, key = "$id/$q") { (u, t) ->
+            Paged(rows, key = "$id/$q", grouped = false) { (u, t) ->
                 val i = rows.indexOfFirst { it.second.id == t.id }
                 if (i == 0 || rows[i - 1].first.id != u.id) SectionTitle(u.title)
                 RowLink(t.title + (if (t.stars > 0) "  " + "★".repeat(t.stars) else "") + (if (t.due) "  ·  " + tl("Review due") else ""),

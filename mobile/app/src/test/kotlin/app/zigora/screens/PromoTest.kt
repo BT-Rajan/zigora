@@ -88,7 +88,7 @@ class PromoTest {
         tap("Why?"); see("calcium bicarbonate breaks down"); shot("step")
         back(); tap("Revision sheet"); see("Ask yourself"); shot("revision"); back()
         tap("Water Technology quiz"); see("Which salts")
-        tap("Bicarbonates"); tap("Calcium carbonate"); tap("Submit answers"); see("2 / 2"); shot("quiz")
+        tap("Bicarbonates"); tap("Calcium carbonate"); tap("Submit answers"); see("Confirm submission"); rule.onAllNodesWithText("Confirm submission").onFirst().performClick(); see("2 / 2"); shot("quiz")
         tap("Review answers"); see("Your answer"); shot("attempt"); back(); back(); back()
         tab("Saved"); tap("Highlights"); see("soap won't lather"); shot("highlights")
         tab("Progress"); see("Study routine"); tap("Scores"); see("Final score"); shot("progress")

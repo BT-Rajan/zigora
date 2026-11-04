@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -122,7 +123,9 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
         }
         handled()
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me) { NavigationSuiteScaffold(navigationSuiteItems = {
+    val snackState = remember { androidx.compose.material3.SnackbarHostState() }; val snackScope = androidx.compose.runtime.rememberCoroutineScope()
+    val snack = remember { Snack(snackState, snackScope) }
+    androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me, LocalSnack provides snack) { NavigationSuiteScaffold(navigationSuiteItems = {
         tabs.forEach { t ->
             item(selected = dest?.hasRoute(t.route::class) == true, icon = { Icon(t.icon, null) }, label = { Text(t.label, maxLines = 1, softWrap = false, autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp)) },
                  onClick = { nav.navigate(t.route) { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } })
@@ -140,7 +143,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             x.src == "study" -> x.course_id?.let { ownTopic(it, x.id) } ?: nav.navigate(StudyTopicR(x.id))
             else -> open(x.id)
         } }
-        androidx.compose.foundation.layout.Column {
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) { androidx.compose.foundation.layout.Column {
             val net = app().api
             LaunchedEffect(net.unreachable.value) { if (net.unreachable.value) { kotlinx.coroutines.delay(8_000); net.unreachable.value = false } }  // a failed request: the note fades
             val note = when {
@@ -207,6 +210,8 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             composable<PhotoR> { PhotoScreen(it.toRoute<PhotoR>().uri) { nav.popBackStack() } }
             composable<NotesR> { NotificationsScreen(back = { nav.popBackStack() }, openTopic = open, openQuestion = { nav.navigate(QuestionR(it)) }) }
         }
+        }
+        androidx.compose.material3.SnackbarHost(snackState, Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp))
         }
     }
     }
