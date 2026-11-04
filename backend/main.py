@@ -177,6 +177,26 @@ class ResourceVersion(Base):  # S43: every saved state of a resource, never over
     file = Column(String(60), nullable=True); file_name = Column(String(200), nullable=True)  # a document or video file under uploads/resources, served only to those who may see it
     saved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); saved_at = Column(DateTime, default=dt.datetime.utcnow)
     __table_args__ = (UniqueConstraint("resource_id", "number", name="uq_resource_versions_number"),)
+class Intervention(Base):  # S45: a teacher's support plan for some students of a course: existing activities on chosen topics, a target date, success criteria
+    __tablename__ = "interventions"
+    id = Column(Integer, primary_key=True); course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True)
+    title = Column(String(200)); description = Column(Text, nullable=True); topic_ids = Column(Text, default="[]"); criteria = Column(Text, nullable=True)
+    start_at = Column(DateTime); target_at = Column(DateTime, nullable=True); status = Column(String(10), default="draft")  # draft, active, completed, cancelled
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); created_at = Column(DateTime, default=dt.datetime.utcnow)
+    updated_at = Column(DateTime, default=dt.datetime.utcnow); changed_at = Column(DateTime, nullable=True)  # changed_at: the last change students are told about
+class InterventionActivity(Base):  # one existing activity in a plan, by reference: a topic, its revision sheet, MCQ practice, a test, a resource, asking the teacher, relearning
+    __tablename__ = "intervention_activities"
+    id = Column(Integer, primary_key=True); intervention_id = Column(Integer, ForeignKey("interventions.id", ondelete="CASCADE"), index=True)
+    position = Column(Integer, default=0); kind = Column(String(10)); topic_id = Column(Integer, nullable=True); ref_id = Column(Integer, nullable=True); size = Column(Integer, nullable=True)
+    required = Column(Boolean, default=True); added_at = Column(DateTime, default=dt.datetime.utcnow); removed_at = Column(DateTime, nullable=True)  # removed: kept for history
+class InterventionStudent(Base):  # one student's own copy of a plan: when it started for them, their evidence then, and the teacher's review of the outcome
+    __tablename__ = "intervention_students"
+    id = Column(Integer, primary_key=True); intervention_id = Column(Integer, ForeignKey("interventions.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); reason = Column(Text, nullable=True)
+    assigned_at = Column(DateTime, nullable=True); removed_at = Column(DateTime, nullable=True); baseline = Column(Text, nullable=True)  # baseline: frozen when assigned
+    outcome = Column(String(12), nullable=True); outcome_note = Column(Text, nullable=True); reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    __table_args__ = (UniqueConstraint("intervention_id", "user_id", name="uq_intervention_students"),)
 class Quiz(Base):  # a multiple-choice quiz attached to a unit, or an MCQ test for a whole course (unit_id null; course_id is then its real parent)
     __tablename__ = "quizzes"
     id = Column(Integer, primary_key=True); unit_id = Column(Integer, ForeignKey("units.id", ondelete="CASCADE"), index=True, nullable=True); course_id = Column(Integer, index=True)
@@ -1076,7 +1096,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0052_doubt_responses", lambda c: [_addcol("teacher_replies", "edited_at", "DATETIME NULL")(c), _addcol("teacher_questions", "helpful", "BOOLEAN NULL")(c),
                                                   _addcol("teacher_questions", "resolved_at", "DATETIME NULL")(c), _addcol("teacher_questions", "reopens", "INTEGER NOT NULL DEFAULT 0")(c),
                                                   Base.metadata.create_all(c, tables=[ReplyEdit.__table__, QuestionEvent.__table__])]),
-              ("0053_teacher_resources", lambda c: Base.metadata.create_all(c, tables=[TeacherResource.__table__, ResourceVersion.__table__]))]
+              ("0053_teacher_resources", lambda c: Base.metadata.create_all(c, tables=[TeacherResource.__table__, ResourceVersion.__table__])),
+              ("0054_interventions", lambda c: Base.metadata.create_all(c, tables=[Intervention.__table__, InterventionActivity.__table__, InterventionStudent.__table__]))]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -5069,6 +5090,316 @@ async def class_topic_explain(cid: int, tid: int, since: str = "", until: str = 
     allowed = set(re.findall(r"\d+", msg))
     unverified = sorted({n for n in re.findall(r"(?<![\w\[E])\d+(?:\.\d+)?", text) if n.split(".")[0] not in allowed})
     return {"text": text, "evidence": lines, "cited": sorted(set(re.findall(r"\[(E\d+)\]", text)), key=lambda e: int(e[1:])), "unverified_numbers": unverified, "cached": cached}
+# ---- learning support plans (S45): a course's teacher gathers existing activities (a topic to study, its revision sheet, MCQ practice, a test, a resource,
+# ---- asking the teacher, relearning) for chosen students. Each student has their own record under the plan; progress is read from the records those
+# ---- activities already leave after the student was assigned (nothing is copied); the outcome compares the same topics before and after, tests and
+# ---- practice apart, and says "not yet established" until there is enough evidence. The AI can suggest a plan from existing content; a teacher decides.
+IV_KINDS = ("study", "revise", "mcq", "test", "resource", "ask", "relearn")
+IV_STATUS = ("draft", "active", "completed", "cancelled")
+IV_OUTCOMES = ("improved", "partly", "not_yet", "more_support")
+IV_CHANGE = 10  # points of accuracy, on the same kind of evidence, before a change is called a rise or a fall
+class IvActivityIn(BaseModel): id: int | None = None; kind: str; topic_id: int | None = None; ref_id: int | None = None; size: int | None = None; required: bool = True
+class InterventionIn(BaseModel):
+    course_id: int = 0; title: str = ""; description: str = ""; topic_ids: list[int] = []; criteria: str = ""; start: str = ""; target: str = ""
+    activities: list[IvActivityIn] = []; student_ids: list[int] = []; reasons: dict[str, str] = {}; activate: bool = False
+def iv_day(v, end=False):  # "YYYY-MM-DD" on the students' clock -> UTC instant (start of that day, or the end of it)
+    if not v: return None
+    try: d = dt.date.fromisoformat(v)
+    except ValueError: raise HTTPException(400, "Dates must look like 2026-01-31")
+    return dt.datetime.combine(d + dt.timedelta(days=1 if end else 0), dt.time()) - dt.timedelta(minutes=DAY_OFFSET)
+def iv_plan(s, u, iid):
+    p = s.get(Intervention, iid)
+    if not p: raise HTTPException(404, "Plan not found")
+    need_edit(u, p.course_id, s); return p
+def iv_validate(s, u, c, b):  # topics, activities and students checked against this course; nothing taken on trust
+    tids = {t.id for t in ci_scope(s, u, c.id)[3]}
+    if not b.topic_ids or any(t not in tids for t in b.topic_ids): raise HTTPException(400, "Choose topics of this course")
+    quizzes = set(course_quiz_ids(c.id, s))
+    res = {r.id: r for r in s.query(TeacherResource).filter(TeacherResource.course_id == c.id, TeacherResource.status == "published")}
+    acts = []
+    for a in b.activities:
+        if a.kind not in IV_KINDS: raise HTTPException(400, "Unknown activity")
+        if a.kind == "test":
+            if a.ref_id not in quizzes: raise HTTPException(400, "Choose a published test of this course")
+        elif a.kind == "resource":
+            if a.ref_id not in res: raise HTTPException(400, "Choose a published resource of this course")
+            a.topic_id = res[a.ref_id].topic_id
+        elif a.topic_id not in tids: raise HTTPException(400, "Choose a topic of this course for each activity")
+        if a.kind == "mcq": a.size = min(max(a.size or 10, 5), 30)
+        acts.append(a)
+    if not acts: raise HTTPException(400, "Add at least one activity")
+    studs = {x.id for x in course_users(c, s) if x.active}
+    if any(x not in studs for x in b.student_ids): raise HTTPException(400, "Choose students of this course")
+    return acts
+def iv_evidence(s, uid, tids, start=None, end=None):  # {test: {right, asked, sittings}, practice: {...}, label}: the S38 evidence on these topics in [start, end)
+    out = {"test": [0, 0, 0], "practice": [0, 0, 0]}; sits = []
+    for tid, at, ok, n, kind in topic_checks(s, uid):
+        if tid in tids and at and (start is None or at >= start) and (end is None or at < end): k = out[kind]; k[0] += ok; k[1] += n; k[2] += 1; sits.append((at, ok, n))
+    return {**{k: {"right": v[0], "asked": v[1], "sittings": v[2], "percent": pct(v[0], v[1])} for k, v in out.items()}, "label": classify(sits) if sits else None}
+def iv_since(st, a): return max(st.assigned_at, a.added_at) if st.assigned_at else None
+def iv_activity_state(s, uid, a, since, now):  # (status, evidence): read from the records the activity leaves after `since`; opening is never understanding
+    if since is None: return "todo", ""
+    if a.kind == "study":
+        p = s.query(Progress).filter_by(user_id=uid, topic_id=a.topic_id).first()
+        if p and p.completed_at and max(p.completed_at, p.last_read or p.completed_at) >= since: return "done", "learned"  # learned, and opened again since (or learned since)
+        return ("started", "opened") if p and p.last_read and p.last_read >= since else ("todo", "")
+    if a.kind == "revise":
+        n = s.query(func.count(StepLog.id)).filter(StepLog.user_id == uid, StepLog.topic_id == a.topic_id, StepLog.kind == "revised", StepLog.at >= since).scalar()
+        return ("done", "read") if n else ("todo", "")
+    if a.kind == "mcq":
+        ok = asked = 0
+        for good, in s.query(McqAttemptItem.ok).join(McqAttempt, McqAttempt.id == McqAttemptItem.attempt_id).filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted",
+                                                                                                                   McqAttempt.submitted_at >= since, McqAttemptItem.topic_id == a.topic_id):
+            ok += bool(good); asked += 1
+        st = "done" if asked >= (a.size or 10) else "started" if asked else "todo"
+        return st, f"{ok}/{asked}" if asked else ""
+    if a.kind == "test":
+        rows = s.query(Attempt.percent).filter(Attempt.user_id == uid, Attempt.quiz_id == a.ref_id, Attempt.at >= since).all()
+        return ("done", f"{max(p for p, in rows)}%") if rows else ("todo", "")
+    if a.kind == "resource":
+        n = s.query(func.count(StepLog.id)).filter(StepLog.user_id == uid, StepLog.kind == "resource", StepLog.outcome == str(a.ref_id), StepLog.at >= since).scalar()
+        return ("done", "opened") if n else ("todo", "")
+    if a.kind == "ask":
+        n = s.query(func.count(TeacherQuestion.id)).filter(TeacherQuestion.user_id == uid, TeacherQuestion.topic_id == a.topic_id, TeacherQuestion.at >= since, TeacherQuestion.status != "withdrawn").scalar()
+        return ("done", "asked") if n else ("todo", "")
+    if a.kind == "relearn":
+        h = s.query(ProgressHistory.redone_at).filter(ProgressHistory.user_id == uid, ProgressHistory.topic_id == a.topic_id, ProgressHistory.redone_at >= since).order_by(ProgressHistory.redone_at).first()
+        if not h: return "todo", ""
+        p = s.query(Progress).filter_by(user_id=uid, topic_id=a.topic_id).first()
+        return ("done", "learned again") if p and p.completed_at and p.completed_at >= h[0] else ("started", "started over")
+    return "todo", ""
+def iv_compare(base, after):  # per kind: before and after on the same topics, and whether that says anything yet
+    out = {}
+    for k in ("test", "practice"):
+        b, a = base.get(k) or {}, after.get(k) or {}
+        enough = (a.get("asked") or 0) >= EVIDENCE_MIN_ASKED and (a.get("sittings") or 0) >= EVIDENCE_MIN_SITTINGS and (b.get("asked") or 0) >= EVIDENCE_MIN_ASKED
+        change = (a["percent"] - b["percent"]) if enough else None
+        out[k] = {"before": b, "after": a, "established": enough, "change": change,
+                  "direction": None if change is None else "rose" if change >= IV_CHANGE else "fell" if change <= -IV_CHANGE else "steady"}
+    est = [v for v in out.values() if v["established"]]
+    out["overall"] = "not_established" if not est else "rose" if any(v["direction"] == "rose" for v in est) and not any(v["direction"] == "fell" for v in est) \
+        else "fell" if any(v["direction"] == "fell" for v in est) and not any(v["direction"] == "rose" for v in est) else "mixed" if len({v["direction"] for v in est}) > 1 else "steady"
+    return out
+def iv_student(s, p, st, acts, tids, now, detail=False):
+    rows = []
+    for a in acts:
+        state, ev = iv_activity_state(s, st.user_id, a, iv_since(st, a), now)
+        if a.removed_at and state != "done": continue  # a removed activity stays only where it was done (history)
+        rows.append({"id": a.id, "kind": a.kind, "topic_id": a.topic_id, "ref_id": a.ref_id, "size": a.size, "required": bool(a.required), "removed": bool(a.removed_at), "state": state, "evidence": ev})
+    live = [r for r in rows if not r["removed"]]; req = [r for r in live if r["required"]]
+    done = sum(r["state"] == "done" for r in req); any_move = any(r["state"] != "todo" for r in live)
+    progress = "completed" if req and done == len(req) else "in_progress" if any_move else "not_started"
+    overdue = bool(p.target_at and now > p.target_at and progress != "completed")
+    out = {"user_id": st.user_id, "assigned_at": utc_iso(st.assigned_at), "removed": bool(st.removed_at), "reason": st.reason or "", "progress": progress, "done": done, "required": len(req),
+           "overdue": overdue, "needs_review": bool(st.assigned_at and not st.outcome and not st.removed_at and (progress == "completed" or overdue)),
+           "outcome": st.outcome, "outcome_note": st.outcome_note or "", "reviewed_at": utc_iso(st.reviewed_at)}
+    base = json.loads(st.baseline) if st.baseline else iv_evidence(s, st.user_id, tids, end=st.assigned_at or now)  # every row carries the comparison (counts use it)
+    after = iv_evidence(s, st.user_id, tids, start=st.assigned_at) if st.assigned_at else {"test": {}, "practice": {}, "label": None}
+    out["comparison"] = iv_compare(base, after); out["baseline_label"], out["after_label"] = base.get("label"), after.get("label")
+    if detail: out["activities"] = rows
+    return out
+def iv_json(s, p, detail=False, now=None):
+    now = now or dt.datetime.utcnow(); tids = set(json.loads(p.topic_ids or "[]"))
+    acts = s.query(InterventionActivity).filter_by(intervention_id=p.id).order_by(InterventionActivity.position, InterventionActivity.id).all()
+    studs = s.query(InterventionStudent).filter_by(intervention_id=p.id).all(); names = {x.id: x.name for x in s.query(User).filter(User.id.in_([x.user_id for x in studs] or [0]))}
+    rows = [{**iv_student(s, p, st, acts, tids, now, detail), "name": names.get(st.user_id, "")} for st in studs]
+    live = [r for r in rows if not r["removed"]]
+    tops = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_(tids or {0}))}
+    out = {"id": p.id, "course_id": p.course_id, "title": p.title, "description": p.description or "", "criteria": p.criteria or "", "status": p.status,
+           "topics": [{"id": t, "title": tops.get(t, "")} for t in json.loads(p.topic_ids or "[]")], "start": utc_iso(p.start_at), "target": utc_iso(p.target_at),
+           "created_at": utc_iso(p.created_at), "updated_at": utc_iso(p.updated_at),
+           "counts": {"students": len(live), **{k: sum(r["progress"] == k for r in live) for k in ("not_started", "in_progress", "completed")},
+                      "needs_review": sum(r["needs_review"] for r in live), "overdue": sum(r["overdue"] for r in live),
+                      "outcome_not_established": sum(r["comparison"]["overall"] == "not_established" for r in live), "rose": sum(r["comparison"]["overall"] == "rose" for r in live)}}
+    if detail:
+        out["activities"] = [{"id": a.id, "kind": a.kind, "topic_id": a.topic_id, "ref_id": a.ref_id, "size": a.size, "required": bool(a.required), "added_at": utc_iso(a.added_at),
+                              "removed_at": utc_iso(a.removed_at), "label": iv_label(s, a)} for a in acts]
+        out["students"] = sorted(rows, key=lambda r: (r["removed"], not r["needs_review"], r["name"].lower()))
+    return out
+def iv_label(s, a):  # what an activity is, in words a student can act on
+    t = s.get(Topic, a.topic_id) if a.topic_id else None
+    if a.kind == "test": q = s.get(Quiz, a.ref_id); return q.title if q else ""
+    if a.kind == "resource": r = s.get(TeacherResource, a.ref_id); v = res_version(s, r) if r else None; return v.title if v else ""
+    return t.title if t else ""
+def iv_save_acts(s, p, acts, now, existing=None):  # keep, add and remove activities; a removed one keeps its row (and so its history)
+    existing = existing or {}; keep = set()
+    for k, a in enumerate(acts):
+        if a.id and a.id in existing:
+            x = existing[a.id]; x.position, x.required = k, a.required; keep.add(a.id)
+        else: s.add(InterventionActivity(intervention_id=p.id, position=k, kind=a.kind, topic_id=a.topic_id, ref_id=a.ref_id, size=a.size, required=a.required, added_at=now))
+    changed = len(keep) != len([x for x in existing.values() if not x.removed_at]) or any(not a.id or a.id not in existing for a in acts)
+    for i, x in existing.items():
+        if i not in keep and not x.removed_at: x.removed_at = now
+    return changed
+def iv_assign(s, p, uids, reasons, now):  # each student gets their own record; their baseline is frozen when the plan starts for them
+    have = {x.user_id: x for x in s.query(InterventionStudent).filter_by(intervention_id=p.id)}; tids = set(json.loads(p.topic_ids or "[]"))
+    for uid in uids:
+        x = have.get(uid)
+        if not x: x = InterventionStudent(intervention_id=p.id, user_id=uid, reason=(reasons.get(str(uid)) or "")[:500] or None); s.add(x)
+        elif x.removed_at: x.removed_at = None
+        if p.status == "active" and not x.assigned_at:
+            x.assigned_at = now; x.baseline = json.dumps(iv_evidence(s, uid, tids, end=now))
+    for uid, x in have.items():
+        if uid not in uids and not x.removed_at: x.removed_at = now
+@app.post("/api/interventions")
+def new_intervention(b: InterventionIn, u: User = Depends(author), s: Session = Depends(db)):
+    c = s.get(Course, b.course_id)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, c.id, s); acts = iv_validate(s, u, c, b); title = " ".join(b.title.split())[:200]
+    if not title: raise HTTPException(400, "Give the plan a title")
+    if not b.student_ids: raise HTTPException(400, "Choose at least one student")
+    now = dt.datetime.utcnow(); start = iv_day(b.start) or now; target = iv_day(b.target, end=True)
+    if target and target <= start: raise HTTPException(400, "The target date must come after the start")
+    p = Intervention(course_id=c.id, title=title, description=b.description.strip()[:4000] or None, topic_ids=json.dumps(list(dict.fromkeys(b.topic_ids))), criteria=b.criteria.strip()[:2000] or None,
+                     start_at=start, target_at=target, status="active" if b.activate else "draft", created_by=u.id, created_at=now, updated_at=now, changed_at=now if b.activate else None)
+    s.add(p); s.flush(); iv_save_acts(s, p, acts, now); s.flush(); iv_assign(s, p, b.student_ids, b.reasons, now); s.commit()
+    return iv_json(s, p, True)
+@app.put("/api/interventions/{iid}")
+def edit_intervention(iid: int, b: InterventionIn, u: User = Depends(author), s: Session = Depends(db)):
+    """Title, instructions, dates and criteria change in place. Activities: kept ones stay (with their history), new ones count from now, removed
+    ones leave the students' lists but stay where they were done. Students: new ones start now, removed ones keep their record."""
+    p = iv_plan(s, u, iid)
+    if p.status in ("completed", "cancelled"): raise HTTPException(400, "This plan has ended. Make a new one.")
+    c = s.get(Course, p.course_id); b.course_id = c.id; acts = iv_validate(s, u, c, b); now = dt.datetime.utcnow()
+    title = " ".join(b.title.split())[:200]
+    if not title: raise HTTPException(400, "Give the plan a title")
+    if not b.student_ids: raise HTTPException(400, "Choose at least one student")
+    p.title, p.description, p.criteria = title, b.description.strip()[:4000] or None, b.criteria.strip()[:2000] or None
+    p.topic_ids = json.dumps(list(dict.fromkeys(b.topic_ids))); p.target_at = iv_day(b.target, end=True)
+    if p.status == "draft" and b.start: p.start_at = iv_day(b.start)
+    existing = {x.id: x for x in s.query(InterventionActivity).filter_by(intervention_id=p.id)}
+    changed = iv_save_acts(s, p, acts, now, existing)
+    before = {x.user_id for x in s.query(InterventionStudent).filter_by(intervention_id=p.id, removed_at=None)}
+    if b.activate and p.status == "draft": p.status = "active"; changed = True
+    iv_assign(s, p, b.student_ids, b.reasons, now)
+    if p.status == "active" and (changed or set(b.student_ids) != before): p.changed_at = now  # students hear once about a real change
+    p.updated_at = now; s.commit(); return iv_json(s, p, True)
+class IvStatusIn(BaseModel): status: str
+@app.post("/api/interventions/{iid}/status")
+def intervention_status(iid: int, b: IvStatusIn, u: User = Depends(author), s: Session = Depends(db)):
+    p = iv_plan(s, u, iid)
+    if b.status not in IV_STATUS or b.status == "draft": raise HTTPException(400, "Choose active, completed or cancelled")
+    if p.status in ("completed", "cancelled") and b.status != p.status: raise HTTPException(400, "This plan has ended. Make a new one.")
+    now = dt.datetime.utcnow()
+    if b.status == "active" and p.status == "draft":
+        p.status = "active"; p.changed_at = now
+        iv_assign(s, p, [x.user_id for x in s.query(InterventionStudent).filter_by(intervention_id=p.id, removed_at=None)], {}, now)
+    else: p.status = b.status
+    p.updated_at = now; s.commit(); return iv_json(s, p, True)
+@app.get("/api/interventions")
+def list_interventions(course_id: int = 0, status: str = "", topic_id: int = 0, u: User = Depends(author), s: Session = Depends(db)):
+    q = s.query(Intervention)
+    if u.role != "admin": q = q.join(Course, Course.id == Intervention.course_id).filter(Course.faculty_owner_id == u.id)
+    if course_id: q = q.filter(Intervention.course_id == course_id)
+    if status:
+        if status not in IV_STATUS: raise HTTPException(400, "Choose draft, active, completed or cancelled")
+        q = q.filter(Intervention.status == status)
+    ps = [p for p in q.order_by(Intervention.updated_at.desc()).limit(200) if not topic_id or topic_id in json.loads(p.topic_ids or "[]")]
+    names = {c.id: c.name for c in s.query(Course).filter(Course.id.in_({p.course_id for p in ps} or {0}))}
+    return {"items": [{**iv_json(s, p), "course": names.get(p.course_id, "")} for p in ps]}
+@app.get("/api/interventions/{iid}")
+def get_intervention(iid: int, u: User = Depends(author), s: Session = Depends(db)):
+    p = iv_plan(s, u, iid); return iv_json(s, p, True)
+class IvReviewIn(BaseModel): outcome: str; note: str = ""
+@app.post("/api/interventions/{iid}/students/{sid}/review")
+def review_intervention(iid: int, sid: int, b: IvReviewIn, u: User = Depends(author), s: Session = Depends(db)):  # the teacher's word on the outcome, beside the numbers
+    p = iv_plan(s, u, iid); x = s.query(InterventionStudent).filter_by(intervention_id=p.id, user_id=sid).first()
+    if not x or not x.assigned_at: raise HTTPException(404, "Student not found")
+    if b.outcome not in IV_OUTCOMES: raise HTTPException(400, "Choose improved, partly, not yet or needs more support")
+    x.outcome, x.outcome_note, x.reviewed_at, x.reviewed_by = b.outcome, b.note.strip()[:2000] or None, dt.datetime.utcnow(), u.id; s.commit()
+    return iv_json(s, p, True)
+@app.get("/api/courses/{cid}/support-options")
+def support_options(cid: int, topic_ids: str = "", u: User = Depends(author), s: Session = Depends(db)):
+    """What a plan can use on these topics, all existing: tests that ask about them, published resources, how many bank questions there are, whether a
+    revision sheet can be made; and each student with what their records show on these topics (S44), so the teacher sees the reason before choosing."""
+    c, studs, units, topics = ci_scope(s, u, cid)
+    want = [int(x) for x in topic_ids.split(",") if x.strip().isdigit()]; chosen = [t for t in topics if t.id in want]
+    tids = {t.id for t in chosen}
+    tests = []
+    for qz in s.query(Quiz).filter(Quiz.id.in_(course_quiz_ids(cid, s) or [0])):
+        n = s.query(func.count(Question.id)).filter(Question.quiz_id == qz.id, Question.topic_id.in_(tids or {0})).scalar()
+        if n: tests.append({"id": qz.id, "title": qz.title, "questions": n})
+    res = s.query(TeacherResource).filter(TeacherResource.course_id == cid, TeacherResource.status == "published", or_(TeacherResource.topic_id.in_(tids or {0}), TeacherResource.topic_id.is_(None))).all()
+    bank = dict(s.query(McqItem.topic_id, func.count(McqItem.id)).filter(McqItem.topic_id.in_(tids or {0}), McqItem.status == "published").group_by(McqItem.topic_id).all())
+    who = {}
+    if chosen:
+        c_, studs_, units_, tops_, rows, sits, qs, asked, taps, studied, learned = ci_all(s, u, cid)
+        for t in chosen:
+            for r in ci_student_rows(studs, t, sits, studied, learned, asked, qs):
+                w = who.setdefault(r["id"], {"id": r["id"], "name": r["name"], "topics": []}); w["topics"].append({"topic_id": t.id, "title": t.title, **{k: r[k] for k in ("category", "percent", "asked", "sittings", "repeated_errors", "doubts")}})
+    order = {"attention": 0, "revision": 1, "insufficient": 2, "studied_not_assessed": 3, "not_studied": 4, "strong": 5}
+    return {"topics": [{"id": t.id, "title": t.title, "has_notes": bool((t.content or "").strip()), "bank": bank.get(t.id, 0)} for t in topics],
+            "tests": tests, "resources": [{"id": r.id, "title": res_version(s, r).title, "kind": r.kind, "topic_id": r.topic_id} for r in res],
+            "students": sorted(who.values(), key=lambda w: (min(order[x["category"]] for x in w["topics"]), w["name"].lower())) if who else [{"id": x.id, "name": x.name, "topics": []} for x in sorted(studs, key=lambda x: x.name.lower())]}
+IV_PROMPT = ("You help a teacher plan extra support on some topics. You get evidence lines about the class and a catalogue of EXISTING activities, each with an id. "
+             "Suggest a short sequence of activities chosen only from the catalogue (use their ids exactly), with one sentence each on why, citing evidence like [E2]. "
+             "Do not invent activities, numbers or students, and do not judge students. Reply only with JSON: "
+             '{"activities": [{"id": "A3", "why": "..."}], "note": "one or two sentences for the teacher"}')
+class IvSuggestIn(BaseModel): course_id: int; topic_ids: list[int]
+@app.post("/api/interventions/suggest")
+async def suggest_intervention(b: IvSuggestIn, u: User = Depends(author), s: Session = Depends(db)):
+    """A suggested plan, only when the teacher asks: picked by the AI from the existing activities listed here (anything else it names is dropped),
+    each with its reason. Nothing is saved or assigned; the teacher edits and decides."""
+    opts = support_options(b.course_id, ",".join(str(t) for t in b.topic_ids), u, s)
+    tops = {t["id"]: t for t in opts["topics"] if t["id"] in b.topic_ids}
+    if not tops: raise HTTPException(400, "Choose topics of this course")
+    cat = []
+    for t in tops.values():
+        cat.append({"kind": "study", "topic_id": t["id"], "label": f"Study the topic {t['title']}"})
+        if t["has_notes"]: cat.append({"kind": "revise", "topic_id": t["id"], "label": f"Read the revision sheet of {t['title']}"})
+        if t["bank"] >= 5: cat.append({"kind": "mcq", "topic_id": t["id"], "size": 10, "label": f"MCQ practice on {t['title']} ({t['bank']} bank questions)"})
+        cat.append({"kind": "ask", "topic_id": t["id"], "label": f"Ask the teacher about {t['title']}"})
+    cat += [{"kind": "test", "ref_id": q["id"], "label": f"Test: {q['title']}"} for q in opts["tests"]]
+    cat += [{"kind": "resource", "ref_id": r["id"], "topic_id": r["topic_id"], "label": f"Teacher resource ({r['kind']}): {r['title']}"} for r in opts["resources"]]
+    for k, x in enumerate(cat): x["id"] = f"A{k + 1}"
+    ev = []
+    for tid in tops:
+        d = class_topic(b.course_id, tid, "", "", "", 1, 0, u, s); r = d["topic"]
+        ev.append(f"{r['title']}: {r['evidence']} students with enough evidence; strong {r['strong']}, need revision {r['needs_revision']}, need attention {r['needs_attention']}; "
+                  f"{r['doubts']} doubts, {r['unresolved']} unresolved; {len(d['common_wrong'])} questions many got wrong the same way.")
+    msg = "\n".join(f"[E{k + 1}] {e}" for k, e in enumerate(ev)) + "\n\nCatalogue:\n" + "\n".join(f"{x['id']}: {x['label']}" for x in cat)
+    key = key_or_fail(u, s); text, _ = await ask_ai(u, s, key, in_lang(u, IV_PROMPT), msg, max_tokens=600, kind="plan")
+    try: d = json.loads(re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip())
+    except ValueError: raise HTTPException(502, "The AI's suggestion could not be read. Try again.")
+    by = {x["id"]: x for x in cat}; picked, dropped = [], 0
+    for x in (d.get("activities") or [])[:12] if isinstance(d, dict) else []:
+        a = by.get(str(x.get("id")) if isinstance(x, dict) else "")
+        if a: picked.append({**{k: v for k, v in a.items() if k != "id"}, "why": str(x.get("why") or "")[:300], "required": True})
+        else: dropped += 1
+    return {"activities": picked, "note": str(d.get("note") or "")[:600] if isinstance(d, dict) else "", "dropped": dropped, "evidence": ev, "suggested_by_ai": True}
+# ---- what a student sees: their active plans, each activity with where it stands (from their own records) and a way to open it
+@app.get("/api/me/support")
+def my_support(u: User = Depends(me), s: Session = Depends(db)):
+    if u.role != "student": return {"items": []}
+    rows = s.query(InterventionStudent, Intervention).join(Intervention, Intervention.id == InterventionStudent.intervention_id) \
+        .filter(InterventionStudent.user_id == u.id, InterventionStudent.removed_at.is_(None), InterventionStudent.assigned_at.isnot(None), Intervention.status == "active").all()
+    now = dt.datetime.utcnow(); out = []
+    for st, p in rows:
+        acts = s.query(InterventionActivity).filter_by(intervention_id=p.id).order_by(InterventionActivity.position, InterventionActivity.id).all()
+        x = iv_student(s, p, st, acts, set(json.loads(p.topic_ids or "[]")), now, detail=True)
+        cname = s.get(Course, p.course_id); tops = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_(json.loads(p.topic_ids or "[]") or [0]))}
+        out.append({"id": p.id, "title": p.title, "description": p.description or "", "course": cname.name if cname else "", "target": utc_iso(p.target_at),
+                    "topics": [{"id": t, "title": tops.get(t, "")} for t in json.loads(p.topic_ids or "[]")], "progress": x["progress"], "done": x["done"], "required": x["required"],
+                    "activities": [{**a, "label": iv_label(s, next(y for y in acts if y.id == a["id"]))} for a in x["activities"] if not a["removed"]]})
+    return {"items": out}
+@app.post("/api/resources/{rid}/opened")
+def resource_opened(rid: int, u: User = Depends(me), s: Session = Depends(db)):  # S45: a student opened a resource (only that: never a sign of understanding)
+    r = s.get(TeacherResource, rid)
+    if not r or not res_visible(s, u, r): raise HTTPException(404, "Not found")
+    if u.role == "student":
+        recent = s.query(StepLog.id).filter(StepLog.user_id == u.id, StepLog.kind == "resource", StepLog.outcome == str(rid), StepLog.at >= dt.datetime.utcnow() - dt.timedelta(hours=1)).first()
+        if not recent: s.add(StepLog(user_id=u.id, topic_id=r.topic_id, kind="resource", outcome=str(rid))); s.commit()
+    return {"ok": True}
+def support_notes(u, s):  # the bell: a student hears about a plan when it starts or really changes; a course's teacher about students to review
+    if u.role == "student":
+        return [{"key": f"plan:{p.id}:{p.changed_at:%Y%m%d%H%M%S%f}", "text": "Your teacher has prepared some extra practice", "sub": p.title}
+                for st, p in s.query(InterventionStudent, Intervention).join(Intervention, Intervention.id == InterventionStudent.intervention_id)
+                .filter(InterventionStudent.user_id == u.id, InterventionStudent.removed_at.is_(None), InterventionStudent.assigned_at.isnot(None), Intervention.status == "active", Intervention.changed_at.isnot(None))]
+    if not is_author(u): return []
+    q = s.query(Intervention).filter(Intervention.status == "active")
+    if u.role != "admin": q = q.join(Course, Course.id == Intervention.course_id).filter(Course.faculty_owner_id == u.id)
+    n = sum(iv_json(s, p)["counts"]["needs_review"] for p in q.limit(100))
+    return [{"key": f"plans-review:{n}", "text": f"Students to review in support plans: {n}", "sub": ""}] if n else []
 # ---- achievements (S36): a few milestones worked out from what the student did; no points, nothing for just opening the app
 def my_achievements_list(u, s):
     out = []
@@ -8060,8 +8391,8 @@ def notes_for(u, s):  # [{key, text, sub}]: staff get what needs attention, stud
     if u.role == "student":
         asks = [{"key": f"invite:{l.id}", "text": f"{g.name} wants to follow your progress", "sub": "Accept or decline on Home"} for l, g in invitations(s, u.id)]
         return asks + enrol_notes(u, s) + tq_answered(u, s) + ann_notes(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
-                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + assign_notes(u, s) + revision_notes(u, s) + return_notes(u, s) + cal_notes(u, s)
-    return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + enrol_notes(u, s) + (ann_notes(u, s) if u.role == "admin" else [])
+                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + assign_notes(u, s) + revision_notes(u, s) + return_notes(u, s) + support_notes(u, s) + cal_notes(u, s)
+    return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + enrol_notes(u, s) + (ann_notes(u, s) if u.role == "admin" else []) + support_notes(u, s)
 @app.get("/api/me/notifications")
 def my_notifications(u: User = Depends(me), s: Session = Depends(db)):
     items = notes_for(u, s); seen = {k for (k,) in s.query(NoteSeen.key).filter(NoteSeen.user_id == u.id, NoteSeen.key.in_([i["key"] for i in items] or [""]))}
