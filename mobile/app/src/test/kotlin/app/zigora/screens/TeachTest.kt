@@ -6,6 +6,8 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
@@ -61,7 +63,8 @@ class TeachTest {
     @Test fun aTeacherAnswersSharesAndSchedules() {
         signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Student questions"); see("Hardness of Water"); shot("1-inbox")  // S42: the centre lists every doubt until a filter is picked
-        tap("Why does only the bicarbonate"); see("Heat splits the bicarbonate");  // S42: rows show the question, the thread shows the answer see("Stop sharing with the class"); see("Your answer"); shot("2-thread")
+        tap("Why does only the bicarbonate"); see("Heat splits the bicarbonate")  // S42: rows show the question, the thread shows the answer
+        see("Stop sharing with the class"); see("Your answer"); shot("2-thread")
         tab("Classes"); see("Revision: water technology"); see("Join the class"); shot("3-classes")
         tap("Schedule a class or post an announcement"); see("Video link")
         rule.onAllNodes(hasSetTextAction())[0].performTextInput("Doubt-clearing session")
@@ -71,6 +74,24 @@ class TeachTest {
         rule.waitUntil(20_000) { rule.onAllNodesWithText("Video link").fetchSemanticsNodes().isEmpty() }  // the form closed: it was saved
         see("Doubt-clearing session"); see("Coming up"); shot("4-scheduled")
         tab("Struggles"); see("Where students struggle"); see("Hardness of Water"); see("questions to you"); shot("5-struggles")
+    }
+
+    /** the doubt centre's folded filters and its report, and a class's changes behind its menu */
+    @Test fun aTeacherFiltersReportsAndChangesAClass() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        see("Student questions"); see("Hardness of Water")
+        rule.onAllNodesWithContentDescription("Filters").onFirst().performClick(); see("Sort by"); see("Oldest unanswered first"); shot("10-inbox-filters")
+        tab("Report"); see("Topics with the most doubts"); shot("11-doubt-report")
+        tab("Classes"); see("Join the class")
+        rule.onAllNodesWithContentDescription("More options").onFirst().performClick(); see("Change the time"); shot("12-class-menu")
+    }
+
+    /** the teacher's own offered course: the list, its students and what can be done with it */
+    @Test fun aTeacherRunsAnOfferedCourse() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        tab("Courses"); see("Offered courses"); see("Python for engineers"); shot("13-courses")
+        tap("Python for engineers"); see("Write to students"); shot("14-course-students")
+        tab("Course"); see("Repeat this course"); rule.onNodeWithText("Repeat this course").performScrollTo(); shot("15-course-manage")
     }
 
     /** a weekly class from the app: every session is scheduled, and the list shows the next one with its place in the series */

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
@@ -51,15 +52,26 @@ fun AnnCard(a: Ann, cancel: ((Ann) -> Unit)? = null, move: ((Ann) -> Unit)? = nu
         if (a.kind == "class") Quiet(whenOf(a) + (a.week?.let { " · " + tl("Weekly, session {n} of {of}", "n" to it.n, "of" to it.of) } ?: ""))
         if (a.body.isNotEmpty()) MathMd(a.body)
         Quiet(listOf(a.by, a.at?.let { stamp(it) }.orEmpty()).filter { it.isNotEmpty() }.joinToString(" · "), Modifier.padding(top = 4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-            if (a.link != null && a.status != "ended") {
+        val joinable = a.link != null && a.status != "ended"
+        val canCancel = cancel != null && a.can_edit && a.status != "cancelled" && a.status != "ended"
+        val canMove = move != null && a.can_edit && a.kind == "class" && a.status == "upcoming"
+        if (joinable || canCancel || canMove) Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            if (joinable) {
                 val open = { scope.launch { runCatching { api.raw("POST", "/announcements/${a.id}/join") } }  // counted for the teacher
-                             runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, a.link.toUri())) }; Unit }
+                             runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, a.link!!.toUri())) }; Unit }
                 if (a.status == "live") Button(onClick = open) { Text(tl("Join the class")) } else OutlinedButton(onClick = open) { Text(tl("Join the class")) }
             }
-            if (cancel != null && a.can_edit && a.status != "cancelled" && a.status != "ended") TextButton(onClick = { cancel(a) }) { Text(if (a.kind == "class") tl("Cancel the class") else tl("Withdraw")) }
+            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            if (canCancel || canMove) androidx.compose.foundation.layout.Box {  // the teacher's changes, one tap away, not a row of buttons
+                var menu by remember(a.id) { mutableStateOf(false) }
+                androidx.compose.material3.IconButton(onClick = { menu = true }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.MoreVert, tl("More options")) }
+                androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+                    if (canMove) androidx.compose.material3.DropdownMenuItem(text = { Text(tl("Change the time")) }, onClick = { menu = false; move!!(a) })
+                    if (canCancel) androidx.compose.material3.DropdownMenuItem(text = { Text(if (a.kind == "class") tl("Cancel the class") else tl("Withdraw"), color = MaterialTheme.colorScheme.error) },
+                                                                            onClick = { menu = false; cancel!!(a) })
+                }
+            }
         }
-        if (move != null && a.can_edit && a.kind == "class" && a.status == "upcoming") TextButton(onClick = { move(a) }) { Text(tl("Change the time")) }
         val joins = a.joins
         if (joins != null && a.status != "upcoming") {
             TextButton(onClick = { who = !who }) { Text(tl("Tapped Join: {n} of {of}", "n" to joins.size, "of" to a.class_size)) }
