@@ -80,7 +80,7 @@ class TourTest {
         tab("Saved"); see("Hardness of Water"); shot("07-saved")
         tap("Highlights"); see("hard water"); shot("08-highlights")
         tab("Progress"); see("Study routine"); shot("09-progress")
-        tap("Scores"); see("Final score"); shot("10-test-results")
+        see("Test scores"); see("Final score"); shot("10-test-results")  // scores show on the page itself
         tap("Final score"); see("Water Technology quiz"); shot("11-score-course")
         tap("Water Technology quiz"); see("latest"); shot("12-attempts")
         rule.onAllNodesWithText("%", substring = true).onFirst().performClick(); see("Question 1"); shot("13-attempt")

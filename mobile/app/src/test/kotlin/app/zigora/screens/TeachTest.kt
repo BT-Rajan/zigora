@@ -61,7 +61,7 @@ class TeachTest {
     @Test fun aTeacherAnswersSharesAndSchedules() {
         signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Student questions"); see("Hardness of Water"); shot("1-inbox")  // S42: the centre lists every doubt until a filter is picked
-        tap("Heat splits the bicarbonate"); see("Why does only the bicarbonate"); see("Stop sharing with the class"); see("Your answer"); shot("2-thread")
+        tap("Why does only the bicarbonate"); see("Heat splits the bicarbonate");  // S42: rows show the question, the thread shows the answer see("Stop sharing with the class"); see("Your answer"); shot("2-thread")
         tab("Classes"); see("Revision: water technology"); see("Join the class"); shot("3-classes")
         tap("Schedule a class or post an announcement"); see("Video link")
         rule.onAllNodes(hasSetTextAction())[0].performTextInput("Doubt-clearing session")

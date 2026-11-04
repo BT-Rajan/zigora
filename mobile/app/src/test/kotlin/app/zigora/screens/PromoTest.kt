@@ -91,7 +91,7 @@ class PromoTest {
         tap("Bicarbonates"); tap("Calcium carbonate"); tap("Submit answers"); see("Confirm submission"); rule.onAllNodesWithText("Confirm submission").onFirst().performClick(); see("2 / 2"); shot("quiz")
         tap("Review answers"); see("Your answer"); shot("attempt"); back(); back(); back()
         tab("Saved"); tap("Highlights"); see("soap won't lather"); shot("highlights")
-        tab("Progress"); see("Study routine"); tap("Scores"); see("Final score"); shot("progress")
+        tab("Progress"); see("Test scores"); see("Final score"); shot("progress")
         tab("Courses"); tap("Build a course"); see("Thermodynamics notes"); shot("build")
         tap("Thermodynamics notes"); see("The zeroth law"); shot("own-course")
     }

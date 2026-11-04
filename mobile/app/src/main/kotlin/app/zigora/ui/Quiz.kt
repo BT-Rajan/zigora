@@ -1,5 +1,6 @@
 package app.zigora.ui
 
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -90,10 +91,8 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
         Loaded(quiz) { qz ->
             val res = out
             if (res == null && resumed) Quiet(tl("Welcome back: your answers so far are restored. This test is not submitted yet."))
-            if (res == null && qz.attempts > 0) Row(verticalAlignment = Alignment.CenterVertically) {
-                Quiet(tl("You have tried this {n}. Best {best}% · latest {latest}%.", "n" to pl(qz.attempts, "time"), "best" to qz.best, "latest" to qz.latest), Modifier.weight(1f))
-                TextButton(onClick = { openAttempts(id) }) { Text(tl("See your attempts")) }
-            }
+            if (res == null && qz.attempts > 0) ListRow(tl("See your attempts"), tl("You have tried this {n}. Best {best}% · latest {latest}%.", "n" to pl(qz.attempts, "time"), "best" to qz.best, "latest" to qz.latest),
+                                                     onClick = { openAttempts(id) }, leading = { RowIcon(androidx.compose.material.icons.Icons.Outlined.History) })
             if (res != null) {
                 Panel {
                     Text("${res.score} / ${res.total} · ${res.percent}%", style = MaterialTheme.typography.headlineSmall)
@@ -103,7 +102,6 @@ fun QuizScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit, openAttempt:
                         res.attempt_id?.let { aid -> Button(onClick = { openAttempt(aid) }) { Text(tl("Review answers")) } }
                         OutlinedButton(onClick = { tick++ }) { Text(tl("Try again")) }
                     }
-                    TextButton(onClick = back) { Text(tl("Back")) }
                 }
                 if (res.areas.isNotEmpty()) { SectionTitle(tl("What you are good at and what to revisit")); AreaList(res.areas, onStudy = openTopic) }
                 Standing(res.standing, openTopic)

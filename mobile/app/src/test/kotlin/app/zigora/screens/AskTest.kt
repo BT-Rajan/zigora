@@ -73,7 +73,7 @@ class AskTest {
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithContentDescription("Back").performClick()
         see("Saved"); rule.onNode(hasText("Saved") and hasClickAction()).performClick(); tap("Questions")
-        see("How do we measure hardness"); see("Waiting for your teacher"); shot("2-my-questions")
+        see("How do we measure hardness"); see("Pending");  // S40: where a question stands, in the student's words shot("2-my-questions")
         tap("Heat splits the bicarbonate"); see("Why does only the bicarbonate"); see("Priya Raman"); shot("3-thread")
     }
 
