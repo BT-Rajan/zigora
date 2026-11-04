@@ -245,6 +245,7 @@ textarea.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:
 .schip{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:99px;background:rgba(255,255,255,.16);color:inherit;font-size:13px;font-weight:600;flex:none}
 .sfile{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.sfile .chip{margin:0}.sfile .tool{margin:0}
 .chip.none{background:transparent;border:1px solid var(--line);color:var(--mut)}
+.chip.on{background:var(--vio);color:#fff}
 
 /* ---- Zigora enterprise layer ---- */
 @media (min-width:600px) and (max-width:899px){:root{--w:760px}.main{padding-inline-start:24px;padding-inline-end:24px}.bar{padding-inline-start:24px;padding-inline-end:24px}.stats{grid-template-columns:repeat(4,1fr)}}

@@ -594,7 +594,7 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   const confirm=useConfirm()
   const isAdmin=user.role==='admin',staff=user.role!=='student'
   const [mat,setMat]=useState(false),[rev,setRev]=useState(null)
-  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[ci,setCi]=useState(null),[resM,setResM]=useState(null),[fin,setFin]=useState(null)
+  const [bulk,setBulk]=useState(null),[copy,setCopy]=useState(null),[tree,setTree]=useState([]),[nav,setNav]=useState(start||[]),[sheet,setSheet]=useState(null),[cp,setCp]=useState(null),[t,setT]=useState(null),[ed,setEd]=useState(null),[del,setDel]=useState(null),[sh,setSh]=useState(null),[qz,setQz]=useState(null),[qe,setQe]=useState(null),[arch,setArch]=useState(null),[showArch,setShowArch]=useState(false),[qr,setQr]=useState(null),[gb,setGb]=useState(null),[ci,setCi]=useState(null),[resM,setResM]=useState(null),[fin,setFin]=useState(null),[sp,setSp]=useState(null)
   const load=()=>api('/tree').then(setTree).catch(e=>toast(e.message));useEffect(()=>{load()},[t,ed,qz,qe,sheet,arch,qr])
   const landed=useRef(!!start?.length);useEffect(()=>{const real=tree.filter(x=>!x.offered);if(landed.current||user.role!=='student'||real.length!==1)return;landed.current=true;const p=real[0],c=p.semesters.find(x=>x.current)||(p.semesters.length===1?p.semesters[0]:null);setNav(c?[p.id,c.id]:[p.id])},[tree])
   const prog=tree.find(x=>x.id===nav[0]),sem=prog?.semesters.find(x=>x.id===nav[1]),co=sem?.courses.find(x=>x.id===nav[2]),unit=co?.units.find(x=>x.id===nav[3])
@@ -611,6 +611,7 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
   if(fin)return <CourseFinishers cid={fin} back={()=>setFin(null)} toast={toast}/>
   if(resM)return <ResourceManager cid={resM} back={()=>setResM(null)} toast={toast}/>
   if(ci)return <ClassInsight cid={ci} back={()=>setCi(null)} toast={toast}/>
+  if(sp)return <SupportPlans cid={sp} back={()=>setSp(null)} toast={toast}/>
   if(ed)return <TopicEditor role={user.role} toast={toast} edit={ed.id?ed:null} unitId={ed.unit_id} done={()=>setEd(null)} cancel={()=>setEd(null)}/>
   const last=cyc?.relearn?Object.fromEntries([...cyc.relearn.weak.map(x=>[x.id,tl("Weak last time")]),...cyc.relearn.strong.map(x=>[x.id,tl("Strong last time")])]):{}
   const tsub=x=>[x.published===false&&'Draft · students cannot see it',x.optional&&tl("Optional"),x.status!=='completed'&&last[x.id],x.learning_due_at&&(staff?'Due '+when(x.learning_due_at):tl("Your teacher's date")+': '+day(x.learning_due_at)),
@@ -666,7 +667,8 @@ function Learn({user,toast,appName,start,onGo,onStudy}){
       {mayEdit&&<button className="btn ghost" onClick={()=>setGb(co.id)}><BarChart3 size={16}/>{" "}{tl("Gradebook: final scores for every test")}</button>}
       {mayEdit&&<button className="btn ghost" onClick={()=>setFin(co.id)}><ClipboardCheck size={16}/>{" "}{tl("Who has finished this course")}</button>}
       {mayEdit&&<button className="btn ghost" onClick={()=>setResM(co.id)}><FileText size={16}/>{" "}{tl("Teacher resources")}</button>}
-      {mayEdit&&<button className="btn ghost" onClick={()=>setCi(co.id)}><BarChart3 size={16}/>{" "}{tl("Class insight")}</button>}</>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setCi(co.id)}><BarChart3 size={16}/>{" "}{tl("Class insight")}</button>}
+      {mayEdit&&<button className="btn ghost" onClick={()=>setSp(co.id)}><Target size={16}/>{" "}{tl("Support plans")}</button>}</>}
     {unit&&(unit.quizzes.length>0||mayEdit)&&<><h3 className="sec">{tl("Quizzes")}</h3>
       {<Paged rows={unit.quizzes} render={(q,i)=><div key={q.id} className="card"><button className="hit" onClick={()=>setQz(q.id)}><span className="dot" style={{background:COL[(i+3)%5]}}>?</span><div><b>{q.title}</b><span>{q.questions}{" "}{tl("questions · pass {pass_percent}%",{pass_percent:q.pass_percent})}{q.best!=null?tl(" · best {best}%",{best:q.best}):''}{q.published?'':tl(" · Draft")}</span></div>{q.best!=null&&q.best>=q.pass_percent&&<span className="marks"><Check size={16}/></span>}</button>
         {mayEdit&&<><button className="ic sm" aria-label={tl("Results of {title}",{title:q.title})} onClick={()=>setQr(q.id)}><BarChart3 size={16}/></button><button className="ic sm" aria-label={tl("Edit {title}",{title:q.title})} onClick={()=>setQe({id:q.id,unit_id:unit.id,unitTopics:unit.topics.map(t=>({id:t.id,title:t.title}))})}><Pencil size={16}/></button></>}</div>}/>}
@@ -990,14 +992,17 @@ function ClassInsight({cid,toast,back}){
         {t.trend&&<small className="known" style={{display:'block'}}>{tl("Accuracy {a}% before the last 30 days ({n} answers), {b}% since ({m})",{a:t.trend.before,n:t.trend.before_asked,b:t.trend.recent,m:t.trend.recent_asked})}</small>}
         {t.recommendations.length>0&&<span style={{display:'block',marginTop:6}}>{t.recommendations.map((x,k)=>{const [a,b]=ciRec(x);return <small key={k} style={{display:'block'}}>{'→ '}<span style={{fontWeight:600}}>{a}</span>{b?' — '+b:''}</small>})}</span>}</button>)}</>}</div></>}
 function ClassTopic({cid,tid,f,toast,back}){
-  const [d,setD]=useState(null),[cat,setCat]=useState(''),[page,setPage]=useState(0),[ai,setAi]=useState(null),[busy,setBusy]=useState(false),[stu,setStu]=useState(null)
+  const [d,setD]=useState(null),[cat,setCat]=useState(''),[page,setPage]=useState(0),[ai,setAi]=useState(null),[busy,setBusy]=useState(false),[stu,setStu]=useState(null),[plan,setPlan]=useState(null)
   const base=`/reports/courses/${cid}/topics/${tid}`,qs=new URLSearchParams({...(f.since?{since:f.since}:{}),...(f.until?{until:f.until}:{})}).toString()
   useEffect(()=>{api(`${base}?${qs}&category=${cat}&limit=${PAGE}&offset=${page*PAGE}`).then(setD).catch(e=>{toast(e.message);back()})},[cat,page])
   if(stu)return <ClassStudent cid={cid} tid={tid} sid={stu} toast={toast} back={()=>setStu(null)}/>
+  if(plan==='new')return <SupportEditor cid={cid} tids={[tid]} pick toast={toast} done={p=>setPlan(p.id)} cancel={()=>setPlan(null)}/>
+  if(plan)return <SupportPlan id={plan} toast={toast} back={()=>setPlan(null)}/>
   const explain=async()=>{setBusy(true);try{setAi(await api(`${base}/explain?${qs}`,{method:'POST'}))}catch(e){toast(srv(e.message))}setBusy(false)}
   const t=d?.topic
   return <><Bar title={t?t.title:tl("Topic")} sub={tl("Class insight")} back={back}/><div className="main">{!d?<Skeleton rows={4}/>:<>
     <p style={{marginTop:0}}><CiChip st={t.status}/>{' '}<small className="known">{tl("{e} of {n} students have enough evidence",{e:t.evidence,n:t.students})}</small></p>
+    {(d.categories.attention>0||d.categories.revision>0)&&<button className="btn ghost" onClick={()=>setPlan('new')}><Target size={16}/>{" "}{tl("Create a support plan for these students")}</button>}
     <div className="qbox"><b>{tl("Ask the AI what the evidence suggests")}</b><p className="known" style={{margin:'4px 0'}}>{tl("It gets only the figures below, the commonly missed questions and the doubts' words, never names, and must cite them. Nothing is decided for you.")}</p>
       {!ai?<button className="btn ghost" disabled={busy} onClick={explain}><Sparkles size={16}/> {busy?tl("Thinking…"):tl("Explain this topic's difficulties")}</button>:<>
         <div className="prose"><Md>{ai.text}</Md></div>
@@ -1022,6 +1027,136 @@ function ClassStudent({cid,tid,sid,toast,back}){
     {d.repeated_errors.length>0&&<><h3 className="sec">{tl("Questions got wrong twice or more")}</h3>{d.repeated_errors.map((x,k)=><div key={k} className="qbox"><div className="prose"><Md>{x.text}</Md></div><small className="known">{tl("Wrong {n} times; usually chose “{o}”; correct: “{c}”",{n:x.times_wrong,o:x.chosen!=null?String(x.options[x.chosen]):'?',c:x.correct!=null?String(x.options[x.correct]):'?'})}</small></div>)}</>}
     <h3 className="sec">{tl("Revision")}</h3><p className="known">{d.revised.length?tl("Read the revision sheet {n} times, last {when}",{n:d.revised.length,when:when(d.revised[d.revised.length-1])}):tl("Hasn't read the revision sheet.")}</p>
     {d.doubts.length>0&&<><h3 className="sec">{tl("Doubts")}</h3>{d.doubts.map(q=><div key={q.id} className="qbox"><QChip s="" label={q.label}/><div className="thread">{q.messages.map((m,k)=><div key={k} className={'msg'+(m.teacher?' teach':'')}><small>{m.teacher?tl("Teacher"):d.student} · {when(m.at)}</small><div className="prose"><Md>{m.text}</Md></div></div>)}</div></div>)}</>}</>}</div></>}
+// ---- learning support plans (S45): a course's teacher gathers existing activities for chosen students. Progress comes from what the students do after
+// ---- they are assigned; the outcome compares the same topics before and after (tests and practice apart) and waits for enough evidence; the teacher decides
+const IV_KIND={study:'Study the topic',revise:'Read the revision sheet',mcq:'MCQ practice',test:'Take the test',resource:'Open the teacher resource',ask:'Ask your teacher about it',relearn:'Learn the topic again from the start'}
+const IV_PROG={not_started:'Not started',in_progress:'In progress',completed:'Completed'}
+const IV_STATUS={draft:'Draft',active:'Active',completed:'Completed',cancelled:'Cancelled'}
+const IV_OUT={improved:'Improved',partly:'Partly improved',not_yet:'Not yet improved',more_support:'Needs more support'}
+const IV_OVERALL={not_established:'Outcome not yet established',rose:'Accuracy rose',fell:'Accuracy fell',steady:'About the same',mixed:'Tests and practice moved differently'}
+const IV_EV={learned:'learned',opened:'opened',read:'read',asked:'asked','learned again':'learned again','started over':'started over'}
+const ivEv=e=>IV_EV[e]?tl(IV_EV[e]):e
+const ivDay=s=>s?new Date(new Date(s).getTime()-1).toLocaleDateString('en-CA'):''  // the server keeps the end of the chosen day; this gives the day back
+const ivShow=s=>s?new Date(new Date(s).getTime()-1).toLocaleDateString(locale(),{day:'numeric',month:'short'}):''
+const ivAct=a=>tl(IV_KIND[a.kind]||a.kind)+(a.label?': '+a.label:'')+(a.kind==='mcq'&&a.size?' · '+tl("{n} questions",{n:a.size}):'')
+const ivReason=w=>w.topics.filter(x=>x.category!=='strong').map(x=>x.title+': '+tl(CI_CAT[x.category])+(x.asked?' · '+tl("{p}% of {n} answers over {k} sittings",{p:x.percent,n:x.asked,k:x.sittings}):'')+(x.doubts?' · '+(x.doubts===1?tl("1 doubt"):tl("{n} doubts",{n:x.doubts})):'')).join('; ')
+function IvCompare({c}){  // before and after on the plan's topics: shown with the number of answers, never as proof the plan caused it
+  const side=(k,l)=>{const x=c[k];if(!x.before.asked&&!x.after.asked)return null
+    return <small className="known" style={{display:'block'}}>{tl(l)}: {x.before.asked?tl("{p}% of {n} answers",{p:x.before.percent,n:x.before.asked}):tl("none")}{' → '}{x.after.asked?tl("{p}% of {n} answers",{p:x.after.percent,n:x.after.asked}):tl("none yet")}{x.established?'':' · '+tl("not enough yet")}</small>}
+  return <><b style={{display:'block'}}>{tl(IV_OVERALL[c.overall])}</b>{side('test',"Tests")}{side('practice',"Practice")}</>}
+function SupportPlans({cid,toast,back}){
+  const [d,setD]=useState(null),[open,setOpen]=useState(null),[ed,setEd]=useState(null),[st,setSt]=useState('')
+  const load=()=>api(`/interventions?course_id=${cid}&status=${st}`).then(setD).catch(e=>{toast(e.message);back()});useEffect(()=>{if(!open&&!ed)load()},[open,ed,st])
+  if(ed)return <SupportEditor cid={cid} toast={toast} done={p=>{setEd(null);setOpen(p.id)}} cancel={()=>setEd(null)}/>
+  if(open)return <SupportPlan id={open} toast={toast} back={()=>setOpen(null)}/>
+  return <><Bar title={tl("Support plans")} sub={d?.items[0]?.course||''} back={back}/><div className="main">
+    <p className="known" style={{marginTop:0}}>{tl("Extra practice for chosen students, made from what the course already has. Progress comes from what they do after the plan starts.")}</p>
+    <button className="btn" onClick={()=>setEd(true)}><Plus size={16}/>{" "}{tl("New support plan")}</button>
+    <div className="filters fit" style={{flexWrap:'wrap'}}>{['',...Object.keys(IV_STATUS)].map(k=><button key={k} className={'chip'+(st===k?' on':'')} onClick={()=>setSt(k)}>{k?tl(IV_STATUS[k]):tl("All")}</button>)}</div>
+    {!d?<Skeleton rows={2}/>:!d.items.length?<p className="known">{tl("No support plans yet.")}</p>:d.items.map(p=><button key={p.id} className="card ward" onClick={()=>setOpen(p.id)}>
+      <span className="wtop"><b>{p.title}</b><span className="chip">{tl(IV_STATUS[p.status])}</span></span>
+      <small className="known">{p.topics.map(t=>t.title).join(', ')}{p.target?' · '+tl("target {date}",{date:ivShow(p.target)}):''}</small>
+      <small className="known" style={{display:'block'}}>{[pl(p.counts.students,'student'),tl("{n} completed",{n:p.counts.completed}),tl("{n} in progress",{n:p.counts.in_progress}),tl("{n} not started",{n:p.counts.not_started}),p.counts.needs_review>0&&tl("{n} to review",{n:p.counts.needs_review}),p.counts.overdue>0&&tl("{n} past the target",{n:p.counts.overdue})].filter(Boolean).join(' · ')}</small></button>)}</div></>}
+function SupportEditor({cid,plan,tids,pick,toast,done,cancel}){  // new, or an edit of an active plan: kept activities and students keep their history
+  const [o,setO]=useState(null),[busy,setBusy]=useState(false),[sug,setSug]=useState(null),[add,setAdd]=useState(null)
+  const [f,setF]=useState(()=>plan?{title:plan.title,description:plan.description,criteria:plan.criteria,target:ivDay(plan.target),topic_ids:plan.topics.map(t=>t.id),
+    activities:plan.activities.filter(a=>!a.removed_at).map(a=>({id:a.id,kind:a.kind,topic_id:a.topic_id,ref_id:a.ref_id,size:a.size,required:a.required,label:a.label})),
+    student_ids:plan.students.filter(x=>!x.removed).map(x=>x.user_id),reasons:Object.fromEntries(plan.students.map(x=>[x.user_id,x.reason]))}
+    :{title:'',description:'',criteria:'',target:'',topic_ids:tids||[],activities:[],student_ids:[],reasons:{}})
+  const tq=f.topic_ids.join(',')
+  useEffect(()=>{api(`/courses/${cid}/support-options?topic_ids=${tq}`).then(r=>{setO(r)
+    if(pick&&!plan)setF(v=>{if(v.student_ids.length)return v;const ws=r.students.filter(w=>w.topics.some(x=>x.category==='attention'||x.category==='revision'))
+      return {...v,title:v.title||tl("Extra practice: {topics}",{topics:r.topics.filter(t=>v.topic_ids.includes(t.id)).map(t=>t.title).join(', ')}),student_ids:ws.map(w=>w.id),reasons:Object.fromEntries(ws.map(w=>[w.id,ivReason(w)]))}})}).catch(e=>{toast(e.message);cancel()})},[tq])
+  if(!o)return <><Bar title={tl("Support plan")} back={cancel}/><div className="main"><Skeleton rows={3}/></div></>
+  const tname=id=>o.topics.find(t=>t.id===id)?.title||''
+  const label=a=>a.label||(a.kind==='test'?o.tests.find(q=>q.id===a.ref_id)?.title:a.kind==='resource'?o.resources.find(r=>r.id===a.ref_id)?.title:tname(a.topic_id))||''
+  const togT=id=>setF(v=>({...v,topic_ids:v.topic_ids.includes(id)?v.topic_ids.filter(x=>x!==id):[...v.topic_ids,id]}))
+  const togS=w=>setF(v=>v.student_ids.includes(w.id)?{...v,student_ids:v.student_ids.filter(x=>x!==w.id)}:{...v,student_ids:[...v.student_ids,w.id],reasons:{...v.reasons,[w.id]:v.reasons[w.id]||ivReason(w)}})
+  const setA=(k,p)=>setF(v=>({...v,activities:v.activities.map((a,i)=>i===k?{...a,...p}:a)}))
+  const move=(k,d)=>setF(v=>{const a=[...v.activities],j=k+d;if(j<0||j>=a.length)return v;[a[k],a[j]]=[a[j],a[k]];return {...v,activities:a}})
+  const addOk=add&&(add.kind==='test'?add.ref_id:add.kind==='resource'?add.ref_id:add.topic_id)
+  const suggest=async()=>{setBusy(true);try{setSug(await api('/interventions/suggest',{method:'POST',body:{course_id:cid,topic_ids:f.topic_ids}}))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const save=async activate=>{setBusy(true);try{const b={...f,course_id:cid,reasons:Object.fromEntries(Object.entries(f.reasons).map(([k,v])=>[k,v||''])),activate}
+    const p=plan?await api('/interventions/'+plan.id,{method:'PUT',body:b}):await api('/interventions',{method:'POST',body:b});done(p)}catch(e){toast(srv(e.message))}setBusy(false)}
+  return <><Bar title={plan?tl("Edit support plan"):tl("New support plan")} back={cancel}/><div className="main">
+    <h3 className="sec first">{tl("Topics")}</h3><div className="filters fit" style={{flexWrap:'wrap'}}>{o.topics.map(t=><button key={t.id} className={'chip'+(f.topic_ids.includes(t.id)?' on':'')} aria-pressed={f.topic_ids.includes(t.id)} onClick={()=>togT(t.id)}>{t.title}</button>)}</div>
+    <label htmlFor="ivt">{tl("Title")}</label><input id="ivt" value={f.title} maxLength={200} onChange={e=>setF({...f,title:e.target.value})}/>
+    <label htmlFor="ivd">{tl("Instructions for the students (optional)")}</label><textarea id="ivd" rows={3} value={f.description} maxLength={4000} onChange={e=>setF({...f,description:e.target.value})}/>
+    <label htmlFor="ivg">{tl("Target date (optional)")}</label><input id="ivg" type="date" value={f.target} onChange={e=>setF({...f,target:e.target.value})}/>
+    <label htmlFor="ivc">{tl("How you will judge it (optional, for you)")}</label><input id="ivc" value={f.criteria} maxLength={2000} onChange={e=>setF({...f,criteria:e.target.value})} placeholder={tl("For example: 70% or more in two practice sets")}/>
+    <h3 className="sec">{tl("Activities")}</h3>
+    {!f.activities.length&&<p className="known" style={{marginTop:0}}>{tl("Add what the students should do, in order.")}</p>}
+    {f.activities.map((a,k)=><div key={k} className="row"><div>{k+1}. {tl(IV_KIND[a.kind])}{label(a)?': '+label(a):''}
+      <small><label className="chk" style={{padding:"4px 0"}}><input type="checkbox" checked={a.required!==false} onChange={e=>setA(k,{required:e.target.checked})}/>{" "}{tl("Required")}</label>{a.kind==='mcq'&&<>{' · '}<select aria-label={tl("Questions")} value={a.size||10} onChange={e=>setA(k,{size:+e.target.value})}>{[5,10,15,20].map(n=><option key={n} value={n}>{tl("{n} questions",{n})}</option>)}</select></>}</small></div>
+      <button className="ic sm" aria-label={tl("Move up")} onClick={()=>move(k,-1)}><ArrowUp size={15}/></button><button className="ic sm" aria-label={tl("Move down")} onClick={()=>move(k,1)}><ArrowDown size={15}/></button>
+      <button className="ic sm" aria-label={tl("Remove")} onClick={()=>setF(v=>({...v,activities:v.activities.filter((_,i)=>i!==k)}))}><X size={15}/></button></div>)}
+    {f.topic_ids.length>0&&!add&&<div className="qopt"><button className="btn ghost" onClick={()=>setAdd({kind:'study',topic_id:f.topic_ids[0],size:10,required:true})}><Plus size={16}/>{" "}{tl("Add an activity")}</button>
+      <button className="btn ghost" disabled={busy} onClick={suggest}><Sparkles size={16}/>{" "}{busy?tl("Thinking…"):tl("Suggest activities (AI)")}</button></div>}
+    {add&&<div className="qbox"><select aria-label={tl("Activity")} value={add.kind} onChange={e=>setAdd({...add,kind:e.target.value,ref_id:null})}>{Object.entries(IV_KIND).map(([k,l])=><option key={k} value={k}>{tl(l)}</option>)}</select>
+      {add.kind==='test'?<select aria-label={tl("Test")} value={add.ref_id||''} onChange={e=>setAdd({...add,ref_id:+e.target.value})}><option value="">{o.tests.length?tl("Choose a test"):tl("No published test asks about these topics")}</option>{o.tests.map(q=><option key={q.id} value={q.id}>{q.title} ({tl("{n} questions",{n:q.questions})})</option>)}</select>
+      :add.kind==='resource'?<select aria-label={tl("Resource")} value={add.ref_id||''} onChange={e=>setAdd({...add,ref_id:+e.target.value})}><option value="">{o.resources.length?tl("Choose a resource"):tl("No published resource for these topics")}</option>{o.resources.map(r=><option key={r.id} value={r.id}>{r.title}</option>)}</select>
+      :<select aria-label={tl("Topic")} value={add.topic_id||''} onChange={e=>setAdd({...add,topic_id:+e.target.value})}>{f.topic_ids.map(id=><option key={id} value={id}>{tname(id)}{add.kind==='mcq'?' ('+tl("{n} bank questions",{n:o.topics.find(t=>t.id===id)?.bank||0})+')':''}</option>)}</select>}
+      <div className="qopt"><button className="btn" disabled={!addOk} onClick={()=>{setF(v=>({...v,activities:[...v.activities,{...add,size:add.kind==='mcq'?add.size:null}]}));setAdd(null)}}>{tl("Add")}</button><button className="btn ghost" onClick={()=>setAdd(null)}>{tl("Cancel")}</button></div></div>}
+    {sug&&<div className="qbox"><b>{tl("Suggested by AI from what the course already has")}</b>{sug.note&&<p className="known" style={{margin:'4px 0'}}>{sug.note}</p>}
+      {!sug.activities.length?<p className="known">{tl("No suggestion this time.")}</p>:sug.activities.map((a,k)=><p key={k} className="known" style={{margin:'4px 0'}}>{k+1}. <b>{ivAct({...a,label:label(a)})}</b>{a.why?' — '+a.why:''}</p>)}
+      <details><summary className="known">{tl("The evidence it was given ({n} lines)",{n:sug.evidence.length})}</summary>{sug.evidence.map((e,k)=><p key={k} className="known" style={{margin:'4px 0'}}><b>[E{k+1}]</b> {e}</p>)}</details>
+      <div className="qopt">{sug.activities.length>0&&<button className="btn" onClick={()=>{setF(v=>({...v,activities:[...v.activities,...sug.activities.map(a=>({kind:a.kind,topic_id:a.topic_id||null,ref_id:a.ref_id||null,size:a.size||null,required:true}))]}));setSug(null)}}>{tl("Use these")}</button>}<button className="btn ghost" onClick={()=>setSug(null)}>{tl("Close")}</button></div></div>}
+    <h3 className="sec">{tl("Students")}</h3><p className="known" style={{marginTop:0}}>{tl("Each with what their records show on these topics. The reason stays with you; students don't see it.")}</p>
+    {o.students.map(w=>{const on=f.student_ids.includes(w.id);return <div key={w.id} className="row"><div style={{flex:1}}><label className="chk" style={{padding:"4px 0"}}><input type="checkbox" checked={on} onChange={()=>togS(w)}/>{" "}{w.name}</label>
+      <small>{w.topics.map(x=>x.title+': '+tl(CI_CAT[x.category])+(x.asked?' ('+x.percent+'%)':'')).join(' · ')}</small>
+      {on&&<input aria-label={tl("Reason for {name}",{name:w.name})} value={f.reasons[w.id]||''} maxLength={500} onChange={e=>setF({...f,reasons:{...f.reasons,[w.id]:e.target.value}})} placeholder={tl("Why this student (for you)")}/>}</div></div>})}
+    <div className="qopt" style={{marginTop:12}}>{(!plan||plan.status==='draft')&&<button className="btn ghost" disabled={busy} onClick={()=>save(false)}>{tl("Save as draft")}</button>}
+      <button className="btn" disabled={busy||!f.title.trim()||!f.activities.length||!f.student_ids.length||!f.topic_ids.length} onClick={()=>save(true)}>{plan?.status==='active'?tl("Save changes"):tl("Save and start")}</button></div>
+    {plan?.status==='active'&&<p className="known">{tl("Students hear about it once if activities or students change. Removed activities stay in the history where they were done.")}</p>}</div></>}
+function SupportPlan({id,toast,back}){
+  const confirm=useConfirm(),[p,setP]=useState(null),[ed,setEd]=useState(false),[stu,setStu]=useState(null),[busy,setBusy]=useState(false)
+  const load=()=>api('/interventions/'+id).then(setP).catch(e=>{toast(e.message);back()});useEffect(()=>{load()},[id])
+  if(!p)return <><Bar title={tl("Support plan")} back={back}/><div className="main"><Skeleton rows={3}/></div></>
+  if(ed)return <SupportEditor cid={p.course_id} plan={p} toast={toast} done={x=>{setP(x);setEd(false)}} cancel={()=>setEd(false)}/>
+  if(stu)return <SupportStudent p={p} sid={stu} toast={toast} back={()=>setStu(null)} onSaved={setP}/>
+  const status=async s=>{if(s!=='active'&&!await confirm({title:s==='completed'?tl("Mark this plan completed?"):tl("Cancel this plan?"),body:tl("Students will no longer see it. Its records stay."),ok:s==='completed'?tl("Mark completed"):tl("Cancel the plan")}))return
+    setBusy(true);try{setP(await api(`/interventions/${id}/status`,{method:'POST',body:{status:s}}))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const c=p.counts,live=p.status==='draft'||p.status==='active'
+  return <><Bar title={p.title} sub={tl(IV_STATUS[p.status])} back={back}/><div className="main">
+    <p className="known" style={{marginTop:0}}>{p.topics.map(t=>t.title).join(', ')}{p.target?' · '+tl("target {date}",{date:ivShow(p.target)}):''}</p>
+    {p.description&&<p style={{whiteSpace:'pre-wrap'}}>{p.description}</p>}{p.criteria&&<p className="known">{tl("How you will judge it")}: {p.criteria}</p>}
+    <p className="known">{[pl(c.students,'student'),tl("{n} completed",{n:c.completed}),tl("{n} in progress",{n:c.in_progress}),tl("{n} not started",{n:c.not_started}),c.needs_review>0&&tl("{n} to review",{n:c.needs_review}),c.overdue>0&&tl("{n} past the target",{n:c.overdue})].filter(Boolean).join(' · ')}</p>
+    {live&&<div className="qopt"><button className="btn ghost" onClick={()=>setEd(true)}><Pencil size={16}/>{" "}{tl("Edit")}</button>
+      {p.status==='draft'&&<button className="btn" disabled={busy} onClick={()=>status('active')}>{tl("Start the plan")}</button>}
+      {p.status==='active'&&<button className="btn ghost" disabled={busy} onClick={()=>status('completed')}>{tl("Mark completed")}</button>}
+      <button className="btn ghost" disabled={busy} onClick={()=>status('cancelled')}>{tl("Cancel the plan")}</button></div>}
+    <h3 className="sec">{tl("Activities")}</h3>{p.activities.map((a,k)=><div key={a.id} className="row" style={a.removed_at?{opacity:.6}:null}><div>{k+1}. {ivAct(a)}<small>{[a.required?tl("Required"):tl("Optional"),a.removed_at&&tl("removed {when}",{when:day(a.removed_at)})].filter(Boolean).join(' · ')}</small></div></div>)}
+    <h3 className="sec">{tl("Students")}</h3><p className="known" style={{marginTop:0}}>{tl("Before and after compare the same topics, tests and practice apart. A change needs {q}+ answers over {k}+ sittings after the start; it doesn't show the plan caused it.",{q:5,k:2})}</p>
+    {p.students.map(x=><button key={x.user_id} className="row rowbtn" style={x.removed?{opacity:.6}:null} onClick={()=>setStu(x.user_id)}><div>{x.name}
+      <small>{[x.removed?tl("Removed from the plan"):x.assigned_at?tl(IV_PROG[x.progress])+' · '+tl("{a} of {n} done",{a:x.done,n:x.required}):tl("Not started yet: the plan is a draft"),x.overdue&&tl("past the target"),x.needs_review&&tl("to review"),x.outcome&&tl(IV_OUT[x.outcome]),x.assigned_at&&tl(IV_OVERALL[x.comparison.overall])].filter(Boolean).join(' · ')}</small></div><ChevronRight size={18}/></button>)}</div></>}
+function SupportStudent({p,sid,toast,back,onSaved}){
+  const x=p.students.find(y=>y.user_id===sid),[out,setOut]=useState(x?.outcome||''),[note,setNote]=useState(x?.outcome_note||''),[busy,setBusy]=useState(false)
+  if(!x)return null
+  const save=async()=>{setBusy(true);try{onSaved(await api(`/interventions/${p.id}/students/${sid}/review`,{method:'POST',body:{outcome:out,note}}));toast(tl("Saved"));back()}catch(e){toast(srv(e.message))}setBusy(false)}
+  return <><Bar title={x.name} sub={p.title} back={back}/><div className="main">
+    {x.reason&&<p className="known" style={{marginTop:0}}>{tl("Why")}: {x.reason}</p>}
+    <p>{x.assigned_at?tl("In the plan since {when}",{when:day(x.assigned_at)}):tl("Not started yet: the plan is a draft")}{x.removed?' · '+tl("Removed from the plan"):''}</p>
+    <h3 className="sec">{tl("Activities")}</h3>{x.activities.map(a=>{const pa=p.activities.find(y=>y.id===a.id)||a;return <div key={a.id} className="row" style={a.removed?{opacity:.6}:null}><div>{a.state==='done'?'✓ ':a.state==='started'?'… ':'○ '}{ivAct(pa)}
+      <small>{[a.state==='done'?tl("Done"):a.state==='started'?tl("Started"):tl("Not yet"),a.evidence&&ivEv(a.evidence),!a.required&&tl("Optional"),a.removed&&tl("removed, done before")].filter(Boolean).join(' · ')}</small></div></div>})}
+    <p className="known">{tl("Opening a resource only shows it was opened, not that it was understood.")}</p>
+    <h3 className="sec">{tl("Before and after")}</h3><div className="qbox"><IvCompare c={x.comparison}/><small className="known" style={{display:'block',marginTop:4}}>{tl("Same topics, before the plan and since. This doesn't show the plan caused the change.")}</small></div>
+    {x.assigned_at&&<><h3 className="sec">{tl("Your review")}</h3><div className="filters fit" style={{flexWrap:'wrap'}}>{Object.entries(IV_OUT).map(([k,l])=><button key={k} className={'chip'+(out===k?' on':'')} onClick={()=>setOut(k)}>{tl(l)}</button>)}</div>
+      <textarea rows={3} value={note} maxLength={2000} onChange={e=>setNote(e.target.value)} aria-label={tl("Note")} placeholder={tl("A note for yourself (optional)")}/>
+      <button className="btn" disabled={busy||!out} onClick={save}>{tl("Save review")}</button>{x.reviewed_at&&<p className="known">{tl("Last reviewed {when}",{when:when(x.reviewed_at)})}</p>}</>}</div></>}
+// what a student sees: the plan in supportive words, each activity one tap away; done ticks come from what they did, never from a box they tick
+function MySupport({toast,openTopic,onSet,onQuiz}){
+  const confirm=useConfirm(),[d,setD]=useState(null),[busy,setBusy]=useState(false)
+  useEffect(()=>{api('/me/support').then(r=>setD(r.items)).catch(()=>{})},[])
+  if(!d?.length)return null
+  const go=async(p,a)=>{if(a.kind==='test')return onQuiz(a.ref_id);if(a.kind==='revise')return openTopic(a.topic_id,'revise')
+    if(a.kind==='mcq'){setBusy(true);const run=source=>api('/mcq/attempts',{method:'POST',body:{mode:'topic',source,size:a.size||10,topic_id:a.topic_id,request_id:rid()}})
+      try{onSet((await run('bank')).id)}catch(e){if(e.status!==409)toast(e.message);else if(await confirm({title:tl("Not enough bank questions here"),body:tl("Make a new AI set instead? It counts toward your MCQ sets."),ok:tl("A new AI set")})){try{onSet((await run('ai')).id)}catch(e2){toast(e2.message)}}}
+      setBusy(false);return}
+    openTopic(a.topic_id||p.topics[0]?.id)}
+  return <>{d.map(p=><div key={p.id} className="qbox welcome"><b>{tl("Extra practice from your teacher")}</b>
+    <p style={{margin:'4px 0'}}>{p.title}<small className="known" style={{display:'block'}}>{p.course}{p.target?' · '+tl("aim to finish by {date}",{date:ivShow(p.target)}):''} · {tl("{a} of {n} done",{a:p.done,n:p.required})}</small></p>
+    {p.description&&<p className="known" style={{whiteSpace:'pre-wrap',margin:'4px 0'}}>{p.description}</p>}
+    {p.activities.map(a=><button key={a.id} className="row rowbtn" disabled={busy} onClick={()=>go(p,a)}><div>{a.state==='done'?<Check size={15}/>:null}{" "}{ivAct(a)}<small>{[a.state==='done'?tl("Done"):a.state==='started'?tl("Started"):'',!a.required&&tl("Optional")].filter(Boolean).join(' · ')}</small></div><ChevronRight size={18}/></button>)}</div>)}</>}
 // ---- teacher resources (S43): material a course's teacher adds to the course, a unit or a topic. Students see the published ones inside the topic;
 // ---- documents and videos come through a signed-in download, never a bare link
 const RES_KIND={note:'Note',example:'Worked example',image:'Image',document:'Document',video:'Video',link:'Link'}
@@ -1044,7 +1179,7 @@ function TopicResources({t,toast}){
   useEffect(()=>{api(`/topics/${t.id}/resources`).then(r=>setD(r.items)).catch(()=>setD([]))},[t.id])
   if(!d?.length)return null
   return <><h3 className="sec">{tl("Teacher resources")}</h3>{d.map(r=><div key={r.id} className="qbox">
-    <button className="hit" style={{width:'100%',textAlign:'start'}} onClick={()=>setOpen(o=>({...o,[r.id]:!o[r.id]}))} aria-expanded={!!open[r.id]}><b>{r.title}</b><small className="known" style={{display:'block'}}>{[tl(RES_KIND[r.kind]),tl(RES_LEVEL[r.level]),r.status==='draft'&&tl("Draft: students can't see it")].filter(Boolean).join(' · ')}</small></button>
+    <button className="hit" style={{width:'100%',textAlign:'start'}} onClick={()=>{if(!open[r.id])api(`/resources/${r.id}/opened`,{method:'POST'}).catch(()=>{});setOpen(o=>({...o,[r.id]:!o[r.id]}))}} aria-expanded={!!open[r.id]}><b>{r.title}</b><small className="known" style={{display:'block'}}>{[tl(RES_KIND[r.kind]),tl(RES_LEVEL[r.level]),r.status==='draft'&&tl("Draft: students can't see it")].filter(Boolean).join(' · ')}</small></button>
     {open[r.id]&&<ResBody r={r} toast={toast} onUnclear={t.published!==false?()=>{setAsk(r);setPhrase('')}:null}/>}</div>)}
     {ask&&<Sheet close={()=>setAsk(null)}><h3>{tl("Not clear?")}</h3><p className="known">{tl("Copy or type the words from “{title}” that you don't follow.",{title:ask.title})}</p>
       <input value={phrase} maxLength={120} onChange={e=>setPhrase(e.target.value)} aria-label={tl("The phrase")}/>
@@ -1472,9 +1607,10 @@ function ThisWeek({d,onGo}){
 function Dashboard({user,toast,onOpen,onStudy,onRoutine,onCalendar,onGo}){
   const unplaced=user.self_registered&&!user.placed,[sme,setSme]=useState(null);useEffect(()=>{api('/study/me').then(setSme).catch(()=>{})},[])
   const [tree,setTree]=useState(null),[today,setToday]=useState(null),[topic,setTopic]=useState(null),[sess,setSess]=useState(null)
-  const [dd,setDd]=useState(null),[mset,setMset]=useState(null)
+  const [dd,setDd]=useState(null),[mset,setMset]=useState(null),[ttab,setTtab]=useState(null),[qz,setQz]=useState(null)
   useEffect(()=>{if(topic)return;api('/tree').then(setTree).catch(e=>toast(e.message));api('/me/today').then(setToday).catch(()=>{});api('/me/dashboard').then(setDd).catch(()=>{})},[topic,toast])
-  if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={user.role}/>
+  if(topic)return <Topic id={topic} tab0={ttab} back={()=>{setTopic(null);setTtab(null)}} toast={toast} role={user.role}/>
+  if(qz)return <QuizPlay id={qz} back={()=>setQz(null)} toast={toast} role={user.role}/>
   if(mset)return <McqPlay id={mset} back={()=>setMset(null)} toast={toast} openTopic={x=>{setMset(null);setTopic(x)}}/>
   const hour=new Date().getHours(),hi=hour<12?'Good morning, {name}':hour<17?'Good afternoon, {name}':'Good evening, {name}'
   const seen=new Map(),courses=[]
@@ -1484,6 +1620,7 @@ function Dashboard({user,toast,onOpen,onStudy,onRoutine,onCalendar,onGo}){
   return <><Bar title={tl(hi,{name:firstName(user.name)})}/><div className="main">
     <Invitations/><CourseInvites onGo={onGo}/>
     {user.role==='student'&&<WelcomeBack openTopic={setTopic} toast={toast} onSet={setMset}/>}
+    {user.role==='student'&&<MySupport toast={toast} openTopic={(id,tab)=>{setTtab(tab||null);setTopic(id)}} onSet={setMset} onQuiz={setQz}/>}
     <SessionCard toast={toast} onRoutine={onRoutine} openTopic={setTopic} onStudy={onStudy} refresh={topic} onLoad={setSess}/>
     {dd&&<DoNext d={dd} openTopic={setTopic} onOpen={onOpen} onGo={onGo} onCalendar={onCalendar} session={!!sess?.routine}/>}
     {dd&&<ThisWeek d={dd} onGo={onGo}/>}
