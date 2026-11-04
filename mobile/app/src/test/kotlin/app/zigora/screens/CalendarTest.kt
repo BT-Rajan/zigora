@@ -19,6 +19,7 @@ import app.zigora.data.Store
 import app.zigora.data.json
 import app.zigora.ui.CalendarScreen
 import app.zigora.ui.ZigoraRoot
+import app.zigora.ui.ZigoraTheme
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
@@ -62,13 +63,13 @@ class CalendarTest {
 
     @Test fun aChildSeesTheTestInTheCalendar() {
         signIn("kavin")
-        rule.setContent { app.zigora.ui.ZigoraTheme(wallpaper = false) { CalendarScreen(null) } }  // as the app draws it
+        rule.setContent { ZigoraTheme(wallpaper = false) { CalendarScreen(null) } }  // as the app draws it
         see("On your phone's calendar"); see("Science test"); shot("calendar-02-month")
     }
 
     @Test fun aChildOpensTheFormToAddAnEvent() {
         signIn("kavin")
-        rule.setContent { app.zigora.ui.ZigoraTheme(wallpaper = false) { CalendarScreen(null) } }  // as the app draws it
+        rule.setContent { ZigoraTheme(wallpaper = false) { CalendarScreen(null) } }  // as the app draws it
         see("Science test"); tap("Add event"); see("Add an event"); shot("calendar-03-add")
     }
 
