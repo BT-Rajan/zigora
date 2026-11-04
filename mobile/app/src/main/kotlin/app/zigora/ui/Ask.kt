@@ -78,7 +78,14 @@ fun MsgBody(m: QuestionMsg) {
     m.file?.let { f -> val ctx = LocalContext.current; val base = api().base
         androidx.compose.material3.OutlinedButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(base + f.url))) } },
             modifier = Modifier.padding(top = 6.dp)) { Text("📎 " + f.name + " · " + tl("Download")) } }
+    val ctx = LocalContext.current
+    VIDEO_LINK.findAll(m.text).map { it.value }.distinct().take(3).forEach { u ->  // S41: a video link shows as a card that opens it
+        androidx.compose.material3.OutlinedButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(u))) } },
+            modifier = Modifier.padding(top = 6.dp)) { Text("▶ " + tl("Watch video") + " · " + videoHost(u)) }
+    }
 }
+private val VIDEO_LINK = Regex("""https://(?:www\.)?(youtube\.com/watch\?[^\s)]*v=[\w-]{6,}[^\s)]*|youtu\.be/[\w-]{6,}[^\s)]*|vimeo\.com/\d+[^\s)]*|drive\.google\.com/[^\s)]+|[^\s)]+\.(?:mp4|webm|mov)(?:\?[^\s)]*)?)""", RegexOption.IGNORE_CASE)
+private fun videoHost(u: String) = when { "youtu" in u -> "YouTube"; "vimeo" in u -> "Vimeo"; "drive.google" in u -> "Google Drive"; else -> tl("Video") }
 
 /** the question box, opened in place: what to ask, a photo if it helps, and the phrase it is about when it came from "Not clear?" */
 @Composable
@@ -229,7 +236,7 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                     Surface(shape = RoundedCornerShape(16.dp), color = if (m.mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                             modifier = Modifier.widthIn(max = 320.dp)) {
                         Column(Modifier.padding(12.dp)) {
-                            Text((if (m.mine) tl("You") else m.who.orEmpty()) + (m.at?.let { " · " + stamp(it) } ?: ""), style = MaterialTheme.typography.labelSmall,
+                            Text((if (m.mine) tl("You") else m.who.orEmpty()) + (m.at?.let { " · " + stamp(it) } ?: "") + (if (m.edited != null) " · " + tl("edited") else ""), style = MaterialTheme.typography.labelSmall,
                                  color = MaterialTheme.colorScheme.onSurfaceVariant)
                             MsgBody(m)
                         }
@@ -239,9 +246,22 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
             if (t.teacher && (t.can_share || t.shared)) OutlinedButton(onClick = { scope.launch {
                 try { q = a.send("POST", "/questions/$id/share", buildJsonObject { put("shared", !t.shared) }, QuestionThread.serializer()) } catch (e: Exception) { err = I18n.srv(e.message) }
             } }) { Text(if (t.shared) tl("Stop sharing with the class") else tl("Share with the class")) }
-            if (t.status == "closed") Quiet(tl("This question is closed."), Modifier.padding(top = 8.dp))
+            if (!t.teacher && t.label == "answered") Panel(Modifier.padding(top = 8.dp)) {  // S41: did it help?
+                Text(tl("Was this explanation helpful?"), style = MaterialTheme.typography.titleSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    Button(enabled = !busy, onClick = { scope.launch {
+                        busy = true; err = ""
+                        try { q = a.send("POST", "/questions/$id/understood", null, QuestionThread.serializer()); toast(tl("Glad it's clear now")) } catch (e: Exception) { err = I18n.srv(e.message) }
+                        busy = false
+                    } }) { Text(tl("Yes, I understand now")) }
+                }
+                Quiet(tl("Still unsure? Write below: I still have a doubt."))
+            }
+            if (t.status == "closed" && !t.can_reopen) Quiet((if (t.helpful == true) tl("Resolved: you said it's clear now.") else tl("This question is closed.")), Modifier.padding(top = 8.dp))
             else {
-                OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, label = { Text(if (t.teacher) tl("Your answer") else tl("Reply")) })
+                if (t.status == "closed") Quiet(tl("Resolved. Still unsure? You can reopen it ({n} left, within 14 days of resolving).", "n" to (t.reopens_left ?: 0)), Modifier.padding(top = 8.dp))
+                OutlinedTextField(text, { if (it.length <= 1000) text = it }, Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2,
+                                  label = { Text(if (t.teacher) tl("Your answer") else if (t.status == "closed" || t.label == "answered") tl("I still have a doubt") else tl("Reply")) })
                 PhotoPick(photo) { photo = it }
                 if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -250,8 +270,8 @@ fun QuestionScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                         try { q = a.send("POST", "/questions/$id/replies", buildJsonObject { put("text", text.trim()); put("photo", photo.orEmpty()) }, QuestionThread.serializer()); text = ""; photo = null }
                         catch (e: Exception) { err = I18n.srv(e.message) }
                         busy = false
-                    } }) { Text(if (busy) tl("Sending…") else if (t.teacher) tl("Send answer") else tl("Send")) }
-                    OutlinedButton(onClick = { closing = true }) { Text(tl("Close the question")) }
+                    } }) { Text(if (busy) tl("Sending…") else if (t.teacher) tl("Send answer") else if (t.status == "closed") tl("Reopen and send") else tl("Send")) }
+                    if (t.status != "closed") OutlinedButton(onClick = { closing = true }) { Text(if (t.teacher) tl("Mark resolved") else tl("Close the question")) }
                 }
                 if (t.can_withdraw) TextButton(onClick = { withdrawing = true }) { Text(tl("Withdraw the question")) }  // before any answer: take it back
             }

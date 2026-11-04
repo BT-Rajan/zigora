@@ -58,11 +58,12 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class FileRef(val url: String = "", val name: String = "file")
 @Serializable data class OfferList(val items: List<Offer> = emptyList(), val invited: List<Offer> = emptyList())
 @Serializable data class QuestionMsg(val id: Int, val mine: Boolean = false, val teacher: Boolean = false, val who: String? = null, val text: String = "", val image: String? = null, val at: String? = null,
-                                     val file: FileRef? = null)
+                                     val file: FileRef? = null, val edited: String? = null)
 @Serializable data class QuestionThread(val id: Int, val topic_id: Int = 0, val topic: String = "", val course: String = "", val status: String = "waiting", val excerpt: String? = null,
                                         val messages: List<QuestionMsg> = emptyList(), val shared: Boolean = false, val teacher: Boolean = false, val can_share: Boolean = false,
                                         val student: String? = null, val can_withdraw: Boolean = false,
-                                        val label: String = "", val unit: String = "", val ai: AiContext? = null, val answered_by: String? = null, val at: String? = null)
+                                        val label: String = "", val unit: String = "", val ai: AiContext? = null, val answered_by: String? = null, val at: String? = null,
+                                        val helpful: Boolean? = null, val can_reopen: Boolean = false, val reopens_left: Int? = null)  // S41
 /** S40: the AI answer a question was asked from, as the server kept it: what was asked and a short excerpt of the answer */
 @Serializable data class AiContext(val q: String = "", val a: String = "")
 /** a teacher's marked model answer for a topic */

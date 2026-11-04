@@ -290,6 +290,8 @@ class TeacherQuestion(Base):  # a student's question to the teacher of a topic's
     request_id = Column(String(64), nullable=True)  # S40: the app's id for this ask, so a retry or a double tap gets the same question back
     ai_kind = Column(String(10), nullable=True); ai_ref = Column(Integer, nullable=True)  # S40: the AI answer it was asked from (doubt, topic or private, and its id)
     ai_context = Column(Text, nullable=True)  # S40: JSON {"q", "a"}: what was asked of the AI and a short excerpt of its answer (never the whole conversation)
+    helpful = Column(Boolean, nullable=True)  # S41: the student's word: True "I understand now", False "I still have a doubt"; null: not said
+    resolved_at = Column(DateTime, nullable=True); reopens = Column(Integer, default=0)  # S41: when it was last resolved, and how often the student reopened it
     __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_teacher_questions_user_request"),)
 class TeacherReply(Base):  # one message in a question's thread, the student's first question included
     __tablename__ = "teacher_replies"
@@ -297,6 +299,16 @@ class TeacherReply(Base):  # one message in a question's thread, the student's f
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); text = Column(Text); at = Column(DateTime, default=dt.datetime.utcnow)
     image = Column(String(40), nullable=True)  # a photo with the message (working on paper, a diagram): its file name under uploads/questions
     file = Column(String(60), nullable=True); file_name = Column(String(200), nullable=True)  # material a teacher sent with a message (a PDF, slides, a document)
+    edited_at = Column(DateTime, nullable=True)  # S41: when its author last changed the text (the earlier versions are in reply_edits)
+class ReplyEdit(Base):  # S41: a reply's text before an edit, so an explanation is never silently overwritten
+    __tablename__ = "reply_edits"
+    id = Column(Integer, primary_key=True); reply_id = Column(Integer, ForeignKey("teacher_replies.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); text = Column(Text); at = Column(DateTime, default=dt.datetime.utcnow)
+class QuestionEvent(Base):  # S41: who moved a doubt from one status to another, and when (pending, answered, follow_up, resolved)
+    __tablename__ = "question_events"
+    id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); before = Column(String(10)); after = Column(String(10))
+    at = Column(DateTime, default=dt.datetime.utcnow)
 class ModelAnswer(Base):  # a teacher's model answer for a topic, with the marks each part earns
     __tablename__ = "model_answers"
     id = Column(Integer, primary_key=True); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), unique=True)
@@ -1044,7 +1056,10 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
               ("0048_course_completion", lambda c: [_addcol("topics", "optional", "BOOLEAN NOT NULL DEFAULT 0")(c), Base.metadata.create_all(c, tables=[CourseCompletion.__table__])]),
               ("0049_learning_cycles", lambda c: Base.metadata.create_all(c, tables=[LearningCycle.__table__])),
               ("0050_return_reminders", _addcol("users", "return_reminders", "BOOLEAN NOT NULL DEFAULT 1")),
-              ("0051_question_context", question_context)]
+              ("0051_question_context", question_context),
+              ("0052_doubt_responses", lambda c: [_addcol("teacher_replies", "edited_at", "DATETIME NULL")(c), _addcol("teacher_questions", "helpful", "BOOLEAN NULL")(c),
+                                                  _addcol("teacher_questions", "resolved_at", "DATETIME NULL")(c), _addcol("teacher_questions", "reopens", "INTEGER NOT NULL DEFAULT 0")(c),
+                                                  Base.metadata.create_all(c, tables=[ReplyEdit.__table__, QuestionEvent.__table__])])]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -5197,10 +5212,13 @@ def tq_json(q, u, s):
     return {**tq_row(q, t, c, msgs[-1]["text"] if msgs else "", asker.name if teach and asker else None), "excerpt": q.excerpt, "messages": msgs, "teacher": teach, "shared": bool(q.shared),
             "label": tq_label(s, q), "at": utc_iso(q.at), "unit": un.name if un else "", "ai": json.loads(q.ai_context) if q.ai_context else None,
             "answered_by": owner.name if owner and owner.active else None,  # None: no teacher assigned yet; the question is kept and the admins see it
+            "helpful": q.helpful, "can_reopen": not teach and can_reopen(q), "reopens_left": max(0, REOPEN_MAX - (q.reopens or 0)) if q.status == "closed" else None,
+            "events": [{"before": e.before, "after": e.after, "at": utc_iso(e.at), "who": "you" if e.user_id == u.id else ("teacher" if e.user_id != q.user_id else "student")}
+                       for e in s.query(QuestionEvent).filter_by(question_id=q.id).order_by(QuestionEvent.id)],
             "can_share": teach and any(m["teacher"] for m in msgs), "can_withdraw": not teach and not q.started_by and not any(m["teacher"] for m in msgs)}
 def tq_msgs(s, q, u, asker_name):  # asker_name None: the class's view, where the student who asked is not named
     return [{"id": r.id, "mine": r.user_id == u.id, "teacher": r.user_id != q.user_id, "who": (w.name if w else "") if r.user_id != q.user_id else asker_name,
-             "text": r.text, "image": f"/api/qimg/{r.image}" if r.image else None, "at": utc_iso(r.at),
+             "text": r.text, "image": f"/api/qimg/{r.image}" if r.image else None, "at": utc_iso(r.at), "edited": utc_iso(r.edited_at),
              "file": {"url": f"/api/qfile/{r.file}?n={urllib.parse.quote(r.file_name or '')}", "name": r.file_name or "file"} if r.file else None}
             for r, w in s.query(TeacherReply, User).outerjoin(User, User.id == TeacherReply.user_id).filter(TeacherReply.question_id == q.id).order_by(TeacherReply.id)]
 class ShareIn(BaseModel): shared: bool
@@ -5224,20 +5242,61 @@ def read_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
     q, teach = tq_mine(qid, u, s)
     if not teach: q.seen = dt.datetime.utcnow(); s.commit()
     return tq_json(q, u, s)
-class ReplyIn(BaseModel): text: str = ""; photo: str = ""
+class MessageFile(BaseModel): name: str; data: str  # data: base64, or a data: URL
+class ReplyIn(BaseModel): text: str = ""; photo: str = ""; file: MessageFile | None = None
+# S41: a doubt's life. A teacher's reply makes it answered (never resolved by itself); the student says "I understand now" (resolved) or writes again
+# (follow-up); either side can resolve it; the student can reopen a resolved doubt REOPEN_MAX times within REOPEN_DAYS days. Every change is recorded.
+REOPEN_DAYS, REOPEN_MAX = 14, 2
+def tq_moved(s, q, u, before):  # record a status change, if there was one
+    after = tq_label(s, q)
+    if after != before: s.add(QuestionEvent(question_id=q.id, user_id=u.id, before=before, after=after))
+def can_reopen(q, now=None):
+    now = now or dt.datetime.utcnow()
+    return q.status == "closed" and not q.started_by and (q.reopens or 0) < REOPEN_MAX and q.resolved_at is not None and now - q.resolved_at <= dt.timedelta(days=REOPEN_DAYS)
 @app.post("/api/questions/{qid}/replies")
 def reply_question(qid: int, b: ReplyIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
-    q, teach = tq_mine(qid, u, s); text_ = tq_text(b.text, bool(b.photo))
-    if q.status == "closed": raise HTTPException(400, TQ_CLOSED)
+    q, teach = tq_mine(qid, u, s); text_ = tq_text(b.text, bool(b.photo)); before = tq_label(s, q)
+    if q.status == "closed":
+        if teach or not can_reopen(q): raise HTTPException(400, TQ_CLOSED)
+        q.reopens = (q.reopens or 0) + 1  # "I still have a doubt" on a resolved doubt: the same thread, not a new one
+    if b.file and not teach: raise HTTPException(403, "Only your teacher can attach a document. Add a photo instead.")
     if s.query(func.count(TeacherReply.id)).filter(TeacherReply.question_id == q.id).scalar() >= TQ_REPLIES: raise HTTPException(400, "This thread is long enough. Ask a new question from the topic.")
-    img = tq_photo(s, u, b.photo); now = dt.datetime.utcnow(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, at=now, image=img))
+    stored, shown = save_message_file(b.file) if b.file else (None, None)
+    img = tq_photo(s, u, b.photo); now = dt.datetime.utcnow(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, at=now, image=img, file=stored, file_name=shown))
+    if not teach and before == "answered": q.helpful = False  # they wrote again after an answer: it didn't settle it yet
     q.status, q.updated = ("answered" if teach else "waiting"), now
     if not teach: q.seen = now
-    s.commit()
+    s.flush(); tq_moved(s, q, u, before); s.commit()
     t = s.get(Topic, q.topic_id); asker = s.get(User, q.user_id)
     if teach and asker:
         notify(s, asker, "answer", "Your teacher answered on {app}", "{teacher} answered your question about {topic}. Open {app} to read it.", run=bg.add_task, teacher=u.name, topic=t.title if t else "")
+    elif not teach and before in ("answered", "resolved"):  # a follow-up: the teacher hears that there is one, not what it says
+        for x in tq_teachers(s, q.course_id):
+            notify(s, x, "question", "A follow-up from {name} on {app}", "{name} still has a doubt about {topic}. Open {app} to answer it.", run=bg.add_task, name=u.name, topic=t.title if t else "")
     return tq_json(q, u, s)
+@app.post("/api/questions/{qid}/understood")
+def understood(qid: int, u: User = Depends(me), s: Session = Depends(db)):  # S41: the student: "Yes, I understand now"
+    q, teach = tq_mine(qid, u, s); before = tq_label(s, q)
+    if teach: raise HTTPException(403, "Only the student who asked can say this")
+    if before != "answered": raise HTTPException(400, "Your teacher hasn't answered yet")
+    q.status, q.helpful, q.resolved_at, q.updated = "closed", True, dt.datetime.utcnow(), dt.datetime.utcnow(); tq_moved(s, q, u, before); s.commit()
+    return tq_json(q, u, s)
+class EditIn(BaseModel): text: str
+@app.put("/api/questions/{qid}/replies/{rid}")
+def edit_reply(qid: int, rid: int, b: EditIn, u: User = Depends(me), s: Session = Depends(db)):
+    """S41: a teacher corrects their own explanation. The earlier text is kept (reply_edits) and the reply shows it was edited; its photo or document stays."""
+    q, teach = tq_mine(qid, u, s); r = s.get(TeacherReply, rid)
+    if not r or r.question_id != q.id: raise HTTPException(404, "Reply not found")
+    if not teach or r.user_id != u.id: raise HTTPException(403, "Only its author can edit a reply")
+    text_ = tq_text(b.text, bool(r.image or r.file))
+    if text_ == r.text: return tq_json(q, u, s)
+    s.add(ReplyEdit(reply_id=r.id, user_id=u.id, text=r.text)); r.text, r.edited_at = text_, dt.datetime.utcnow(); s.commit()
+    return tq_json(q, u, s)
+@app.get("/api/questions/{qid}/replies/{rid}/edits")
+def reply_edits(qid: int, rid: int, u: User = Depends(me), s: Session = Depends(db)):  # the earlier versions of a reply, oldest first
+    q, _ = tq_mine(qid, u, s); r = s.get(TeacherReply, rid)
+    if not r or r.question_id != q.id: raise HTTPException(404, "Reply not found")
+    return {"items": [{"text": e.text, "until": utc_iso(e.at)} for e in s.query(ReplyEdit).filter_by(reply_id=rid).order_by(ReplyEdit.id)], "now": r.text}
 @app.post("/api/questions/{qid}/withdraw")
 def withdraw_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
     """The student takes a question back before any teacher has answered: its words and photos are deleted and it leaves the teacher's list.
@@ -5253,8 +5312,10 @@ def withdraw_question(qid: int, u: User = Depends(me), s: Session = Depends(db))
     q.status, q.excerpt, q.shared, q.updated = "withdrawn", None, False, dt.datetime.utcnow(); s.commit()
     return {"ok": True}
 @app.post("/api/questions/{qid}/close")
-def close_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
-    q, _ = tq_mine(qid, u, s); q.status = "closed"; q.updated = dt.datetime.utcnow(); s.commit(); return tq_json(q, u, s)
+def close_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):  # resolved: by the teacher, or by the student without saying it helped
+    q, _ = tq_mine(qid, u, s); before = tq_label(s, q)
+    if q.status != "closed": q.status = "closed"; q.resolved_at = q.updated = dt.datetime.utcnow(); tq_moved(s, q, u, before); s.commit()
+    return tq_json(q, u, s)
 def tq_answered(u, s):  # a student's questions answered since they last looked, for the bell
     return [{"key": f"answer:{q.id}:{int(q.updated.timestamp())}", "text": "A message from your teacher" if q.started_by else "Your teacher answered your question", "sub": t.title if t else (q.subject or "")}
             for q, t in s.query(TeacherQuestion, Topic).outerjoin(Topic, Topic.id == TeacherQuestion.topic_id).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status == "answered",
@@ -5717,7 +5778,6 @@ def enrol_notes(u, s):  # the bell: a student's invitations waiting; a teacher's
     return out
 # ---- writing to students: a teacher starts a message thread with each chosen student of a course (all of them by default); the student reads and
 # ---- answers it like a question to the teacher. "Offer help" writes to the students who were stuck on a topic, without the teacher learning who they are.
-class MessageFile(BaseModel): name: str; data: str  # data: base64, or a data: URL
 class MessageIn(BaseModel): subject: str; text: str; student_ids: list[int] = []; file: MessageFile | None = None
 MSG_FILE_MAX = 15 * 1024 * 1024
 MSG_FILE_TYPES = {"pdf": "application/pdf", "doc": "application/msword", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

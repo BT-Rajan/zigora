@@ -873,7 +873,11 @@ function PhotoPick({photo,setPhoto,toast}){
   const pick=async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;try{setPhoto(await shrink(f))}catch(x){toast(x.message)}}
   return photo?<div className="qphoto"><img src={photo} alt={tl("Your photo")}/><button className="ic sm" aria-label={tl("Remove the photo")} onClick={()=>setPhoto(null)}><X size={16}/></button></div>
     :<label className="btn ghost photopick"><Camera size={16}/> {tl("Add a photo")}<input type="file" accept="image/*" onChange={pick} hidden/></label>}
-const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}
+// S41: a video link in a message shows as a card that opens it (no thumbnails: the page loads no pictures from other sites)
+const VIDEO_RE=/https:\/\/(?:www\.)?(youtube\.com\/watch\?[^\s)]*v=[\w-]{6,}[^\s)]*|youtu\.be\/[\w-]{6,}[^\s)]*|vimeo\.com\/\d+[^\s)]*|drive\.google\.com\/[^\s)]+|[^\s)]+\.(?:mp4|webm|mov)(?:\?[^\s)]*)?)/gi
+const videoHost=u=>/youtu/.test(u)?'YouTube':/vimeo/.test(u)?'Vimeo':/drive\.google/.test(u)?'Google Drive':tl("Video")
+const VideoCards=({text})=>{const urls=[...new Set((text||'').match(VIDEO_RE)||[])].slice(0,3);return urls.map(u=><a key={u} className="msgfile vcard" href={u} target="_blank" rel="noreferrer noopener"><Play size={18}/><span>{tl("Watch video")}</span><small>{videoHost(u)}</small></a>)}
+const MsgBody=({m})=><>{m.text&&<div className="prose"><Md>{m.text}</Md></div>}<VideoCards text={m.text}/>{m.image&&<a href={at(m.image)} target="_blank" rel="noreferrer"><img className="msgimg" src={at(m.image)} alt={tl("Photo")} loading="lazy"/></a>}
   {m.file&&<a className="msgfile" href={at(m.file.url)} download={m.file.name}><FileText size={18}/><span>{m.file.name}</span><small>{tl("Download")}</small></a>}</>
 function AskTeacher({tid,excerpt,ai,aiText,close,toast,onDone}){  // ai: {kind,id} of the AI answer it is asked from (S40); the server looks it up itself
   const {go:goTo}=useContext(Ctx),[text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[sim,setSim]=useState([]),[open,setOpen]=useState({}),[review,setReview]=useState(false),[done,setDone]=useState(null),rq=useRef(rid())
@@ -903,8 +907,15 @@ function AskTeacher({tid,excerpt,ai,aiText,close,toast,onDone}){  // ai: {kind,i
     <button className="btn" disabled={text.trim().length<3&&!(photo&&!text.trim())} onClick={()=>setReview(true)}>{tl("Review and send")}</button><button className="btn ghost" onClick={close}>{tl("Cancel")}</button></Sheet>}
 function QuestionThread({id,back,toast}){
   const confirm=useConfirm(),[q,setQ]=useState(null),[text,setText]=useState(''),[photo,setPhoto]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(false),{role}=useContext(Ctx)
+  const [file,setFile]=useState(null),[ed,setEd]=useState(null),[hist,setHist]=useState(null),box=useRef(null)
   useEffect(()=>{api('/questions/'+id).then(setQ).catch(e=>{toast(srv(e.message));back()})},[id])
-  const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text,photo:photo||''}}));setText('');setPhoto(null)}catch(e){toast(srv(e.message))}setBusy(false)}
+  const send=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies`,{method:'POST',body:{text,photo:photo||'',...(file?{file}:{})}}));setText('');setPhoto(null);setFile(null)}catch(e){toast(srv(e.message))}setBusy(false)}
+  const pickDoc=e=>{const x=e.target.files?.[0];e.target.value='';if(!x)return;if(x.size>15*1024*1024){toast(tl("Keep the file under 15 MB"));return}
+    const rd=new FileReader();rd.onload=()=>setFile({name:x.name,data:rd.result});rd.onerror=()=>toast(tl("That file could not be read"));rd.readAsDataURL(x)}
+  const got=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/understood`,{method:'POST'}));toast(tl("Glad it's clear now"))}catch(e){toast(srv(e.message))}setBusy(false)}
+  const still=()=>{box.current?.focus();box.current?.scrollIntoView({block:'center'})}
+  const saveEdit=async()=>{setBusy(true);try{setQ(await api(`/questions/${id}/replies/${ed.id}`,{method:'PUT',body:{text:ed.text}}));setEd(null)}catch(e){toast(srv(e.message))}setBusy(false)}
+  const showHist=async m=>{try{setHist({m,...await api(`/questions/${id}/replies/${m.id}/edits`)})}catch(e){toast(srv(e.message))}}
   const end=async()=>{if(!await confirm({title:tl("Close this question?"),body:tl("Nobody can reply after this. A new question can be asked from the topic."),ok:tl("Close it")}))return
     try{setQ(await api(`/questions/${id}/close`,{method:'POST'}))}catch(e){toast(srv(e.message))}}
   const withdraw=async()=>{if(!await confirm({title:tl("Withdraw this question?"),body:tl("It is deleted and leaves your teacher's list. They may already have had an email about it."),ok:tl("Withdraw"),danger:true}))return
@@ -917,13 +928,23 @@ function QuestionThread({id,back,toast}){
       {q.excerpt&&<p className="hltext" style={{margin:'8px 0 12px'}}>“{q.excerpt}”</p>}
       {!q.teacher&&!q.message&&<p className="known" style={{margin:'4px 0 8px'}}>{[q.unit,q.at&&tl("Sent {when}",{when:when(q.at)}),q.answered_by?tl("To {name}",{name:q.answered_by}):tl("No teacher assigned yet; your school's admins can see it")].filter(Boolean).join(' · ')}</p>}
       {q.ai&&<details className="qbox"><summary className="known">{q.teacher?tl("What the AI had explained"):tl("The AI's explanation you sent with it")}</summary>{q.ai.q&&<p className="hltext">“{q.ai.q}”</p>}<p className="known" style={{whiteSpace:'pre-wrap'}}>{q.ai.a}</p></details>}
-      <div className="thread">{q.messages.map(m=><div key={m.id} className={'msg'+(m.mine?' mine':'')+(m.teacher?' teach':'')}><small>{m.mine?tl("You"):m.who}{' · '}{when(m.at)}</small><MsgBody m={m}/></div>)}</div>
+      <div className="thread">{q.messages.map(m=><div key={m.id} className={'msg'+(m.mine?' mine':'')+(m.teacher?' teach':'')}><small>{m.mine?tl("You"):m.who}{' · '}{when(m.at)}{m.edited&&<>{' · '}<button className="link" onClick={()=>showHist(m)}>{tl("edited")}</button></>}
+        {q.teacher&&m.mine&&m.teacher&&ed?.id!==m.id&&<>{' · '}<button className="link" onClick={()=>setEd({id:m.id,text:m.text})}>{tl("Edit")}</button></>}</small>
+        {ed?.id===m.id?<><textarea rows={4} maxLength={1000} value={ed.text} onChange={e=>setEd({...ed,text:e.target.value})} aria-label={tl("Edit your answer")}/><p className="known">{tl("The earlier wording is kept, and the answer shows it was edited.")}</p>
+          <button className="btn" disabled={busy||ed.text.trim().length<3} onClick={saveEdit}>{tl("Save")}</button><button className="btn ghost" onClick={()=>setEd(null)}>{tl("Cancel")}</button></>:<MsgBody m={m}/>}</div>)}</div>
+      {hist&&<Sheet close={()=>setHist(null)}><h3>{tl("Earlier versions")}</h3>{hist.items.map((x,i)=><div key={i} className="qbox"><small className="known">{tl("Until {when}",{when:when(x.until)})}</small><div className="prose"><Md>{x.text}</Md></div></div>)}
+        <div className="qbox"><small className="known">{tl("Now")}</small><div className="prose"><Md>{hist.now}</Md></div></div><button className="btn ghost" onClick={()=>setHist(null)}>{tl("Close")}</button></Sheet>}
+      {!q.teacher&&q.label==='answered'&&<div className="qbox"><b>{tl("Was this explanation helpful?")}</b><div className="two" style={{marginTop:8}}><button className="btn" disabled={busy} onClick={got}>{tl("Yes, I understand now")}</button><button className="btn ghost" onClick={still}>{tl("I still have a doubt")}</button></div></div>}
       {q.teacher&&(q.can_share||q.shared)&&<button className="btn ghost" onClick={()=>share(!q.shared)}>{q.shared?tl("Stop sharing with the class"):tl("Share with the class")}</button>}
-      {q.status==='closed'?<p className="known">{tl("This question is closed.")}</p>:<><label htmlFor="tqr">{q.teacher?tl("Your answer"):tl("Reply")}</label>
-        <textarea id="tqr" rows={3} maxLength={1000} value={text} onChange={e=>setText(e.target.value)}/>
+      {q.status==='closed'&&!q.can_reopen?<p className="known">{q.helpful?tl("Resolved: you said it's clear now."):tl("This question is closed.")}{!q.teacher&&!q.message?' '+tl("For something new, ask from the topic."):''}</p>:<>
+        {q.status==='closed'&&<p className="known">{tl("Resolved. Still unsure? You can reopen it ({n} left, within 14 days of resolving).",{n:q.reopens_left})}</p>}
+        <label htmlFor="tqr">{q.teacher?tl("Your answer"):q.status==='closed'||q.label==='answered'?tl("I still have a doubt"):tl("Reply")}</label>
+        <textarea id="tqr" ref={box} rows={3} maxLength={1000} value={text} onChange={e=>setText(e.target.value)} placeholder={q.teacher?tl("Explain it. Maths between dollar signs, like $x^2$. Paste a video link to show it as a card."):''}/>
         <PhotoPick photo={photo} setPhoto={setPhoto} toast={toast}/>
-        <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):tl("Send")}</button>
-        <button className="btn ghost" onClick={end}>{tl("Close the question")}</button>
+        {q.teacher&&(file?<div className="msgfile" style={{marginTop:8}}><FileText size={18}/><span>{file.name}</span><button className="ic sm" aria-label={tl("Remove the file")} onClick={()=>setFile(null)}><X size={16}/></button></div>
+          :<label className="btn ghost photopick"><Upload size={16}/> {tl("Attach material")}<input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.zip,image/png,image/jpeg" onChange={pickDoc} hidden/></label>)}
+        <button className="btn" disabled={busy||(text.trim().length<3&&!(photo&&!text.trim()))} onClick={send}>{busy?tl("Sending…"):q.teacher?tl("Send answer"):q.status==='closed'?tl("Reopen and send"):tl("Send")}</button>
+        {q.status!=='closed'&&<button className="btn ghost" onClick={end}>{q.teacher?tl("Mark resolved"):tl("Close the question")}</button>}
         {q.can_withdraw&&<button className="btn ghost" onClick={withdraw}>{tl("Withdraw the question")}</button>}</>}</>}</div></>}  {/* before any answer: take it back */}
 // under a topic: questions the teacher shared with the class, each with its answers; who asked is never shown
 function ClassQuestions({tid}){
