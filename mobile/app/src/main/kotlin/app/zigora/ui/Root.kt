@@ -21,6 +21,9 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -125,7 +128,10 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
     }
     val snackState = remember { androidx.compose.material3.SnackbarHostState() }; val snackScope = androidx.compose.runtime.rememberCoroutineScope()
     val snack = remember { Snack(snackState, snackScope) }
-    androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me, LocalSnack provides snack) { NavigationSuiteScaffold(navigationSuiteItems = {
+    androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me, LocalSnack provides snack) {
+    // the reader and a diagram take the whole screen: no tabs under them, so they read as full screen; Close brings the tabs back
+    val full = dest?.hasRoute(ReaderR::class) == true || dest?.hasRoute(DiagramR::class) == true
+    NavigationSuiteScaffold(layoutType = if (full) NavigationSuiteType.None else NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo()), navigationSuiteItems = {
         tabs.forEach { t ->
             item(selected = dest?.hasRoute(t.route::class) == true, icon = { Icon(t.icon, null) }, label = { Text(t.label, maxLines = 1, softWrap = false, autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp)) },
                  onClick = { nav.navigate(t.route) { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } })

@@ -61,6 +61,9 @@ class ScreensTest {
     }
     private fun see(text: String, ms: Long = 20_000) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), ms)
     private fun shot(name: String) { rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
+    /** waits until any of these texts shows: a screen that loads its data has more than one finished look (a list, or the line saying it is empty) */
+    private fun seeAny(vararg texts: String, ms: Long = 20_000) = rule.waitUntil(ms) {
+        texts.any { rule.onAllNodes(hasText(it, substring = true)).fetchSemanticsNodes().isNotEmpty() } }
 
     @Test fun signInScreen() {
         app.store.server = System.getProperty("screens.server")!!; app.store.signOut()
@@ -116,13 +119,14 @@ class ScreensTest {
             app.store.token = student
         }
         rule.setContent { ZigoraRoot(null) {} }
-        see("Extra practice from your teacher"); rule.onAllNodesWithText("Extra practice from your teacher").onFirst().performScrollTo(); shot("25-home-support-plan")
+        see("Extra practice from your teacher"); see("My courses")  // drawn once Home's refresh is over, so the spinner is gone
+        rule.onAllNodesWithText("Extra practice from your teacher").onFirst().performScrollTo(); shot("25-home-support-plan")
         rule.onAllNodesWithContentDescription("Notifications").onFirst().performClick()
         see("Your teacher has prepared some extra practice"); shot("26-notifications")
         rule.onNodeWithContentDescription("Back").performClick()
         openChemistry(); see("Hardness of Water"); rule.onNodeWithText("Hardness of Water").performClick()
         see("Read in full screen"); rule.onNodeWithText("Read in full screen", substring = true).performScrollTo().performClick()
-        rule.waitForIdle(); shot("27-reader")  // the notes themselves are drawn by a WebView, which Robolectric leaves blank: this shows the reader's own bar and tools
+        see("Select text to highlight it"); shot("27-reader")  // the notes themselves are drawn by a WebView, which Robolectric leaves blank: this shows the reader's own bar and tools
     }
 
     @Test fun materialYou() {
@@ -157,7 +161,7 @@ class ScreensTest {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNodeWithText("Saved").performClick()
-        see("Bookmarks"); shot("13-saved")
+        see("Bookmarks"); seeAny("topic saved", "topics saved", "Nothing saved yet"); shot("13-saved")  // its subtitle shows once the list has loaded
         rule.onNodeWithText("Highlights").performClick(); see("All colours"); shot("14-highlights")
         rule.onNode(hasText("Progress") and hasClickAction()).performClick(); see("Study routine"); see("Topics learned"); shot("15-progress")  // once it has loaded
         rule.onNodeWithText("Set or change your study days").performClick(); see("Minutes a session"); shot("16-routine")
