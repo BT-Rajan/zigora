@@ -4,6 +4,14 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.Circle
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -103,14 +111,18 @@ fun SupportPlansScreen(cid: Int, back: () -> Unit, open: (Int) -> Unit) {
     var st by rememberSaveable { mutableStateOf("") }
     val l = rememberLoad("iv-list", cid, st) { get("/interventions?course_id=$cid&status=$st", IvPlans.serializer()) }
     Page(tl("Support plans"), (l.state as? Load.Ok)?.value?.items?.firstOrNull()?.course.orEmpty(), back = back) {
-        Quiet(tl("Extra practice for chosen students, made from what the course already has. Progress comes from what they do after the plan starts."))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(st == "", { st = "" }, { Text(tl("All")) }); listOf("draft", "active", "completed", "cancelled").forEach { k -> FilterChip(st == k, { st = k }, { Text(ivStatus(k)) }) }
         }
         Loaded(l) { d ->
             if (d.items.isEmpty()) Quiet(tl("No support plans yet."))
-            d.items.forEach { p -> ListRow(p.title, ivStatus(p.status) + " · " + p.topics.joinToString(", ") { it.title } + (p.target?.let { " · " + tl("target {date}", "date" to ivShow(it)) } ?: ""), onClick = { open(p.id) }) { Quiet(ivCounts(p.counts)) } }
+            Paged(d.items, key = "iv") { p ->  // one surface: the plan, its topics and date, then how its students are doing
+                ListRow(p.title, p.topics.joinToString(", ") { it.title } + (p.target?.let { " · " + tl("target {date}", "date" to ivShow(it)) } ?: ""), onClick = { open(p.id) }) {
+                    Text(ivStatus(p.status) + " · " + ivCounts(p.counts), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
         }
+        Quiet(tl("Extra practice for chosen students, made from what the course already has. Progress comes from what they do after the plan starts."), Modifier.padding(top = 4.dp))
     }
 }
 
@@ -119,22 +131,35 @@ fun SupportPlanScreen(id: Int, back: () -> Unit, openStudent: (Int) -> Unit) {
     val l = rememberLoad("iv", id) { get("/interventions/$id", IvPlan.serializer()) }
     Page((l.state as? Load.Ok)?.value?.title ?: tl("Support plan"), (l.state as? Load.Ok)?.value?.status?.let(::ivStatus).orEmpty(), back = back) {
         Loaded(l) { p ->
-            Quiet(p.topics.joinToString(", ") { it.title } + (p.target?.let { " · " + tl("target {date}", "date" to ivShow(it)) } ?: ""))
-            if (p.description.isNotEmpty()) Text(p.description, modifier = Modifier.padding(top = 4.dp))
-            if (p.criteria.isNotEmpty()) Quiet(tl("How you will judge it") + ": " + p.criteria)
-            Quiet(ivCounts(p.counts))
+            Panel {  // the plan at a glance
+                Text(p.topics.joinToString(", ") { it.title }, style = MaterialTheme.typography.titleMedium)
+                p.target?.let { Quiet(tl("target {date}", "date" to ivShow(it))) }
+                if (p.description.isNotEmpty()) Text(p.description, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 6.dp))
+                if (p.criteria.isNotEmpty()) Quiet(tl("How you will judge it") + ": " + p.criteria, Modifier.padding(top = 6.dp))
+                Text(ivCounts(p.counts), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 6.dp))
+            }
             SectionTitle(tl("Activities"))
-            p.activities.forEachIndexed { k, a -> Quiet("${k + 1}. " + ivAct(a.kind, a.label, a.size) + " · " + (if (a.required) tl("Required") else tl("Optional")) + (if (a.removed_at != null) " · " + tl("removed {when}", "when" to ivShow(a.removed_at)) else "")) }
+            Paged(p.activities.withIndex().toList(), key = "act") { (k, a) ->
+                ListRow(ivAct(a.kind, a.label, a.size), (if (a.required) tl("Required") else tl("Optional")) + (if (a.removed_at != null) " · " + tl("removed {when}", "when" to ivShow(a.removed_at)) else ""),
+                        leading = { ActNo(k + 1) })
+            }
             SectionTitle(tl("Students"))
-            Quiet(tl("Before and after compare the same topics, tests and practice apart. A change needs {q}+ answers over {k}+ sittings after the start; it doesn't show the plan caused it.", "q" to 5, "k" to 2))
-            p.students.forEach { x ->
+            Paged(p.students, key = "stu") { x ->
                 ListRow(x.name, listOfNotNull(if (x.removed) tl("Removed from the plan") else if (x.assigned_at != null) ivProg(x.progress) + " · " + tl("{a} of {n} done", "a" to x.done, "n" to x.required) else tl("Not started yet: the plan is a draft"),
                     if (x.overdue) tl("past the target") else null, if (x.needs_review) tl("to review") else null, ivOut(x.outcome), if (x.assigned_at != null) ivOverall(x.comparison.overall) else null).joinToString(" · "),
                     onClick = { openStudent(x.user_id) })
             }
+            Quiet(tl("Before and after compare the same topics, tests and practice apart. A change needs {q}+ answers over {k}+ sittings after the start; it doesn't show the plan caused it.", "q" to 5, "k" to 2),
+                  Modifier.padding(top = 4.dp))
         }
     }
 }
+
+/** an activity's place in the plan: its number on the brand's soft colour */
+@Composable
+private fun ActNo(n: Int) = androidx.compose.foundation.layout.Box(
+    Modifier.size(40.dp).background(MaterialTheme.colorScheme.primaryContainer, androidx.compose.foundation.shape.CircleShape),
+    contentAlignment = androidx.compose.ui.Alignment.Center) { Text("$n", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer) }
 
 @Composable
 fun SupportStudentScreen(id: Int, sid: Int, back: () -> Unit) {
@@ -148,24 +173,29 @@ fun SupportStudentScreen(id: Int, sid: Int, back: () -> Unit) {
     Page(x?.name.orEmpty(), p?.title.orEmpty(), back = back) {
         Loaded(l) { pp ->
             if (x == null) return@Loaded
-            if (x.reason.isNotEmpty()) Quiet(tl("Why") + ": " + x.reason)
-            Quiet(x.assigned_at?.let { tl("In the plan since {when}", "when" to ivShow(it)) } ?: tl("Not started yet: the plan is a draft"))
+            Panel {
+                Text(x.assigned_at?.let { tl("In the plan since {when}", "when" to ivShow(it)) } ?: tl("Not started yet: the plan is a draft"), style = MaterialTheme.typography.titleMedium)
+                if (x.reason.isNotEmpty()) Quiet(tl("Why") + ": " + x.reason)
+            }
             SectionTitle(tl("Activities"))
-            x.activities.forEach { s -> val pa = pp.activities.firstOrNull { it.id == s.id }
-                Quiet((if (s.state == "done") "✓ " else if (s.state == "started") "… " else "○ ") + ivAct(s.kind, pa?.label.orEmpty(), s.size) + " — " +
-                    listOfNotNull(ivState(s), s.evidence.takeIf { it.isNotEmpty() }?.let(::ivEv), if (!s.required) tl("Optional") else null, if (s.removed) tl("removed, done before") else null).joinToString(" · ")) }
+            Paged(x.activities, key = "sa") { s -> val pa = pp.activities.firstOrNull { it.id == s.id }
+                ListRow(ivAct(s.kind, pa?.label.orEmpty(), s.size),
+                    listOfNotNull(ivState(s), s.evidence.takeIf { it.isNotEmpty() }?.let(::ivEv), if (!s.required) tl("Optional") else null, if (s.removed) tl("removed, done before") else null).joinToString(" · "),
+                    leading = { Icon(when (s.state) { "done" -> Icons.Filled.CheckCircle; "started" -> Icons.Outlined.Schedule; else -> Icons.Outlined.Circle }, null,
+                                     tint = if (s.state == "done") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant) })
+            }
             Quiet(tl("Opening a resource only shows it was opened, not that it was understood."))
             SectionTitle(tl("Before and after"))
             Panel { androidx.compose.foundation.layout.Column { Compare(x.comparison); Quiet(tl("Same topics, before the plan and since. This doesn't show the plan caused the change.")) } }
             if (x.assigned_at != null) {
                 SectionTitle(tl("Your review"))
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) { IV_OUT.forEach { (k, v) -> FilterChip(out == k, { out = k }, { Text(tl(v)) }) } }
-                OutlinedTextField(note, { note = it.take(2000) }, label = { Text(tl("A note for yourself (optional)")) }, modifier = Modifier.padding(top = 4.dp))
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { IV_OUT.forEach { (k, v) -> FilterChip(out == k, { out = k }, { Text(tl(v)) }) } }
+                OutlinedTextField(note, { note = it.take(2000) }, label = { Text(tl("A note for yourself (optional)")) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 Button(enabled = !busy && out.isNotEmpty(), onClick = { scope.launch {
                     busy = true
                     try { a.raw("POST", "/interventions/$id/students/$sid/review", buildJsonObject { put("outcome", out); put("note", note) }); toast(tl("Saved")); tick++ } catch (e: Exception) { toast(I18n.srv(e.message)) }
                     busy = false
-                } }, modifier = Modifier.padding(top = 8.dp)) { Text(tl("Save review")) }
+                } }, modifier = Modifier.fillMaxWidth()) { Text(tl("Save review")) }
             }
         }
     }

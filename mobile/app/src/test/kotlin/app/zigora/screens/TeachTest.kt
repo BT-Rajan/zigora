@@ -27,6 +27,9 @@ import app.zigora.data.Sealer
 import app.zigora.data.Store
 import app.zigora.data.json
 import app.zigora.ui.ZigoraRoot
+import app.zigora.ui.coursesOf
+import app.zigora.data.ProgramNode
+import kotlinx.serialization.builtins.ListSerializer
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
@@ -90,8 +93,48 @@ class TeachTest {
     @Test fun aTeacherRunsAnOfferedCourse() {
         signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         tab("Courses"); see("Offered courses"); see("Python for engineers"); shot("13-courses")
-        tap("Python for engineers"); see("Write to students"); shot("14-course-students")
+        tap("Python for engineers"); see("Invite students"); shot("14-course-students")
         tab("Course"); see("Repeat this course"); rule.onNodeWithText("Repeat this course").performScrollTo(); shot("15-course-manage")
+    }
+
+    /** a course's class insight: the topics, one topic's evidence, one student's record on it */
+    @Test fun aTeacherReadsClassInsight() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        tab("Struggles"); tap("Class insight"); see("students were active"); shot("16-class-insight")
+        tap("Hardness of Water"); see("Ask the AI what the evidence suggests"); shot("17-insight-topic")
+        tap("Meena Kumar"); see("Sittings"); shot("18-insight-student")
+    }
+
+    /** a support plan made for Meena (through the API, as on the web), then the teacher follows it on the phone */
+    @Test fun aTeacherFollowsASupportPlan() {
+        signIn("stu@mail.com")
+        val (sid, cid, tid) = runBlocking {  // Meena's id, and the course and topic, as she sees them
+            val me = json.decodeFromString(Me.serializer(), app.store.userJson!!)
+            val c = coursesOf(app.api.get("/tree", ListSerializer(ProgramNode.serializer()))).first { it.name == "Engineering Chemistry" }
+            Triple(me.id, c.id, c.units.flatMap { it.topics }.first { it.title == "Hardness of Water" }.id)
+        }
+        signIn("teacher@mail.com")
+        runBlocking {
+            app.api.raw("POST", "/interventions", buildJsonObject {
+                put("course_id", cid); put("title", "Hardness, once more"); put("description", "Two short steps before the unit test."); put("activate", true)
+                put("topic_ids", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(tid)) })
+                put("student_ids", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(sid)) })
+                put("activities", kotlinx.serialization.json.buildJsonArray {
+                    add(buildJsonObject { put("kind", "study"); put("topic_id", tid) }); add(buildJsonObject { put("kind", "revise"); put("topic_id", tid) })
+                })
+            })
+        }
+        rule.setContent { ZigoraRoot(null) {} }
+        tab("Struggles"); tap("Support plans"); see("Hardness, once more"); shot("19-support-plans")
+        tap("Hardness, once more"); see("Activities"); shot("20-support-plan")
+        tap("Meena Kumar"); see("Before and after"); shot("21-support-student")
+    }
+
+    /** the teacher's Me tab, and offering a course */
+    @Test fun aTeacherSeesMeAndOffersACourse() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        tab("Me"); see("Sign out"); shot("22-me")
+        tab("Courses"); tap("Offer a course"); see("Who may join"); shot("23-offer-form")
     }
 
     /** a weekly class from the app: every session is scheduled, and the list shows the next one with its place in the series */

@@ -149,13 +149,13 @@ fun GuardianHome(me: Me, signOut: () -> Unit) {
         val dd = (dash.state as? Load.Ok)?.value
         if (dd != null && dd.items.isNotEmpty()) {
             SectionTitle(tl("Needs you"))
-            dd.items.forEach { x -> NeedsYouRow(x) { if (x.action == "key") keyOpen = true else view = x.student_id } }
+            Paged(dd.items, key = "need") { x -> NeedsYouRow(x) { if (x.action == "key") keyOpen = true else view = x.student_id } }
         } else if (dd != null && dd.students.isNotEmpty()) Panel { Text(if (parent) tl("All good. Nothing needs you right now.") else tl("All good. No student needs you right now."), style = MaterialTheme.typography.titleMedium) }
         SectionTitle(if (parent) tl("Your children") else tl("Your students"))
-        dd?.students?.forEach { c -> WardSummary(c) { view = c.id } }
+        dd?.students?.let { ws -> Paged(ws, key = "ward") { c -> WardSummary(c) { view = c.id } } }  // one surface, a line between students
         Loaded(list) { d ->
             if (d.students.isEmpty()) Quiet(if (parent) tl("No children are linked to your account yet.") else tl("No students yet. Add your class, or invite students who already have an account."))
-            d.students.filter { it.status != "active" || dd == null }.forEach { x ->
+            Paged(d.students.filter { it.status != "active" || dd == null }, key = "others") { x ->
                 val sub = listOfNotNull(x.username?.let { tl("Signs in as {username}", "username" to it) }, x.place.ifEmpty { tl("Waiting for an admin to place them") }).joinToString(" · ")
                 val stop = { ask = Ask(tl("Stop following {name}?", "name" to x.name), tl("Their account and progress stay. You no longer see their progress, and your AI key no longer covers them."),
                                        tl("Stop following"), danger = true) { scope.launch { try { a.raw("DELETE", "/guardian/students/${x.id}"); list.reload(); dash.reload() } catch (e: Exception) { toast(e.message.orEmpty()) } } } }
@@ -164,9 +164,9 @@ fun GuardianHome(me: Me, signOut: () -> Unit) {
             }
             if (parent && d.students.isNotEmpty()) Quiet(tl("Each child signs in with their own username and password on the sign-in page."))
             if (d.students.any { it.status == "active" }) {
-                ListRow(if (parent) tl("Your children's calendar") else tl("Your students' calendar"), tl("Exams, deadlines and study days in one place"), onClick = { calOpen = true },
-                        leading = { RowIcon(androidx.compose.material.icons.Icons.Outlined.CalendarMonth) })
-                GuardianReminders(parent)
+                Rows({ ListRow(if (parent) tl("Your children's calendar") else tl("Your students' calendar"), tl("Exams, deadlines and study days in one place"), onClick = { calOpen = true },
+                               leading = { RowIcon(androidx.compose.material.icons.Icons.Outlined.CalendarMonth) }) },
+                     { GuardianReminders(parent) })
             }
         }
         if (!adding) OutlinedButton(onClick = { rows.clear(); rows.add(NewStudent()); adding = true }, modifier = Modifier.fillMaxWidth()) { Text(if (parent) tl("Add a child") else tl("Add students")) }

@@ -105,12 +105,14 @@ fun OfferForm(c: Offer?, close: () -> Unit, done: (Offer) -> Unit) {
                 OutlinedTextField(start, { start = it.take(10) }, Modifier.weight(1f), label = { Text(tl("Starts (optional)")) }, placeholder = { Text("2026-12-01") }, singleLine = true)
                 OutlinedTextField(end, { end = it.take(10) }, Modifier.weight(1f), label = { Text(tl("Ends (optional)")) }, placeholder = { Text("2027-01-15") }, singleLine = true)
             }
-            Text(tl("Who may join"), style = MaterialTheme.typography.labelMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(access == "enroll", { access = "enroll" }, { Text(tl("Students I accept")) }); FilterChip(access == "open", { access = "open" }, { Text(tl("Anyone, at once")) })
+            Text(tl("Who may join"), style = MaterialTheme.typography.labelLarge)
+            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf("enroll" to tl("Students I accept"), "open" to tl("Anyone, at once")).forEachIndexed { i, (k, t) ->
+                    androidx.compose.material3.SegmentedButton(access == k, { access = k }, androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2)) { Text(t, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                }
             }
-            if (access == "enroll") Row(Modifier.fillMaxWidth().toggleable(apps, role = Role.Checkbox) { apps = it }, verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(apps, null); Text(tl("Students may ask to join (you decide within 48 hours)"))
+            if (access == "enroll") Row(Modifier.fillMaxWidth().toggleable(apps, role = Role.Switch) { apps = it }, verticalAlignment = Alignment.CenterVertically) {
+                Text(tl("Students may ask to join (you decide within 48 hours)"), Modifier.weight(1f)); androidx.compose.material3.Switch(apps, null)
             }
             if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -146,7 +148,7 @@ fun OfferDetailScreen(id: Int, back: () -> Unit) {
     Loaded(l) { d ->
         val c = d.course; val live = c.state != "cancelled" && c.state != "archived"
         Page(c.name, datesOf(c) + " · " + accessOf(c), back = back) {
-            val tabs = listOf("students" to tl("Students"), "message" to tl("Write to students"), "course" to tl("Course"))
+            val tabs = listOf("students" to tl("Students"), "message" to tl("Message"), "course" to tl("Course"))  // short words: three tabs on a phone
             androidx.compose.material3.PrimaryTabRow(selectedTabIndex = tabs.indexOfFirst { it.first == tab }.coerceAtLeast(0)) {
                 tabs.forEach { (k, t) -> androidx.compose.material3.Tab(tab == k, { tab = k }, text = { Text(t, maxLines = 1) }) }
             }
@@ -194,7 +196,7 @@ fun OfferDetailScreen(id: Int, back: () -> Unit) {
                                 OutlinedTextField(s0, { rep = Triple(n, it.take(10), e0) }, Modifier.weight(1f), label = { Text(tl("Starts (optional)")) }, singleLine = true)
                                 OutlinedTextField(e0, { rep = Triple(n, s0, it.take(10)) }, Modifier.weight(1f), label = { Text(tl("Ends (optional)")) }, singleLine = true)
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(repSame, { repSame = true }, { Text(tl("Invite the same students")) }); FilterChip(!repSame, { repSame = false }, { Text(tl("Start with nobody")) }) }
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(repSame, { repSame = true }, { Text(tl("Invite the same students")) }); FilterChip(!repSame, { repSame = false }, { Text(tl("Start with nobody")) }) }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(enabled = !busy, onClick = { run {
                                     val r = a.send("POST", "/offered/$id/repeat", buildJsonObject { put("name", n); put("starts_on", s0.ifEmpty { null }); put("ends_on", e0.ifEmpty { null }); put("students", if (repSame) "same" else "none") }, Offer.serializer())

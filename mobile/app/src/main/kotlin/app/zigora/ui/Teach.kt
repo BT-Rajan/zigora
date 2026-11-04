@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.OpenInBrowser
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
@@ -220,7 +222,7 @@ private fun DoubtRowItem(x: app.zigora.data.DoubtRow, onClick: () -> Unit) =
 private fun DoubtReportView() {
     var days by rememberSaveable { mutableIntStateOf(90) }
     val l = rememberLoad("doubt-report", days) { get("/questions/report?days=$days", DoubtReport.serializer()) }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(30, 90, 365).forEach { n -> FilterChip(days == n, { days = n }, { Text(tl("Last {n} days", "n" to n)) }) }
     }
     Loaded(l) { d ->
@@ -305,11 +307,14 @@ private fun Rank(n: Int) = androidx.compose.foundation.layout.Box(
 private fun StaffMeScreen(me: Me, signOut: () -> Unit) {
     val app = app(); val ctx = LocalContext.current
     Page(stringResource(R.string.tab_me)) {
-        Panel { Text(me.name, style = MaterialTheme.typography.titleLarge); Quiet(app.store.server) }
-        Quiet(tl("Courses, topics, tests and settings are on the website."), Modifier.padding(top = 8.dp))
-        OutlinedButton(onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, app.store.server.toUri())) } }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.open_in_browser)) }
-        OutlinedButton(onClick = signOut, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.sign_out)) }
+        Panel { Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Dot(me.name, MaterialTheme.colorScheme.primary); androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
+            Column { Text(me.name, style = MaterialTheme.typography.titleLarge); Quiet(app.store.server) }
+        } }
+        // the website and signing out: rows of one list, as the student's Me screen has them
+        Rows({ ListRow(stringResource(R.string.open_in_browser), tl("Courses, topics, tests and settings are on the website."), leading = { RowIcon(Icons.Outlined.OpenInBrowser) },
+                       onClick = { runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, app.store.server.toUri())) } }) },
+             { ListRow(stringResource(R.string.sign_out), leading = { RowIcon(Icons.AutoMirrored.Outlined.Logout) }, onClick = signOut) })
         if (me.role == "admin") MoreAiPanel()
     }
 }
