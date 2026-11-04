@@ -93,6 +93,36 @@ class ScreensTest {
         see("Rewards"); shot("08-me")
     }
 
+    /** the screens no other walk reaches: a teacher's support plan on Home, the notifications, and the notes in full screen */
+    @Test fun supportPlanNotificationsAndReader() {
+        signIn()
+        runBlocking {  // the course's teacher makes a support plan for Meena on Boiler Troubles, through the API, as on the web
+            val me = json.decodeFromString(Me.serializer(), app.store.userJson!!)
+            val tree = app.api.get("/tree", kotlinx.serialization.builtins.ListSerializer(app.zigora.data.ProgramNode.serializer()))
+            val c = app.zigora.ui.coursesOf(tree).first { it.name == "Engineering Chemistry" }
+            val tid = c.units.flatMap { it.topics }.first { it.title == "Boiler Troubles" }.id
+            val student = app.store.token
+            app.store.token = app.api.send("POST", "/login", buildJsonObject { put("email", "teacher@mail.com"); put("password", "pw123456") }, LoginOut.serializer()).token
+            app.api.raw("POST", "/interventions", buildJsonObject {
+                put("course_id", c.id); put("title", "Boilers: a second look"); put("description", "Go through these before Friday."); put("activate", true)
+                put("topic_ids", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(tid)) })
+                put("student_ids", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(me.id)) })
+                put("activities", kotlinx.serialization.json.buildJsonArray {
+                    add(buildJsonObject { put("kind", "study"); put("topic_id", tid) }); add(buildJsonObject { put("kind", "revise"); put("topic_id", tid) })
+                })
+            })
+            app.store.token = student
+        }
+        rule.setContent { ZigoraRoot(null) {} }
+        see("Extra practice from your teacher"); rule.onAllNodesWithText("Extra practice from your teacher").onFirst().performScrollTo(); shot("25-home-support-plan")
+        rule.onAllNodesWithContentDescription("Notifications").onFirst().performClick()
+        see("Your teacher has prepared some extra practice"); shot("26-notifications")
+        rule.onNodeWithContentDescription("Back").performClick()
+        openChemistry(); see("Hardness of Water"); rule.onNodeWithText("Hardness of Water").performClick()
+        see("Read in full screen"); rule.onNodeWithText("Read in full screen", substring = true).performScrollTo().performClick()
+        rule.waitForIdle(); shot("27-reader")  // the notes themselves are drawn by a WebView, which Robolectric leaves blank: this shows the reader's own bar and tools
+    }
+
     @Test fun materialYou() {
         signIn(wallpaper = true)
         rule.setContent { ZigoraRoot(null) {} }
