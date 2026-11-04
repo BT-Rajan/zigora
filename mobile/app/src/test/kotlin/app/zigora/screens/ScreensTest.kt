@@ -119,7 +119,8 @@ class ScreensTest {
             app.store.token = student
         }
         rule.setContent { ZigoraRoot(null) {} }
-        see("Extra practice from your teacher"); rule.onAllNodesWithText("Extra practice from your teacher").onFirst().performScrollTo(); shot("25-home-support-plan")
+        see("Extra practice from your teacher"); see("My courses")  // drawn once Home's refresh is over, so the spinner is gone
+        rule.onAllNodesWithText("Extra practice from your teacher").onFirst().performScrollTo(); shot("25-home-support-plan")
         rule.onAllNodesWithContentDescription("Notifications").onFirst().performClick()
         see("Your teacher has prepared some extra practice"); shot("26-notifications")
         rule.onNodeWithContentDescription("Back").performClick()
