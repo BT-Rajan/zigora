@@ -189,10 +189,11 @@ fun NotificationsScreen(back: () -> Unit, openTopic: (Int) -> Unit, openQuestion
             Loaded(n) { r ->
                 if (r.mail) DigestToggle(r.digest)
                 if (r.items.isEmpty()) Quiet(stringResource(R.string.no_notifications))
-                Paged(r.items, grouped = false) { x ->
+                Paged(r.items) { x ->  // one surface, a line between notes
                     val tid = x.key.substringAfter(":").toIntOrNull().takeIf { !x.key.startsWith("quiz") }
                     val qid = x.key.takeIf { it.startsWith("answer:") }?.split(":")?.getOrNull(1)?.toIntOrNull()  // the teacher answered a question
-                    ListItem(modifier = if (qid != null) Modifier.clickableRounded { openQuestion(qid) } else if (tid != null) Modifier.clickableRounded { openTopic(tid) } else Modifier,
+                    ListItem(colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                             modifier = if (qid != null) Modifier.clickable { openQuestion(qid) } else if (tid != null) Modifier.clickable { openTopic(tid) } else Modifier,
                              headlineContent = { Text(x.text) }, supportingContent = { if (x.sub.isNotEmpty()) Text(app.zigora.data.I18n.srv(x.sub)) },
                              overlineContent = { if (x.unread) Text(stringResource(R.string.new_label), color = MaterialTheme.colorScheme.primary) })
                 }

@@ -79,7 +79,7 @@ class TourTest {
         back(); tap("Water Technology quiz"); see("Which salts"); shot("06-quiz"); back(); back()
         tab("Saved"); see("Hardness of Water"); shot("07-saved")
         tap("Highlights"); see("hard water"); shot("08-highlights")
-        tab("Progress"); see("Study routine"); shot("09-progress")
+        tab("Progress"); see("Study routine"); see("Topics learned"); see("Final score"); shot("09-progress")  // once it has loaded
         see("Test scores"); see("Final score"); shot("10-test-results")  // scores show on the page itself
         tap("Final score"); see("Water Technology quiz"); shot("11-score-course")
         tap("Water Technology quiz"); see("latest"); shot("12-attempts")
