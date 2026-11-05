@@ -95,6 +95,7 @@ class TeachTest {
         tab("Courses"); see("Offered courses"); see("Python for engineers"); shot("13-courses")
         tap("Python for engineers"); see("Invite students"); shot("14-course-students")
         tab("Course"); see("Repeat this course"); rule.onNodeWithText("Repeat this course").performScrollTo(); shot("15-course-manage")
+        tab("Message"); see("Attach material"); shot("24-course-message")  // a note to every student on the course, with a file if wanted
     }
 
     /** a course's class insight: the topics, one topic's evidence, one student's record on it */

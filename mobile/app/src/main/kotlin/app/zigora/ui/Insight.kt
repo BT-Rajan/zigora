@@ -174,7 +174,7 @@ fun ClassStudentScreen(cid: Int, tid: Int, sid: Int, back: () -> Unit) {
             if (d.doubts.isNotEmpty()) {
                 SectionTitle(tl("Doubts"))
                 Paged(d.doubts, key = "dq") { q -> Panel {
-                    q.messages.forEach { m -> Quiet((if (m.teacher) tl("Teacher") else d.student) + " · " + (m.at?.let { stamp(it) } ?: "")); MathMd(m.text) }
+                    q.messages.forEachIndexed { i, m -> Quiet((if (m.teacher) tl("Teacher") else d.student) + " · " + (m.at?.let { stamp(it) } ?: ""), if (i > 0) Modifier.padding(top = 12.dp) else Modifier); MathMd(m.text) }
                 } }
             }
         }
