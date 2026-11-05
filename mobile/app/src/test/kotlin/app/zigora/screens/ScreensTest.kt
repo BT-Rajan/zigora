@@ -71,6 +71,12 @@ class ScreensTest {
         see("Calm, curious learning"); shot("01-sign-in")
     }
 
+    /** the topic's row on the course page. Home can name the topic too (a teacher's support plan: "Study the topic: Hardness of Water"),
+     *  so first wait for the course page itself (Desalination is listed only there; a topic's title isn't translated), then tap the row that opens */
+    private fun openHardness() {
+        see("Desalination")
+        rule.onAllNodes(hasText("Hardness of Water") and hasClickAction()).onFirst().performScrollTo().performClick()
+    }
     private fun openChemistry() {  // the course row: the last "Engineering Chemistry" on Home (cards above may name it too), scrolled into view
         rule.waitUntilAtLeastOneExists(hasText("Engineering Chemistry"), 20_000)
         val row = rule.onAllNodesWithText("Engineering Chemistry").onLast(); runCatching { row.performScrollTo() }; row.performClick()
@@ -124,7 +130,7 @@ class ScreensTest {
         rule.onAllNodesWithContentDescription("Notifications").onFirst().performClick()
         see("Your teacher has prepared some extra practice"); shot("26-notifications")
         rule.onNodeWithContentDescription("Back").performClick()
-        openChemistry(); see("Hardness of Water"); rule.onNodeWithText("Hardness of Water").performClick()
+        openChemistry(); openHardness()
         see("Read in full screen"); rule.onNodeWithText("Read in full screen", substring = true).performScrollTo().performClick()
         see("Select text to highlight it"); shot("27-reader")  // the notes themselves are drawn by a WebView, which Robolectric leaves blank: this shows the reader's own bar and tools
     }
@@ -147,7 +153,7 @@ class ScreensTest {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
         openChemistry()
-        see("Hardness of Water"); rule.onAllNodesWithText("Hardness of Water").onFirst().performClick(); see("calcium and magnesium"); shot("11-topic-tamil-dark")
+        openHardness(); see("calcium and magnesium"); shot("11-topic-tamil-dark")
     }
 
     @Test fun aLiteStudentsPlan() {
