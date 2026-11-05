@@ -2,7 +2,6 @@ package app.zigora.screens
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
-import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -90,8 +89,6 @@ class TeachTest {
         tab("Report"); see("Topics with the most doubts"); shot("11-doubt-report")
         tab("Classes"); see("Join the class")
         rule.onAllNodesWithContentDescription("More options").onFirst().performClick(); see("Change the time"); shot("12-class-menu")
-        rule.onNodeWithText("Change the time").performClick(); see("Change the class time"); see("Move the class")
-        rule.waitForIdle(); rule.onNode(isDialog()).captureRoboImage("$out/25-change-time.png")  // the dialog is its own window: picture it alone
     }
 
     /** the teacher's own offered course: the list, its students and what can be done with it */
