@@ -2,6 +2,7 @@ package app.zigora.screens
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -77,6 +78,8 @@ class TeachTest {
         rule.waitUntil(20_000) { rule.onAllNodesWithText("Video link").fetchSemanticsNodes().isEmpty() }  // the form closed: it was saved
         see("Doubt-clearing session"); see("Coming up"); shot("4-scheduled")
         tab("Struggles"); see("Where students struggle"); see("Hardness of Water"); see("questions to you"); shot("5-struggles")
+        // a topic as the teacher sees it, opened from its row in the list (the row is the one that opens; its name is also in the course links' area)
+        rule.onAllNodes(hasText("Hardness of Water") and hasClickAction()).onFirst().performClick(); see("Hard water carries dissolved calcium"); shot("27-teacher-topic")
     }
 
     /** the doubt centre's folded filters and its report, and a class's changes behind its menu */
@@ -87,6 +90,8 @@ class TeachTest {
         tab("Report"); see("Topics with the most doubts"); shot("11-doubt-report")
         tab("Classes"); see("Join the class")
         rule.onAllNodesWithContentDescription("More options").onFirst().performClick(); see("Change the time"); shot("12-class-menu")
+        rule.onNodeWithText("Change the time").performClick(); see("Change the class time"); see("Move the class")
+        rule.waitForIdle(); rule.onNode(isDialog()).captureRoboImage("$out/25-change-time.png")  // the dialog is its own window: picture it alone
     }
 
     /** the teacher's own offered course: the list, its students and what can be done with it */
@@ -96,6 +101,7 @@ class TeachTest {
         tap("Python for engineers"); see("Invite students"); shot("14-course-students")
         tab("Course"); see("Repeat this course"); rule.onNodeWithText("Repeat this course").performScrollTo(); shot("15-course-manage")
         tab("Message"); see("Attach material"); shot("24-course-message")  // a note to every student on the course, with a file if wanted
+        tab("Course"); tap("Repeat this course"); see("Make the new run"); rule.onNodeWithText("Make the new run").performScrollTo(); shot("26-repeat-form")
     }
 
     /** a course's class insight: the topics, one topic's evidence, one student's record on it */
