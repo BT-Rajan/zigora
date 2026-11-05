@@ -320,7 +320,8 @@ private fun GuardianReminders(parent: Boolean) {
 private fun WardActivityCard(a: WardActivity) {
     val loc = LocalConfiguration.current.locales[0]
     SectionTitle(tl("Study activity"))
-    Quiet(tl("{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · {done} topics learned this week",
+    Quiet(tl(if (a.completed_this_week == 1) "{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · 1 topic learned this week"
+             else "{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · {done} topics learned this week",
         "streak" to a.streak, "week" to a.active_days_week, "days" to a.active_days_28, "done" to a.completed_this_week))
     a.days.chunked(7).forEach { week ->
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -355,16 +356,22 @@ private fun WardScoresCard(sc: WardScores, mcq: WardMcq?) {
     }
     if (mcq != null) {
         SectionTitle(tl("MCQ practice"))
-        Quiet(if (mcq.sets > 0) tl("{sets} sets done, {average}% correct on average. Last practised {when}.", "sets" to mcq.sets, "average" to (mcq.average ?: 0), "when" to (mcq.last_at?.let { day(it) } ?: ""))
+        Quiet(if (mcq.sets > 0) tl(if (mcq.sets == 1) "1 set done, {average}% correct on average. Last practised {when}." else "{sets} sets done, {average}% correct on average. Last practised {when}.", "sets" to mcq.sets, "average" to (mcq.average ?: 0), "when" to (mcq.last_at?.let { day(it) } ?: ""))
               else tl("No MCQ practice yet."))
         if (mcq.revisit.isNotEmpty()) Quiet(tl("Topics to revisit: {topics}", "topics" to mcq.revisit.joinToString(", ")))
     }
 }
 
+private val ISO_DAY = Regex("""\d{4}-\d{2}-\d{2}""")
+/** a calendar date ("2026-11-07"), written the phone's way ("7 Nov 2026") */
+private fun plainDay(iso: String): String = runCatching {
+    java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).format(java.time.LocalDate.parse(iso))
+}.getOrDefault(iso)
+
 /** one thing a child needs from their parent or teacher, with the one action that deals with it; the dot says how soon */
 @Composable
 private fun NeedsYouRow(x: GDashItem, act: () -> Unit) {
-    val v = x.vars.mapValues { (k, e) -> val raw = (e as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty(); if (k == "date") day(raw) else raw }
+    val v = x.vars.mapValues { (k, e) -> val raw = (e as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty(); if (ISO_DAY.matches(raw)) plainDay(raw) else if (k == "date") day(raw) else raw }  // a date reads as the phone shows dates
     val dot = when (x.level) { "now" -> MaterialTheme.colorScheme.error; "soon" -> MaterialTheme.colorScheme.tertiary; else -> MaterialTheme.colorScheme.outline }
     ListRow(tl(x.text, *v.map { it.key to it.value }.toTypedArray()), "", onClick = act,
         leading = { Box(Modifier.padding(4.dp).background(dot, RoundedCornerShape(50)).padding(5.dp)) },

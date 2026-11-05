@@ -3554,5 +3554,7 @@
 "Test scores": "தேர்வு மதிப்பெண்கள்",
 "Show more": "மேலும் காட்டு",
 "Filters": "வடிகட்டிகள்",
-"More options": "மேலும் விருப்பங்கள்"
+"More options": "மேலும் விருப்பங்கள்",
+"1 set done, {average}% correct on average. Last practised {when}.": "1 தொகுப்பு முடிந்தது, சராசரியாக {average}% சரி. கடைசியாகப் பயிற்சி {when}.",
+"{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · 1 topic learned this week": "{streak} நாள் தொடர் · கடந்த 7 நாட்களில் {week} நாட்களும் கடந்த 28 நாட்களில் {days} நாட்களும் படித்தார் · இந்த வாரம் 1 தலைப்பு கற்றார்"
 }

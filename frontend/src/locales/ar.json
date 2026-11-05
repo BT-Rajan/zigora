@@ -3554,5 +3554,7 @@
 "Test scores": "درجات الاختبارات",
 "Show more": "عرض المزيد",
 "Filters": "عوامل التصفية",
-"More options": "خيارات أخرى"
+"More options": "خيارات أخرى",
+"1 set done, {average}% correct on average. Last practised {when}.": "أُنجزت مجموعة واحدة، بمتوسط {average}% صحيح. آخر ممارسة {when}.",
+"{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · 1 topic learned this week": "سلسلة {streak} أيام · درس في {week} من آخر 7 أيام و{days} من آخر 28 · تعلّم موضوعًا واحدًا هذا الأسبوع"
 }
