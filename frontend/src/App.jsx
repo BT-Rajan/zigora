@@ -75,6 +75,7 @@ export default function App(){
   useEffect(()=>{if(!user)return  // signed in: a language picked just now goes to the account; otherwise the account's language is used
     if(picked.current&&user.lang!==lang)api('/me/lang',{method:'PUT',body:{lang}}).catch(()=>{})
     else if(!picked.current&&user.lang&&user.lang!==lang)loadLang(user.lang).catch(()=>{}).then(()=>setLangS(applyLang(user.lang)))},[user])
+  useEffect(()=>{document.documentElement.dataset.role=user?.role||''},[user])  // admin pages lay out for a desktop (styles.css, [data-role=admin])
   useEffect(()=>{const m=/^#paid=(ok|no|check)$/.exec(location.hash);if(!user||!m)return  // back from Razorpay's page
     history.replaceState(null,'',location.pathname+location.search)
     api('/me/pro/check',{method:'POST'}).then(r=>{setPage('profile')
@@ -2118,7 +2119,7 @@ function McqBank({toast}){
     {list.items.map(x=><div className="qbox" key={x.id}><b>{x.topic}</b>{" "}<span className={'pill sm'+(x.status==='published'?' okp':x.status==='retired'?' off':'')}>{tl(MCQ_ST[x.status])}</span>
       <small className="known">{" "}{tl(MCQ_SRC[x.source])}{x.author?' · '+x.author:''} · {tl(MCQ_DIFF[x.difficulty])} · v{x.version}{x.uses?' · '+tl(x.uses===1?"in 1 set":"in {n} sets",{n:x.uses}):''}</small>
       <div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt=""/>
-      {x.options.map((o,k)=><div key={k} className={'opt'+(k===x.correct?' ok':'')}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></div>)}
+      <div className="bopts">{x.options.map((o,k)=><div key={k} className={'opt'+(k===x.correct?' ok':'')}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></div>)}</div>
       {x.explanation&&<div className="known"><Md>{x.explanation}</Md></div>}
       <div className="chips wrap"><button className="tool" onClick={()=>setEdit(x)}><Pencil size={14}/>{" "}{tl("Edit")}</button>
         {x.status!=='published'&&<button className="tool" onClick={()=>status(x,'published')}>{tl("Publish")}</button>}
@@ -3160,9 +3161,9 @@ function Users({toast,me,role=''}){  // role: the Teachers (faculty), Students o
       <select aria-label={tl("Filter by semester, year or grade")} value={sem} onChange={e=>setSem(e.target.value)}><option value="">{lab==='Term'?tl("All terms"):tl("All {lab}s",{lab:lab.toLowerCase()})}</option>{semsOf(progs,prog).map(n=><option key={n} value={n}>{lab} {n}</option>)}</select>
       <select aria-label={tl("Sort by")} value={order} onChange={e=>setOrder(e.target.value)}><option value="role">{tl("Sort: role, then name")}</option><option value="name">{tl("Sort: name")}</option><option value="program">{tl("Sort: program")}</option><option value="semester">{tl("Sort:")}{" "}{lab.toLowerCase()}</option><option value="newest">{tl("Sort: newest first")}</option></select>
       <select aria-label={tl("Filter by AI plan")} value={plan} onChange={e=>setPlan(e.target.value)}><option value="">{tl("All plans")}</option><option value="awaiting">{tl("Teachers waiting for approval")}</option><option value="lite">{tl("Lite")}</option><option value="pro">{tl("Pro")}</option><option value="pro_ending">{tl("Pro ending within 7 days")}</option><option value="own">{tl("Own key")}</option><option value="college">{tl("College")}</option><option value="family">{tl("Family key")}</option><option value="off">{tl("No AI")}</option><option value="asked">{tl("Asked for more AI")}</option></select></div>
-    <div className="two"><button className="btn" onClick={()=>setEd({})}>{tl("New user")}</button><button className="btn ghost" onClick={()=>setBulk({stage:'pick'})}>{tl("Bulk upload")}</button></div>
-    <button className="btn ghost" style={{marginTop:10}} onClick={()=>setProCsv(true)}>{tl("Give Pro from a CSV")}</button>
-    <button className="btn ghost" style={{marginTop:10}} aria-pressed={selMode} onClick={()=>{setSelMode(!selMode);setSel([])}}>{selMode?tl("Done selecting"):tl("Select several users")}</button>
+    <div className="two"><button className="btn" onClick={()=>setEd({})}>{tl("New user")}</button><button className="btn ghost" onClick={()=>setBulk({stage:'pick'})}>{tl("Bulk upload")}</button>
+    <button className="btn ghost" onClick={()=>setProCsv(true)}>{tl("Give Pro from a CSV")}</button>
+    <button className="btn ghost" aria-pressed={selMode} onClick={()=>{setSelMode(!selMode);setSel([])}}>{selMode?tl("Done selecting"):tl("Select several users")}</button></div>
     {selMode&&items.length>0&&<div className="selbar"><button className="tool" onClick={()=>setSel(items.map(u=>u.id))}>{tl("Select all {length} shown",{length:items.length})}</button>{sel.length>0&&<button className="tool" onClick={()=>setSel([])}>{tl("Clear")}</button>}</div>}
     <div style={{height:14}}/>
     {items.length>0&&<div className="uhead" aria-hidden="true"><span>{tl("Name")}</span><span>{tl("Program")}</span><span>{lab==='Semester'?tl("Sem"):lab}</span></div>}
@@ -3452,7 +3453,7 @@ function AiConfig({toast,onBrand}){
   const load=()=>{api('/admin/settings').then(c=>{setCfg(c);setProv(p=>p||c.provider);setVmodel(c.vision_model);setLim(Object.fromEntries(Object.entries(c.budget||{}).map(([p,b])=>[p,String(b.limit||'')])))});api('/admin/stats').then(setSt)};useEffect(load,[])
   const run=useRun(toast,load),provs=cfg.providers||[],pv=provs.find(x=>x.id===prov),active=prov===cfg.provider
   useEffect(()=>{setModel(pv?.model_saved||'');setKey('')},[prov,pv?.model_saved])
-  return <><Bar title={tl("Settings")} sub={cfg.key_set?tl("AI is on · {name} key {key_hint}",{name:cfg.provider_name,key_hint:cfg.key_hint}):tl("AI is off · no key yet")}/><div className="main"><Tabs label={tl("Settings sections")} scroll items={[['ai','AI'],['prompts',tl("AI prompts")],['school',tl("Institution")],['access',tl("Sign-in")],['mail',tl("Email")],['pay',tl("Payments")],['costs',tl("AI costs")]]} value={tab} onChange={setTab}/>
+  return <><Bar title={tl("Settings")} sub={cfg.key_set?tl("AI is on · {name} key {key_hint}",{name:cfg.provider_name,key_hint:cfg.key_hint}):tl("AI is off · no key yet")}/><div className="main cfg"><Tabs label={tl("Settings sections")} scroll items={[['ai','AI'],['prompts',tl("AI prompts")],['school',tl("Institution")],['access',tl("Sign-in")],['mail',tl("Email")],['pay',tl("Payments")],['costs',tl("AI costs")]]} value={tab} onChange={setTab}/>
     {tab==='school'&&<Branding toast={toast} onSaved={onBrand}/>}{tab==='ai'&&<>
     <label htmlFor="aip">{tl("AI provider")}</label><select id="aip" value={prov} onChange={e=>setProv(e.target.value)}>{provs.map(x=><option key={x.id} value={x.id}>{x.name}{x.id===cfg.provider?' · '+tl("in use"):x.key_set?' · '+tl("key saved"):''}</option>)}</select>
     <p className="known" style={{marginTop:4}}>{tl("The college answers with one provider at a time. Keys saved for the others are kept, so you can switch back. Saved answers keep working after a switch.")}{pv?' '+tl("Create a key at {site}.",{site:pv.console}):''}</p>
@@ -3622,7 +3623,7 @@ function CourseReports({toast,onOpen}){
     {!few&&<div className="filters fit"><div className="search"><Search size={18}/><input type="search" aria-label={tl("Search courses")} placeholder={tl("Search courses")} value={q} onChange={e=>setQ(e.target.value)}/></div>
       <Opts label={tl("Sort by")} value={sort} set={setSort} items={[['name',tl("Sort: name")],['low',tl("Sort: lowest completion first")],['high',tl("Sort: highest completion first")],['students',tl("Sort: most students")],['quiz',tl("Sort: lowest quiz average first")]]}/></div>}
     {!rows&&<Skeleton/>}{rows&&!total&&<p className="known">{tl("No courses match.")}</p>}
-    {items.map(x=><button className="row rowbtn" key={x.course_id} onClick={()=>onOpen(x)}><div>{x.course}<small>{x.program}{" "}{['',x.semester,pl(x.students,'student'),pl(x.topics,'topic'),tl('{n}% completed',{n:x.avg_completion}),tl('{n}% opened',{n:x.avg_opened})].join(' · ')}{x.quizzes?tl(" · quiz avg {v}%",{v:x.avg_quiz_percent??'–'}):''}</small><Bar2 v={x.avg_completion}/></div><ChevronRight size={18}/></button>)}
+    {items.map(x=><button className="row rowbtn" key={x.course_id} onClick={()=>onOpen(x)}><div>{x.course}<small>{[x.program,x.semester,pl(x.students,'student'),pl(x.topics,'topic'),tl('{n}% completed',{n:x.avg_completion}),tl('{n}% opened',{n:x.avg_opened})].filter(Boolean).join(' · ')}{x.quizzes&&x.avg_quiz_percent!=null?tl(" · quiz avg {v}%",{v:x.avg_quiz_percent}):''}</small><Bar2 v={x.avg_completion}/></div><ChevronRight size={18}/></button>)}
     <Pager page={page} total={total} onPage={setPage} size={PAGE} anchor={head}/>
     {rows?.length>0&&<button className="btn ghost" onClick={()=>fetchFile('/reports/courses?format=csv&program_id='+f.p+'&semester='+f.s,'courses.csv',toast)}>{tl("Download courses CSV")}</button>}</>}
 function StudentReport({c,back,toast}){

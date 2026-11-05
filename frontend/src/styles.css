@@ -568,3 +568,26 @@ a.btn,a.tool{text-decoration:none}
 .vcard{text-decoration:none}
 .dqstats .stat{cursor:pointer;text-align:start}.dqstats .stat.on{outline:2px solid var(--acc)}
 .resvideo{width:100%;max-height:60vh;border-radius:10px;margin-top:6px;background:#000}
+
+/* admin pages on a desktop: an admin works at a desk, so buttons are as wide as their words, a page's filters share a row, settings read at a
+   comfortable width and the section tabs line up with the page. Phones keep the full-width controls above. */
+@media (min-width:900px){
+  [data-role=admin] .main .btn:not(.choice){width:auto;padding:11px 20px}
+  [data-role=admin] .main .two{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  [data-role=admin] .main .two>*{flex:1 1 220px;min-width:0}
+  [data-role=admin] .main .two>.btn{flex:0 0 auto}
+  [data-role=admin] .main .btn:not(.choice)+.btn{margin-inline-start:10px}  /* two buttons side by side, outside a .two row */
+  [data-role=admin] .main .two>.btn+.btn{margin-inline-start:0}
+  [data-role=admin] .filters{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  [data-role=admin] .filters select:nth-child(3){grid-column:auto}
+  [data-role=admin] .cfg>:not(.tabs){max-width:760px}
+  [data-role=admin] .sectabs{max-width:1120px;padding:0 32px}
+  [data-role=admin] .sectabs .tabs{width:fit-content;max-width:100%}
+  [data-role=admin] .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}  /* five counts in one row, not four and one */
+  [data-role=admin] .stats+.known{margin-top:10px}
+  [data-role=admin] .main>.btn{margin-bottom:12px}
+  [data-role=admin] .filters+.card{margin-top:12px}
+}
+/* the MCQ bank on a wider screen: a question's options two by two, in slimmer rows, so a page holds several questions */
+.qbox>.chips:last-child{padding-bottom:0}  /* a question's tools end its box */
+@media (min-width:900px){.bopts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}.bopts .opt{margin:0;padding:8px 12px}}
