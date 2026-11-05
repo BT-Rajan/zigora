@@ -591,3 +591,7 @@ a.btn,a.tool{text-decoration:none}
 /* the MCQ bank on a wider screen: a question's options two by two, in slimmer rows, so a page holds several questions */
 .qbox>.chips:last-child{padding-bottom:0}  /* a question's tools end its box */
 @media (min-width:900px){.bopts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}.bopts .opt{margin:0;padding:8px 12px}}
+
+/* the sidebar's groups: a quiet heading over each (Students, Tests, Saved), or a thin line before the last few */
+.dgrp{padding:14px 16px 4px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);opacity:.75}
+.dsep{border:0;border-top:1px solid var(--line);margin:8px 14px}
