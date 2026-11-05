@@ -8,6 +8,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,17 +59,19 @@ fun ClassInsightScreen(cid: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
             if (d.units.size > 1) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(unit == 0, { unit = 0 }, { Text(tl("All units")) }); d.units.forEach { u -> FilterChip(unit == u.id, { unit = u.id }, { Text(u.name) }) }
             }
-            Quiet(tl("{a} of {n} students were active in this period.", "a" to d.active, "n" to d.students))
-            Quiet(tl("Opening a topic counts as studied, and marking it learned is the student's own word; neither shows understanding. Understanding comes from tests and MCQ practice: a student needs {q}+ questions over {k}+ sittings, and a topic needs {m}+ such students before it is judged.",
-                     "q" to d.rule.student.min_questions, "k" to d.rule.student.min_sittings, "m" to d.rule.min_assessed))
-            d.topics.forEach { t ->
-                ListRow(t.title, ciStatus(t.status) + " · " + tl("studied {a}/{n}", "a" to t.studied, "n" to t.students) + " · " + tl("enough evidence {a}", "a" to t.evidence), onClick = { openTopic(t.topic_id) }) {
+            Panel { Text(tl("{a} of {n} students were active in this period.", "a" to d.active, "n" to d.students), style = MaterialTheme.typography.titleMedium) }
+            Paged(d.topics, key = "ci") { t ->  // one surface; each topic: where it stands, the evidence, then what to do
+                ListRow(t.title, tl("studied {a}/{n}", "a" to t.studied, "n" to t.students) + " · " + tl("enough evidence {a}", "a" to t.evidence), onClick = { openTopic(t.topic_id) }) {
+                    Text(ciStatus(t.status), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
                     if (t.evidence > 0) Quiet(tl("Strong {a} · needs revision {b} · needs attention {c}", "a" to t.strong, "b" to t.needs_revision, "c" to t.needs_attention))
                     Quiet(tl("Tests") + ": " + ciAcc(t.tests) + " · " + tl("Practice") + ": " + ciAcc(t.practice))
                     if (t.doubts > 0 || t.not_clear > 0) Quiet(tl("Doubts {a} ({u} unresolved) · “Not clear?” {b}", "a" to t.doubts, "u" to t.unresolved, "b" to t.not_clear))
-                    t.recommendations.forEach { r -> val (a, b) = ciRec(r); Text("→ $a" + (if (b.isNotEmpty()) " — $b" else ""), style = MaterialTheme.typography.bodySmall) }
+                    t.recommendations.forEach { r -> val (a, b) = ciRec(r)
+                        Text("→ $a" + (if (b.isNotEmpty()) " — $b" else ""), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp)) }
                 }
             }
+            Quiet(tl("Opening a topic counts as studied, and marking it learned is the student's own word; neither shows understanding. Understanding comes from tests and MCQ practice: a student needs {q}+ questions over {k}+ sittings, and a topic needs {m}+ such students before it is judged.",
+                     "q" to d.rule.student.min_questions, "k" to d.rule.student.min_sittings, "m" to d.rule.min_assessed), Modifier.padding(top = 4.dp))
         }
     }
 }
@@ -85,11 +89,11 @@ fun ClassTopicScreen(cid: Int, tid: Int, back: () -> Unit, openStudent: (Int) ->
         Loaded(l) { d ->
             val t = d.topic
             Quiet(ciStatus(t.status) + " · " + tl("{e} of {n} students have enough evidence", "e" to t.evidence, "n" to t.students))
-            Panel(Modifier.padding(top = 8.dp)) {
-                Text(tl("Ask the AI what the evidence suggests"), style = MaterialTheme.typography.titleSmall)
+            Panel {
+                Text(tl("Ask the AI what the evidence suggests"), style = MaterialTheme.typography.titleMedium)
                 Quiet(tl("It gets only the figures below, the commonly missed questions and the doubts' words, never names, and must cite them. Nothing is decided for you."))
                 val x = ai
-                if (x == null) OutlinedButton(enabled = !busy, onClick = { scope.launch {
+                if (x == null) androidx.compose.material3.FilledTonalButton(enabled = !busy, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), onClick = { scope.launch {
                     busy = true; err = ""
                     try { ai = a.send("POST", "/reports/courses/$cid/topics/$tid/explain", null, CiExplain.serializer()) } catch (e: Exception) { err = I18n.srv(e.message) }
                     busy = false
@@ -104,34 +108,43 @@ fun ClassTopicScreen(cid: Int, tid: Int, back: () -> Unit, openStudent: (Int) ->
             }
             if (d.common_wrong.isNotEmpty()) {
                 SectionTitle(tl("Questions many got wrong the same way"))
-                d.common_wrong.forEach { q ->
-                    Panel(Modifier.padding(bottom = 8.dp)) {
+                Paged(d.common_wrong, key = "cw") { q ->
+                    Panel {
                         MathMd(q.text)
                         Quiet(tl("{n} answers from {k} students · {source}", "n" to q.answered, "k" to q.students, "source" to (if (q.source == "practice") tl("MCQ practice") else q.source)))
-                        q.options.forEachIndexed { k, o ->
-                            Quiet((if (k == q.correct) "✓ " else if (k == q.wrong_option) "✗ " else "") + opt(o) + " — " + (if (k == q.correct) tl("correct") else tl("chosen wrongly {n}×", "n" to (q.picks["$k"] ?: 0))))
+                        q.options.forEachIndexed { k, o ->  // the right answer in the brand's colour, the common wrong one in red
+                            Text((if (k == q.correct) "✓ " else if (k == q.wrong_option) "✗ " else "") + opt(o) + " — " + (if (k == q.correct) tl("correct") else tl("chosen wrongly {n}×", "n" to (q.picks["$k"] ?: 0))),
+                                 style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 4.dp),
+                                 color = if (k == q.correct) MaterialTheme.colorScheme.primary else if (k == q.wrong_option) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
             if (d.doubt_groups.isNotEmpty() || d.other_doubts.isNotEmpty()) {
                 SectionTitle(tl("Doubts"))
-                d.doubt_groups.forEach { g -> ListRow(tl("{n} students asked about: {words}", "n" to g.students, "words" to g.words.joinToString(", ")), g.doubts.joinToString("\n") { "“${it.text}” — ${it.student}" }) }
-                if (d.other_doubts.isNotEmpty()) ListRow(tl("Other doubts ({n})", "n" to d.other_doubts.size), d.other_doubts.joinToString("\n") { "“${it.text}” — ${it.student}" })
+                Group {  // each group of like doubts, then the rest, as rows of one surface
+                    d.doubt_groups.forEachIndexed { i, g -> if (i > 0) GroupLine()
+                        ListRow(tl("{n} students asked about: {words}", "n" to g.students, "words" to g.words.joinToString(", ")), g.doubts.joinToString("\n") { "“${it.text}” — ${it.student}" }) }
+                    if (d.other_doubts.isNotEmpty()) { if (d.doubt_groups.isNotEmpty()) GroupLine()
+                        ListRow(tl("Other doubts ({n})", "n" to d.other_doubts.size), d.other_doubts.joinToString("\n") { "“${it.text}” — ${it.student}" }) }
+                }
             }
-            SectionTitle(tl("Students")); Quiet(tl("Grouped by what their records show, not ranked."))
+            SectionTitle(tl("Students"))
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(cat == "", { cat = ""; page = 0 }, { Text(tl("All") + " (" + d.categories.values.sum() + ")") })
                 CI_CATS.filter { (d.categories[it] ?: 0) > 0 }.forEach { k -> FilterChip(cat == k, { cat = k; page = 0 }, { Text(ciCat(k) + " (" + d.categories[k] + ")") }) }
             }
-            d.students.forEach { x ->
+            Paged(d.students, key = "st") { x ->
                 ListRow(x.name, listOfNotNull(ciCat(x.category), if (x.asked > 0) tl("{p}% of {n} answers over {k} sittings", "p" to (x.percent ?: 0), "n" to x.asked, "k" to x.sittings) else null,
                     if (x.improving) tl("improving") else null, if (x.repeated_errors > 0) tl("{n} questions wrong twice or more", "n" to x.repeated_errors) else null,
                     if (x.learned) tl("marked learned") else null, if (x.doubts == 1) tl("1 doubt") else if (x.doubts > 1) tl("{n} doubts", "n" to x.doubts) else null).joinToString(" · "), onClick = { openStudent(x.id) })
             }
-            if (d.total > 30) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(enabled = page > 0, onClick = { page-- }) { Text("‹") }; OutlinedButton(enabled = (page + 1) * 30 < d.total, onClick = { page++ }) { Text("›") }
+            if (d.total > 30) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                TextButton(enabled = page > 0, onClick = { page-- }) { Text("‹") }
+                Quiet("${page * 30 + 1}–${minOf((page + 1) * 30, d.total)} / ${d.total}")
+                TextButton(enabled = (page + 1) * 30 < d.total, onClick = { page++ }) { Text("›") }
             }
+            Quiet(tl("Grouped by what their records show, not ranked."))
         }
     }
 }
@@ -141,22 +154,26 @@ fun ClassStudentScreen(cid: Int, tid: Int, sid: Int, back: () -> Unit) {
     val l = rememberLoad("ci-student", cid, tid, sid) { get("/reports/courses/$cid/topics/$tid/students/$sid", CiStudent.serializer()) }
     Page((l.state as? Load.Ok)?.value?.student.orEmpty(), (l.state as? Load.Ok)?.value?.topic.orEmpty(), back = back) {
         Loaded(l) { d ->
-            Quiet(listOfNotNull(ciStatus(d.label), if (d.studied) tl("opened the topic") else tl("hasn't opened the topic"), if (d.learned) tl("marked learned") else null).joinToString(" · "))
+            Panel {
+                Text(ciStatus(d.label), style = MaterialTheme.typography.titleMedium)
+                Quiet(listOfNotNull(if (d.studied) tl("opened the topic") else tl("hasn't opened the topic"), if (d.learned) tl("marked learned") else null).joinToString(" · "))
+            }
             SectionTitle(tl("Sittings"))
             if (d.sittings.isEmpty()) Quiet(tl("No tests or MCQ sets on this topic yet."))
-            d.sittings.forEach { x -> ListRow(if (x.kind == "test") tl("Test") else tl("MCQ practice"), (x.at?.let { stamp(it) } ?: "") + " · " + tl("{a} of {n} right", "a" to x.right, "n" to x.asked) + " (${x.percent ?: 0}%)") }
+            Paged(d.sittings, key = "sit") { x -> ListRow(if (x.kind == "test") tl("Test") else tl("MCQ practice"), (x.at?.let { stamp(it) } ?: "") + " · " + tl("{a} of {n} right", "a" to x.right, "n" to x.asked),
+                                                         trailing = { Text("${x.percent ?: 0}%", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary) }) }
             if (d.repeated_errors.isNotEmpty()) {
                 SectionTitle(tl("Questions got wrong twice or more"))
-                d.repeated_errors.forEach { x -> Panel(Modifier.padding(bottom = 8.dp)) {
+                Paged(d.repeated_errors, key = "re") { x -> Panel {
                     MathMd(x.text)
                     Quiet(tl("Wrong {n} times; usually chose “{o}”; correct: “{c}”", "n" to x.times_wrong, "o" to opt(x.chosen?.let { x.options.getOrNull(it) }), "c" to opt(x.correct?.let { x.options.getOrNull(it) })))
                 } }
             }
             SectionTitle(tl("Revision"))
-            Quiet(if (d.revised.isNotEmpty()) tl("Read the revision sheet {n} times, last {when}", "n" to d.revised.size, "when" to stamp(d.revised.last())) else tl("Hasn't read the revision sheet."))
+            Panel { Text(if (d.revised.isNotEmpty()) tl("Read the revision sheet {n} times, last {when}", "n" to d.revised.size, "when" to stamp(d.revised.last())) else tl("Hasn't read the revision sheet.")) }
             if (d.doubts.isNotEmpty()) {
                 SectionTitle(tl("Doubts"))
-                d.doubts.forEach { q -> Panel(Modifier.padding(bottom = 8.dp)) {
+                Paged(d.doubts, key = "dq") { q -> Panel {
                     q.messages.forEach { m -> Quiet((if (m.teacher) tl("Teacher") else d.student) + " · " + (m.at?.let { stamp(it) } ?: "")); MathMd(m.text) }
                 } }
             }

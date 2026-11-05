@@ -11,6 +11,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Unarchive
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -61,18 +71,21 @@ fun OfferedScreen(openCourse: (Int) -> Unit, openStruggles: (() -> Unit)? = null
     val l = rememberLoad("my-offers") { get("/offered", OfferList.serializer()) }
     var form by remember { mutableStateOf(false) }
     Page(tl("Offered courses")) {
-        Quiet(tl("Courses you run yourself. Only the students on a course's list see it: you invite them, accept those who ask, or open it to anyone."))
         if (!form) Button(onClick = { form = true }, modifier = Modifier.fillMaxWidth()) { Text(tl("Offer a course")) }
         else OfferForm(null, close = { form = false }) { c -> form = false; l.reload(); openCourse(c.id) }
         openStruggles?.let { RowLink(tl("Where students struggle"), "", onClick = it) }
         Loaded(l) { d ->
-            if (d.items.isEmpty()) Quiet(tl("No offered courses yet."), Modifier.padding(top = 8.dp))
-            d.items.forEach { c ->
-                ListRow(c.name, listOf(stateLabel(c.state), datesOf(c), tl("{n} enrolled", "n" to (c.counts["active"] ?: 0)),
-                    (c.counts["invited"] ?: 0).takeIf { it > 0 }?.let { tl("{n} invited", "n" to it) }.orEmpty(),
-                    (c.counts["applied"] ?: 0).takeIf { it > 0 }?.let { tl("{n} asking to join", "n" to it) }.orEmpty()).filter { it.isNotEmpty() }.joinToString(" · "), onClick = { openCourse(c.id) })
+            if (d.items.isEmpty()) Quiet(tl("No offered courses yet."))
+            Paged(d.items, key = "offered") { c ->  // one surface: the name, when it runs, then who is on it
+                ListRow(c.name, stateLabel(c.state) + " · " + datesOf(c), onClick = { openCourse(c.id) }, leading = { RowIcon(Icons.Outlined.School) }) {
+                    Text(listOf(tl("{n} enrolled", "n" to (c.counts["active"] ?: 0)),
+                        (c.counts["invited"] ?: 0).takeIf { it > 0 }?.let { tl("{n} invited", "n" to it) }.orEmpty(),
+                        (c.counts["applied"] ?: 0).takeIf { it > 0 }?.let { tl("{n} asking to join", "n" to it) }.orEmpty()).filter { it.isNotEmpty() }.joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
+                }
             }
         }
+        Quiet(tl("Courses you run yourself. Only the students on a course's list see it: you invite them, accept those who ask, or open it to anyone."), Modifier.padding(top = 4.dp))
     }
 }
 
@@ -93,12 +106,14 @@ fun OfferForm(c: Offer?, close: () -> Unit, done: (Offer) -> Unit) {
                 OutlinedTextField(start, { start = it.take(10) }, Modifier.weight(1f), label = { Text(tl("Starts (optional)")) }, placeholder = { Text("2026-12-01") }, singleLine = true)
                 OutlinedTextField(end, { end = it.take(10) }, Modifier.weight(1f), label = { Text(tl("Ends (optional)")) }, placeholder = { Text("2027-01-15") }, singleLine = true)
             }
-            Text(tl("Who may join"), style = MaterialTheme.typography.labelMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(access == "enroll", { access = "enroll" }, { Text(tl("Students I accept")) }); FilterChip(access == "open", { access = "open" }, { Text(tl("Anyone, at once")) })
+            Text(tl("Who may join"), style = MaterialTheme.typography.labelLarge)
+            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                listOf("enroll" to tl("Students I accept"), "open" to tl("Anyone, at once")).forEachIndexed { i, (k, t) ->
+                    SegmentedButton(access == k, { access = k }, shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2)) { Text(t, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                }
             }
-            if (access == "enroll") Row(Modifier.fillMaxWidth().toggleable(apps, role = Role.Checkbox) { apps = it }, verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(apps, null); Text(tl("Students may ask to join (you decide within 48 hours)"))
+            if (access == "enroll") Row(Modifier.fillMaxWidth().toggleable(apps, role = Role.Switch) { apps = it }, verticalAlignment = Alignment.CenterVertically) {
+                Text(tl("Students may ask to join (you decide within 48 hours)"), Modifier.weight(1f)); androidx.compose.material3.Switch(apps, null)
             }
             if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -134,11 +149,12 @@ fun OfferDetailScreen(id: Int, back: () -> Unit) {
     Loaded(l) { d ->
         val c = d.course; val live = c.state != "cancelled" && c.state != "archived"
         Page(c.name, datesOf(c) + " · " + accessOf(c), back = back) {
-            Quiet(stateLabel(c.state))
-            if (msg.isNotEmpty()) Text(msg, color = MaterialTheme.colorScheme.primary)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("students" to tl("Students"), "message" to tl("Write to students"), "course" to tl("Course")).forEach { (k, t) -> FilterChip(tab == k, { tab = k }, { Text(t) }) }
+            val tabs = listOf("students" to tl("Students"), "message" to tl("Message"), "course" to tl("Course"))  // short words: three tabs on a phone
+            androidx.compose.material3.PrimaryTabRow(selectedTabIndex = tabs.indexOfFirst { it.first == tab }.coerceAtLeast(0)) {
+                tabs.forEach { (k, t) -> androidx.compose.material3.Tab(tab == k, { tab = k }, text = { Text(t, maxLines = 1) }) }
             }
+            Quiet(stateLabel(c.state) + " · " + tl("{n} enrolled", "n" to d.items.count { it.status == "active" }))
+            if (msg.isNotEmpty()) Text(msg, color = MaterialTheme.colorScheme.primary)
             when (tab) {
                 "students" -> {
                     if (live) Panel {
@@ -156,12 +172,11 @@ fun OfferDetailScreen(id: Int, back: () -> Unit) {
                         val rows = d.items.filter { it.status == g }
                         if (rows.isNotEmpty()) {
                             SectionTitle(tl(label) + " (${rows.size})")
-                            rows.forEach { e ->
-                                Panel {
-                                    Text(e.name, style = MaterialTheme.typography.titleSmall)
-                                    Quiet(e.who + (e.expires_at?.let { " · " + hoursLeftOf(it) } ?: ""))
-                                    if (live) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        ROSTER_ACTS[g].orEmpty().forEach { (act, al) -> TextButton(enabled = !busy, onClick = { run { a.raw("POST", "/enrolments/${e.id}", buildJsonObject { put("action", act) }) } }) { Text(tl(al)) } }
+                            Paged(rows, key = g) { e ->  // each status one surface; a student's choices under their name
+                                ListRow(e.name, e.who + (e.expires_at?.let { " · " + hoursLeftOf(it) } ?: ""), leading = { Dot(e.name, MaterialTheme.colorScheme.primary) }) {
+                                    if (live && ROSTER_ACTS[g].orEmpty().isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        ROSTER_ACTS[g].orEmpty().forEach { (act, al) -> TextButton(enabled = !busy, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
+                                            onClick = { run { a.raw("POST", "/enrolments/${e.id}", buildJsonObject { put("action", act) }) } }) { Text(tl(al)) } }
                                     }
                                 }
                             }
@@ -173,11 +188,7 @@ fun OfferDetailScreen(id: Int, back: () -> Unit) {
                 else -> {
                     if (c.about.isNotEmpty()) MathMd(c.about)
                     if (editing) OfferForm(c, close = { editing = false }) { editing = false; l.reload() }
-                    else if (live) OutlinedButton(onClick = { editing = true }, modifier = Modifier.fillMaxWidth()) { Text(tl("Change the details, dates or who may join")) }
-                    if (live) OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = { if (c.state == "paused") run { a.raw("POST", "/offered/$id/pause", buildJsonObject { put("paused", false) }); msg = tl("Resumed. Students are told.") } else confirm = "pause" }) {
-                        Text(if (c.state == "paused") tl("Resume the course") else tl("Pause the course")) }
-                    if (rep == null) OutlinedButton(onClick = { rep = Triple(c.name, "", "") }, modifier = Modifier.fillMaxWidth()) { Text(tl("Repeat this course")) }
-                    else rep?.let { (n, s0, e0) ->
+                    rep?.let { (n, s0, e0) ->
                         Panel {
                             Text(tl("Repeat this course"), style = MaterialTheme.typography.titleMedium)
                             Quiet(tl("A new run with the same units, topics and quizzes. Change anything there afterwards."))
@@ -186,7 +197,7 @@ fun OfferDetailScreen(id: Int, back: () -> Unit) {
                                 OutlinedTextField(s0, { rep = Triple(n, it.take(10), e0) }, Modifier.weight(1f), label = { Text(tl("Starts (optional)")) }, singleLine = true)
                                 OutlinedTextField(e0, { rep = Triple(n, s0, it.take(10)) }, Modifier.weight(1f), label = { Text(tl("Ends (optional)")) }, singleLine = true)
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(repSame, { repSame = true }, { Text(tl("Invite the same students")) }); FilterChip(!repSame, { repSame = false }, { Text(tl("Start with nobody")) }) }
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(repSame, { repSame = true }, { Text(tl("Invite the same students")) }); FilterChip(!repSame, { repSame = false }, { Text(tl("Start with nobody")) }) }
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(enabled = !busy, onClick = { run {
                                     val r = a.send("POST", "/offered/$id/repeat", buildJsonObject { put("name", n); put("starts_on", s0.ifEmpty { null }); put("ends_on", e0.ifEmpty { null }); put("students", if (repSame) "same" else "none") }, Offer.serializer())
@@ -196,9 +207,17 @@ fun OfferDetailScreen(id: Int, back: () -> Unit) {
                             }
                         }
                     }
-                    if (c.state != "cancelled") OutlinedButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = { run { a.raw("PUT", "/courses/$id/archive", buildJsonObject { put("archived", c.state != "archived") }) } }) {
-                        Text(if (c.state == "archived") tl("Restore from the archive") else tl("Archive")) }
-                    if (live) TextButton(onClick = { confirm = "cancel" }) { Text(tl("Cancel the course"), color = MaterialTheme.colorScheme.error) }
+                    // what can be done with the course: one list, as a phone's settings are, the one that can't be undone last (it asks first)
+                    val acts = buildList<@Composable () -> Unit> {
+                        if (live && !editing) add { ListRow(tl("Change the details, dates or who may join"), onClick = { editing = true }, leading = { RowIcon(Icons.Outlined.Edit) }) }
+                        if (live) add { ListRow(if (c.state == "paused") tl("Resume the course") else tl("Pause the course"), leading = { RowIcon(if (c.state == "paused") Icons.Outlined.PlayArrow else Icons.Outlined.Pause) },
+                            onClick = { if (!busy) { if (c.state == "paused") run { a.raw("POST", "/offered/$id/pause", buildJsonObject { put("paused", false) }); msg = tl("Resumed. Students are told.") } else confirm = "pause" } }) }
+                        if (rep == null) add { ListRow(tl("Repeat this course"), onClick = { rep = Triple(c.name, "", "") }, leading = { RowIcon(Icons.Outlined.ContentCopy) }) }
+                        if (c.state != "cancelled") add { ListRow(if (c.state == "archived") tl("Restore from the archive") else tl("Archive"), leading = { RowIcon(if (c.state == "archived") Icons.Outlined.Unarchive else Icons.Outlined.Archive) },
+                            onClick = { if (!busy) run { a.raw("PUT", "/courses/$id/archive", buildJsonObject { put("archived", c.state != "archived") }) } }) }
+                        if (live) add { ListRow(tl("Cancel the course"), onClick = { confirm = "cancel" }, leading = { RowIcon(Icons.Outlined.Block) }) }
+                    }
+                    RowsOf(acts)
                     Quiet(tl("Units and topics are edited on the website. Classes and announcements, questions and where students struggle are on their own tabs."))
                 }
             }
