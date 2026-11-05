@@ -109,12 +109,14 @@ fun ClassesScreen(back: (() -> Unit)?) {
         var link by remember(x.id) { mutableStateOf(x.link.orEmpty()) }
         var err by remember(x.id) { mutableStateOf("") }
         AlertDialog(onDismissRequest = { moving = null }, title = { Text(tl("Change the class time")) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Quiet(x.title)
-                OutlinedTextField(day, { day = it.take(10) }, Modifier.fillMaxWidth(), label = { Text(tl("Date")) }, singleLine = true)
-                OutlinedTextField(at, { at = it.take(5) }, Modifier.fillMaxWidth(), label = { Text(tl("Time")) }, singleLine = true)
+            text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {  // the same fields, laid out as the schedule form has them
+                Text(x.title, style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(day, { day = it.take(10) }, Modifier.weight(1.4f), label = { Text(tl("Date")) }, placeholder = { Text("2026-11-20") }, singleLine = true)
+                    OutlinedTextField(at, { at = it.take(5) }, Modifier.weight(1f), label = { Text(tl("Time")) }, placeholder = { Text("18:00") }, singleLine = true)
+                }
                 OutlinedTextField(mins, { mins = it.filter(Char::isDigit).take(3) }, Modifier.fillMaxWidth(), label = { Text(tl("Length (minutes)")) }, singleLine = true)
-                OutlinedTextField(link, { link = it.trim() }, Modifier.fillMaxWidth(), label = { Text(tl("Video link")) }, singleLine = true)
+                OutlinedTextField(link, { link = it.trim() }, Modifier.fillMaxWidth(), label = { Text(tl("Video link")) }, placeholder = { Text("https://meet.google.com/…") }, singleLine = true)
                 if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
             } },
             confirmButton = { TextButton(onClick = { scope.launch {

@@ -189,23 +189,28 @@ fun OfferDetailScreen(id: Int, back: () -> Unit) {
                     if (c.about.isNotEmpty()) MathMd(c.about)
                     if (editing) OfferForm(c, close = { editing = false }) { editing = false; l.reload() }
                     rep?.let { (n, s0, e0) ->
-                        Panel {
-                            Text(tl("Repeat this course"), style = MaterialTheme.typography.titleMedium)
-                            Quiet(tl("A new run with the same units, topics and quizzes. Change anything there afterwards."))
+                        Panel { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {  // laid out as the offer form is
+                            Column {
+                                Text(tl("Repeat this course"), style = MaterialTheme.typography.titleMedium)
+                                Quiet(tl("A new run with the same units, topics and quizzes. Change anything there afterwards."))
+                            }
                             OutlinedTextField(n, { rep = Triple(it, s0, e0) }, Modifier.fillMaxWidth(), label = { Text(tl("Course name")) }, singleLine = true)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(s0, { rep = Triple(n, it.take(10), e0) }, Modifier.weight(1f), label = { Text(tl("Starts (optional)")) }, singleLine = true)
-                                OutlinedTextField(e0, { rep = Triple(n, s0, it.take(10)) }, Modifier.weight(1f), label = { Text(tl("Ends (optional)")) }, singleLine = true)
+                                OutlinedTextField(s0, { rep = Triple(n, it.take(10), e0) }, Modifier.weight(1f), label = { Text(tl("Starts (optional)")) }, placeholder = { Text("2026-12-01") }, singleLine = true)
+                                OutlinedTextField(e0, { rep = Triple(n, s0, it.take(10)) }, Modifier.weight(1f), label = { Text(tl("Ends (optional)")) }, placeholder = { Text("2027-01-15") }, singleLine = true)
                             }
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(repSame, { repSame = true }, { Text(tl("Invite the same students")) }); FilterChip(!repSame, { repSame = false }, { Text(tl("Start with nobody")) }) }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(tl("Students"), style = MaterialTheme.typography.labelLarge)
+                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { FilterChip(repSame, { repSame = true }, { Text(tl("Invite the same students")) }); FilterChip(!repSame, { repSame = false }, { Text(tl("Start with nobody")) }) }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Button(enabled = !busy, onClick = { run {
                                     val r = a.send("POST", "/offered/$id/repeat", buildJsonObject { put("name", n); put("starts_on", s0.ifEmpty { null }); put("ends_on", e0.ifEmpty { null }); put("students", if (repSame) "same" else "none") }, Offer.serializer())
                                     msg = tl("New run made.") + " " + r.name; rep = null
                                 } }) { Text(tl("Make the new run")) }
                                 TextButton(onClick = { rep = null }) { Text(stringResource(R.string.cancel)) }
                             }
-                        }
+                        } }
                     }
                     // what can be done with the course: one list, as a phone's settings are, the one that can't be undone last (it asks first)
                     val acts = buildList<@Composable () -> Unit> {
