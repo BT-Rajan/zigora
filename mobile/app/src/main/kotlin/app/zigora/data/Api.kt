@@ -50,7 +50,7 @@ class Api(private val store: Store, private val keep: java.io.File? = null, priv
 
     /** S43: a file only signed-in people may have (a teacher's document or video): its bytes */
     suspend fun bytes(path: String): ByteArray = withContext(Dispatchers.IO) {
-        val req = Request.Builder().url("$base/api$path").get().apply { store.token?.let { header("Authorization", "Bearer $it") } }.build()
+        val req = Request.Builder().url("$base/api$path").get().header("X-Zigora-Device", store.deviceId).apply { store.token?.let { header("Authorization", "Bearer $it") } }.build()
         http.newCall(req).execute().use { r -> if (!r.isSuccessful) throw ApiError(I18n.t("This file is no longer available"), r.code); r.body?.bytes() ?: ByteArray(0) }
     }
 
@@ -72,6 +72,7 @@ class Api(private val store: Store, private val keep: java.io.File? = null, priv
             else -> "{}".toRequestBody(JSON)
         }
         val req = Request.Builder().url("$base/api$path").method(method, rb).header("Accept", "application/json")
+            .header("X-Zigora-Device", store.deviceId)  // the sign-in is tied to this install, so it lasts here
             .apply { store.token?.let { header("Authorization", "Bearer $it") } }.build()
         val readable = method == "GET" && KEEP.matches(path)
         val res = try { http.newCall(req).execute() } catch (e: IOException) {
@@ -81,6 +82,7 @@ class Api(private val store: Store, private val keep: java.io.File? = null, priv
         }
         unreachable.value = false
         res.use {
+            it.header("X-Zigora-Token")?.let { t -> if (store.token != null) store.token = t }  // the server renewed the sign-in: keep the fresh one
             val text = it.body.string()
             val parsed = runCatching { json.parseToJsonElement(text) }.getOrNull()
             if (!it.isSuccessful) {

@@ -22,6 +22,11 @@ class Store(context: Context, private val sealer: Sealer = Keystore) {
         get() = prefs.getString("server", null).orEmpty()
         set(v) = prefs.edit { putString("server", v) }
 
+    /** this install's id, made once: the server ties the app's sign-in to it, so the person stays signed in here. It stays through updates
+     *  and sign-outs; reinstalling the app or clearing its data makes a new one, and then they sign in again. Not a hardware id. */
+    val deviceId: String
+        get() = prefs.getString("device", null) ?: java.util.UUID.randomUUID().toString().also { prefs.edit { putString("device", it) } }
+
     var token: String?
         get() = prefs.getString("token", null)?.let { runCatching { sealer.open(it) }.getOrNull() }
         set(v) = prefs.edit { if (v == null) remove("token") else putString("token", sealer.seal(v)) }

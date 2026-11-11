@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import NamedTuple
 import urllib.parse
 from types import SimpleNamespace
-import anthropic, asyncio, base64, csv, functools, html as htmllib, io, json, logging, os, re, smtplib, subprocess, hashlib, hmac, secrets, threading, time, datetime as dt, httpx, jwt, nh3
+import anthropic, asyncio, base64, contextvars, csv, functools, html as htmllib, io, json, logging, os, re, smtplib, subprocess, hashlib, hmac, secrets, threading, time, datetime as dt, httpx, jwt, nh3
 from dotenv import load_dotenv
 from email.message import EmailMessage
 from fastapi import FastAPI, Depends, HTTPException, Header, Request, BackgroundTasks
@@ -426,7 +426,17 @@ def vp(p, h):
     return hmac.compare_digest(_dk(p, salt, it), dig)
 def stale(h): return _parts(h)[0] < ITER
 def fp(u): return hashlib.sha256(u.pw.encode()).hexdigest()[:16]  # changes whenever the password does, which signs out every old token
-def make_token(u): return jwt.encode({"uid": u.id, "k": fp(u), "exp": dt.datetime.utcnow() + dt.timedelta(days=TOKEN_DAYS)}, SECRET)
+DEVICE = contextvars.ContextVar("device", default="")  # the app's install id (X-Zigora-Device), set for each request by the middleware below
+DEVICE_TOKEN_DAYS = int(os.getenv("DEVICE_TOKEN_DAYS") or 365)  # an app sign-in, renewed as it is used: asked again only after this long unused
+def device_tag(d): return hashlib.sha256(("zigora-device|" + d).encode()).hexdigest()[:20]
+def make_token(u):
+    """A sign-in. From the Android app it is tied to that install (its id comes with every request) and lasts DEVICE_TOKEN_DAYS, renewed
+    quietly while it is used, so the person isn't asked again on the same install. On the web it lasts TOKEN_DAYS, as before.
+    Either way it ends when the password changes or is reset, or the account is switched off."""
+    now, d = dt.datetime.utcnow(), DEVICE.get()
+    claims = {"uid": u.id, "k": fp(u), "iat": now, "exp": now + dt.timedelta(days=DEVICE_TOKEN_DAYS if d else TOKEN_DAYS)}
+    if d: claims["dev"] = device_tag(d)
+    return jwt.encode(claims, SECRET)
 def db():
     s = Session_()
     try: yield s
@@ -438,6 +448,9 @@ def me(request: Request, authorization: str = Header(""), s: Session = Depends(d
     u = s.get(User, uid)
     if not u or not u.active: raise HTTPException(401, "Account disabled. Ask your admin.")
     if claims.get("k") != fp(u): raise HTTPException(401, "Your password changed. Please sign in again.")
+    if claims.get("dev"):  # an app sign-in works only from the install it was made on
+        if not DEVICE.get() or device_tag(DEVICE.get()) != claims["dev"]: raise HTTPException(401, "Please sign in again")
+        if time.time() - claims.get("iat", 0) > 86400: request.state.new_token = make_token(u)  # at most once a day: the app keeps the fresh one
     if u.must_change and request.url.path not in ("/api/me", "/api/me/password"): raise HTTPException(403, "Please set a new password first")
     return u
 def admin(u: User = Depends(me)):
@@ -481,6 +494,14 @@ FRAME_PATH = re.compile(r"^/api/(topics/\d+/frame|topics/\d+/diagram/frame|frame
 SKIP_AUDIT = re.compile(r"/(read|bookmark|attempt|complete)$|/ai/|^/api/me/lang$")  # student reading activity is already tracked as progress; a language choice is only a preference
 def audit_write(uid, method, path, status):
     with Session_() as s: s.add(AuditLog(user_id=uid, method=method, path=path[:200], status=status)); s.commit()
+@app.middleware("http")
+async def device(request: Request, call_next):  # the app's install id for make_token and me(); a renewed sign-in goes back in a header
+    d = request.headers.get("x-zigora-device", "").strip()
+    DEVICE.set(d if re.fullmatch(r"[0-9A-Za-z-]{16,64}", d) else "")
+    r = await call_next(request)
+    t = getattr(request.state, "new_token", None)
+    if t: r.headers["X-Zigora-Token"] = t
+    return r
 @app.middleware("http")
 async def audit(request: Request, call_next):
     r = await call_next(request)
