@@ -3494,6 +3494,9 @@ def import_csv(b: ImportIn, a: User = Depends(admin), s: Session = Depends(db)):
             if not v["topic"]: valid += 1; continue  # a syllabus outline: the unit is there, topics come later
             vals = {k: v[k] for k in TEXT_COLS if v.get(k)}
             if "content" in vals: vals["content_format"] = "markdown"  # CSV content is always Markdown
+            if v.get("diagram_note"):  # a note turns on the topic's diagram for students on Pro, saying what to draw
+                if len(v["diagram_note"]) > DIAGRAM_NOTE_MAX: errors.append({"row": n, "error": f"diagram_note is over {DIAGRAM_NOTE_MAX} characters"}); continue
+                vals.update(diagram=True, diagram_note=v["diagram_note"])
             t = cache["topic"].get((un.id, v["topic"].lower()))
             if t:
                 before = topic_state(t)

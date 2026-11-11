@@ -18,6 +18,30 @@ def find(s, email):
     if not u: sys.exit(f"No user with email {email}. See: ./manage.sh list")
     return u
 
+def replace_catalog(s, x):
+    """The whole course catalogue replaced by the given CSVs. Students' own built courses and all users stay; students lose their program and semester placement."""
+    from main import Program, Course, Topic, remove, import_csv, ImportIn
+    from backup import run_backup
+    me = s.query(User).filter_by(role="admin", active=True).order_by(User.id).first()
+    if not me: sys.exit("There is no active admin. Create one first: ./manage.sh admin --email ...")
+    texts = []
+    for f in x.csv:
+        if not os.path.isfile(f): sys.exit(f"No such file: {f}")
+        texts.append((f, open(f, encoding="utf-8-sig").read()))
+    for f, t in texts:  # the files' own mistakes, before anything is touched
+        r = import_csv(ImportIn(csv=t, dry_run=True), me, s)
+        if r["error_count"]: sys.exit(f"{f}: {r['error_count']} row(s) can't be imported, nothing changed:\n" + "\n".join(f"  row {e['row']}: {e['error']}" for e in r["errors"]))
+    print(f"This deletes {s.query(Program).count()} program(s), {s.query(Course).count()} course(s) and {s.query(Topic).count()} topic(s),")
+    print("with their units, quizzes, and students' progress and test results in them. Users and students' own courses stay.")
+    if not x.yes and input("Type DELETE to continue: ").strip() != "DELETE": sys.exit("Nothing changed.")
+    for f in run_backup(DB, UPLOADS, os.path.abspath(x.dir)): print("Backup: " + f)
+    for (pid,) in s.query(Program.id).all(): remove("programs", pid, me, s)
+    for (cid,) in s.query(Course.id).all(): remove("courses", cid, me, s)  # courses outside any program (offered courses)
+    for f, t in texts:
+        r = import_csv(ImportIn(csv=t, dry_run=False), me, s)
+        print(f"{f}: created " + ", ".join(f"{v} {k}" for k, v in r["created"].items()) + (f"; warnings: {'; '.join(r['warnings'])}" if r["warnings"] else ""))
+    print("Done. Students need their program and year set again (Students page, or they choose it when they next sign in).")
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__); sub = ap.add_subparsers(dest="cmd", required=True)
     ad = sub.add_parser("admin", help="create the admin, or reset its password and re-enable it")
@@ -32,6 +56,9 @@ def main():
     sub.add_parser("owners", help="list courses that need an owner, with their old assigned faculty (changes nothing)")
     sub.add_parser("integrity", help="list programs, semesters, courses, units, topics and quizzes whose parent is missing (changes nothing)")
     sub.add_parser("list", help="list users"); sub.add_parser("check", help="exit 1 if there is no active admin")
+    rc = sub.add_parser("replace-catalog", help="back up, DELETE every program and course (their units, topics, quizzes, and students' progress and test results in them), then import content CSVs")
+    rc.add_argument("csv", nargs="+", help="content CSV files, imported in order (e.g. content/mbbs_year2_pharmacology.csv)")
+    rc.add_argument("--yes", action="store_true", help="don't ask to type DELETE"); rc.add_argument("--dir", default=os.getenv("BACKUP_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backups"))
     x = ap.parse_args(); upgrade_schema()
     with Session_() as s:
         if x.cmd == "migrate":
@@ -55,6 +82,7 @@ def main():
             from backup import run_backup
             for f in run_backup(DB, UPLOADS, os.path.abspath(x.dir), x.keep_days): print("Wrote " + f)
             return
+        if x.cmd == "replace-catalog": return replace_catalog(s, x)
         if x.cmd == "check": sys.exit(0 if s.query(User).filter_by(role="admin", active=True).first() else 1)
         if x.cmd == "list":
             for u in s.query(User).order_by(User.id): print(f"{u.id:>3}  {u.role:<8} {'active' if u.active else 'disabled':<9} {u.email}  ({u.name})")
