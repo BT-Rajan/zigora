@@ -2,7 +2,7 @@ import {useState,useEffect,useCallback,useRef,createContext,useContext,Children,
 import {createPortal} from 'react-dom'
 import {Md,Body} from './content.jsx'
 import {ROOT,at} from './base.js'
-import {ExternalLink,ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone} from 'lucide-react'
+import {ExternalLink,ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone,Scissors} from 'lucide-react'
 import '@fontsource/bricolage-grotesque/600.css'
 import '@fontsource/bricolage-grotesque/800.css'
 import '@fontsource/instrument-sans/400.css'
@@ -2368,6 +2368,9 @@ function StudyWizard({id,toast,back,done}){
     if(await confirm({title:tl("Remove “{title}”?",{title:t.title}),body:tl("Its text ({n}) won't be in your course. To keep the text, merge it into another topic instead.",{n:pl(t.words||0,'word')}),ok:tl("Remove"),danger:true}))
       edit(p=>{p.units[ui].topics.splice(ti,1)})}
   const move=(ui,ti,to)=>edit(p=>{const [t]=p.units[ui].topics.splice(ti,1);p.units[to].topics.push(t);p.units[to].topics.sort((a,b)=>a.from-b.from)})  // its place in the unit is where its text is in the material
+  const split=(ui,ti,j)=>{const t=plan.units[ui].topics[ti],ps=peek.paras,wc=a=>a.join(' ').split(/\s+/).filter(Boolean).length,ex=x=>(x||'').replace(/[#*_`>|-]/g,' ').replace(/\s+/g,' ').trim().slice(0,280)
+    edit(p=>{p.units[ui].topics.splice(ti,1,{...t,to:t.from+j-1,words:wc(ps.slice(0,j))},{title:tl("{title} (part 2)",{title:t.title}),summary:'',from:t.from+j,to:t.to,words:wc(ps.slice(j)),excerpt:ex(ps[j])})})
+    setPeek(null);toast(tl("Split in two. Rename the new topic if you like."))}  // between two paragraphs: the first part keeps the title
   const savePlan=async()=>{const r=await api(`/study/courses/${id}/plan`,{method:'PUT',body:{units:plan.units}});setPlan(r.plan);setDirty(false)}
   const finish=async()=>{setBusy('Building your course…');try{if(dirty)await savePlan()
       try{await api(`/study/courses/${id}/finish`,{method:'POST',body:{}})}catch(e){if(e.status!==409)throw e  // the course already has topics (the message itself may be translated)
@@ -2376,7 +2379,7 @@ function StudyWizard({id,toast,back,done}){
         setBusy('Building your course…');await api(`/study/courses/${id}/finish`,{method:'POST',body:{replace:true,classmates:n>0}})}
       toast(tl("Your course is ready"));done()}catch(e){toast(e.message)}setBusy('')}
   const words=c.sources.reduce((a,x)=>a+x.words,0)
-  return <><Bar title={c.title} sub={tl("Set up · step {step}{v} of 4",{step:step,v:1})} back={back}/><div className="main">
+  return <><Bar title={c.title} sub={tl("Set up · step {step} of 4",{step:step+1})} back={back}/><div className="main">
     <Steps at={step}/>
     {busy&&<div className="qbox" role="status" style={{marginTop:0}}><b>{tl(busy)}</b></div>}
     {step===1&&<>
@@ -2395,12 +2398,12 @@ function StudyWizard({id,toast,back,done}){
       <button className={'btn'+(c.ai_available&&c.ai_left!==0?' ghost':'')} disabled={!!busy} onClick={()=>slice('headings')}>{tl("Slice by headings instead (no AI)")}</button>
       <button className="btn ghost" onClick={()=>setStep(1)}>{tl("Back to material")}</button></>}
     {step===3&&plan&&<>
-      <h3 className="sec first">{tl("Check the outline")}</h3><p className="known" style={{marginTop:0}}>{pl(plan.units.length,'unit')}{tl(", {n}{v}. Rename anything, merge a topic into the next one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.",{n:pl(flat.length,'topic'),v:c.sliced_by==='headings'?tl(' · sliced by headings'):''})}</p>
+      <h3 className="sec first">{tl("Check the outline")}</h3><p className="known" style={{marginTop:0}}>{pl(plan.units.length,'unit')}{tl(", {n}{v}. Rename anything, merge a topic into the next one, split a long one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.",{n:pl(flat.length,'topic'),v:c.sliced_by==='headings'?tl(' · sliced by headings'):''})}</p>
       {plan.units.map((u,ui)=><section key={ui} className="qbox"><label className="sr" htmlFor={'u'+ui}>{tl("Unit {v} title",{v:ui+1})}</label><input id={'u'+ui} className="utitle" value={u.title} onChange={e=>rename(ui,null,e.target.value)}/>
         {u.topics.map((t,ti)=>{const last=!after(plan,ui,ti)
           return <div key={t.from} className="ptopic"><label className="sr" htmlFor={`t${ui}-${ti}`}>{tl("Topic title")}</label><input id={`t${ui}-${ti}`} value={t.title} onChange={e=>rename(ui,ti,e.target.value)}/>
             <small className="known">{t.summary?t.summary+' · ':''}{pl(t.words||0,'word')}</small><p className="excerpt">{t.excerpt}{t.excerpt&&t.excerpt.length>=280?'…':''}</p>
-            <div className="acts"><button className="tool" onClick={async()=>{try{setPeek({title:t.title,...(await api(`/study/courses/${id}/preview?start=${t.from}&end=${t.to}`))})}catch(e){toast(e.message)}}}>{tl("Read it all")}</button>
+            <div className="acts"><button className="tool" onClick={async()=>{try{setPeek({title:t.title,ui,ti,...(await api(`/study/courses/${id}/preview?start=${t.from}&end=${t.to}`))})}catch(e){toast(e.message)}}}>{t.to>t.from?tl("Read it all or split it"):tl("Read it all")}</button>
               {!last&&<button className="tool" onClick={()=>merge(ui,ti)}>{tl("Merge with next")}</button>}{flat.length>1&&<button className="tool" onClick={()=>remove(ui,ti)}>{tl("Remove")}</button>}
               {plan.units.length>1&&<select className="tool" style={{width:'auto',border:0}} aria-label={tl("Move “{title}” to another unit",{title:t.title})} value="" onChange={e=>move(ui,ti,+e.target.value)}>
                 <option value="" disabled>{tl("Move to unit…")}</option>{plan.units.map((x,k)=>k!==ui&&<option key={k} value={k}>{tl("Unit {v}",{v:k+1})}{x.title?': '+x.title:''}</option>)}</select>}</div></div>})}</section>)}
@@ -2408,7 +2411,10 @@ function StudyWizard({id,toast,back,done}){
       <div className="two"><button className="btn ghost" disabled={!!busy} onClick={()=>slice('ai')}><Sparkles size={16}/>{" "}{tl("Slice again with AI")}</button><button className="btn ghost" disabled={!!busy} onClick={()=>setStep(1)}>{tl("Change material")}</button></div>
       <button className="btn" disabled={!!busy} onClick={finish}><Check size={16}/>{" "}{tl("Finish: build my course")}</button>
       {dirty&&<button className="btn ghost" disabled={!!busy} onClick={async()=>{try{await savePlan();toast(tl("Outline saved"))}catch(e){toast(e.message)}}}>{tl("Save outline and finish later")}</button>}</>}
-    {peek&&<Sheet close={()=>setPeek(null)}><h3>{peek.title}</h3><div className="prose"><Md>{peek.content}</Md></div><button className="btn ghost" onClick={()=>setPeek(null)}>{tl("Close")}</button></Sheet>}</div></>}
+    {peek&&<Sheet close={()=>setPeek(null)}><h3>{peek.title}</h3>{peek.paras?.length>1&&<p className="known" style={{marginTop:0}}>{tl("To make two topics of it, tap Split here between two paragraphs.")}</p>}
+      {peek.paras?.length>1?peek.paras.map((x,j)=><Fragment key={j}>{j>0&&<button className="tool splithere" onClick={()=>split(peek.ui,peek.ti,j)}><Scissors size={14}/> {tl("Split here")}</button>}<div className="prose"><Md>{x}</Md></div></Fragment>)
+        :<div className="prose"><Md>{peek.content}</Md></div>}
+      <button className="btn ghost" onClick={()=>setPeek(null)}>{tl("Close")}</button></Sheet>}</div></>}
 function StudyCourse({id,topic:first,toast,back,setup}){
   const confirm=useConfirm()
   const [c,setC]=useState(null),[p,setP]=useState(null),[topic,setTopic]=useState(first||null),[ren,setRen]=useState(null),[rev,setRev]=useState(null),[find,setFind]=useState('')

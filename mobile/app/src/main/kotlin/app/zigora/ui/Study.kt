@@ -150,7 +150,7 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
     var notes by remember { mutableStateOf("") }
     var plan by remember { mutableStateOf<StudyPlan?>(null) }
     var dirty by remember { mutableStateOf(false) }
-    var peek by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var peek by remember { mutableStateOf<Peek?>(null) }
     var ask by remember { mutableStateOf<Ask?>(null) }
     val scroll = rememberScrollState()
     suspend fun load(go: Int? = null) {
@@ -208,7 +208,7 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
         if (ask == null) busy = ""
     }
     val cc = c; val st = step
-    Page(cc?.title ?: tl("Set up your course"), if (st != null) tl("Set up · step {step}{v} of 4", "step" to st, "v" to 1) else "", back, scroll = scroll) {
+    Page(cc?.title ?: tl("Set up your course"), if (st != null) tl("Set up · step {step} of 4", "step" to st + 1) else "", back, scroll = scroll) {
         if (cc == null || st == null) { Busy(); return@Page }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             STEPS.forEachIndexed { i, s -> Text((if (i < st) "✓ " else "${i + 1}. ") + tl(s), fontWeight = if (i == st) FontWeight.Bold else FontWeight.Normal,
@@ -262,7 +262,7 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
             else -> plan?.let { p ->
                 val flat = p.units.flatMap { it.topics }
                 SectionTitle(tl("Check the outline"))
-                Quiet(pl(p.units.size, "unit") + tl(", {n}{v}. Rename anything, merge a topic into the next one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.",
+                Quiet(pl(p.units.size, "unit") + tl(", {n}{v}. Rename anything, merge a topic into the next one, split a long one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.",
                                                     "n" to pl(flat.size, "topic"), "v" to if (cc.sliced_by == "headings") tl(" · sliced by headings") else ""))
                 p.units.forEachIndexed { ui, u ->
                     Panel {
@@ -278,8 +278,9 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
                                 androidx.compose.foundation.layout.FlowRow {
                                     TextButton(onClick = { scope.launch {
                                         try { val r = a.raw("GET", "/study/courses/$id/preview?start=${t.from}&end=${t.to}") as JsonObject
-                                              peek = t.title to ((r["content"] as? JsonPrimitive)?.content.orEmpty()) } catch (e: Exception) { toast(e.message.orEmpty()) }
-                                    } }) { Text(tl("Read it all")) }
+                                              peek = Peek(t.title, (r["content"] as? JsonPrimitive)?.content.orEmpty(), (r["paras"] as? kotlinx.serialization.json.JsonArray)?.map { (it as JsonPrimitive).content }.orEmpty(), ui, ti)
+                                        } catch (e: Exception) { toast(e.message.orEmpty()) }
+                                    } }) { Text(if (t.to > t.from) tl("Read it all or split it") else tl("Read it all")) }
                                     if (!last) TextButton(onClick = { edit { us ->  // this topic takes in the one right after it in the material, wherever that sits now
                                         val (na, nb) = us.flatMapIndexed { a2, x -> x.topics.indices.map { b -> a2 to b } }.filter { (a2, b) -> us[a2].topics[b].from > t.to }
                                             .minBy { (a2, b) -> us[a2].topics[b].from }
@@ -322,9 +323,26 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
             }
         }
     }
-    peek?.let { (t, body) -> ModalBottomSheet(onDismissRequest = { peek = null }) {
+    peek?.let { pk -> ModalBottomSheet(onDismissRequest = { peek = null }) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            Text(t, style = MaterialTheme.typography.titleLarge); Md(body); TextButton(onClick = { peek = null }) { Text(tl("Close")) }
+            Text(pk.title, style = MaterialTheme.typography.titleLarge)
+            if (pk.paras.size > 1) {  // between two paragraphs: the first part keeps the title, the second starts as "(part 2)"
+                Quiet(tl("To make two topics of it, tap Split here between two paragraphs."))
+                pk.paras.forEachIndexed { j, x ->
+                    if (j > 0) OutlinedButton(onClick = {
+                        val wc = { l: List<String> -> l.joinToString(" ").split(Regex("\\s+")).count { it.isNotBlank() } }
+                        edit { us -> val t = us[pk.ui].topics[pk.ti]
+                            us[pk.ui] = us[pk.ui].copy(topics = us[pk.ui].topics.toMutableList().also { l ->
+                                l[pk.ti] = t.copy(to = t.from + j - 1, words = wc(pk.paras.take(j)))
+                                l.add(pk.ti + 1, app.zigora.data.PTopic(tl("{title} (part 2)", "title" to t.title), "", t.from + j, t.to, wc(pk.paras.drop(j)),
+                                                                       pk.paras[j].replace(Regex("[#*_`>|-]"), " ").replace(Regex("\\s+"), " ").trim().take(280)))
+                            }) }
+                        peek = null; toast(tl("Split in two. Rename the new topic if you like."))
+                    }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Text(tl("Split here")) }
+                    Md(x)
+                }
+            } else Md(pk.body)
+            TextButton(onClick = { peek = null }) { Text(tl("Close")) }
         }
     } }
     AskDialog(ask) { ask = null }
@@ -485,3 +503,5 @@ fun StudyTopicScreen(id: Int, back: () -> Unit, go: (Int) -> Unit, quiz: (StudyQ
     } }
     AskDialog(ask) { ask = null }
 }
+
+private data class Peek(val title: String, val body: String, val paras: List<String>, val ui: Int, val ti: Int)  // a planned topic's full text, paragraph by paragraph, to read or split

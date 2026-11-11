@@ -3556,5 +3556,12 @@
 "Filters": "வடிகட்டிகள்",
 "More options": "மேலும் விருப்பங்கள்",
 "1 set done, {average}% correct on average. Last practised {when}.": "1 தொகுப்பு முடிந்தது, சராசரியாக {average}% சரி. கடைசியாகப் பயிற்சி {when}.",
-"{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · 1 topic learned this week": "{streak} நாள் தொடர் · கடந்த 7 நாட்களில் {week} நாட்களும் கடந்த 28 நாட்களில் {days} நாட்களும் படித்தார் · இந்த வாரம் 1 தலைப்பு கற்றார்"
+"{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · 1 topic learned this week": "{streak} நாள் தொடர் · கடந்த 7 நாட்களில் {week} நாட்களும் கடந்த 28 நாட்களில் {days} நாட்களும் படித்தார் · இந்த வாரம் 1 தலைப்பு கற்றார்",
+"Read it all or split it": "முழுதும் படியுங்கள் அல்லது பிரியுங்கள்",
+"To make two topics of it, tap Split here between two paragraphs.": "இதை இரண்டு தலைப்புகளாக்க, இரண்டு பத்திகளுக்கு இடையில் \"இங்கே பிரி\" என்பதைத் தட்டுங்கள்.",
+"Split here": "இங்கே பிரி",
+"{title} (part 2)": "{title} (பகுதி 2)",
+"Split in two. Rename the new topic if you like.": "இரண்டாகப் பிரிக்கப்பட்டது. விரும்பினால் புதிய தலைப்புக்குப் பெயர் மாற்றுங்கள்.",
+"Set up · step {step} of 4": "அமைப்பு · படி {step} / 4",
+", {n}{v}. Rename anything, merge a topic into the next one, split a long one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.": ", {n}{v}. எதையும் மறுபெயரிடுங்கள், ஒரு தலைப்பை அடுத்ததுடன் இணைக்கவும், நீண்ட ஒன்றைப் பிரிக்கவும், ஒன்றை வேறு அலகுக்கு நகர்த்தவும், அல்லது தேவையில்லாததை நீக்கவும். சரியில்லையா? குறிப்புகளை மாற்றி மீண்டும் பிரிக்கவும்."
 }
