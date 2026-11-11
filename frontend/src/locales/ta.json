@@ -3600,5 +3600,6 @@
 "Camera permission was refused. Allow the camera for this site in your browser, or choose a photo from your gallery.": "கேமரா அனுமதி மறுக்கப்பட்டது. உங்கள் உலாவியில் இந்தத் தளத்திற்குக் கேமராவை அனுமதிக்கவும், அல்லது கேலரியிலிருந்து ஒரு படத்தைத் தேர்ந்தெடுக்கவும்.",
 "The camera couldn't be opened. Choose a photo from your gallery instead.": "கேமராவைத் திறக்க முடியவில்லை. அதற்குப் பதிலாக உங்கள் கேலரியிலிருந்து ஒரு படத்தைத் தேர்ந்தெடுக்கவும்.",
 "Take the photo": "படம் எடுக்கவும்",
-"Gallery": "கேலரி"
+"Gallery": "கேலரி",
+"Leave topic blank to add only the units, for a syllabus outline.": "பாடத்திட்ட வரைவாக அலகுகளை மட்டும் சேர்க்க, தலைப்பைக் காலியாக விடவும்."
 }
