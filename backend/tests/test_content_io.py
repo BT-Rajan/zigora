@@ -25,3 +25,14 @@ def test_math_content_is_stored_as_written(env):
     env.csv("program,semester,course,unit,topic,content\nMech,Semester 1,Chem,U1,Eq,$\\ce{CaCO3 + CO2 -> Ca(HCO3)2}$\n")
     t = env.c.get("/api/tree", headers=env.admin).json()[0]["semesters"][0]["courses"][0]["units"][0]["topics"][0]["id"]
     assert "\\ce{CaCO3" in env.c.get(f"/api/topics/{t}", headers=env.admin).json()["content"]
+
+def test_csv_import_without_topics_adds_units_only(env):  # a syllabus outline: docs/syllabi/mbbs-year-2.csv
+    import os
+    text = open(os.path.join(os.path.dirname(__file__), "..", "..", "docs", "syllabi", "mbbs-year-2.csv")).read()
+    r = env.c.post("/api/admin/import", headers=env.admin, json={"csv": text, "dry_run": False}).json()
+    assert r["error_count"] == 0 and r["created"]["units"] == 21 and r["created"]["topics"] == 0 and r["created"]["courses"] == 3
+    p = [x for x in env.c.get("/api/tree", headers=env.admin).json() if x["name"] == "MBBS"][0]; y = p["semesters"][0]
+    assert y["name"] == "Year 2" and [c["name"] for c in y["courses"]] == ["Pathology", "Pharmacology", "Microbiology"]
+    assert [u["name"] for u in y["courses"][0]["units"]][3] == "Hematology (Anemia, Leukemia)"
+    again = env.c.post("/api/admin/import", headers=env.admin, json={"csv": text, "dry_run": False}).json()
+    assert again["created"]["units"] == 0  # importing twice adds nothing

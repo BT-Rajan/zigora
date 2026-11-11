@@ -3446,7 +3446,7 @@ def import_csv(b: ImportIn, a: User = Depends(admin), s: Session = Depends(db)):
     head = text_.split("\n", 1)[0]
     rd = csv.DictReader(io.StringIO(text_, newline=""), delimiter=max([",", ";", "\t"], key=head.count))
     rd.fieldnames = [ALIAS.get(h, h) for h in [(h or "").strip().lower().replace(" ", "_") for h in (rd.fieldnames or [])]]
-    missing = [c for c in LEVELS + ["topic"] if c not in rd.fieldnames]
+    missing = [c for c in LEVELS if c not in rd.fieldnames]  # topic is optional: a row without one adds the program, semester, course and unit only
     if missing: raise HTTPException(400, "Missing column(s): " + ", ".join(missing) + ". Download the template to see the format.")
     rows = list(rd)
     if len(rows) > 5000: raise HTTPException(400, "Too many rows (limit 5000 per file)")
@@ -3473,7 +3473,8 @@ def import_csv(b: ImportIn, a: User = Depends(admin), s: Session = Depends(db)):
                         for x in LEVELS[i + 1:]: carry.pop(x, None)
                     carry[lv] = v[lv]
                 else: v[lv] = carry.get(lv, "")
-            gaps = [c for c in LEVELS + ["topic"] if not v[c]]
+            v.setdefault("topic", "")
+            gaps = [c for c in LEVELS if not v[c]]
             if gaps: errors.append({"row": n, "error": "Missing " + ", ".join(gaps)}); continue
             if any(len(v[c]) > 150 for c in LEVELS) or len(v["topic"]) > 200:
                 errors.append({"row": n, "error": "A name is too long (150 characters, topics 200)"}); continue
@@ -3490,6 +3491,7 @@ def import_csv(b: ImportIn, a: User = Depends(admin), s: Session = Depends(db)):
             sm = get("semester", (p.id, v["semester"].lower()), lambda: Semester(name=v["semester"], program_id=p.id, semester_no=no))
             co = get("course", (sm.id, v["course"].lower()), lambda: Course(name=v["course"], semester_id=sm.id, program_id=p.id))
             un = get("unit", (co.id, v["unit"].lower()), lambda: Unit(name=v["unit"], course_id=co.id, position=next_pos(s, Unit, course_id=co.id)))
+            if not v["topic"]: valid += 1; continue  # a syllabus outline: the unit is there, topics come later
             vals = {k: v[k] for k in TEXT_COLS if v.get(k)}
             if "content" in vals: vals["content_format"] = "markdown"  # CSV content is always Markdown
             t = cache["topic"].get((un.id, v["topic"].lower()))

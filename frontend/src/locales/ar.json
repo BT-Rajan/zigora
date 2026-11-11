@@ -3600,5 +3600,6 @@
 "Camera permission was refused. Allow the camera for this site in your browser, or choose a photo from your gallery.": "رُفض إذن الكاميرا. اسمح بالكاميرا لهذا الموقع في متصفحك، أو اختر صورة من معرض الصور.",
 "The camera couldn't be opened. Choose a photo from your gallery instead.": "تعذّر فتح الكاميرا. اختر صورة من معرض الصور بدلًا من ذلك.",
 "Take the photo": "التقط الصورة",
-"Gallery": "المعرض"
+"Gallery": "المعرض",
+"Leave topic blank to add only the units, for a syllabus outline.": "اترك الموضوع فارغًا لإضافة الوحدات فقط، كمخطط للمنهج."
 }
