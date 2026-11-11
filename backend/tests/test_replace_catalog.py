@@ -32,3 +32,14 @@ def test_replace_catalog_stops_on_a_bad_file_before_deleting(env, tmp_path):
         try: manage.replace_catalog(s, types.SimpleNamespace(csv=[str(bad)], yes=True, dir=str(tmp_path))); assert False
         except SystemExit as e: assert "can't be imported" in str(e)
     with Session_() as s: assert [p.name for p in s.query(Program)] == ["Mech"]
+
+def test_import_fills_an_existing_course_without_deleting(env, capsys):
+    env.csv("program,semester,course,unit,topic,content\nM.B.B.S,Year 2,Pharmacology,Old unit,Kept,k\nB.E,Semester 1,Chem,U1,Water,w\n")
+    with Session_() as s: manage.import_files(s, types.SimpleNamespace(csv=FILES, yes=True, dry_run=False))
+    with Session_() as s:
+        assert sorted(p.name for p in s.query(Program)) == ["B.E", "M.B.B.S"] and s.query(Course).count() == 2  # reused, nothing deleted
+        ph = s.query(Course).filter_by(name="Pharmacology").one()
+        assert s.query(Unit).filter_by(course_id=ph.id).count() == 21 and s.query(Topic).filter_by(course_id=ph.id).count() == 100
+    assert "would create 0 programs, 0 semesters, 0 courses, 20 units, 99 topics" in capsys.readouterr().out
+    with Session_() as s: manage.import_files(s, types.SimpleNamespace(csv=FILES, yes=True, dry_run=False))
+    with Session_() as s: assert s.query(Topic).count() == 101  # a second run adds nothing
