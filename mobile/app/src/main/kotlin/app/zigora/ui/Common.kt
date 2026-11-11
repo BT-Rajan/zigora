@@ -206,6 +206,13 @@ fun ScoreBar(v: Int?) = androidx.compose.material3.LinearProgressIndicator(progr
     drawStopIndicator = {})  // no dot at the end: a quiet bar, as on the web
 
 /** a screen with a title (and a line under it), a back arrow and scrolling content */
+/** opens the menu drawer; set by the students' main screen. Screens without a Back show the app's logo in its place, which opens it */
+val LocalDrawer = androidx.compose.runtime.staticCompositionLocalOf<(() -> Unit)?> { null }
+@Composable
+fun DrawerLogo() {
+    val open = LocalDrawer.current ?: return
+    IconButton(onClick = open) { androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(app.zigora.R.drawable.ic_logo), tl("Menu"), Modifier.size(32.dp)) }
+}
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun Page(title: String, sub: String = "", back: (() -> Unit)? = null, actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
@@ -215,7 +222,7 @@ fun Page(title: String, sub: String = "", back: (() -> Unit)? = null, actions: @
         androidx.compose.material3.TopAppBar(scrollBehavior = bar, actions = actions,
             title = { Column { Text(title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                                if (sub.isNotEmpty()) Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) } },
-            navigationIcon = { if (back != null) IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } })
+            navigationIcon = { if (back != null) IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } else DrawerLogo() })
     }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(scroll).padding(horizontal = 16.dp).padding(bottom = 24.dp),
                verticalArrangement = Arrangement.spacedBy(12.dp), content = content)

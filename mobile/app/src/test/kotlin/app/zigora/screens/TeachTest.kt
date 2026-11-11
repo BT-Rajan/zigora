@@ -176,7 +176,7 @@ class TeachTest {
         see("Join the class"); see("Classes and announcements"); rule.onAllNodesWithText("Join the class").onFirst().performScrollTo(); shot("6-home-class")  // the next class, whichever it is
         rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
-        tap("Hardness of Water"); see("The gist"); tap("Sample answer"); see("Model answer from your teacher"); see("Total")
+        tap("Hardness of Water"); see("The gist"); tap("Full page"); tap("Sample answer"); see("Model answer from your teacher"); see("Total")
         rule.onAllNodesWithText("Model answer from your teacher", substring = true).onFirst().performScrollTo(); shot("7-model-answer")
     }
 }

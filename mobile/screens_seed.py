@@ -40,4 +40,8 @@ with main.Session_() as s:
     # the calendar: a test for Grade 6 in two days (the child sees it on Home and in the calendar; so does their parent)
     s.add(main.CalendarEvent(title="Science test", kind="test", day=main.local_day(dt.datetime.utcnow()) + dt.timedelta(days=2), at="10:00", scope="semester", program_id=sch.id, semester=6))
     s.commit()
+with main.Session_() as s:  # the people above stand for accounts that already exist: they have completed their profile (a new sign-up still sees that step)
+    s.query(main.User).update({"onboarded_at": main.dt.datetime.utcnow()}); s.commit()
+    # Neha signed up a moment ago (college, not placed): on first sign-in the app asks her to complete her profile
+    s.add(main.User(name="Neha", email="neha@x.com", pw=main.hp("pw123456"), role="student", self_registered=True, level="college", active=True, must_change=False)); s.commit()
 uvicorn.run(main.app, host="127.0.0.1", port=5299, log_level="warning")

@@ -2,6 +2,7 @@ package app.zigora.screens
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -112,6 +113,22 @@ class OnboardingTest {
         rule.setContent { ZigoraRoot(null) {} }
         see("Courses"); rule.onAllNodesWithText("Courses").onFirst().performClick()
         see("No courses have been added to Year 1 yet"); see("Join a course offered by a teacher"); see("Build a course from your own notes"); shot("onboarding-11-term-with-no-courses")
+    }
+
+    @Test fun aNewStudentCompletesTheirProfileAndTheFreeNoteClosesByItself() {
+        signIn("neha@x.com"); rule.setContent { ZigoraRoot(null) {} }
+        see("Complete your profile"); see("Your course of study"); shot("onboarding-12-profile-course")
+        tap("Continue"); see("Choose your plan"); see("My own AI key"); shot("onboarding-13-profile-plan")
+        tap("Free"); see("AI costs us money"); see("Continue free"); shot("onboarding-14-free-note")
+        see("Your account is ready", 30_000)  // nobody tapped: the note closed by itself and she carries on free, on Home
+        assertTrue("asked once", none("Complete your profile"))
+    }
+
+    @Test fun theLogoOpensTheMenuDrawer() {
+        signIn("asha@x.com"); rule.setContent { ZigoraRoot(null) {} }
+        see("Asha"); rule.onAllNodesWithContentDescription("Menu").onFirst().performClick()
+        see("Join a course"); see("My routine"); see("Classes and announcements"); shot("onboarding-15-drawer")
+        tap("Calendar"); see("Calendar")
     }
 
     @Test fun aParentSeesTheirChildAndTheAiKey() {

@@ -56,7 +56,7 @@ class DiagramTest {
         rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
-        tap("Hardness of Water"); see("The gist")
+        tap("Hardness of Water"); see("The gist"); tap("Full page")  // the Diagram step is on the full page
     }
 
     @Test fun aCollegeStudentOpensTheDiagramFullScreen() {

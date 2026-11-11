@@ -18,6 +18,13 @@ import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -55,6 +62,7 @@ import kotlinx.serialization.json.put
 @Serializable object MeR
 @Serializable data class CourseR(val id: Int)
 @Serializable data class TopicR(val id: Int)
+@Serializable data class LearnR(val id: Int)  // a topic one step per screen
 @Serializable data class QuizR(val id: Int)
 @Serializable data class PhotoR(val uri: String = "")
 @Serializable object NotesR
@@ -86,17 +94,19 @@ fun ZigoraRoot(incoming: Incoming?, handled: () -> Unit) {
     val app = app(); val out by app.signedOut.collectAsState()
     var wallpaper by remember { mutableStateOf(app.store.wallpaper) }
     var theme by remember { mutableStateOf(app.store.theme) }
+    var firstOpen by remember { mutableStateOf<String?>(null) }  // after the profile step: "me" to get Pro, "key" to add an own key
     var me by remember(out) { mutableStateOf(app.store.userJson?.let { runCatching { json.decodeFromString(Me.serializer(), it) }.getOrNull() }.takeIf { app.store.token != null }) }
     ZigoraTheme(wallpaper, theme) {
         val user = me
-        if (user == null || user.role != "student" || user.must_change) LaunchedEffect(Unit) { app.firstScreenReady.value = true }  // Home says so itself, once it has loaded
+        if (user == null || user.role != "student" || user.must_change || user.profile_needed) LaunchedEffect(Unit) { app.firstScreenReady.value = true }  // Home says so itself, once it has loaded
         when {
             user == null -> SignIn { m -> app.store.userJson = json.encodeToString(Me.serializer(), m); me = m }
             user.role == "guardian" && user.relation == "teacher" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }  // a school teacher: their students and the teacher's pages
             user.role == "guardian" -> GuardianHome(user) { app.store.signOut(); me = null }  // a parent: their children
             user.role != "student" -> StaffMain(user, incoming, handled) { app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }  // teachers: questions, classes, struggles
             user.must_change -> ChangePassword(forced = true) { me = user.copy(must_change = false).also { app.store.userJson = json.encodeToString(Me.serializer(), it) } }
-            else -> Main(user, incoming, handled, wallpaper = { wallpaper = it; app.store.wallpaper = it }, theme = { theme = it; app.store.theme = it }) {
+            user.profile_needed -> ProfileSetup(user) { m, next -> app.store.userJson = json.encodeToString(Me.serializer(), m); firstOpen = next; me = m }
+            else -> Main(user, incoming, handled, firstOpen, { firstOpen = null }, wallpaper = { wallpaper = it; app.store.wallpaper = it }, theme = { theme = it; app.store.theme = it }) {
                 app.store.signOut(); app.api.forget(); AnswerWatch.schedule(app, false); ClassAlarms.clear(app); me = null }
         }
         CrashNote()
@@ -106,13 +116,21 @@ fun ZigoraRoot(incoming: Incoming?, handled: () -> Unit) {
 private data class Tab(val route: Any, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
 @Composable
-private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (Boolean) -> Unit, theme: (String) -> Unit, signOut: () -> Unit) {
+private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, firstOpen: String?, opened: () -> Unit, wallpaper: (Boolean) -> Unit, theme: (String) -> Unit, signOut: () -> Unit) {
     val nav = rememberNavController()
+    LaunchedEffect(firstOpen) { when (firstOpen) { "me" -> nav.navigate(MeR); "key" -> nav.navigate(KeyR); else -> return@LaunchedEffect }; opened() }  // the plan they picked in the profile step
     // the web's menu for students (My courses, Saved, My progress) with Home and the account; search sits at the top, as in the web's header
     // short labels, so five fit on any phone at any text size; the screens themselves carry the web's full titles
+    // three tabs at the bottom; everything else is in the drawer, which the app's logo (top left) or a swipe from the left edge opens
     val tabs = listOf(Tab(HomeR, stringResource(R.string.tab_home), Icons.Outlined.Home), Tab(CoursesR, stringResource(R.string.tab_courses), Icons.AutoMirrored.Outlined.MenuBook),
-                      Tab(SavedR, stringResource(R.string.tab_saved), Icons.Outlined.BookmarkBorder), Tab(ProgressR, stringResource(R.string.tab_progress), Icons.AutoMirrored.Outlined.TrendingUp),
                       Tab(MeR, stringResource(R.string.tab_me), Icons.Outlined.AccountCircle))
+    val menu = listOf(Tab(HomeR, stringResource(R.string.tab_home), Icons.Outlined.Home), Tab(CoursesR, tl("Choose a course"), Icons.AutoMirrored.Outlined.MenuBook),
+                      Tab(JoinR, tl("Join a course"), Icons.Outlined.Add), Tab(StudyR, tl("Build a course"), Icons.Outlined.AutoStories),
+                      Tab(McqR(), tl("MCQ practice"), Icons.Outlined.Checklist), Tab(CalendarR, tl("Calendar"), Icons.Outlined.CalendarMonth),
+                      Tab(ClassesR, tl("Classes and announcements"), Icons.Outlined.Campaign), Tab(SavedR, stringResource(R.string.tab_saved), Icons.Outlined.BookmarkBorder),
+                      Tab(ProgressR, tl("My progress"), Icons.AutoMirrored.Outlined.TrendingUp), Tab(RoutineR, tl("My routine"), Icons.Outlined.Schedule),
+                      Tab(NotesR, tl("Notifications"), Icons.Outlined.Notifications), Tab(MeR, stringResource(R.string.tab_me), Icons.Outlined.AccountCircle))
+    val drawer = androidx.compose.material3.rememberDrawerState(androidx.compose.material3.DrawerValue.Closed); val dscope = androidx.compose.runtime.rememberCoroutineScope()
     val entry by nav.currentBackStackEntryAsState(); val dest = entry?.destination
     val ctx0 = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(me.id) { AnswerWatch.schedule(ctx0, true) }  // a note when a teacher answers
@@ -128,16 +146,29 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
     }
     val snackState = remember { androidx.compose.material3.SnackbarHostState() }; val snackScope = androidx.compose.runtime.rememberCoroutineScope()
     val snack = remember { Snack(snackState, snackScope) }
-    androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me, LocalSnack provides snack) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me, LocalSnack provides snack, LocalDrawer provides { dscope.launch { drawer.open() }; Unit }) {
     // the reader and a diagram take the whole screen: no tabs under them, so they read as full screen; Close brings the tabs back
-    val full = dest?.hasRoute(ReaderR::class) == true || dest?.hasRoute(DiagramR::class) == true
+    val full = dest?.hasRoute(ReaderR::class) == true || dest?.hasRoute(DiagramR::class) == true || dest?.hasRoute(LearnR::class) == true
+    androidx.compose.material3.ModalNavigationDrawer(drawerState = drawer, gesturesEnabled = !full || drawer.isOpen, drawerContent = {
+        androidx.compose.material3.ModalDrawerSheet { androidx.compose.foundation.layout.Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            androidx.compose.foundation.layout.Row(Modifier.padding(horizontal = 24.dp, vertical = 20.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(R.drawable.ic_logo), null, Modifier.size(36.dp))
+                androidx.compose.foundation.layout.Column(Modifier.padding(start = 12.dp)) { Text("Zigora", style = MaterialTheme.typography.titleMedium); Text(me.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            if (drawer.isOpen || drawer.targetValue == androidx.compose.material3.DrawerValue.Open) menu.forEach { t ->  // only while it shows: a closed drawer holds nothing
+                androidx.compose.material3.NavigationDrawerItem(label = { Text(t.label) }, icon = { Icon(t.icon, null) }, selected = dest?.hasRoute(t.route::class) == true,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    onClick = { dscope.launch { drawer.close() }; nav.navigate(t.route) { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } })
+            }
+        } }
+    }) {
     NavigationSuiteScaffold(layoutType = if (full) NavigationSuiteType.None else NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo()), navigationSuiteItems = {
         tabs.forEach { t ->
             item(selected = dest?.hasRoute(t.route::class) == true, icon = { Icon(t.icon, null) }, label = { Text(t.label, maxLines = 1, softWrap = false, autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp)) },
                  onClick = { nav.navigate(t.route) { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } })
         }
     }) {
-        val open = { id: Int -> nav.navigate(TopicR(id)) }
+        val open = { id: Int -> nav.navigate(LearnR(id)) }  // a topic opens one step per screen; its full page is a tap away
         val search = { nav.navigate(SearchR()) }
         val scope = androidx.compose.runtime.rememberCoroutineScope(); val a = api(); val toast = rememberToast()
         val ownTopic = { cid: Int, tid: Int -> nav.navigate(StudyCourseR(cid)); nav.navigate(StudyTopicR(tid)) }
@@ -197,6 +228,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
                                              openReader = { id -> nav.navigate(ReaderR(id)) }, openPractice = { q -> nav.navigate(StudyQuizR(q, it.toRoute<TopicR>().id)) },
                                              openMcq = { t -> nav.navigate(McqR(t)) }, openDiagram = { u -> nav.navigate(DiagramR(u)) },
                                              openMaterial = { cid, name -> nav.navigate(MaterialR(cid, name)) }) }
+            composable<LearnR> { e -> val id = e.toRoute<LearnR>().id; LearnScreen(id, back = { nav.popBackStack() }) { nav.navigate(TopicR(id)) { popUpTo<LearnR> { inclusive = true } } } }
             composable<DiagramR> { DiagramScreen(it.toRoute<DiagramR>().url) { nav.popBackStack() } }
             composable<ReaderR> { e -> val id = e.toRoute<ReaderR>().id
                 val t = rememberLoad("reader", id) { get("/topics/$id", app.zigora.data.TopicFull.serializer()) }
@@ -220,6 +252,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
         androidx.compose.material3.SnackbarHost(snackState, Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp))
         }
     }
+    }  // the drawer
     }
 }
 

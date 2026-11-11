@@ -145,4 +145,6 @@ async def stand_in(key, messages, max_tokens=None, timeout=45):  # in place of m
             "3. Chlorides and sulphates cause *permanent* hardness.\n\n*Example:* a kettle's white crust is calcium carbonate from temporary hardness."), 80
 main.chat = stand_in
 
+with Session_() as s:  # the people above stand for accounts that already exist: they have completed their profile (a new sign-up still sees that step)
+    s.query(main.User).update({"onboarded_at": main.dt.datetime.utcnow()}); s.commit()
 uvicorn.run(main.app, host="127.0.0.1", port=int(os.environ.get("PROMO_PORT", "4400")), log_level="warning")

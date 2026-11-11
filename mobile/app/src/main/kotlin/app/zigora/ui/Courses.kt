@@ -53,7 +53,7 @@ import kotlinx.serialization.builtins.ListSerializer
 @Composable
 fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, openJoin: () -> Unit = {}, open: (Int) -> Unit) {
     val tree = rememberLoad("tree") { get("/tree", ListSerializer(ProgramNode.serializer())) }
-    Scaffold(topBar = { TopAppBar(title = { Text(tl("My courses")) }, actions = {
+    Scaffold(topBar = { TopAppBar(title = { Text(tl("Choose a course")) }, navigationIcon = { DrawerLogo() }, actions = {
         IconButton(onClick = openSearch) { Icon(Icons.Outlined.Search, stringResource(R.string.tab_search)) } }) }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Loaded(tree) { list ->
@@ -61,10 +61,14 @@ fun CoursesScreen(me: Me, openSearch: () -> Unit, openStudy: () -> Unit, openJoi
                 if (courses.isEmpty() && me.self_registered && !me.placed) NotPlacedYet(me, openStudy, openJoin)
                 else if (courses.isEmpty() && me.placed) NoCoursesYet(list.flatMap { it.semesters }.lastOrNull { it.current }?.name, openStudy, openJoin)
                 else if (courses.isEmpty()) Quiet(stringResource(R.string.not_enrolled))
-                else CourseList(courses, open)
+                else {  // the program's courses, then the courses teachers and faculty offer that they are on
+                    val program = coursesOf(list.filter { it.id >= 0 }); val offered = coursesOf(list.filter { it.id < 0 })
+                    if (program.isNotEmpty()) { SectionTitle(tl("Your program's courses")); CourseList(program, open) }
+                    if (offered.isNotEmpty()) { SectionTitle(tl("Courses by teachers")); CourseList(offered, open) }
+                }
             }
             SectionTitle(tl("More ways to learn"))
-            Rows({ ListRow(tl("Join a course"), tl("Courses teachers offer: accept an invitation, join, or ask to join"), onClick = openJoin, leading = { RowIcon(Icons.Outlined.GroupAdd) }) },
+            Rows({ ListRow(tl("All courses teachers offer"), tl("Join one, ask to join, or answer an invitation"), onClick = openJoin, leading = { RowIcon(Icons.Outlined.GroupAdd) }) },
                  { ListRow(tl("Build a course"), tl("Upload a PDF or Word file and study it with quick checks, quizzes and reviews"), onClick = openStudy,
                            leading = { RowIcon(Icons.Outlined.AutoStories) }) })
         }

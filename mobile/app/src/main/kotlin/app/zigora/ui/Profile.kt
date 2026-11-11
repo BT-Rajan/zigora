@@ -89,7 +89,7 @@ fun ProfileScreen(me: Me, wallpaper: (Boolean) -> Unit, themeOf: (String) -> Uni
     var remind by remember { mutableStateOf(app.store.reminders) }
     var asking by remember { mutableStateOf(false) }
     val notify = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> remind = ok; app.store.reminders = ok; Reminders.schedule(ctx, ok) }
-    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.tab_me)) }) }) { pad ->
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.tab_me)) }, navigationIcon = { DrawerLogo() }) }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Loaded(p) { pr ->
                 Panel {

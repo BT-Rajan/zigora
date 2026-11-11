@@ -3,6 +3,8 @@ package app.zigora.screens
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -48,7 +50,13 @@ class TourTest {
     private fun shot(name: String) { rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
     private fun see(text: String) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), 20_000)
     private fun tap(text: String) { see(text); rule.onAllNodesWithText(text, substring = true).onFirst().performScrollTo().performClick() }
-    private fun tab(text: String) = rule.onNode(hasText(text) and hasClickAction()).performClick()
+    private fun tab(text: String) {  // a bottom tab, or else the item in the drawer, swiped open from the left edge
+        if (rule.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isEmpty()) {
+            rule.onRoot().performTouchInput { swipeRight(startX = left + 2f, endX = centerX) }
+            rule.waitUntilAtLeastOneExists(hasText(text, substring = true) and hasClickAction(), 10_000)
+        }
+        rule.onAllNodes(hasText(text, substring = true) and hasClickAction()).onFirst().performClick()
+    }
     private fun back() = rule.onNodeWithContentDescription("Back").performClick()
 
     private fun seed() = runBlocking {  // a bookmark, a highlight and a quiz attempt, so Saved and My progress have something in them
@@ -76,7 +84,7 @@ class TourTest {
         tap("Engineering Chemistry"); see("Hardness of Water"); shot("03-course")
         tap("Revision sheet"); see("Ask yourself"); shot("04-revision"); back()
         tap("Hardness of Water"); see("The gist"); shot("05-topic")
-        back(); tap("Water Technology quiz"); see("Which salts"); shot("06-quiz"); back(); back()
+        rule.onNodeWithContentDescription("Close").performClick(); tap("Water Technology quiz"); see("Which salts"); shot("06-quiz"); back(); back()
         tab("Saved"); see("Hardness of Water"); shot("07-saved")
         tap("Highlights"); see("hard water"); shot("08-highlights")
         tab("Progress"); see("Study routine"); see("Topics learned"); see("Final score"); shot("09-progress")  // once it has loaded

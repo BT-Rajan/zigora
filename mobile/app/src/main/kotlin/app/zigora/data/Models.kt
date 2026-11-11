@@ -9,7 +9,8 @@ import kotlinx.serialization.json.JsonObject
 @Serializable data class Config(val name: String = "Zigora", val self_registration: Boolean = false, val email_signup: Boolean = true, val email_reset: Boolean = false, val version: String? = null,
                                 val google_client_id: String? = null)  // Sign in with Google: the server's web client ID, which Google's sheet on Android asks a token for
 @Serializable data class Me(val id: Int, val name: String, val role: String, val must_change: Boolean = false, val self_registered: Boolean = false, val placed: Boolean = true, val lang: String = "en",
-                            val username: String? = null, val relation: String? = null, val level: String? = null, val ai_off: Boolean = false)  // relation: a guardian's "parent" or "teacher"; ai_off: a school student with no parent's or teacher's key
+                            val username: String? = null, val relation: String? = null, val level: String? = null, val ai_off: Boolean = false,
+                            val profile_needed: Boolean = false, val plan: String? = null)  // profile_needed: a student who signed up still to choose their course of study and plan  // relation: a guardian's "parent" or "teacher"; ai_off: a school student with no parent's or teacher's key
 @Serializable data class Msg(val message: String = "", val ok: Boolean = true)
 @Serializable data class CodeOut(val message: String = "", val sent: Boolean = true)  // a sign-up code: whether its email went out
 @Serializable data class RegStatus(val open: Boolean = false, val domains: List<String> = emptyList())
