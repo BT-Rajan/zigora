@@ -3591,5 +3591,14 @@
 "This topic has no notes yet. Open the full page to bring your own notes.": "لا توجد ملاحظات لهذا الموضوع بعد. افتح الصفحة الكاملة لإحضار ملاحظاتك.",
 "That's the topic": "هذا هو الموضوع",
 "If it made sense, mark it learned. You can always come back to it.": "إن كان مفهومًا، فضع علامة أنك تعلّمته. يمكنك العودة إليه دائمًا.",
-"You've marked this topic as learned.": "وضعت علامة أنك تعلّمت هذا الموضوع."
+"You've marked this topic as learned.": "وضعت علامة أنك تعلّمت هذا الموضوع.",
+"There is no Google account on this phone. Add one in the phone's Settings, or use your email.": "لا يوجد حساب Google على هذا الهاتف. أضف واحدًا من إعدادات الهاتف، أو استخدم بريدك الإلكتروني.",
+"Google sign-in isn't set up for this app yet: the app's Android client (package and SHA-1) is missing from the Google Cloud project. Use your email meanwhile, and tell your admin.": "تسجيل الدخول عبر Google غير مُعدّ لهذا التطبيق بعد: عميل Android للتطبيق (الحزمة وSHA-1) غير موجود في مشروع Google Cloud. استخدم بريدك الإلكتروني حاليًا، وأبلغ المسؤول.",
+"Google couldn't be reached. Check the connection and try again.": "تعذّر الوصول إلى Google. تحقّق من الاتصال وحاول مرة أخرى.",
+"Google sign-in didn't work. Try again, or use your email.": "لم ينجح تسجيل الدخول عبر Google. حاول مرة أخرى، أو استخدم بريدك الإلكتروني.",
+"This browser can't open the camera here. Choose a photo from your gallery instead.": "لا يستطيع هذا المتصفح فتح الكاميرا هنا. اختر صورة من معرض الصور بدلًا من ذلك.",
+"Camera permission was refused. Allow the camera for this site in your browser, or choose a photo from your gallery.": "رُفض إذن الكاميرا. اسمح بالكاميرا لهذا الموقع في متصفحك، أو اختر صورة من معرض الصور.",
+"The camera couldn't be opened. Choose a photo from your gallery instead.": "تعذّر فتح الكاميرا. اختر صورة من معرض الصور بدلًا من ذلك.",
+"Take the photo": "التقط الصورة",
+"Gallery": "المعرض"
 }

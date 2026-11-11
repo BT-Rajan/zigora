@@ -69,7 +69,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 
-val HL_COLORS = linkedMapOf("coral" to Color(0xFFFF9292), "yellow" to Color(0xFFFFD60A), "green" to Color(0xFF50C878), "blue" to Color(0xFF5AA0FF))
+val HL_COLORS = linkedMapOf("coral" to Color(0xFFFB923C), "yellow" to Color(0xFFFFD60A), "green" to Color(0xFF50C878), "blue" to Color(0xFF5AA0FF))
 private fun JsonObject.s(k: String) = (this[k] as? JsonPrimitive)?.contentOrNull.orEmpty()
 private fun JsonObject.i(k: String) = (this[k] as? JsonPrimitive)?.intOrNull
 

@@ -83,7 +83,6 @@ fun ProfileScreen(me: Me, wallpaper: (Boolean) -> Unit, themeOf: (String) -> Uni
     val p = rememberLoad("profile") { get("/me/profile", Profile.serializer()) }
     val lm = remember { ctx.getSystemService(LocaleManager::class.java) }
     var lang by remember { mutableStateOf(lm.applicationLocales.get(0)?.language ?: me.lang) }
-    var colours by remember { mutableStateOf(app.store.wallpaper) }
     var theme by remember { mutableStateOf(app.store.theme) }
     var about by remember { mutableStateOf(false) }
     var remind by remember { mutableStateOf(app.store.reminders) }
@@ -129,13 +128,10 @@ fun ProfileScreen(me: Me, wallpaper: (Boolean) -> Unit, themeOf: (String) -> Uni
                 GroupLine()
                 ListItem(colors = flat, leadingContent = { Icon(Icons.Outlined.DarkMode, null) }, headlineContent = { Text(stringResource(R.string.theme)) })
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
-                    listOf("system" to R.string.theme_auto, "light" to R.string.theme_light, "dark" to R.string.theme_dark).forEachIndexed { i, (k, l) ->
-                        SegmentedButton(theme == k, shape = SegmentedButtonDefaults.itemShape(i, 3), onClick = { theme = k; themeOf(k) }) { Text(stringResource(l)) }
+                    listOf("light" to R.string.theme_light, "dark" to R.string.theme_dark).forEachIndexed { i, (k, l) ->  // light unless they pick dark
+                        SegmentedButton((theme == "dark") == (k == "dark"), shape = SegmentedButtonDefaults.itemShape(i, 2), onClick = { theme = k; themeOf(k) }) { Text(stringResource(l)) }
                     }
                 }
-                GroupLine()
-                ListItem(colors = flat, leadingContent = { Icon(Icons.Outlined.Palette, null) }, headlineContent = { Text(stringResource(R.string.wallpaper_colours)) },
-                         supportingContent = { Text(stringResource(R.string.wallpaper_colours_hint)) }, trailingContent = { Switch(colours, { colours = it; wallpaper(it) }) })
                 GroupLine()
                 ListItem(colors = flat, leadingContent = { Icon(Icons.Outlined.NotificationsNone, null) }, headlineContent = { Text(stringResource(R.string.daily_note)) },
                          supportingContent = { Text(stringResource(R.string.daily_note_hint)) },

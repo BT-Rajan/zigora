@@ -68,7 +68,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import java.time.LocalDate
 import java.time.LocalTime
 
-val CourseColors = listOf(Color(0xFF722F99), Color(0xFFC2185B), Color(0xFF00796B), Color(0xFF5D4037), Color(0xFF3949AB))
+val CourseColors = listOf(Color(0xFF2563EB), Color(0xFFD97706), Color(0xFF0F766E), Color(0xFF7C3AED), Color(0xFFBE123C))
 
 /** each course once, wherever it is shown; a live place wins over an archived one */
 fun coursesOf(tree: List<ProgramNode>): List<CourseNode> {
