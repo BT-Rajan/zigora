@@ -100,8 +100,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-private fun JsonObject.str(k: String) = (this[k] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
-private fun JsonObject.list(k: String) = (this[k] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }.orEmpty()
+internal fun JsonObject.str(k: String) = (this[k] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
+internal fun JsonObject.list(k: String) = (this[k] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.content }.orEmpty()
 
 val PICKS = listOf("why", "example", "exam", "check")
 @Composable fun stepLabel(k: String) = stringResource(when (k) {
@@ -299,13 +299,13 @@ private fun Steps(id: Int, student: Boolean, diagram: String? = null, openDiagra
 }
 
 @Composable
-private fun Hook(q: String, answer: String) = Column(Modifier.padding(top = 12.dp)) {
+internal fun Hook(q: String, answer: String) = Column(Modifier.padding(top = 12.dp)) {
     Text(q, style = MaterialTheme.typography.titleMedium)
     if (answer.isNotEmpty()) Reveal(stringResource(R.string.think_then_tap)) { Md(answer) }
 }
 
 @Composable
-private fun StepCard(id: Int, rid: Int?, k: String, d: JsonObject, student: Boolean, onSimpler: (() -> Unit)?) = Column(Modifier.padding(top = 16.dp)) {
+internal fun StepCard(id: Int, rid: Int?, k: String, d: JsonObject, student: Boolean, onSimpler: (() -> Unit)?) = Column(Modifier.padding(top = 16.dp)) {
     Text(stepLabel(k), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
     if (k in listOf("why", "example", "simpler")) {
         Md(d.str("text"))

@@ -53,6 +53,7 @@ class User(Base):
     ai_key = Column(Text, nullable=True)  # their own AI key, encrypted (see seal); only self-registered people and parents or teachers have one
     ai_provider = Column(String(20), nullable=True)  # whose key ai_key is (see PROVIDERS); none means DeepSeek, the only kind before 0032
     digest = Column(Boolean, default=False); digest_at = Column(DateTime, nullable=True)
+    onboarded_at = Column(DateTime, nullable=True)  # a student who signed up has completed their profile in the app (course of study, plan); asked once
     return_reminders = Column(Boolean, default=True)  # S39: a gentle bell line (and so the daily email, if asked for) after a break; the student can turn it off
     google_sub = Column(String(64), unique=True, nullable=True)  # the Google account that signs in to this one (Google's own id for it, which never changes)
     cal_token = Column(String(64), unique=True, nullable=True)  # a hash of the private link a phone's calendar subscribes to (the link itself is never stored)
@@ -1118,7 +1119,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                                                   _addcol("teacher_questions", "resolved_at", "DATETIME NULL")(c), _addcol("teacher_questions", "reopens", "INTEGER NOT NULL DEFAULT 0")(c),
                                                   Base.metadata.create_all(c, tables=[ReplyEdit.__table__, QuestionEvent.__table__])]),
               ("0053_teacher_resources", lambda c: Base.metadata.create_all(c, tables=[TeacherResource.__table__, ResourceVersion.__table__])),
-              ("0054_interventions", lambda c: Base.metadata.create_all(c, tables=[Intervention.__table__, InterventionActivity.__table__, InterventionStudent.__table__]))]
+              ("0054_interventions", lambda c: Base.metadata.create_all(c, tables=[Intervention.__table__, InterventionActivity.__table__, InterventionStudent.__table__])),
+              ("0055_onboarded", lambda c: [_addcol("users", "onboarded_at", "DATETIME NULL")(c), c.execute(text("UPDATE users SET onboarded_at = CURRENT_TIMESTAMP WHERE onboarded_at IS NULL"))])]  # everyone already here counts as done
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -1172,7 +1174,23 @@ def place_line(s, u):  # "B.E. Mechanical · Semester 3", or "" when not placed 
 def guardian_students(s, gid, status="active"): return s.query(User).join(GuardianLink, GuardianLink.student_id == User.id).filter(GuardianLink.guardian_id == gid, GuardianLink.status == status).all()
 def guardians_of(s, sid, status="active"): return s.query(User).join(GuardianLink, GuardianLink.guardian_id == User.id).filter(GuardianLink.student_id == sid, GuardianLink.status == status).all()
 def me_json(u): return {"id": u.id, "name": u.name, "role": u.role, "must_change": bool(u.must_change), "self_registered": bool(u.self_registered), "placed": is_staff(u) or bool(u.program_id), "lang": u.lang or "en",
-                     "username": u.username, "relation": u.relation, "level": stage_of(u), "google": bool(u.google_sub), "ai_off": school_learner(u) and not guardian_key(u, object_session(u))}
+                     "username": u.username, "relation": u.relation, "level": stage_of(u), "google": bool(u.google_sub), "ai_off": school_learner(u) and not guardian_key(u, object_session(u)),
+                     "profile_needed": profile_needed(u), "plan": ai_plan(u)}
+def profile_needed(u):  # a student who signed up themselves completes their profile once after first signing in: course of study, then a plan
+    return u.role == "student" and bool(u.self_registered) and u.onboarded_at is None and not (school_learner(u) and u.program_id)
+@app.get("/api/me/places")
+def my_places(u: User = Depends(me), s: Session = Depends(db)):  # the programs and terms a student can pick for their course of study
+    return program_options(s)
+class ProfileIn(BaseModel): program_id: int | None = None; semester: int | None = None; plan: str = "free"
+@app.put("/api/me/profile")
+def complete_profile(b: ProfileIn, u: User = Depends(me), s: Session = Depends(db)):
+    """The first-sign-in profile: their course of study, if they aren't placed yet (an admin can still move them), and the plan they pick.
+    Free stays on Lite; Pro and an own key are then set up on their own screens. Asked once."""
+    if u.role != "student": raise HTTPException(403, "For students")
+    if b.plan not in ("free", "pro", "own"): raise HTTPException(400, "Choose a plan")
+    if not u.program_id and b.program_id is not None:
+        u.program_id, u.semester = check_place(s, stage_of(u) or "college", b.program_id, b.semester)
+    u.onboarded_at = dt.datetime.utcnow(); s.commit(); return {"user": me_json(u)}
 @app.post("/api/login")
 def login(b: Login, request: Request, s: Session = Depends(db)):
     global DUMMY

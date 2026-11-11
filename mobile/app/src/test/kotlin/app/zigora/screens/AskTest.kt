@@ -63,7 +63,7 @@ class AskTest {
         signIn("stu@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
-        tap("Hardness of Water"); see("The gist")
+        tap("Hardness of Water"); see("The gist"); tap("Full page")  // the topic opens one step at a time; its full page holds the class's questions
         see("Questions from your class"); tap("Show the answer"); see("Heat splits the bicarbonate")
         rule.onAllNodesWithText("Heat splits the bicarbonate", substring = true).onFirst().performScrollTo(); shot("0-class-questions")
         tap("Ask my teacher"); see("Your teacher sees your name")
@@ -83,13 +83,13 @@ class AskTest {
         rule.setContent { if (online) ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
-        tap("Hardness of Water"); see("The gist"); see("Hard water carries dissolved calcium")
+        tap("Hardness of Water"); see("The gist"); tap("Full page"); see("Hard water carries dissolved calcium")
         online = false; rule.waitForIdle()
         app.store.server = "http://127.0.0.1:9"  // nothing listens there: every request fails as it does with no network
         online = true
         rule.waitUntilAtLeastOneExists(hasText("Courses") and hasClickAction(), 20_000); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
-        tap("Hardness of Water"); see("Offline. Showing what you read before."); see("Hard water carries dissolved calcium"); shot("5-offline-topic")
+        tap("Hardness of Water"); see("Offline. Showing what you read before."); tap("Full page"); see("Hard water carries dissolved calcium"); shot("5-offline-topic")
     }
 
     /** while a student writes, answers the teacher already shared that look like it show first */
@@ -107,7 +107,7 @@ class AskTest {
         signIn("ravi@gmail.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
-        tap("Hardness of Water"); see("Ask my teacher · Pro"); tap("Ask my teacher · Pro"); see("comes with Pro"); shot("7-lite-locked")
+        tap("Hardness of Water"); tap("Full page"); see("Ask my teacher · Pro"); tap("Ask my teacher · Pro"); see("comes with Pro"); shot("7-lite-locked")
     }
 
     @Test fun aLiteStudentSeesTheProOffers() {

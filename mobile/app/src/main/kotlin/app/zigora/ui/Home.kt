@@ -104,7 +104,7 @@ fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, open
     val h = LocalTime.now().hour
     val hi = stringResource(if (h < 12) R.string.good_morning else if (h < 17) R.string.good_afternoon else R.string.good_evening, firstName(me.name))
     Scaffold(Modifier.nestedScroll(scroll.nestedScrollConnection), topBar = {
-        LargeTopAppBar(title = { Text(hi) }, scrollBehavior = scroll, actions = {
+        LargeTopAppBar(title = { Text(hi) }, scrollBehavior = scroll, navigationIcon = { DrawerLogo() }, actions = {
             IconButton(onClick = openSearch) { Icon(Icons.Outlined.Search, stringResource(R.string.tab_search)) }
             if (!aiOff) IconButton(onClick = openPhoto) { Icon(Icons.Outlined.CameraAlt, stringResource(R.string.ask_photo)) }  // asking from a photo is AI
             val unread = (notes.state as? Load.Ok)?.value?.items?.count { it.unread } ?: 0

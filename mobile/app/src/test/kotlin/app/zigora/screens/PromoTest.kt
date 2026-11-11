@@ -3,6 +3,8 @@ package app.zigora.screens
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -51,7 +53,13 @@ class PromoTest {
     private fun see(text: String) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), 20_000)
     private fun tap(text: String) { see(text); rule.onAllNodesWithText(text, substring = true).onFirst().performScrollTo().performClick() }
     private fun tapLast(text: String) { see(text); rule.onAllNodesWithText(text).onLast().performScrollTo().performClick() }  // Home: the course row, not the session line
-    private fun tab(text: String) = rule.onNode(hasText(text) and hasClickAction()).performClick()
+    private fun tab(text: String) {  // a bottom tab, or else the item in the drawer, swiped open from the left edge
+        if (rule.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isEmpty()) {
+            rule.onRoot().performTouchInput { swipeRight(startX = left + 2f, endX = centerX) }
+            rule.waitUntilAtLeastOneExists(hasText(text, substring = true) and hasClickAction(), 10_000)
+        }
+        rule.onAllNodes(hasText(text, substring = true) and hasClickAction()).onFirst().performClick()
+    }
     private fun back() = rule.onNodeWithContentDescription("Back").performClick()
 
     private fun signIn() = runBlocking {
@@ -84,7 +92,7 @@ class PromoTest {
         rule.setContent { ZigoraRoot(null) {} }
         see("Today's session"); see("Engineering Chemistry"); shot("home")
         tapLast("Engineering Chemistry"); see("Hardness of Water"); shot("course")
-        tap("Hardness of Water"); see("The gist"); shot("topic")
+        tap("Hardness of Water"); see("The gist"); shot("topic"); tap("Full page")
         tap("Why?"); see("calcium bicarbonate breaks down"); shot("step")
         back(); tap("Revision sheet"); see("Ask yourself"); shot("revision"); back()
         tap("Water Technology quiz"); see("Which salts")

@@ -3,6 +3,7 @@ package app.zigora.screens
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.swipeDown
@@ -61,6 +62,13 @@ class ScreensTest {
     }
     private fun see(text: String, ms: Long = 20_000) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), ms)
     private fun shot(name: String) { rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
+    private fun tab(text: String) {  // a bottom tab, or else the item in the drawer, swiped open from the left edge
+        if (rule.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isEmpty()) {
+            rule.onRoot().performTouchInput { swipeRight(startX = left + 2f, endX = centerX) }
+            rule.waitUntilAtLeastOneExists(hasText(text, substring = true) and hasClickAction(), 10_000)
+        }
+        rule.onAllNodes(hasText(text, substring = true) and hasClickAction()).onFirst().performClick()
+    }
     /** waits until any of these texts shows: a screen that loads its data has more than one finished look (a list, or the line saying it is empty) */
     private fun seeAny(vararg texts: String, ms: Long = 20_000) = rule.waitUntil(ms) {
         texts.any { rule.onAllNodes(hasText(it, substring = true)).fetchSemanticsNodes().isNotEmpty() } }
@@ -82,6 +90,17 @@ class ScreensTest {
         val row = rule.onAllNodesWithText("Engineering Chemistry").onLast(); runCatching { row.performScrollTo() }; row.performClick()
     }
 
+    @Test fun aTopicOneStepAtATime() {
+        signIn(); rule.setContent { ZigoraRoot(null) {} }
+        openChemistry(); see("Hardness of Water"); rule.onNodeWithText("Hardness of Water").performClick()
+        see("The gist"); see("Full page"); shot("17-learn-gist")
+        rule.onNodeWithText("Next").performClick(); see("Why?"); shot("18-learn-why")
+        repeat(3) { rule.onNodeWithText("Next").performClick(); rule.waitForIdle() }  // Example, Exam angle, Quick check
+        rule.onNodeWithText("Next").performClick(); see("Notes")
+        rule.onNodeWithText("Next").performClick(); see("That's the topic"); shot("19-learn-done")
+        rule.onNodeWithText("I've learned this").performClick(); see("You've marked this topic as learned.")
+    }
+
     @Test fun aStudentsWalk() {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
@@ -90,6 +109,7 @@ class ScreensTest {
         see("Hardness of Water"); shot("03-course")
         rule.onNodeWithText("Hardness of Water").performClick()
         see("The gist"); see("calcium and magnesium"); shot("04-topic")
+        rule.onNodeWithText("Full page").performClick(); see("Why?")  // one step at a time first; the full page has every step
         rule.onNodeWithText("Why?").performClick()
         see("calcium bicarbonate breaks down"); shot("05-step")
         rule.onNodeWithText("Notes").performScrollTo(); shot("06-notes")  // the notes themselves are drawn by the web's renderer in a WebView, which Robolectric leaves blank
@@ -130,7 +150,7 @@ class ScreensTest {
         rule.onAllNodesWithContentDescription("Notifications").onFirst().performClick()
         see("Your teacher has prepared some extra practice"); shot("26-notifications")
         rule.onNodeWithContentDescription("Back").performClick()
-        openChemistry(); openHardness()
+        openChemistry(); openHardness(); see("Full page"); rule.onNodeWithText("Full page").performClick()
         see("Read in full screen"); rule.onNodeWithText("Read in full screen", substring = true).performScrollTo().performClick()
         see("Select text to highlight it"); shot("27-reader")  // the notes themselves are drawn by a WebView, which Robolectric leaves blank: this shows the reader's own bar and tools
     }
@@ -166,10 +186,10 @@ class ScreensTest {
     @Test fun savedProgressAndRoutine() {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
-        see("Engineering Chemistry"); rule.onNodeWithText("Saved").performClick()
+        see("Engineering Chemistry"); tab("Saved")
         see("Bookmarks"); seeAny("topic saved", "topics saved", "Nothing saved yet"); shot("13-saved")  // its subtitle shows once the list has loaded
         rule.onNodeWithText("Highlights").performClick(); see("All colours"); shot("14-highlights")
-        rule.onNode(hasText("Progress") and hasClickAction()).performClick(); see("Study routine"); see("Topics learned"); shot("15-progress")  // once it has loaded
+        tab("My progress"); see("Study routine"); see("Topics learned"); shot("15-progress")  // once it has loaded
         rule.onNodeWithText("Set or change your study days").performClick(); see("Minutes a session"); shot("16-routine")
         rule.onNodeWithText("Save routine").performScrollTo().performClick()
         see("Study routine"); rule.onNode(hasText("Home") and hasClickAction()).performClick()
