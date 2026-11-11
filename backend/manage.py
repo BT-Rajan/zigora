@@ -57,7 +57,7 @@ def main():
     sub.add_parser("integrity", help="list programs, semesters, courses, units, topics and quizzes whose parent is missing (changes nothing)")
     sub.add_parser("list", help="list users"); sub.add_parser("check", help="exit 1 if there is no active admin")
     rc = sub.add_parser("replace-catalog", help="back up, DELETE every program and course (their units, topics, quizzes, and students' progress and test results in them), then import content CSVs")
-    rc.add_argument("csv", nargs="+", help="content CSV files, imported in order (e.g. docs/syllabi/mbbs-year-2.csv content/mbbs_year2_pathology.csv)")
+    rc.add_argument("csv", nargs="+", help="content CSV files, imported in order (e.g. content/mbbs_year2_pharmacology.csv)")
     rc.add_argument("--yes", action="store_true", help="don't ask to type DELETE"); rc.add_argument("--dir", default=os.getenv("BACKUP_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backups"))
     x = ap.parse_args(); upgrade_schema()
     with Session_() as s:
