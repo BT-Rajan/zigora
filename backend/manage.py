@@ -18,6 +18,23 @@ def find(s, email):
     if not u: sys.exit(f"No user with email {email}. See: ./manage.sh list")
     return u
 
+def import_files(s, x):
+    """The Bulk upload of the admin's Programs page, from the terminal: a preview first, then the import after a yes."""
+    from main import import_csv, ImportIn
+    me = s.query(User).filter_by(role="admin", active=True).order_by(User.id).first()
+    if not me: sys.exit("There is no active admin. Create one first: ./manage.sh admin --email ...")
+    for f in x.csv:
+        if not os.path.isfile(f): sys.exit(f"No such file: {f}")
+        t = open(f, encoding="utf-8-sig").read()
+        r = import_csv(ImportIn(csv=t, dry_run=True), me, s)
+        print(f"{f}: would create " + ", ".join(f"{v} {k}" for k, v in r["created"].items()) + f"; update {r['updated_topics']} existing topic(s)")
+        for w in r["warnings"]: print("  warning: " + w)
+        if r["error_count"]: sys.exit(f"{r['error_count']} row(s) can't be imported, nothing changed:\n" + "\n".join(f"  row {e['row']}: {e['error']}" for e in r["errors"]))
+        if x.dry_run: continue
+        if not x.yes and input("Import it? [y/N] ").strip().lower() not in ("y", "yes"): print("Skipped."); continue
+        r = import_csv(ImportIn(csv=t, dry_run=False), me, s)
+        print("Imported: created " + ", ".join(f"{v} {k}" for k, v in r["created"].items()) + f"; updated {r['updated_topics']} topic(s)")
+
 def replace_catalog(s, x):
     """The whole course catalogue replaced by the given CSVs. Students' own built courses and all users stay; students lose their program and semester placement."""
     from main import Program, Course, Topic, remove, import_csv, ImportIn
@@ -56,6 +73,9 @@ def main():
     sub.add_parser("owners", help="list courses that need an owner, with their old assigned faculty (changes nothing)")
     sub.add_parser("integrity", help="list programs, semesters, courses, units, topics and quizzes whose parent is missing (changes nothing)")
     sub.add_parser("list", help="list users"); sub.add_parser("check", help="exit 1 if there is no active admin")
+    im = sub.add_parser("import", help="import a content CSV (programs, years, courses, units, topics); existing names are reused and nothing is deleted")
+    im.add_argument("csv", nargs="+", help="content CSV files, imported in order (e.g. content/mbbs_year2_pharmacology.csv)")
+    im.add_argument("--yes", action="store_true", help="import without asking"); im.add_argument("--dry-run", action="store_true", help="only show what would be created")
     rc = sub.add_parser("replace-catalog", help="back up, DELETE every program and course (their units, topics, quizzes, and students' progress and test results in them), then import content CSVs")
     rc.add_argument("csv", nargs="+", help="content CSV files, imported in order (e.g. content/mbbs_year2_pharmacology.csv)")
     rc.add_argument("--yes", action="store_true", help="don't ask to type DELETE"); rc.add_argument("--dir", default=os.getenv("BACKUP_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backups"))
@@ -83,6 +103,7 @@ def main():
             for f in run_backup(DB, UPLOADS, os.path.abspath(x.dir), x.keep_days): print("Wrote " + f)
             return
         if x.cmd == "replace-catalog": return replace_catalog(s, x)
+        if x.cmd == "import": return import_files(s, x)
         if x.cmd == "check": sys.exit(0 if s.query(User).filter_by(role="admin", active=True).first() else 1)
         if x.cmd == "list":
             for u in s.query(User).order_by(User.id): print(f"{u.id:>3}  {u.role:<8} {'active' if u.active else 'disabled':<9} {u.email}  ({u.name})")
