@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -51,15 +53,26 @@ fun AnnCard(a: Ann, cancel: ((Ann) -> Unit)? = null, move: ((Ann) -> Unit)? = nu
         if (a.kind == "class") Quiet(whenOf(a) + (a.week?.let { " · " + tl("Weekly, session {n} of {of}", "n" to it.n, "of" to it.of) } ?: ""))
         if (a.body.isNotEmpty()) MathMd(a.body)
         Quiet(listOf(a.by, a.at?.let { stamp(it) }.orEmpty()).filter { it.isNotEmpty() }.joinToString(" · "), Modifier.padding(top = 4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-            if (a.link != null && a.status != "ended") {
+        val joinable = a.link != null && a.status != "ended"
+        val canCancel = cancel != null && a.can_edit && a.status != "cancelled" && a.status != "ended"
+        val canMove = move != null && a.can_edit && a.kind == "class" && a.status == "upcoming"
+        if (joinable || canCancel || canMove) Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            if (joinable) {
                 val open = { scope.launch { runCatching { api.raw("POST", "/announcements/${a.id}/join") } }  // counted for the teacher
-                             runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, a.link.toUri())) }; Unit }
+                             runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, a.link!!.toUri())) }; Unit }
                 if (a.status == "live") Button(onClick = open) { Text(tl("Join the class")) } else OutlinedButton(onClick = open) { Text(tl("Join the class")) }
             }
-            if (cancel != null && a.can_edit && a.status != "cancelled" && a.status != "ended") TextButton(onClick = { cancel(a) }) { Text(if (a.kind == "class") tl("Cancel the class") else tl("Withdraw")) }
+            androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+            if (canCancel || canMove) androidx.compose.foundation.layout.Box {  // the teacher's changes, one tap away, not a row of buttons
+                var menu by remember(a.id) { mutableStateOf(false) }
+                androidx.compose.material3.IconButton(onClick = { menu = true }) { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.MoreVert, tl("More options")) }
+                androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+                    if (canMove) androidx.compose.material3.DropdownMenuItem(text = { Text(tl("Change the time")) }, onClick = { menu = false; move!!(a) })
+                    if (canCancel) androidx.compose.material3.DropdownMenuItem(text = { Text(if (a.kind == "class") tl("Cancel the class") else tl("Withdraw"), color = MaterialTheme.colorScheme.error) },
+                                                                            onClick = { menu = false; cancel!!(a) })
+                }
+            }
         }
-        if (move != null && a.can_edit && a.kind == "class" && a.status == "upcoming") TextButton(onClick = { move(a) }) { Text(tl("Change the time")) }
         val joins = a.joins
         if (joins != null && a.status != "upcoming") {
             TextButton(onClick = { who = !who }) { Text(tl("Tapped Join: {n} of {of}", "n" to joins.size, "of" to a.class_size)) }
@@ -96,12 +109,14 @@ fun ClassesScreen(back: (() -> Unit)?) {
         var link by remember(x.id) { mutableStateOf(x.link.orEmpty()) }
         var err by remember(x.id) { mutableStateOf("") }
         AlertDialog(onDismissRequest = { moving = null }, title = { Text(tl("Change the class time")) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Quiet(x.title)
-                OutlinedTextField(day, { day = it.take(10) }, Modifier.fillMaxWidth(), label = { Text(tl("Date")) }, singleLine = true)
-                OutlinedTextField(at, { at = it.take(5) }, Modifier.fillMaxWidth(), label = { Text(tl("Time")) }, singleLine = true)
+            text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {  // the same fields, laid out as the schedule form has them
+                Text(x.title, style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(day, { day = it.take(10) }, Modifier.weight(1.4f), label = { Text(tl("Date")) }, placeholder = { Text("2026-11-20") }, singleLine = true)
+                    OutlinedTextField(at, { at = it.take(5) }, Modifier.weight(1f), label = { Text(tl("Time")) }, placeholder = { Text("18:00") }, singleLine = true)
+                }
                 OutlinedTextField(mins, { mins = it.filter(Char::isDigit).take(3) }, Modifier.fillMaxWidth(), label = { Text(tl("Length (minutes)")) }, singleLine = true)
-                OutlinedTextField(link, { link = it.trim() }, Modifier.fillMaxWidth(), label = { Text(tl("Video link")) }, singleLine = true)
+                OutlinedTextField(link, { link = it.trim() }, Modifier.fillMaxWidth(), label = { Text(tl("Video link")) }, placeholder = { Text("https://meet.google.com/…") }, singleLine = true)
                 if (err.isNotEmpty()) Text(err, color = MaterialTheme.colorScheme.error)
             } },
             confirmButton = { TextButton(onClick = { scope.launch {
@@ -118,38 +133,46 @@ fun ClassesScreen(back: (() -> Unit)?) {
             form?.let { f ->
                 val set = { k: String, v: String -> form = f + (k to v) }
                 Panel {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(f["kind"] == "class", { set("kind", "class") }, { Text(tl("A class")) })
-                            FilterChip(f["kind"] == "note", { set("kind", "note") }, { Text(tl("An announcement")) })
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // a class or a note: one choice of two, as a segmented button (Android's own pattern for it)
+                        androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            listOf("class" to tl("A class"), "note" to tl("An announcement")).forEachIndexed { i, (k, t) ->
+                                SegmentedButton(f["kind"] == k, { set("kind", k) }, shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(i, 2)) { Text(t, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
+                            }
                         }
-                        Text(tl("Course"), style = MaterialTheme.typography.labelMedium)
-                        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            d.courses.forEach { c -> FilterChip(f["course"] == c.id.toString(), { set("course", c.id.toString()) }, { Text(c.name) }) }
+                        if (d.courses.size > 1) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(tl("Course"), style = MaterialTheme.typography.labelLarge)
+                            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                d.courses.forEach { c -> FilterChip(f["course"] == c.id.toString(), { set("course", c.id.toString()) }, { Text(c.name) }) }
+                            }
                         }
                         OutlinedTextField(f["title"]!!, { set("title", it.take(200)) }, Modifier.fillMaxWidth(), label = { Text(tl("Title")) }, singleLine = true)
                         if (f["kind"] == "class") {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedTextField(f["day"]!!, { set("day", it) }, Modifier.weight(1f), label = { Text(tl("Date")) }, placeholder = { Text("2026-11-20") }, singleLine = true)
+                                OutlinedTextField(f["day"]!!, { set("day", it) }, Modifier.weight(1.4f), label = { Text(tl("Date")) }, placeholder = { Text("2026-11-20") }, singleLine = true)
                                 OutlinedTextField(f["at"]!!, { set("at", it) }, Modifier.weight(1f), label = { Text(tl("Time")) }, placeholder = { Text("18:00") }, singleLine = true)
                             }
-                            OutlinedTextField(f["minutes"]!!, { set("minutes", it.filter(Char::isDigit).take(3)) }, Modifier.fillMaxWidth(), label = { Text(tl("Length (minutes)")) }, singleLine = true)
-                            Row(Modifier.fillMaxWidth().toggleable(f["repeat"] == "1", role = androidx.compose.ui.semantics.Role.Checkbox) { set("repeat", if (it) "1" else "") },
-                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {  // the whole row ticks the box
-                                androidx.compose.material3.Checkbox(f["repeat"] == "1", null); Text(tl("Repeat every week"))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {  // how long, and how many weeks when it repeats: side by side
+                                OutlinedTextField(f["minutes"]!!, { set("minutes", it.filter(Char::isDigit).take(3)) }, Modifier.weight(1f), label = { Text(tl("Length (minutes)")) }, singleLine = true)
+                                if (f["repeat"] == "1") OutlinedTextField(f["weeks"]!!, { set("weeks", it.filter(Char::isDigit).take(2)) }, Modifier.weight(1f), label = { Text(tl("How many weeks")) }, singleLine = true)
                             }
-                            if (f["repeat"] == "1") {
-                                OutlinedTextField(f["weeks"]!!, { set("weeks", it.filter(Char::isDigit).take(2)) }, Modifier.fillMaxWidth(), label = { Text(tl("How many weeks")) }, singleLine = true)
-                                Quiet(tl("Every session goes into the calendar. Students are told once, for the whole series."))
+                            Row(Modifier.fillMaxWidth().toggleable(f["repeat"] == "1", role = androidx.compose.ui.semantics.Role.Switch) { set("repeat", if (it) "1" else "") },
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {  // the whole row flips the switch
+                                Column(Modifier.weight(1f)) {
+                                    Text(tl("Repeat every week"), style = MaterialTheme.typography.bodyLarge)
+                                    if (f["repeat"] == "1") Quiet(tl("Every session goes into the calendar. Students are told once, for the whole series."))
+                                }
+                                androidx.compose.material3.Switch(f["repeat"] == "1", null)
                             }
-                            OutlinedTextField(f["link"]!!, { set("link", it.trim()) }, Modifier.fillMaxWidth(), label = { Text(tl("Video link")) }, placeholder = { Text("https://meet.google.com/…") }, singleLine = true)
-                            Quiet(tl("Make a Google Meet (or Zoom) link, then paste it here. Students join from Zigora when the class starts."))
-                            TextButton(onClick = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, "https://meet.google.com/new".toUri())) } }) { Text(tl("Make a Google Meet link")) }
+                            OutlinedTextField(f["link"]!!, { set("link", it.trim()) }, Modifier.fillMaxWidth(), label = { Text(tl("Video link")) }, placeholder = { Text("https://meet.google.com/…") }, singleLine = true,
+                                supportingText = { Text(tl("Make a Google Meet (or Zoom) link, then paste it here. Students join from Zigora when the class starts.")) })
+                            TextButton(onClick = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, "https://meet.google.com/new".toUri())) } },
+                                       contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp)) { Text(tl("Make a Google Meet link")) }
                         }
                         OutlinedTextField(f["body"]!!, { set("body", it.take(4000)) }, Modifier.fillMaxWidth(), minLines = 3,
                                           label = { Text(if (f["kind"] == "class") tl("What to bring or prepare (optional)") else tl("Message")) })
                         if (msg.isNotEmpty()) Text(msg, color = MaterialTheme.colorScheme.error)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Button(enabled = !busy && f["title"]!!.trim().length >= 3 && (f["kind"] == "note" || f["link"]!!.isNotEmpty()), onClick = { scope.launch {
                                 busy = true; msg = ""
                                 try {

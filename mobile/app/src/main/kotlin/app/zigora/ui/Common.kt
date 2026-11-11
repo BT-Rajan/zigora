@@ -2,6 +2,7 @@ package app.zigora.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import app.zigora.R
 import app.zigora.ZigoraApp
 import app.zigora.data.Api
+import kotlinx.coroutines.launch
 import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownTypography
@@ -88,15 +90,20 @@ fun Problem(message: String, retry: (() -> Unit)? = null) = Column(Modifier.fill
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) =
-    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = modifier.padding(top = 20.dp, bottom = 8.dp))
+    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary, modifier = modifier.padding(top = 16.dp, bottom = 4.dp))
 
 @Composable
 fun Quiet(text: String, modifier: Modifier = Modifier) =
     Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = modifier)
 
-/** a tonal card, the app's main surface */
+/** a tonal card, the app's main surface; inside a [Group] it is one flat row of that group's surface */
 @Composable
 fun Panel(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    if (LocalInGroup.current) {
+        val m = if (onClick != null) modifier.fillMaxWidth().clickable(onClick = onClick) else modifier.fillMaxWidth()
+        Column(m.padding(horizontal = 16.dp, vertical = 12.dp)) { content() }
+        return
+    }
     val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     val shape = RoundedCornerShape(20.dp)
     if (onClick != null) Card(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, colors = colors) { Column(Modifier.padding(16.dp)) { content() } }
@@ -127,22 +134,36 @@ fun Reveal(label: String, content: @Composable () -> Unit) {
     AnimatedVisibility(open) { Column(Modifier.padding(top = 4.dp)) { content() } }
 }
 
-const val PAGE = 10
+const val PAGE = 10  // a page of a list the server sends in pages
 
-/** every list longer than ten is shown ten at a time, with a pager under it */
+/** rows inside a [Group] draw as flat rows of its one surface, not as cards of their own */
+val LocalInGroup = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** related rows on one rounded surface, a thin line between them (as Android's own settings and Google's apps list things) */
 @Composable
-fun <T> Paged(rows: List<T>, key: Any? = null, item: @Composable (T) -> Unit) {
-    var page by rememberSaveable(key, rows.size) { mutableIntStateOf(0) }
-    val pages = (rows.size + PAGE - 1) / PAGE
-    val at = page.coerceIn(0, maxOf(0, pages - 1))
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        rows.drop(at * PAGE).take(PAGE).forEach { item(it) }
-        if (pages > 1) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            IconButton(onClick = { page = at - 1 }, enabled = at > 0) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.previous_page)) }
-            Text(stringResource(R.string.page_of, at + 1, pages), style = MaterialTheme.typography.labelLarge)
-            IconButton(onClick = { page = at + 1 }, enabled = at < pages - 1) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.next_page)) }
-        }
+fun Group(modifier: Modifier = Modifier, content: @Composable () -> Unit) =
+    Card(modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalInGroup provides true) { Column { content() } }
     }
+@Composable
+fun GroupLine() = androidx.compose.material3.HorizontalDivider(Modifier.padding(start = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+/** a group made of rows: each given row drawn, with a line between them */
+@Composable
+fun Rows(vararg rows: @Composable () -> Unit) = RowsOf(rows.toList())
+@Composable
+fun RowsOf(rows: List<@Composable () -> Unit>) {
+    if (rows.isEmpty()) return
+    Group { rows.forEachIndexed { i, r -> if (i > 0) GroupLine(); r() } }
+}
+
+/** a list, scrolled as one with the screen (no pages, as Android apps do). [grouped]: its rows share one surface, with lines between;
+ *  off for lists whose items draw their own layout (titles between rows, list items, editors) */
+@Composable
+fun <T> Paged(rows: List<T>, key: Any? = null, grouped: Boolean = true, item: @Composable (T) -> Unit) {
+    if (rows.isEmpty()) return
+    if (grouped) Group { rows.forEachIndexed { i, r -> if (i > 0) GroupLine(); androidx.compose.runtime.key(i, key) { item(r) } } }
+    else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { rows.forEach { item(it) } }
 }
 
 @Composable
@@ -181,7 +202,8 @@ fun stamp(iso: String): String = runCatching {
 
 /** a percentage as a thin bar */
 @Composable
-fun ScoreBar(v: Int?) = androidx.compose.material3.LinearProgressIndicator(progress = { (v ?: 0).coerceIn(0, 100) / 100f }, Modifier.fillMaxWidth().padding(top = 4.dp))
+fun ScoreBar(v: Int?) = androidx.compose.material3.LinearProgressIndicator(progress = { (v ?: 0).coerceIn(0, 100) / 100f }, Modifier.fillMaxWidth().padding(top = 4.dp),
+    drawStopIndicator = {})  // no dot at the end: a quiet bar, as on the web
 
 /** a screen with a title (and a line under it), a back arrow and scrolling content */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
@@ -196,7 +218,7 @@ fun Page(title: String, sub: String = "", back: (() -> Unit)? = null, actions: @
             navigationIcon = { if (back != null) IconButton(onClick = back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } })
     }) { pad ->
         Column(Modifier.padding(pad).verticalScroll(scroll).padding(horizontal = 16.dp).padding(bottom = 24.dp),
-               verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+               verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }
 
@@ -228,23 +250,29 @@ fun RowIcon(icon: androidx.compose.ui.graphics.vector.ImageVector) = Box(
 @Composable
 fun RowLink(title: String, sub: String = "", onClick: (() -> Unit)?, extra: @Composable () -> Unit = {}) = ListRow(title, sub, onClick, extra = extra)
 
-/** a short note at the bottom of the screen, like the web's toast */
+/** the app's one place for short notes: a Material snackbar above the navigation bar (set up once, at the root) */
+class Snack(val state: androidx.compose.material3.SnackbarHostState, val scope: kotlinx.coroutines.CoroutineScope) {
+    fun show(m: String) { if (m.isNotEmpty()) scope.launch(kotlinx.coroutines.Dispatchers.Main) { state.currentSnackbarData?.dismiss(); state.showSnackbar(m) } }
+}
+val LocalSnack = androidx.compose.runtime.staticCompositionLocalOf<Snack?> { null }
+
+/** a short note at the bottom of the screen, like the web's toast: a snackbar (a plain Android toast only outside the app's root) */
 @Composable
 fun rememberToast(): (String) -> Unit {
-    val ctx = LocalContext.current
+    val ctx = LocalContext.current; val snack = LocalSnack.current
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }  // a note can come from any thread a request finished on
-    return remember(ctx) { { m: String -> if (m.isNotEmpty()) main.post { android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_SHORT).show() } } }
+    return remember(ctx, snack) { { m: String -> if (m.isNotEmpty()) { if (snack != null) snack.show(m) else main.post { android.widget.Toast.makeText(ctx, m, android.widget.Toast.LENGTH_SHORT).show() } } } }
 }
 
 /** "are you sure?" before something that can't be undone, as the web asks */
-class Ask(val title: String, val body: String, val ok: String, val danger: Boolean = false, val yes: () -> Unit)
+class Ask(val title: String, val body: String, val ok: String, val danger: Boolean = false, val cancel: String? = null, val yes: () -> Unit)
 
 @Composable
 fun AskDialog(ask: Ask?, close: () -> Unit) {
     if (ask == null) return
     androidx.compose.material3.AlertDialog(onDismissRequest = close, title = { Text(ask.title) }, text = { Text(ask.body) },
         confirmButton = { TextButton(onClick = { close(); ask.yes() }) { Text(ask.ok, color = if (ask.danger) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified) } },
-        dismissButton = { TextButton(onClick = close) { Text(tl("Cancel")) } })
+        dismissButton = { TextButton(onClick = close) { Text(ask.cancel ?: tl("Cancel")) } })
 }
 
 /** navigation after a request: always on the main thread, wherever the request finished */

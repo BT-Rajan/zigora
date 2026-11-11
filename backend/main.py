@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from guardrails import GUARDRAILS, GUARD_VERSION, SUPPORT, checked, crisis, fence
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey, DateTime, Boolean, UniqueConstraint, Date, func, or_, and_, inspect, text, case
 from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.dialects import mysql as _mysql_dialect
 from sqlalchemy.orm import sessionmaker, declarative_base, Session, object_session
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -52,6 +53,7 @@ class User(Base):
     ai_key = Column(Text, nullable=True)  # their own AI key, encrypted (see seal); only self-registered people and parents or teachers have one
     ai_provider = Column(String(20), nullable=True)  # whose key ai_key is (see PROVIDERS); none means DeepSeek, the only kind before 0032
     digest = Column(Boolean, default=False); digest_at = Column(DateTime, nullable=True)
+    return_reminders = Column(Boolean, default=True)  # S39: a gentle bell line (and so the daily email, if asked for) after a break; the student can turn it off
     google_sub = Column(String(64), unique=True, nullable=True)  # the Google account that signs in to this one (Google's own id for it, which never changes)
     cal_token = Column(String(64), unique=True, nullable=True)  # a hash of the private link a phone's calendar subscribes to (the link itself is never stored)
     username = Column(String(40), unique=True, nullable=True)  # sign-in name for a child a parent or teacher created (no email of their own); lower case
@@ -149,6 +151,7 @@ class Topic(Base):
     published = Column(Boolean, default=True)  # drafts are visible to admins and the course's owner only
     position = Column(Integer, nullable=True)  # order within the unit, set by the course's owner
     learning_due_at = Column(DateTime, nullable=True)  # learn-by deadline, a UTC instant like every timestamp here; null = no deadline
+    optional = Column(Boolean, default=False)  # set by the teacher: an optional topic never stands between a student and finishing the course
     archived_at = Column(DateTime, nullable=True)  # set while this item is archived (hidden from students, nothing deleted); everything under it is archived with it
     diagram = Column(Boolean, default=False)  # the teacher wants a diagram for this topic: the AI draws one (an interactive HTML page) for students on Pro
     diagram_note = Column(Text, nullable=True)  # what the teacher wants drawn, if they say ("a flow diagram of the lime-soda process")
@@ -158,6 +161,42 @@ class TopicVersion(Base):  # a snapshot of a topic's text each time it is saved,
     title = Column(String(200)); content = Column(Text); sample_content = Column(Text); question_pattern = Column(Text); guideline = Column(Text)
     content_format = Column(String(10), default="markdown")
     saved_by = Column(Integer, nullable=True); saved_at = Column(DateTime, default=dt.datetime.utcnow); note = Column(String(200), default="")
+class TeacherResource(Base):  # S43: a teacher's own material for a course, one of its units, or one topic (note, worked example, image, document, video, link)
+    __tablename__ = "teacher_resources"
+    id = Column(Integer, primary_key=True); course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True)
+    unit_id = Column(Integer, ForeignKey("units.id", ondelete="CASCADE"), nullable=True, index=True); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=True, index=True)
+    kind = Column(String(10)); status = Column(String(10), default="draft")  # draft (its teachers only), published (the course's students), archived (kept, shown to nobody)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); created_at = Column(DateTime, default=dt.datetime.utcnow); updated_at = Column(DateTime, default=dt.datetime.utcnow)
+    version = Column(Integer, default=1)  # the latest saved version; students always get this one while it is published
+    position = Column(Integer, default=0)
+class ResourceVersion(Base):  # S43: every saved state of a resource, never overwritten; a file is shared by the versions that didn't replace it
+    __tablename__ = "resource_versions"
+    id = Column(Integer, primary_key=True); resource_id = Column(Integer, ForeignKey("teacher_resources.id", ondelete="CASCADE"), index=True); number = Column(Integer)
+    title = Column(String(200)); description = Column(Text, nullable=True); body = Column(Text, nullable=True)  # body: Markdown with $maths$ (a note or worked example)
+    url = Column(String(500), nullable=True); image = Column(String(80), nullable=True)  # a link or video link; an image kept like the topics' pictures (/api/uploads/...)
+    file = Column(String(60), nullable=True); file_name = Column(String(200), nullable=True)  # a document or video file under uploads/resources, served only to those who may see it
+    saved_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); saved_at = Column(DateTime, default=dt.datetime.utcnow)
+    __table_args__ = (UniqueConstraint("resource_id", "number", name="uq_resource_versions_number"),)
+class Intervention(Base):  # S45: a teacher's support plan for some students of a course: existing activities on chosen topics, a target date, success criteria
+    __tablename__ = "interventions"
+    id = Column(Integer, primary_key=True); course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True)
+    title = Column(String(200)); description = Column(Text, nullable=True); topic_ids = Column(Text, default="[]"); criteria = Column(Text, nullable=True)
+    start_at = Column(DateTime); target_at = Column(DateTime, nullable=True); status = Column(String(10), default="draft")  # draft, active, completed, cancelled
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); created_at = Column(DateTime, default=dt.datetime.utcnow)
+    updated_at = Column(DateTime, default=dt.datetime.utcnow); changed_at = Column(DateTime, nullable=True)  # changed_at: the last change students are told about
+class InterventionActivity(Base):  # one existing activity in a plan, by reference: a topic, its revision sheet, MCQ practice, a test, a resource, asking the teacher, relearning
+    __tablename__ = "intervention_activities"
+    id = Column(Integer, primary_key=True); intervention_id = Column(Integer, ForeignKey("interventions.id", ondelete="CASCADE"), index=True)
+    position = Column(Integer, default=0); kind = Column(String(10)); topic_id = Column(Integer, nullable=True); ref_id = Column(Integer, nullable=True); size = Column(Integer, nullable=True)
+    required = Column(Boolean, default=True); added_at = Column(DateTime, default=dt.datetime.utcnow); removed_at = Column(DateTime, nullable=True)  # removed: kept for history
+class InterventionStudent(Base):  # one student's own copy of a plan: when it started for them, their evidence then, and the teacher's review of the outcome
+    __tablename__ = "intervention_students"
+    id = Column(Integer, primary_key=True); intervention_id = Column(Integer, ForeignKey("interventions.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); reason = Column(Text, nullable=True)
+    assigned_at = Column(DateTime, nullable=True); removed_at = Column(DateTime, nullable=True); baseline = Column(Text, nullable=True)  # baseline: frozen when assigned
+    outcome = Column(String(12), nullable=True); outcome_note = Column(Text, nullable=True); reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    __table_args__ = (UniqueConstraint("intervention_id", "user_id", name="uq_intervention_students"),)
 class Quiz(Base):  # a multiple-choice quiz attached to a unit, or an MCQ test for a whole course (unit_id null; course_id is then its real parent)
     __tablename__ = "quizzes"
     id = Column(Integer, primary_key=True); unit_id = Column(Integer, ForeignKey("units.id", ondelete="CASCADE"), index=True, nullable=True); course_id = Column(Integer, index=True)
@@ -214,6 +253,30 @@ class Attempt(Base):
     id = Column(Integer, primary_key=True); quiz_id = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), index=True); user_id = Column(Integer, ForeignKey("users.id"), index=True)
     score = Column(Integer); total = Column(Integer); percent = Column(Integer); at = Column(DateTime, default=dt.datetime.utcnow)
     detail = Column(Text, nullable=True)  # JSON [[question_id, 1 or 0, chosen index or null], ...] (older rows have no chosen index) so strengths and weak areas can be worked out; null on attempts made before this existed
+    snapshot = Column(Text().with_variant(_mysql_dialect.MEDIUMTEXT(), "mysql", "mariadb"), nullable=True)
+    request_id = Column(String(64), nullable=True)  # the app's id for this submission: sent again (a double tap, a retry after a lost reply), it gets the same attempt back
+    assignment_id = Column(Integer, nullable=True, index=True)  # the assignment this attempt was for (null: not for one, or made before attempts were tied)
+    __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_quiz_attempts_user_request"),)  # JSON list, in detail's order: each question as the student saw it (null where it was gone before copies were kept)
+class CourseCompletion(Base):  # when a student finished a course (every required topic learned, every course test tried); written once, kept even if the course grows later
+    __tablename__ = "course_completions"
+    id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True); completed_at = Column(DateTime)
+    __table_args__ = (UniqueConstraint("user_id", "course_id", name="uq_course_completions_user_course"),)
+class LearningCycle(Base):  # one pass of a student through a course (S37): restarting the course ends the current pass and starts the next. Nothing is copied:
+    # a pass's topic progress is the progress learned within its time window (what was set aside at the restart is in ProgressHistory), its tests the attempts in it
+    __tablename__ = "learning_cycles"
+    id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    course_id = Column(Integer, ForeignKey("subjects.id", ondelete="CASCADE"), index=True); number = Column(Integer)
+    started_at = Column(DateTime); completed_at = Column(DateTime, nullable=True); ended_at = Column(DateTime, nullable=True)  # ended: when the next pass began
+    unit_restarts = Column(Text, default="[]")  # JSON [{"unit_id", "at"}]: units started over within this pass (a unit restart is not a new pass)
+    __table_args__ = (UniqueConstraint("user_id", "course_id", "number", name="uq_learning_cycles_user_course_number"),)
+class QuizDraft(Base):  # a sitting of a quiz not yet submitted: the answers so far, so a refresh, Back or a closed app carries on. Never an attempt; gone on submit
+    __tablename__ = "quiz_drafts"
+    id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    quiz_id = Column(Integer, ForeignKey("quizzes.id", ondelete="CASCADE"), index=True)
+    request_id = Column(String(64)); answers = Column(Text, default="{}")  # the sitting's id (sent with its submit) and {question id: chosen index}
+    version = Column(Integer, default=0); updated_at = Column(DateTime, default=dt.datetime.utcnow)  # version: the app's save counter, so a save that arrives late can't undo a newer one
+    __table_args__ = (UniqueConstraint("user_id", "quiz_id", name="uq_quiz_drafts_user_quiz"),)
 class Progress(Base):  # one row per student and topic, made when they first open it. No row = not started; completed_at null = in progress
     __tablename__ = "progress"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id")); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"))
@@ -256,16 +319,32 @@ class TeacherQuestion(Base):  # a student's question to the teacher of a topic's
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), index=True); course_id = Column(Integer, nullable=True, index=True)
     excerpt = Column(Text, nullable=True)  # the passage they asked about, when they asked from a highlight
-    status = Column(String(10), default="waiting", index=True)  # waiting (for the teacher), answered, closed
+    status = Column(String(10), default="waiting", index=True)  # waiting (for the teacher), answered, closed; withdrawn: taken back before an answer, its words gone
     at = Column(DateTime, default=dt.datetime.utcnow); updated = Column(DateTime, default=dt.datetime.utcnow); seen = Column(DateTime, nullable=True)  # seen: when the student last read it
     shared = Column(Boolean, default=False)  # the teacher shared it with the class: everyone on the topic reads it, without who asked
     subject = Column(String(200), nullable=True); started_by = Column(Integer, nullable=True)  # a message the teacher started (no topic): its subject and who wrote it
+    request_id = Column(String(64), nullable=True)  # S40: the app's id for this ask, so a retry or a double tap gets the same question back
+    ai_kind = Column(String(10), nullable=True); ai_ref = Column(Integer, nullable=True)  # S40: the AI answer it was asked from (doubt, topic or private, and its id)
+    ai_context = Column(Text, nullable=True)  # S40: JSON {"q", "a"}: what was asked of the AI and a short excerpt of its answer (never the whole conversation)
+    helpful = Column(Boolean, nullable=True)  # S41: the student's word: True "I understand now", False "I still have a doubt"; null: not said
+    resolved_at = Column(DateTime, nullable=True); reopens = Column(Integer, default=0)  # S41: when it was last resolved, and how often the student reopened it
+    __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_teacher_questions_user_request"),)
 class TeacherReply(Base):  # one message in a question's thread, the student's first question included
     __tablename__ = "teacher_replies"
     id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True); text = Column(Text); at = Column(DateTime, default=dt.datetime.utcnow)
     image = Column(String(40), nullable=True)  # a photo with the message (working on paper, a diagram): its file name under uploads/questions
     file = Column(String(60), nullable=True); file_name = Column(String(200), nullable=True)  # material a teacher sent with a message (a PDF, slides, a document)
+    edited_at = Column(DateTime, nullable=True)  # S41: when its author last changed the text (the earlier versions are in reply_edits)
+class ReplyEdit(Base):  # S41: a reply's text before an edit, so an explanation is never silently overwritten
+    __tablename__ = "reply_edits"
+    id = Column(Integer, primary_key=True); reply_id = Column(Integer, ForeignKey("teacher_replies.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); text = Column(Text); at = Column(DateTime, default=dt.datetime.utcnow)
+class QuestionEvent(Base):  # S41: who moved a doubt from one status to another, and when (pending, answered, follow_up, resolved)
+    __tablename__ = "question_events"
+    id = Column(Integer, primary_key=True); question_id = Column(Integer, ForeignKey("teacher_questions.id", ondelete="CASCADE"), index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True); before = Column(String(10)); after = Column(String(10))
+    at = Column(DateTime, default=dt.datetime.utcnow)
 class ModelAnswer(Base):  # a teacher's model answer for a topic, with the marks each part earns
     __tablename__ = "model_answers"
     id = Column(Integer, primary_key=True); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), unique=True)
@@ -396,7 +475,7 @@ ORIGINS = [o.strip() for o in (os.getenv("ALLOWED_ORIGINS") or "").split(",") if
 if ORIGINS: app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["*"], allow_headers=["*"])
 app.add_middleware(GZipMiddleware, minimum_size=1000)  # the app bundle is ~850 KB; compressed it is about a quarter of that
 GSI = "https://accounts.google.com/gsi/"  # Sign in with Google: its script, the frame with its button, and its style, as Google's own CSP guide lists them
-CSP = ("default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' " + GSI + "style; font-src 'self' data:; "
+CSP = ("default-src 'self'; img-src 'self' data:; media-src 'self' blob:; style-src 'self' 'unsafe-inline' " + GSI + "style; font-src 'self' data:; "
        "script-src 'self' " + GSI + "client; frame-src 'self' " + GSI + "; connect-src 'self' " + GSI + "; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'")
 FRAME_PATH = re.compile(r"^/api/(topics/\d+/frame|topics/\d+/diagram/frame|frame-preview/[\w-]+)$")
 SKIP_AUDIT = re.compile(r"/(read|bookmark|attempt|complete)$|/ai/|^/api/me/lang$")  # student reading activity is already tracked as progress; a language choice is only a preference
@@ -937,6 +1016,37 @@ def guardian_columns(c):  # sign-in names for children, a guardian's relation, a
     for col, typ in (("username", "VARCHAR(40) NULL"), ("relation", "VARCHAR(10) NULL"), ("level", "VARCHAR(8) NULL")): _addcol("users", col, typ)(c)
     if not any(set(ix.get("column_names") or []) == {"username"} for ix in inspect(c).get_indexes("users") + [dict(column_names=u["column_names"]) for u in inspect(c).get_unique_constraints("users")]):
         c.execute(text("CREATE UNIQUE INDEX ux_users_username ON users (username)"))
+def attempt_question_copies(c):  # quiz_attempts.snapshot, filled for past attempts from the questions that are still there (a question still
+    # carrying its id was never saved again since, so it is what the student saw); a question already gone stays gone. Only adds data; one quiz at a time
+    _addcol("quiz_attempts", "snapshot", "MEDIUMTEXT NULL" if c.dialect.name in ("mysql", "mariadb") else "TEXT NULL")(c)
+    for (qid,) in c.execute(text("SELECT DISTINCT quiz_id FROM quiz_attempts WHERE snapshot IS NULL AND detail IS NOT NULL")).all():
+        qs = {r.id: question_snap(r) for r in c.execute(text("SELECT id, text, options, correct, explanation, topic_id, area, image, option_images FROM quiz_questions WHERE quiz_id = :q"), {"q": qid})}
+        for aid, detail in c.execute(text("SELECT id, detail FROM quiz_attempts WHERE quiz_id = :q AND snapshot IS NULL AND detail IS NOT NULL"), {"q": qid}).all():
+            try: ids = [d[0] for d in json.loads(detail)]
+            except (ValueError, TypeError, IndexError, KeyError): continue  # unreadable: left as it is
+            c.execute(text("UPDATE quiz_attempts SET snapshot = :v WHERE id = :i AND snapshot IS NULL"), {"v": json.dumps([qs.get(i) for i in ids], ensure_ascii=False), "i": aid})
+def attempt_request_id(c):  # quiz_attempts.request_id, one per person and submission; past attempts have none (any number may)
+    _addcol("quiz_attempts", "request_id", "VARCHAR(64) NULL")(c); ins = inspect(c)
+    if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("quiz_attempts") + ins.get_unique_constraints("quiz_attempts")):
+        c.execute(text("CREATE UNIQUE INDEX uq_quiz_attempts_user_request ON quiz_attempts (user_id, request_id)"))
+def question_context(c):  # S40: teacher_questions.request_id (one per student and ask) and the AI answer a question was asked from
+    for col, typ in (("request_id", "VARCHAR(64) NULL"), ("ai_kind", "VARCHAR(10) NULL"), ("ai_ref", "INTEGER NULL"), ("ai_context", "TEXT NULL")): _addcol("teacher_questions", col, typ)(c)
+    ins = inspect(c)
+    if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("teacher_questions") + ins.get_unique_constraints("teacher_questions")):
+        c.execute(text("CREATE UNIQUE INDEX uq_teacher_questions_user_request ON teacher_questions (user_id, request_id)"))
+def study_attempts_once(c):  # study_attempts.request_id (one per person and submission), and when the two-day mastery rule began: a topic mastered
+    # before keeps its stars (only adds data)
+    _addcol("study_attempts", "request_id", "VARCHAR(64) NULL")(c); ins = inspect(c)
+    if not any(sorted(x.get("column_names") or []) == ["request_id", "user_id"] for x in ins.get_indexes("study_attempts") + ins.get_unique_constraints("study_attempts")):
+        c.execute(text("CREATE UNIQUE INDEX uq_study_attempts_user_request ON study_attempts (user_id, request_id)"))
+    if not c.execute(text("SELECT 1 FROM settings WHERE k = 'mastery_rule_since'")).first():
+        c.execute(text("INSERT INTO settings (k, v) VALUES ('mastery_rule_since', :v)"), {"v": dt.datetime.utcnow().isoformat()})
+def assignment_window(c):  # assignments: a start time, instructions and which attempt counts; quiz attempts: the assignment they were for.
+    # Attempts made before attempts were tied (setting assign_tie_since) keep the old rule: any attempt of the quiz after the assignment was set
+    for col, typ in (("opens_at", "DATETIME NULL"), ("instructions", "TEXT NULL"), ("counts", "VARCHAR(8) NULL")): _addcol("assignments", col, typ)(c)
+    _addcol("quiz_attempts", "assignment_id", "INTEGER NULL")(c)
+    if not c.execute(text("SELECT 1 FROM settings WHERE k = 'assign_tie_since'")).first():
+        c.execute(text("INSERT INTO settings (k, v) VALUES ('assign_tie_since', :v)"), {"v": dt.datetime.utcnow().isoformat()})
 MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")), ("0002_subjects_semester_id", _addcol("subjects", "semester_id", "INT NULL")),
               ("0003_users_program_id", _addcol("users", "program_id", "INT NULL")), ("0004_users_semester", _addcol("users", "semester", "INT NULL")),
               ("0005_users_must_change", _addcol("users", "must_change", "TINYINT(1) NOT NULL DEFAULT 0")), ("0006_topics_published", _addcol("topics", "published", "TINYINT(1) NOT NULL DEFAULT 1")),
@@ -975,7 +1085,19 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                   ("start_told", "DATETIME NULL"), ("end_told", "DATETIME NULL"), ("paused_at", "DATETIME NULL"))]
                   + [_addcol("teacher_questions", col, typ)(c) for col, typ in (("subject", "VARCHAR(200) NULL"), ("started_by", "INTEGER NULL"))]
                   + [_addcol("users", "approval", "VARCHAR(10) NULL")(c), _addcol("teacher_replies", "file", "VARCHAR(60) NULL")(c), _addcol("teacher_replies", "file_name", "VARCHAR(200) NULL")(c)]),
-              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL"))]
+              ("0042_enrolment_told", _addcol("enrolments", "told", "VARCHAR(16) NULL")), ("0043_attempt_question_copies", attempt_question_copies),
+              ("0044_attempt_request_id", attempt_request_id),
+              ("0045_quiz_drafts", lambda c: Base.metadata.create_all(c, tables=[QuizDraft.__table__])), ("0046_study_attempts_once", study_attempts_once),
+              ("0047_assignment_window", assignment_window),
+              ("0048_course_completion", lambda c: [_addcol("topics", "optional", "BOOLEAN NOT NULL DEFAULT 0")(c), Base.metadata.create_all(c, tables=[CourseCompletion.__table__])]),
+              ("0049_learning_cycles", lambda c: Base.metadata.create_all(c, tables=[LearningCycle.__table__])),
+              ("0050_return_reminders", _addcol("users", "return_reminders", "BOOLEAN NOT NULL DEFAULT 1")),
+              ("0051_question_context", question_context),
+              ("0052_doubt_responses", lambda c: [_addcol("teacher_replies", "edited_at", "DATETIME NULL")(c), _addcol("teacher_questions", "helpful", "BOOLEAN NULL")(c),
+                                                  _addcol("teacher_questions", "resolved_at", "DATETIME NULL")(c), _addcol("teacher_questions", "reopens", "INTEGER NOT NULL DEFAULT 0")(c),
+                                                  Base.metadata.create_all(c, tables=[ReplyEdit.__table__, QuestionEvent.__table__])]),
+              ("0053_teacher_resources", lambda c: Base.metadata.create_all(c, tables=[TeacherResource.__table__, ResourceVersion.__table__])),
+              ("0054_interventions", lambda c: Base.metadata.create_all(c, tables=[Intervention.__table__, InterventionActivity.__table__, InterventionStudent.__table__]))]
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -1840,6 +1962,8 @@ class Cfg(BaseModel):
     ai_provider: str | None = None  # which provider answers for the college (see PROVIDERS)
     keys: dict[str, str] | None = None; models: dict[str, str] | None = None; budgets: dict[str, int] | None = None; remove_keys: list[str] | None = None  # by provider
     lite_searches: int | None = None; lite_minutes: int | None = None  # the free daily allowance of self-registered (lite) people
+    break_days: list[int] | None = None  # S39: [extended, long] days away from learning
+    doubt_hours: list[int] | None = None  # S42: [hours to a first answer, hours to answer a follow-up]; 0 turns a target off
     google_client_id: str | None = None  # Sign in with Google: the web client ID (more, comma separated); empty turns it off
 @app.get("/api/admin/settings")
 def get_cfg(_: User = Depends(admin), s: Session = Depends(db)):
@@ -1851,7 +1975,7 @@ def get_cfg(_: User = Depends(admin), s: Session = Depends(db)):
             "vision_set": bool(vk), "vision_hint": ("…" + vk[-4:]) if vk else "", "vision_model": setting(s, "vision_model", VISION_MODEL), "ocr": ocr_ready(),
             "budget": {x: budget(s, x) for x in PROVIDERS},
             "self_registration": setting(s, "self_registration") == "1", "allowed_domains": setting(s, "allowed_domains"), "self_registered_users": s.query(User).filter_by(self_registered=True).count(),
-            "lite": dict(zip(("searches", "minutes"), lite_limits(s)))}
+            "lite": dict(zip(("searches", "minutes"), lite_limits(s))), "break_days": list(break_days(s)), "doubt_hours": list(doubt_targets(s))}
 @app.put("/api/admin/settings")
 def put_cfg(b: Cfg, _: User = Depends(admin), s: Session = Depends(db)):
     if b.remove_key: s.query(Setting).filter_by(k="deepseek_key").delete()  # turns AI off for everyone until a new key is saved
@@ -1879,6 +2003,12 @@ def put_cfg(b: Cfg, _: User = Depends(admin), s: Session = Depends(db)):
     for k, v in (("vision_key", b.vision_key), ("vision_model", b.vision_model)):
         if v and v.strip() and not (k == "vision_key" and b.remove_vision_key): s.merge(Setting(k=k, v=v.strip()))
     if b.self_registration is not None: s.merge(Setting(k="self_registration", v="1" if b.self_registration else "0"))
+    if b.doubt_hours is not None:
+        if len(b.doubt_hours) != 2 or not all(0 <= h <= 24 * 30 for h in b.doubt_hours): raise HTTPException(400, "Enter two numbers of hours from 0 to 720 (0: no target)")
+        s.merge(Setting(k="doubt_first_hours", v=str(b.doubt_hours[0]))); s.merge(Setting(k="doubt_followup_hours", v=str(b.doubt_hours[1])))
+    if b.break_days is not None:
+        if len(b.break_days) != 2 or not 1 <= b.break_days[0] < b.break_days[1] <= 365: raise HTTPException(400, "Enter two numbers of days, the second larger: for example 7 and 30")
+        s.merge(Setting(k="break_extended_days", v=str(b.break_days[0]))); s.merge(Setting(k="break_long_days", v=str(b.break_days[1])))
     if b.google_client_id is not None:
         ids = [x.strip() for x in b.google_client_id.split(",") if x.strip()]
         if any(not GOOGLE_ID.fullmatch(x) for x in ids): raise HTTPException(400, "A Google client ID looks like 123456789-abc123.apps.googleusercontent.com")
@@ -2062,11 +2192,11 @@ def report_students(cid: int, format: str = "json", u: User = Depends(author), s
     for l in s.query(CourseLink).filter_by(course_id=cid): links[cid].append(l.semester_id)
     aud = course_audience(c, students, sems, links); tids, reads, done, last, qids, bests = course_stats(c, aud, s)
     pt = {p.id: term_label(p) for p in s.query(Program)}; used = {pt.get(x.program_id, "Semester") for x in aud}
-    batches = latest_batches(s, [x.id for x in aud], course_quiz_ids(cid, s)); ctx = area_context(batches, s); per = defaultdict(list)
+    batches = all_batches(s, [x.id for x in aud], course_quiz_ids(cid, s)); ctx = area_context(batches, s); per = defaultdict(list); prac = practice_sittings(s, [x.id for x in aud])
     for b in batches: per[b[0]].append(b)
-    mine = {uid: tally(bs, ctx, True) for uid, bs in per.items()}
+    mine = {uid: tally(bs, ctx, True, True, prac.get(uid)) for uid, bs in per.items()}
     names = lambda uid, st: [a["title"] for a in sorted(mine.get(uid, {}).values(), key=lambda a: (a["percent"], a["title"])) if a["status"] == st]
-    rows = [{"strong": names(x.id, "strong"), "needs_study": names(x.id, "needs_study"), "name": x.name, "email": x.email, "program": pn.get(x.program_id, ""), "semester": x.semester, "active": bool(x.active), "topics_read": reads[x.id], "topics_completed": done[x.id], "topics": len(tids),
+    rows = [{"user_id": x.id, "activity": activity_label(s, x.id), "strong": names(x.id, "strong"), "needs_study": names(x.id, "needs_study"), "name": x.name, "email": x.email, "program": pn.get(x.program_id, ""), "semester": x.semester, "active": bool(x.active), "topics_read": reads[x.id], "topics_completed": done[x.id], "topics": len(tids),
              "completion": round(100 * done[x.id] / len(tids)) if tids else 0, "quizzes_taken": len(bests[x.id]), "quizzes": len(qids),
              "avg_quiz_percent": round(sum(bests[x.id].values()) / len(bests[x.id])) if bests[x.id] else None, "last_active": (last[x.id].isoformat() + "Z") if last.get(x.id) else None}
             for x in sorted(aud, key=lambda x: (x.name or "").lower())]
@@ -2202,7 +2332,7 @@ def admin_dashboard(u: User = Depends(admin), s: Session = Depends(db)):
     flags = flags_for(u, s); nf = flags.count()
     if nf:
         oldest = flags.order_by(AIFlag.at).first().at; days = (now - oldest).days
-        add(nf, "content", "now" if days >= FLAG_OLD_DAYS else "soon", "flags", "Flagged AI answers to check: {n}, the oldest from {days} days ago" if days else "Flagged AI answers to check: {n}",
+        add(nf, "content", "now" if days >= FLAG_OLD_DAYS else "soon", "flags", "Student reports to check: {n}, the oldest from {days} days ago" if days else "Student reports to check: {n}",  # flagged AI answers and problems with notes
             "flags", {"days": days})
     waiting = tq_for(u, s).filter(TeacherQuestion.status == "waiting"); nq = waiting.count()
     if nq:
@@ -2279,6 +2409,7 @@ class TopicIn(BaseModel):
     content_format: str = "markdown"  # "markdown" or "html"; HTML is cleaned when it is saved
     learning_due_at: dt.datetime | None = None  # ISO 8601 with a time zone; null removes the deadline; leave out to keep it
     diagram: bool = False; diagram_note: str = ""  # the teacher asks for an AI diagram (shown to students on Pro), and what it should show
+    optional: bool = False  # an optional topic doesn't count toward finishing the course
 M = {"programs": Program, "semesters": Semester, "courses": Course, "units": Unit, "topics": Topic}
 def offered_cj(d, c, u):  # an offered course in someone's list: before its first day a student sees its name and start date, nothing inside
     today = local_day(dt.datetime.utcnow()); soon = bool(c.starts_on and today < c.starts_on)
@@ -2319,7 +2450,7 @@ def tree(u: User = Depends(me), s: Session = Depends(db)):
              "owner": owners[c.faculty_owner_id].name if c.faculty_owner_id in owners else None,
              "tests": [] if off and not ed else [q for q in tests[c.id] if ed or (q["published"] and q["questions"])], "units": [] if off and not ed else [  # everyone else sees an archived course as a locked name, nothing inside
             {"id": n.id, "name": n.name, "archived": off or bool(n.archived_at), "archived_self": bool(n.archived_at), "quizzes": [q for q in qz[n.id] if ed or (q["published"] and q["questions"])],
-             "topics": [{"id": t.id, "title": t.title, "read": t.id in read, "bookmarked": t.id in marked, "published": t.published is not False, "has_notes": t.id in noted,
+             "topics": [{"id": t.id, "title": t.title, "read": t.id in read, "bookmarked": t.id in marked, "published": t.published is not False, "has_notes": t.id in noted, "optional": bool(t.optional),
                          "archived": off or bool(n.archived_at) or bool(t.archived_at), "archived_self": bool(t.archived_at),
                          "last_read": mine_p[t.id].last_read.isoformat() + "Z" if t.id in mine_p and mine_p[t.id].last_read else None,
                          **learning_state(t.learning_due_at, mine_p.get(t.id), now)} for t in tp[n.id] if (t.published is not False or ed) and (ed or not t.archived_at)]} for n in un[c.id] if ed or not n.archived_at]}
@@ -2623,10 +2754,10 @@ MAX_QUESTIONS = 200  # a course test; a unit quiz stays short
 def max_questions(q): return 100 if q.unit_id else MAX_QUESTIONS
 class QuizIn(BaseModel): unit_id: int = 0; course_id: int = 0; title: str; pass_percent: int = 50; published: bool = False; reveal: bool = False  # unit_id for a unit quiz, else course_id for a course test
 class QuestionIn(BaseModel):
-    text: str; options: list[str]; correct: int; explanation: str = ""; topic_id: int | None = None
+    text: str; options: list[str]; correct: int; explanation: str = ""; topic_id: int | None = None; id: int | None = None  # id: the saved question this edits
     area: str = ""; image: str = ""; option_images: list[str] = []  # images are urls from POST /api/uploads
 class QuestionsIn(BaseModel): questions: list[QuestionIn]
-class AttemptIn(BaseModel): answers: list[int | None]
+class AttemptIn(BaseModel): answers: list[int | None]; request_id: str = ""  # request_id: made by the app once per sitting of the test, kept on retries
 def quiz_or_404(qid, s):
     q = s.get(Quiz, qid)
     if not q: raise HTTPException(404, "Quiz not found")
@@ -2656,6 +2787,31 @@ def clean_question(q, x, i, s):  # -> the column values of one question, or a 40
 # ---- strengths and weak areas: what a student has mastered, and what needs another round of study ----
 STRONG, WEAK = 80, 60  # at or above STRONG is a strength; below WEAK needs another round of study; in between is getting there
 def area_status(pct): return "strong" if pct >= STRONG else "needs_study" if pct < WEAK else "getting_there"
+# S38: one rule for how a topic (or area) stands, from enough evidence: at least EVIDENCE_MIN_ASKED questions over at least EVIDENCE_MIN_SITTINGS separate
+# sittings (tests and MCQ sets both count). Strong: 80%+ overall and 80%+ in the latest sitting. Needs attention ("needs_study"): under 60% overall and in
+# the latest. Needs revision ("getting_there"): anything between, or results that disagree. Less evidence than that: not assessed, never weak.
+EVIDENCE_MIN_ASKED, EVIDENCE_MIN_SITTINGS = 5, 2
+def classify(sittings):  # [(at, right, asked)] for one topic
+    asked = sum(x[2] for x in sittings); right = sum(x[1] for x in sittings)
+    if asked < EVIDENCE_MIN_ASKED or len(sittings) < EVIDENCE_MIN_SITTINGS: return "not_assessed"
+    last = max(sittings, key=lambda x: x[0] or dt.datetime.min); lp = 100 * last[1] / last[2] if last[2] else 0; pc = 100 * right / asked
+    if pc >= STRONG and lp >= STRONG: return "strong"
+    if pc < WEAK and lp < WEAK: return "needs_study"
+    return "getting_there"
+def all_batches(s, user_ids, quiz_ids):  # like latest_batches, but every attempt (each a sitting), with its time as a fifth item
+    if not user_ids or not quiz_ids: return []
+    atts = s.query(Attempt).filter(Attempt.user_id.in_(list(user_ids)), Attempt.quiz_id.in_(list(quiz_ids)), Attempt.detail.isnot(None)).order_by(Attempt.at, Attempt.id).all()
+    quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}; qm = defaultdict(dict)
+    for x in s.query(Question).filter(Question.quiz_id.in_(set(quizzes) or {0})): qm[x.quiz_id][x.id] = x
+    return [(a.user_id, quizzes[a.quiz_id], attempt_questions(a, qm[a.quiz_id]), json.loads(a.detail), a.at) for a in atts if a.quiz_id in quizzes]
+def practice_sittings(s, user_ids):  # {user: {topic: [(at, right, asked)]}}: each submitted MCQ set, per topic it asked about
+    sets = defaultdict(lambda: [None, 0, 0])
+    for aid, uid, at, tid, ok in s.query(McqAttempt.id, McqAttempt.user_id, McqAttempt.submitted_at, McqAttemptItem.topic_id, McqAttemptItem.ok).join(McqAttemptItem, McqAttemptItem.attempt_id == McqAttempt.id) \
+            .filter(McqAttempt.user_id.in_(list(user_ids) or [0]), McqAttempt.status == "submitted", McqAttemptItem.topic_id.isnot(None)):
+        k = sets[(uid, aid, tid)]; k[0] = at; k[1] += bool(ok); k[2] += 1
+    out = defaultdict(lambda: defaultdict(list))
+    for (uid, aid, tid), v in sets.items(): out[uid][tid].append(tuple(v))
+    return out
 def latest_batches(s, user_ids, quiz_ids):
     """Each user's newest attempt of each quiz, so a retake replaces the earlier result. Returns [(user_id, quiz, {question_id: Question}, [[question_id, 1|0], ...])]."""
     if not user_ids or not quiz_ids: return []
@@ -2663,20 +2819,21 @@ def latest_batches(s, user_ids, quiz_ids):
     atts = s.query(Attempt).filter(Attempt.id.in_(ids or [0])).all(); quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}
     qm = defaultdict(dict)
     for x in s.query(Question).filter(Question.quiz_id.in_(set(quizzes) or {0})): qm[x.quiz_id][x.id] = x
-    return [(a.user_id, quizzes[a.quiz_id], qm[a.quiz_id], json.loads(a.detail)) for a in atts if a.quiz_id in quizzes]
+    return [(a.user_id, quizzes[a.quiz_id], attempt_questions(a, qm[a.quiz_id]), json.loads(a.detail)) for a in atts if a.quiz_id in quizzes]
 def area_context(batches, s):
-    tids = {x.topic_id for _, _, qm, _ in batches for x in qm.values() if x.topic_id}
+    tids = {x.topic_id for b in batches for x in b[2].values() if x.topic_id}
     topics = {t.id: t for t in s.query(Topic).filter(Topic.id.in_(tids or {0}))}
-    uids = {q.unit_id for _, q, _, _ in batches if q.unit_id} | {t.unit_id for t in topics.values() if t.unit_id}
+    uids = {b[1].unit_id for b in batches if b[1].unit_id} | {t.unit_id for t in topics.values() if t.unit_id}
     units = {x.id: x for x in s.query(Unit).filter(Unit.id.in_(uids or {0}))}
-    cids = {x.course_id for x in units.values()} | {q.course_id for _, q, _, _ in batches if not q.unit_id}
+    cids = {x.course_id for x in units.values()} | {b[1].course_id for b in batches if not b[1].unit_id}
     courses = {c.id: c.name for c in s.query(Course).filter(Course.id.in_(cids or {0}))}
     return topics, units, courses
-def tally(batches, ctx, staff):
+def tally(batches, ctx, staff, evidence=False, practice=None):
     """Groups one person's answers by topic. A question with no topic (or whose topic is a draft they can't see, was deleted or moved out of the quiz's
     unit or course) counts under its area label if it has one, else under its unit, else under the course test itself."""
     topics, units, courses = ctx; acc = {}
-    for _, q, qm, detail in batches:
+    for i, b in enumerate(batches):
+        q, qm, detail = b[1], b[2], b[3]; at = b[4] if len(b) > 4 else None
         un = units.get(q.unit_id) if q.unit_id else None; cid = un.course_id if un else (q.course_id if not q.unit_id else None)
         for d in detail:
             qid, ok = d[0], d[1]; x = qm.get(qid)
@@ -2690,9 +2847,14 @@ def tally(batches, ctx, staff):
             elif q.unit_id: key, title = ("u", q.unit_id), (un.name + " · general questions") if un else q.title
             else: key, title = ("q", q.id), q.title + " · general questions"
             a = acc.setdefault(key, {"key": key, "topic_id": t.id if t else None, "unit_id": tu.id if tu else None, "unit": tu.name if tu else "", "course_id": cid,
-                                     "course": courses.get(cid, ""), "title": title, "area": key[0] == "a", "correct": 0, "total": 0})
-            a["correct"] += ok; a["total"] += 1
-    for a in acc.values(): a["percent"] = round(100 * a["correct"] / a["total"]); a["status"] = area_status(a["percent"])
+                                     "course": courses.get(cid, ""), "title": title, "area": key[0] == "a", "correct": 0, "total": 0, "_sit": {}})
+            a["correct"] += ok; a["total"] += 1; sit = a["_sit"].setdefault(i, [at, 0, 0]); sit[1] += ok; sit[2] += 1
+    for a in acc.values():
+        a["percent"] = round(100 * a["correct"] / a["total"]); sits = [tuple(v) for v in a.pop("_sit").values()]
+        if evidence:  # S38: the standing from every sitting, tests and (for a topic) MCQ practice; the percent stays the tests' own
+            pr = (practice or {}).get(a["topic_id"], []) if a["topic_id"] else []
+            a["practice_correct"] = sum(x[1] for x in pr); a["practice_total"] = sum(x[2] for x in pr); a["sittings"] = len(sits) + len(pr); a["status"] = classify(sits + pr)
+        else: a["status"] = area_status(a["percent"])
     return acc
 def area_summary(areas):  # one plain sentence on what the learner is good at and what to revisit
     good = [a["title"] for a in sorted(areas, key=lambda a: -a["percent"]) if a["status"] == "strong"][:3]; weak = [a["title"] for a in areas if a["status"] == "needs_study"][:3]
@@ -2701,8 +2863,8 @@ def area_summary(areas):  # one plain sentence on what the learner is good at an
     if good: return f"Good at {', '.join(good)}." + ("" if len(good) == len(areas) else " Keep going on the rest.")
     if weak: return f"Needs another round: {', '.join(weak)}."
     return "Getting there in every area. One more round of practice should make them strong."
-def areas_for(batches, s, staff, uid=None):
-    ctx = area_context(batches, s); acc = tally(batches, ctx, staff)
+def areas_for(batches, s, staff, uid=None, evidence=False, practice=None):
+    ctx = area_context(batches, s); acc = tally(batches, ctx, staff, evidence, practice)
     study = {}
     if uid and acc:
         for r in s.query(Progress).filter(Progress.user_id == uid, Progress.topic_id.in_([a["topic_id"] for a in acc.values() if a["topic_id"]] or [0])): study[r.topic_id] = "completed" if r.completed_at else "in_progress"
@@ -2718,12 +2880,13 @@ def my_insights(u: User = Depends(me), s: Session = Depends(db)):
         return ok_course[cid]
     qs = [(q, quiz_course_id(q, s)) for q in s.query(Quiz).filter(Quiz.published == True, Quiz.id.in_(s.query(Attempt.quiz_id).filter(Attempt.user_id == u.id)))]  # noqa: E712
     qids = [q.id for q, cid in qs if cid and allowed(cid)]
-    areas = areas_for(latest_batches(s, [u.id], qids), s, is_staff(u), u.id)
+    areas = areas_for(all_batches(s, [u.id], qids), s, is_staff(u), u.id, evidence=True, practice=practice_sittings(s, [u.id])[u.id])
     by = defaultdict(list)
     for a in areas: by[a["course_id"]].append(a)
     courses = [{"course_id": cid, "course": L[0]["course"], "percent": round(100 * sum(a["correct"] for a in L) / sum(a["total"] for a in L)), "areas": L} for cid, L in by.items()]
     return {"quizzes_taken": len(qids), "courses": courses, "strong": sorted([a for a in areas if a["status"] == "strong"], key=lambda a: (-a["percent"], a["title"])),
-            "getting_there": [a for a in areas if a["status"] == "getting_there"], "needs_study": [a for a in areas if a["status"] == "needs_study"]}
+            "getting_there": [a for a in areas if a["status"] == "getting_there"], "needs_study": [a for a in areas if a["status"] == "needs_study"],
+            "not_assessed": [a for a in areas if a["status"] == "not_assessed"], "rule": {"min_questions": EVIDENCE_MIN_ASKED, "min_sittings": EVIDENCE_MIN_SITTINGS, "strong": STRONG, "weak": WEAK}}
 def course_quiz_ids(cid, s):  # published unit quizzes and course tests of a course
     return [q.id for q in s.query(Quiz).join(Unit, Unit.id == Quiz.unit_id).filter(Unit.course_id == cid, Quiz.published == True)] + \
            [i for (i,) in s.query(Quiz.id).filter(Quiz.unit_id.is_(None), Quiz.course_id == cid, Quiz.published == True)]  # noqa: E712
@@ -2736,16 +2899,16 @@ def class_weak_areas(cid: int, u: User = Depends(author), s: Session = Depends(d
     c = s.get(Course, cid)
     if not c: raise HTTPException(404, "Course not found")
     need_edit(u, cid, s)
-    aud = [x for x in course_users(c, s) if x.active]; batches = latest_batches(s, [x.id for x in aud], course_quiz_ids(cid, s))
-    n, areas = class_areas(batches, s)
+    aud = [x for x in course_users(c, s) if x.active]; batches = all_batches(s, [x.id for x in aud], course_quiz_ids(cid, s))
+    n, areas = class_areas(batches, s, practice_sittings(s, [x.id for x in aud]))
     return {"course": c.name, "students_with_results": n, "areas": areas}
-def class_areas(batches, s):  # every student's areas added up: (students with results, rows weakest first)
+def class_areas(batches, s, practice=None):  # every student's areas added up: (students with results, rows weakest first). With practice: the S38 rule
     ctx = area_context(batches, s); per = defaultdict(list)
     for b in batches: per[b[0]].append(b)
     agg = {}
     for uid, bs in per.items():
-        for key, a in tally(bs, ctx, True).items():
-            g = agg.setdefault(key, {**{k: v for k, v in a.items() if k not in ("key", "status", "percent")}, "correct": 0, "total": 0, "students": 0, "strong": 0, "getting_there": 0, "needs_study": 0})
+        for key, a in tally(bs, ctx, True, practice is not None, (practice or {}).get(uid)).items():
+            g = agg.setdefault(key, {**{k: v for k, v in a.items() if k not in ("key", "status", "percent", "practice_correct", "practice_total", "sittings")}, "correct": 0, "total": 0, "students": 0, "strong": 0, "getting_there": 0, "needs_study": 0, "not_assessed": 0})
             g["correct"] += a["correct"]; g["total"] += a["total"]; g["students"] += 1; g[a["status"]] += 1
     rows = sorted(agg.values(), key=lambda g: (round(100 * g["correct"] / g["total"]), g["title"]))
     return len(per), [{**g, "percent": round(100 * g["correct"] / g["total"])} for g in rows]
@@ -2772,8 +2935,15 @@ def set_questions(qid: int, b: QuestionsIn, u: User = Depends(author), s: Sessio
     q = quiz_or_404(qid, s); need_edit(u, quiz_course_id(q, s), s)
     if len(b.questions) > max_questions(q): raise HTTPException(400, f"A quiz can have up to {max_questions(q)} questions")
     rows = [clean_question(q, x, i, s) for i, x in enumerate(b.questions, 1)]
-    s.query(Question).filter_by(quiz_id=qid).delete()  # past attempts keep their scores; their per-question review covers the questions that still match
-    for i, v in enumerate(rows): s.add(Question(quiz_id=qid, pos=i, **v))
+    have = {x.id: x for x in s.query(Question).filter_by(quiz_id=qid)}; kept = set()
+    for i, (x, v) in enumerate(zip(b.questions, rows)):
+        old = have.get(x.id) if x.id not in kept else None
+        if old is not None and json.loads(old.options) == json.loads(v["options"]) and old.correct == v["correct"]:  # the same question, reworded or re-pictured: it keeps its id, so its class figures carry on
+            for k, val in v.items(): setattr(old, k, val)
+            old.pos = i; kept.add(old.id)
+        else: s.add(Question(quiz_id=qid, pos=i, **v))  # new, or its choices or answer changed: a new question, so answers given to the old choices aren't counted against it
+    for qid_, old in have.items():
+        if qid_ not in kept: s.delete(old)  # past attempts keep their own copy of it (Attempt.snapshot)
     s.commit(); return {"ok": True, "count": len(rows)}
 # ---- shared question bank ----
 def q_sig(text, opts, correct): return hashlib.sha1(json.dumps([text.strip().lower(), [o.strip().lower() for o in opts], correct]).encode()).hexdigest()
@@ -2853,7 +3023,7 @@ def get_quiz(qid: int, u: User = Depends(me), s: Session = Depends(db)):
     q = quiz_or_404(qid, s); cid = quiz_course_id(q, s); staff_view = u.role == "admin" or (u.role == "faculty" and can_edit(u, cid, s))
     if not staff_view:
         if not q.published: raise HTTPException(404, "Quiz not found")
-        check_course_access(u, cid, s); quiz_unit_open(q, s)
+        check_course_access(u, cid, s); quiz_unit_open(q, s); quiz_assignment(s, u, qid)
     qs = s.query(Question).filter_by(quiz_id=qid).order_by(Question.pos, Question.id).all()
     mine = s.query(Attempt).filter_by(quiz_id=qid, user_id=u.id).order_by(Attempt.id).all()
     co = s.get(Course, cid) if cid else None
@@ -2861,7 +3031,13 @@ def get_quiz(qid: int, u: User = Depends(me), s: Session = Depends(db)):
             "course": co.name if co else "", "kind": "unit" if q.unit_id else "course", "can_edit": staff_view,
             "questions": [{**question_view(x), **({"correct": x.correct, "explanation": x.explanation, "topic_id": x.topic_id, "area": x.area or ""} if staff_view else {})} for x in qs],
             **({"topics": quiz_topics(q, s)} if staff_view else {}),
-            "attempts": len(mine), "best": max([a.percent for a in mine], default=None), "latest": mine[-1].percent if mine else None, "latest_id": mine[-1].id if mine else None}
+            "attempts": len(mine), "best": max([a.percent for a in mine], default=None), "latest": mine[-1].percent if mine else None, "latest_id": mine[-1].id if mine else None,
+            "draft": draft_view(s.query(QuizDraft).filter_by(user_id=u.id, quiz_id=qid).first())}
+def question_snap(x):  # a question as an attempt keeps it: everything needed to review it later, whatever happens to the quiz
+    return {**question_view(x), "correct": x.correct, "explanation": x.explanation or "", "topic_id": x.topic_id, "area": x.area or ""}
+def attempt_questions(a, current):  # {question id: question} for one attempt: its own copies where it has them, else the quiz's questions as they are now
+    if not a.snapshot: return current
+    return {x["id"]: SimpleNamespace(**{**x, "options": json.dumps(x["options"]), "option_images": json.dumps(x["option_images"]) if x["option_images"] else None}) for x in json.loads(a.snapshot) if x}
 def question_view(x):  # what anyone taking the quiz may see of a question
     return {"id": x.id, "text": x.text, "options": json.loads(x.options), "image": x.image or "", "option_images": [v or "" for v in json.loads(x.option_images)] if x.option_images else []}
 def quiz_topics(q, s):  # the topics a question of this quiz may be tied to
@@ -2877,23 +3053,87 @@ def course_topics(cid, s):
     return [{"id": t.id, "title": t.title, "unit": un.name} for un in units for t in by[un.id]]
 @app.post("/api/quizzes/{qid}/attempt")
 def attempt_quiz(qid: int, b: AttemptIn, u: User = Depends(me), s: Session = Depends(db)):
-    q = quiz_or_404(qid, s); cid = quiz_course_id(q, s)
-    if not q.published and not (u.role == "admin" or can_edit(u, cid, s)): raise HTTPException(404, "Quiz not found")
-    check_course_access(u, cid, s)
-    if not can_edit(u, cid, s): quiz_unit_open(q, s)
-    if u.role == "student": quiz_attempt_allowed(s, u, qid)
+    """Marks one sitting of a quiz on the server. The same request_id sent again (a double tap, a retry after a lost reply) gets the same attempt and
+    result back instead of a new one; a person's submissions are taken one at a time, so two at once can't both pass the attempt limit."""
+    q, cid = quiz_to_take(qid, u, s)
+    rid = re.sub(r"[^A-Za-z0-9_-]", "", b.request_id or "")[:64] or None; uid, role = u.id, u.role
+    def again():  # this submission, if it was already taken
+        at = s.query(Attempt).filter_by(user_id=uid, request_id=rid).first() if rid else None
+        if at and at.quiz_id != qid: raise HTTPException(409, "That submission was for another quiz")
+        return at
+    if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+    s.rollback()  # end the reads so far, so what follows sees every attempt saved before this one
+    s.execute(text("UPDATE users SET id = id WHERE id = :u"), {"u": uid})  # this person's lock until the commit: another submission of theirs waits here
+    if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+    asg = quiz_assignment(s, u, qid); quiz_attempt_allowed(s, u, asg)
     qs = s.query(Question).filter_by(quiz_id=qid).order_by(Question.pos, Question.id).all()
     if not qs: raise HTTPException(400, "This quiz has no questions yet")
     if len(b.answers) != len(qs): raise HTTPException(400, "Answer every question or leave it blank")
     if any(a is not None and not 0 <= a < len(json.loads(x.options)) for a, x in zip(b.answers, qs)): raise HTTPException(400, "One of the answers is not a choice of its question")
+    oks = [a == x.correct for a, x in zip(b.answers, qs)]
+    score = sum(oks); pct = round(100 * score / len(qs))
+    detail = [[x.id, int(ok), a] for x, ok, a in zip(qs, oks, b.answers)]
+    at = Attempt(quiz_id=qid, user_id=uid, score=score, total=len(qs), percent=pct, detail=json.dumps(detail), request_id=rid, assignment_id=asg.id if asg else None,
+                 snapshot=json.dumps([question_snap(x) for x in qs], ensure_ascii=False)); s.add(at)
+    s.query(QuizDraft).filter_by(user_id=uid, quiz_id=qid).delete(synchronize_session=False)  # the sitting is over: its saved answers go with the same commit
+    try: s.commit()
+    except IntegrityError:  # the same submission, saved by another request just now: theirs stands
+        s.rollback()
+        if (at := again()): return attempt_reply(at, q, u, cid, s, already=True)
+        raise
+    return attempt_reply(at, q, u, cid, s)
+def quiz_to_take(qid, u, s):  # the quiz, if this person may sit it now
+    q = quiz_or_404(qid, s); cid = quiz_course_id(q, s)
+    if not q.published and not (u.role == "admin" or can_edit(u, cid, s)): raise HTTPException(404, "Quiz not found")
+    check_course_access(u, cid, s)
+    if not can_edit(u, cid, s): quiz_unit_open(q, s)
+    quiz_assignment(s, u, qid)  # assigned with a start time still to come: not yet
+    return q, cid
+def draft_view(d): return {"request_id": d.request_id, "answers": json.loads(d.answers or "{}"), "version": d.version, "saved_at": utc_iso(d.updated_at)} if d else None
+class DraftIn(BaseModel): request_id: str; answers: dict[int, int | None] = {}; version: int  # every answer of the sitting so far, by question id
+@app.put("/api/quizzes/{qid}/draft")
+def save_draft(qid: int, b: DraftIn, u: User = Depends(me), s: Session = Depends(db)):
+    """Keeps the answers of a sitting not yet submitted. Only a newer save (a higher version) replaces what is kept, so a late or retried save never
+    undoes a newer one; the reply is what is kept now. A sitting already submitted can't be saved again."""
+    q, cid = quiz_to_take(qid, u, s); uid = u.id
+    rid = re.sub(r"[^A-Za-z0-9_-]", "", b.request_id or "")[:64]
+    if not rid: raise HTTPException(400, "Missing the sitting's id")
+    if s.query(Attempt.id).filter_by(user_id=uid, request_id=rid).first(): raise HTTPException(409, "This sitting was already submitted")
+    opts = {x.id: len(json.loads(x.options)) for x in s.query(Question).filter_by(quiz_id=qid)}
+    if len(b.answers) > len(opts) or any(k not in opts or (v is not None and not 0 <= v < opts[k]) for k, v in b.answers.items()):
+        raise HTTPException(400, "One of the answers is not a choice of this quiz")
+    val = json.dumps({str(k): v for k, v in b.answers.items() if v is not None}); now = dt.datetime.utcnow(); saved = False
+    for _ in range(2):
+        saved = s.query(QuizDraft).filter(QuizDraft.user_id == uid, QuizDraft.quiz_id == qid, QuizDraft.version < b.version).update(
+            {QuizDraft.answers: val, QuizDraft.version: b.version, QuizDraft.request_id: rid, QuizDraft.updated_at: now}, synchronize_session=False) == 1
+        if saved or s.query(QuizDraft.id).filter_by(user_id=uid, quiz_id=qid).first(): break  # saved, or a newer save is already kept
+        try: s.add(QuizDraft(user_id=uid, quiz_id=qid, request_id=rid, answers=val, version=b.version, updated_at=now)); s.commit(); saved = True; break
+        except IntegrityError: s.rollback()  # another save made it just now: compare with that one
+    s.commit(); s.expire_all()
+    return {"saved": saved, "draft": draft_view(s.query(QuizDraft).filter_by(user_id=uid, quiz_id=qid).first())}
+def attempt_reply(at, q, u, cid, s, already=False):  # one attempt's result as it was marked, from its own copy of the questions
     key = u.role == "admin" or can_edit(u, cid, s) or bool(q.reveal)  # the answer key goes back only to people who can edit the quiz, or to everyone when the quiz reveals it
-    results = [{"chosen": a, "ok": a == x.correct, **({"correct": x.correct, "explanation": x.explanation} if key else {})} for a, x in zip(b.answers, qs)]
-    score = sum(r["ok"] for r in results); pct = round(100 * score / len(qs))
-    detail = [[x.id, int(r["ok"]), a] for x, r, a in zip(qs, results, b.answers)]
-    at = Attempt(quiz_id=qid, user_id=u.id, score=score, total=len(qs), percent=pct, detail=json.dumps(detail)); s.add(at); s.commit()
-    areas = areas_for([(u.id, q, {x.id: x for x in qs}, detail)], s, is_staff(u), u.id)
-    return {"attempt_id": at.id, "score": score, "total": len(qs), "percent": pct, "passed": pct >= q.pass_percent, "pass_percent": q.pass_percent, "reveal": key, "results": results, "areas": areas,
-            "summary": area_summary(areas)}
+    detail = json.loads(at.detail); snap = json.loads(at.snapshot) if at.snapshot else [None] * len(detail)
+    results = [{"chosen": d[2] if len(d) > 2 else None, "ok": bool(d[1]), **({"correct": x["correct"], "explanation": x["explanation"]} if key and x else {})} for d, x in zip(detail, snap)]
+    areas = areas_for([(at.user_id, q, attempt_questions(at, {}), detail)], s, is_staff(u), at.user_id)
+    return {"attempt_id": at.id, "score": at.score, "total": at.total, "percent": at.percent, "passed": at.percent >= q.pass_percent, "pass_percent": q.pass_percent, "reveal": key,
+            "results": results, "areas": areas, "summary": area_summary(areas), **attempt_extras(at, q, cid, s), **({"already": True} if already else {})}
+def attempt_extras(at, q, cid, s):  # right/wrong/blank, which attempt this is, and where the student now stands in the attempt's topics
+    detail = json.loads(at.detail) if at.detail else []
+    return {"counts": result_counts([d[2] if len(d) > 2 else None for d in detail], [d[1] for d in detail]) if detail else None,
+            "number": attempt_number(at, s), "standing": quiz_standing(at, q, cid, s)}
+def attempt_number(at, s):  # within an assignment of this quiz that limits attempts ("2 of 3"), or among all the person's attempts of it
+    q = s.query(func.count(Attempt.id)).filter(Attempt.user_id == at.user_id, Attempt.quiz_id == at.quiz_id, Attempt.id <= at.id)
+    a = assigned_to(s, at.user_id).filter(Assignment.kind == "quiz", Assignment.quiz_id == at.quiz_id, Assignment.attempts > 0, Assignment.created_at <= at.at) \
+        .order_by(Assignment.created_at.desc()).first()
+    if a: return {"n": q.filter(Attempt.at >= a.created_at).scalar() or 1, "of": a.attempts}
+    return {"n": q.scalar() or 1, "of": None}
+def quiz_standing(at, q, cid, s):  # the attempt's topics, as the student stands in them now: their latest attempt of each test of the course
+    tids = {x.topic_id for x in attempt_questions(at, {}).values() if getattr(x, "topic_id", None)}
+    if not tids or not cid: return []
+    qids = [x.id for x, _ in course_tests(cid, s)]
+    return [{k: a[k] for k in ("topic_id", "title", "correct", "total", "percent", "status")}
+            for a in areas_for(latest_batches(s, [at.user_id], qids), s, False, at.user_id) if a["topic_id"] in tids]
 
 # ---- MCQ tests from a CSV: parse and preview, then the questions are saved with PUT /api/quizzes/{id}/questions ----
 class QuizCsvIn(BaseModel): csv: str; unit_id: int = 0; course_id: int = 0
@@ -2964,7 +3204,7 @@ def parse_quiz_csv(b: QuizCsvIn, u: User = Depends(author), s: Session = Depends
             else:
                 warnings.append(f"Row {n}: no topic called \"{tname}\" in this {'unit' if b.unit_id else 'course'}, so it is grouped as the area \"{tname[:150]}\"")
                 area = area or tname[:150]
-        out.append({"row": n, "text": text, "options": [o[0] for o in opts], "correct": k, "explanation": cell(r, "explanation"), "topic_id": tid, "topic": ttitle, "area": area,
+        out.append({"row": n, "text": text, "options": [o[0] for o in opts], "correct": k, "explanation": cell(r, "explanation"), "topic_id": tid, "topic": ttitle, "topic_name": tname, "area": area,  # topic_name: as the file wrote it, matched or not
                     "image": qimg, "image_name": qname, "option_images": [o[1] for o in opts], "option_image_names": [o[2] for o in opts]})
     names = sorted({x["image_name"] for x in out if x["image_name"]} | {m for x in out for m in x["option_image_names"] if m}, key=str.lower)
     return {"questions": out, "count": len(out), "errors": errors[:200], "error_count": len(errors), "warnings": warnings[:200], "images_needed": names}
@@ -2993,7 +3233,7 @@ def quiz_results(qid: int, format: str = "json", u: User = Depends(author), s: S
     by = defaultdict(list)
     for a in atts:
         if a.user_id in people: by[a.user_id].append(a)
-    aud = students_in(cid, s); ctx_batches = [(uid, q, qm, json.loads(L[-1].detail)) for uid, L in by.items() if L[-1].detail]
+    aud = students_in(cid, s); ctx_batches = [(uid, q, attempt_questions(L[-1], qm), json.loads(L[-1].detail)) for uid, L in by.items() if L[-1].detail]
     ctx = area_context(ctx_batches, s); mine = {b[0]: tally([b], ctx, True) for b in ctx_batches}
     students = []
     for uid, L in by.items():
@@ -3045,7 +3285,7 @@ def attempt_detail(aid: int, u: User = Depends(me), s: Session = Depends(db)):
     q = quiz_or_404(a.quiz_id, s); cid = quiz_course_id(q, s); staff_view = u.role == "admin" or can_edit(u, cid, s)
     if a.user_id != u.id and not staff_view: raise HTTPException(403, "You can only see your own attempts")
     key = staff_view or bool(q.reveal)
-    qm = {x.id: x for x in s.query(Question).filter_by(quiz_id=q.id)}; detail = json.loads(a.detail) if a.detail else []
+    qm = attempt_questions(a, {x.id: x for x in s.query(Question).filter_by(quiz_id=q.id)}); detail = json.loads(a.detail) if a.detail else []
     topics = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_({x.topic_id for x in qm.values() if x.topic_id} or {0}))}
     items, gone = [], 0
     for d in detail:
@@ -3056,7 +3296,7 @@ def attempt_detail(aid: int, u: User = Depends(me), s: Session = Depends(db)):
     areas = areas_for([(a.user_id, q, qm, detail)], s, is_staff(u), a.user_id) if detail else []
     p = s.get(User, a.user_id); co = s.get(Course, cid) if cid else None
     return {**attempt_row(a, q), "quiz_id": q.id, "quiz": q.title, "course": co.name if co else "", "user": p.name if p else "", "user_id": a.user_id, "pass_percent": q.pass_percent,
-            "reveal": key, "questions": items, "changed": gone, "no_detail": not detail, "areas": areas, "summary": area_summary(areas)}
+            "reveal": key, "questions": items, "changed": gone, "no_detail": not detail, "areas": areas, "summary": area_summary(areas), **attempt_extras(a, q, cid, s)}
 def course_tests(cid, s, published_only=True):  # course tests first, then unit quizzes in unit order
     units = s.query(Unit).filter_by(course_id=cid).order_by(*ORDER[Unit]).all(); un = {x.id: x for x in units}; rank = {x.id: i for i, x in enumerate(units)}
     qs = s.query(Quiz).filter(or_(and_(Quiz.unit_id.is_(None), Quiz.course_id == cid), Quiz.unit_id.in_(list(un) or [0])))
@@ -3234,7 +3474,7 @@ def full(t, s):
     return {"id": t.id, "title": t.title, "course_id": co.id, "unit_id": t.unit_id, "unit": un.name if un else "", "course": co.name,
             "semester": sem.name if sem else "", "program": (s.get(Program, sem.program_id if sem else co.program_id) or Program(name="")).name,
             "content": shown_content(t), "content_format": fmt_of(t), "sample_content": t.sample_content, "question_pattern": t.question_pattern, "guideline": t.guideline, "published": t.published is not False,
-            "diagram_on": bool(t.diagram), "diagram_note": t.diagram_note or ""}
+            "diagram_on": bool(t.diagram), "diagram_note": t.diagram_note or "", "optional": bool(t.optional)}
 def version_row(v, names, cur): return {"id": v.id, "saved_at": (v.saved_at.isoformat() + "Z") if v.saved_at else None, "by": names.get(v.saved_by) if v.saved_by else None, "note": v.note or "",
                                           "current": all((getattr(v, k) or "") == cur[k] for k in VFIELDS)}
 @app.get("/api/topics/{tid}/versions")
@@ -3427,7 +3667,9 @@ def topic(tid: int, u: User = Depends(me), s: Session = Depends(db)):
     p = s.query(Progress).filter_by(user_id=u.id, topic_id=tid).first()
     edit = can_edit(u, topic_course_id(t, s), s)
     frame = {"frame_url": f"/api/topics/{tid}/frame?t={frame_pass(u, tid)}"} if fmt_of(t) == "interactive" else {}
-    return {**full(t, s), **frame, "diagram": diagram_state(u, t, s), "ask": ask_state(u), "model_answer": model_answer_json(s, tid), **learning_state(t.learning_due_at, p, dt.datetime.utcnow()), "my_notes": my_notes(s, u.id, tid), "can_edit": edit, "nav": topic_neighbours(t, edit, s), "bookmarked": s.query(Bookmark).filter_by(user_id=u.id, topic_id=tid).first() is not None}
+    return {**full(t, s), **frame, "diagram": diagram_state(u, t, s), "ask": ask_state(u), "model_answer": model_answer_json(s, tid), **learning_state(t.learning_due_at, p, dt.datetime.utcnow()), "my_notes": my_notes(s, u.id, tid), "can_edit": edit, "empty": topic_empty(t), "nav": topic_neighbours(t, edit, s), "bookmarked": s.query(Bookmark).filter_by(user_id=u.id, topic_id=tid).first() is not None}
+def topic_empty(t):  # nothing a student can study: no words in its notes (an interactive page counts as content, whatever it says)
+    fmt = fmt_of(t); return not (t.content or "").strip() if fmt == "interactive" else not words_of(t.content, fmt).strip()
 # ---- interactive topics run in a sandboxed frame; highlights are saved per person ----
 # The page gets an opaque origin (CSP sandbox without allow-same-origin), so its scripts can't read the app's sign-in, call the API as the reader or
 # touch the app's page. It talks to the app only through postMessage, and the app accepts just the highlight messages below.
@@ -3729,11 +3971,13 @@ def my_today(u: User = Depends(me), s: Session = Depends(db)):
             for c in sm["courses"]:
                 if c["id"] not in seen: seen.add(c["id"]); courses.append((p, sm, c))
     weak = {a["topic_id"]: a for a in my_insights(u, s)["needs_study"] if a.get("topic_id")}
-    cand, topics_total, topics_done, bests = {}, 0, 0, []
+    cand, topics_total, topics_done, bests, per = {}, 0, 0, [], []
+    shut = not_open_yet(s, u)  # tests assigned to them that haven't opened: nothing to offer until they do
     def offer(prio, key, item):
+        if key[0] == "q" and key[1] in shut: return
         if key not in cand or cand[key][0] < prio: cand[key] = (prio, item)
     for p, sm, c in courses:
-        first_new = None
+        first_new = None; n0, d0 = topics_total, topics_done
         for q in c.get("tests", []):  # course tests, like unit quizzes
             if not q["published"] or not q["questions"]: continue
             base = {"course": c["name"], "unit": "", "nav": [p["id"], sm["id"], c["id"]]}
@@ -3759,30 +4003,74 @@ def my_today(u: User = Depends(me), s: Session = Depends(db)):
                 if t["status"] == "in_progress": offer(50, ("t", t["id"]), {**it, "kind": "resume", "reason": "You started this. Pick up where you left off", "last_read": t["last_read"]})
                 elif first_new is None: first_new = (t, it)
         if first_new: offer(30, ("t", first_new[0]["id"]), {**first_new[1], "kind": "next", "reason": "Start the next topic"})
+        if topics_total > n0 and not c.get("archived"): per.append({"id": c["id"], "name": c["name"], "total": topics_total - n0, "completed": topics_done - d0})  # each course: topics marked learned of all
     focus = [i for _, i in sorted(cand.values(), key=lambda x: (-x[0], x[1].get("last_read") or ""))][:4]
     for i in focus: i.pop("last_read", None)
     in7 = [d for d in days if d > today - dt.timedelta(days=7)]
     done7 = s.query(func.count(Progress.id)).filter(Progress.user_id == u.id, Progress.completed_at >= now - dt.timedelta(days=7)).scalar()
     return {"streak": streak, "active_today": today in days, "week": week, "active_days_week": len(in7), "completed_this_week": done7,
             "topics_total": topics_total, "topics_completed": topics_done, "percent": round(100 * topics_done / topics_total) if topics_total else 0,
-            "quiz_average": round(sum(bests) / len(bests)) if bests else None, "focus": focus}
+            "quiz_average": round(sum(bests) / len(bests)) if bests else None, "focus": focus, "courses": per}
 # ---- redo: a student starts a topic, or a whole course, over. Its progress is set aside (ProgressHistory), so it reads "not started" again
 # ---- everywhere; quiz attempts and scores stay as they are, and the days they studied still count toward their streak.
-def set_aside(s, uid, tids):
+def set_aside(s, uid, tids, at=None):
     rows = s.query(Progress).filter(Progress.user_id == uid, Progress.topic_id.in_(list(tids) or [0])).all()
-    for p in rows: s.add(ProgressHistory(user_id=uid, topic_id=p.topic_id, reads=p.reads, last_read=p.last_read, completed_at=p.completed_at)); s.delete(p)
+    for p in rows: s.add(ProgressHistory(user_id=uid, topic_id=p.topic_id, reads=p.reads, last_read=p.last_read, completed_at=p.completed_at, redone_at=at or dt.datetime.utcnow())); s.delete(p)
     return len(rows)
 @app.post("/api/topics/{tid}/redo")
 def redo_topic(tid: int, u: User = Depends(me), s: Session = Depends(db)):
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
     check_topic_access(u, t, s); n = set_aside(s, u.id, [tid]); s.commit(); return {"ok": True, "topics": n}
+# ---- learning cycles (S37): restarting a course ends the student's current pass through it and starts the next; nothing is deleted or copied. Their first
+# ---- pass is implicit until the first restart writes it down. A unit restart sets that unit's topics aside within the same pass and is noted on it.
+def course_topic_ids(s, cid): return [i for (i,) in s.query(Topic.id).join(Unit, Unit.id == Topic.unit_id).filter(Unit.course_id == cid)]
+def current_cycle(s, uid, cid):  # the pass in progress; None while they have never restarted the course (their first pass, from the beginning)
+    return s.query(LearningCycle).filter_by(user_id=uid, course_id=cid, ended_at=None).order_by(LearningCycle.number.desc()).first()
+def first_activity(s, uid, cid):  # roughly when their first pass began: the earliest thing they did in the course
+    tids = course_topic_ids(s, cid) or [0]; qids = [q.id for q, _ in course_tests(cid, s, published_only=False)] or [0]
+    xs = [s.query(func.min(col)).filter(tab.user_id == uid, tab.topic_id.in_(tids)).scalar()
+          for tab, col in ((Progress, Progress.last_read), (Progress, Progress.completed_at), (ProgressHistory, ProgressHistory.last_read), (ProgressHistory, ProgressHistory.completed_at))]
+    xs.append(s.query(func.min(Attempt.at)).filter(Attempt.user_id == uid, Attempt.quiz_id.in_(qids)).scalar())
+    return min([x for x in xs if x], default=dt.datetime.utcnow())
+def ensure_cycle(s, uid, cid):  # the current pass, writing down the first one when it is first needed
+    cur = current_cycle(s, uid, cid)
+    if cur: return cur
+    rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=cid).first()
+    cur = LearningCycle(user_id=uid, course_id=cid, number=1, started_at=first_activity(s, uid, cid), completed_at=rec.completed_at if rec else None, unit_restarts="[]")
+    s.add(cur); s.flush(); return cur
 @app.post("/api/courses/{cid}/redo")
 def redo_course(cid: int, u: User = Depends(me), s: Session = Depends(db)):
-    if not s.get(Course, cid): raise HTTPException(404, "Course not found")
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
     check_course_access(u, cid, s)
-    tids = [i for (i,) in s.query(Topic.id).join(Unit, Unit.id == Topic.unit_id).filter(Unit.course_id == cid)]
-    n = set_aside(s, u.id, tids); s.commit(); return {"ok": True, "topics": n}
+    course_status(s, u.id, c)  # if this pass has just been finished, its finish is kept before it ends
+    try:
+        cur = ensure_cycle(s, u.id, cid); tids = course_topic_ids(s, cid)
+        qids = [q.id for q, _ in course_tests(cid, s, published_only=False)] or [0]
+        tried = s.query(Attempt.id).filter(Attempt.user_id == u.id, Attempt.quiz_id.in_(qids))
+        if cur.number > 1: tried = tried.filter(Attempt.at >= cur.started_at)
+        if not s.query(Progress.id).filter(Progress.user_id == u.id, Progress.topic_id.in_(tids or [0])).first() and not tried.first():
+            s.commit(); return {"ok": True, "topics": 0, "cycle": cur.number, "new": False}  # nothing done since the last start: no empty pass
+        now = dt.datetime.utcnow(); cur.ended_at = now; n = set_aside(s, u.id, tids, now)
+        s.add(LearningCycle(user_id=u.id, course_id=cid, number=cur.number + 1, started_at=now, unit_restarts="[]")); s.commit()
+    except IntegrityError:
+        s.rollback(); raise HTTPException(409, "This course was just started over. Refresh to see it.")
+    return {"ok": True, "topics": n, "cycle": cur.number + 1, "new": True}
+@app.post("/api/units/{unit_id}/redo")
+def redo_unit(unit_id: int, u: User = Depends(me), s: Session = Depends(db)):  # one unit starts over; the rest of the course and the pass carry on
+    un = s.get(Unit, unit_id)
+    if not un or un.archived_at: raise HTTPException(404, "Unit not found")
+    check_course_access(u, un.course_id, s)
+    now = dt.datetime.utcnow(); n = set_aside(s, u.id, [i for (i,) in s.query(Topic.id).filter(Topic.unit_id == unit_id)], now)
+    try:
+        if n:
+            cur = ensure_cycle(s, u.id, un.course_id)
+            cur.unit_restarts = json.dumps(json.loads(cur.unit_restarts or "[]") + [{"unit_id": unit_id, "at": utc_iso(now)}])
+        s.commit()
+    except IntegrityError:
+        s.rollback(); raise HTTPException(409, "Something changed meanwhile. Try again.")
+    return {"ok": True, "topics": n}
 @app.post("/api/topics/{tid}/read")
 def read(tid: int, u: User = Depends(me), s: Session = Depends(db)):
     t = s.get(Topic, tid)
@@ -3835,6 +4123,15 @@ PROMPTS = {  # the built-in prompts; an admin can replace any of them under Sett
  "explain": ("You are a warm, sharp engineering tutor for a busy student with little time. Explain the topic in at most 150 words: one line on why it matters, "
              "the core idea in 2 to 4 short steps, and one tiny example. Use Markdown, plain short sentences, no greeting and no recap. Stay accurate. "
              "Use a small Markdown table only when a comparison is clearer that way: a header row, a separator row, and every row on its own line."),
+ "revision": ("You write a revision sheet for a student who has already studied this topic and wants to revise it quickly, not learn it again. "
+              "Use only what the topic's notes (and the question pattern and answer guideline, when given) say; if you add anything they do not contain, "
+              "end that item with \"(beyond the notes)\". Be accurate, short and concrete. Write maths as $...$. Reply with only a JSON object with exactly "
+              "these keys (the keys stay in English): {\"concepts\": [2 to 6 of {\"title\": \"a short name\", \"point\": \"the idea in one line, at most 20 words\", "
+              "\"detail\": \"at most 45 words: how it works and why it matters\"}], \"definitions\": [up to 6 of {\"term\": \"...\", \"meaning\": \"at most 25 words\"}], "
+              "\"formulas\": [up to 6 of {\"formula\": \"$...$\", \"meaning\": \"what the symbols are and when it applies, at most 30 words\"}] (empty if the topic has none), "
+              "\"facts\": [up to 6 key facts or relationships, at most 20 words each], \"mistakes\": [up to 4 common mistakes students make, at most 20 words each], "
+              "\"examples\": [up to 3 of {\"title\": \"...\", \"text\": \"at most 50 words\"}], \"likely\": [up to 4 typical exam questions on this topic, "
+              "with marks in brackets when the question pattern gives them]}"),
  "answer": ("You are an engineering exam coach. Write a model answer that follows the given answer guideline and question pattern exactly "
             "(structure, length, marks split, diagrams to sketch, keywords). Use Markdown (tables, when you use them, with every row on its own line). Mirror the style of the sample content."),
  "gist": STEP_RULES + ('{"points": [three strings of at most 18 words each: what it is, the key idea or contrast, why it matters], '
@@ -3872,6 +4169,7 @@ PROMPTS = {  # the built-in prompts; an admin can replace any of them under Sett
             "If the search is not about their studies, say briefly that you can only help with study topics."),
 }
 PROMPT_INFO = {"explain": ("Explain tab", "Used when a student opens Explain on a topic. The topic's notes are sent with it."),
+               "revision": ("Revision sheets", "Used when a student asks for a topic's revision sheet (the Revise tab). The topic's notes, question pattern and answer guideline are sent with it; one sheet per topic version and language is kept and shared."),
                "answer": ("Sample answer tab", "Used for the model answer. The question pattern, answer guideline and sample content are sent with it."),
                "gist": ("Topic gist", "The three points and the curious question at the top of every topic page."),
                "why": ("Topic step: Why?", "A short reason behind the topic's core idea."),
@@ -4157,19 +4455,24 @@ async def ai(tid: int, kind: str, u: User = Depends(me), s: Session = Depends(db
     f = full(t, s); prompt = in_lang(u, prompt_for(s, kind) + (CHECK_LEVEL.get(you["level"], "") if you and kind == "check" else ""))
     if you and kind in PICKS + ("simpler",): s.add(StepLog(user_id=u.id, topic_id=tid, kind=kind)); s.commit()  # a step the student chose to open
     extra = {"you": {**you, "question_first": question_first(u, t, s)}} if you and kind == "gist" else {"level": you["level"]} if you and kind == "check" else {}
-    mine = my_notes(s, u.id, tid) if u.role == "student" and kind in ("explain", "answer") else None
-    if not mine and not words_of(f["content"], f["content_format"]).strip() and not (kind in EXAM_KINDS and (t.sample_content or t.question_pattern or t.guideline)):
+    has_text = bool(words_of(f["content"], f["content_format"]).strip())
+    # the student's own notes go to the AI for Explain and Sample answer; and, on a topic with no notes of its own, for the gist and the steps too
+    mine = my_notes(s, u.id, tid) if u.role == "student" and (kind in ("explain", "answer") or (kind in STEPS and not has_text)) else None
+    if not mine and not has_text and not (kind in EXAM_KINDS and (t.sample_content or t.question_pattern or t.guideline)):
         raise HTTPException(400, EMPTY_TOPIC)  # nothing to explain from but the topic's name: the AI would make it up
     if mine:  # the student's own notes are private: the answer is written for them alone and never shared. It goes to the AI once; after that the kept copy is shown and nothing is sent.
         key_or_fail(u, s); ch = hashlib.sha256("|".join(["own", topic_hash(t, kind, prompt), mine]).encode()).hexdigest()
         hit = s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind=kind, chash=ch).first()
-        if hit: return {"text": hit.text, "cached": True, "own_notes": True}
-        text = await study_ask(u, s, "t_" + kind, prompt, topic_msg(f, kind, mine), max_tokens=None, topic_id=tid)  # kinds fit the 10-character column
+        step = {"data": step_reply(kind, hit.text)} if hit and kind in STEPS else {}
+        if hit: return {"text": hit.text, "cached": True, "own_notes": True, **step, **extra}
+        text = await study_ask(u, s, "t_" + kind, prompt, topic_msg(f, kind, mine), max_tokens=STEPS.get(kind), topic_id=tid)  # kinds fit the 10-character column
+        data = step_reply(kind, text) if kind in STEPS else None
+        if kind in STEPS and data is None: raise HTTPException(502, "The AI's answer could not be read. Try again.")  # not kept, so the next try asks again
         try:
             s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind=kind).delete()  # an answer for older notes is no use now
             s.add(PrivateAnswer(user_id=u.id, topic_id=tid, kind=kind, chash=ch, text=text)); s.commit()
         except Exception: s.rollback()
-        return {"text": text, "cached": False, "own_notes": True}
+        return {"text": text, "cached": False, "own_notes": True, **({"data": data} if kind in STEPS else {}), **extra}
     ch = topic_hash(t, kind, prompt)
     key = key_or_fail(u, s)
     hit = s.query(AICache).filter_by(topic_id=tid, kind=kind, chash=ch).first()
@@ -4196,16 +4499,1114 @@ def my_learning(u: User = Depends(me), s: Session = Depends(db)): return learner
 @app.delete("/api/me/learning/steps")
 def forget_learning(u: User = Depends(me), s: Session = Depends(db)):
     n = s.query(StepLog).filter_by(user_id=u.id).delete(); s.commit(); return {"ok": True, "cleared": n}
+# ---- revision sheets (S34): one sheet per topic version and language, written once and shared (or, from a student's own notes, kept for them);
+# ---- shown three ways (quick, detailed, exam) from the same answer, with a "your focus" box built from the student's own results, never sent to the AI
+REVISION_TOKENS = 1800
+def revision_sheet(text):  # the sheet's JSON, tidied; None when the AI did not keep to it
+    try: d = ai_json(text)
+    except HTTPException: return None
+    if not isinstance(d, dict): return None
+    def objs(k, keys, n): return [{f: str(x.get(f) or "").strip() for f in keys} for x in (d.get(k) or []) if isinstance(x, dict) and str(x.get(keys[0]) or "").strip()][:n]
+    def strs(k, n): return [str(x).strip() for x in (d.get(k) or []) if isinstance(x, (str, int, float)) and str(x).strip()][:n]
+    out = {"concepts": objs("concepts", ("title", "point", "detail"), 6), "definitions": objs("definitions", ("term", "meaning"), 6), "formulas": objs("formulas", ("formula", "meaning"), 6),
+           "facts": strs("facts", 6), "mistakes": strs("mistakes", 4), "examples": objs("examples", ("title", "text"), 3), "likely": strs("likely", 4)}
+    return out if out["concepts"] else None
+def revision_focus(u, t, s):  # what this student got wrong on the topic, the passages they marked, quick checks not yet had, and their MCQ standing
+    if u.role != "student": return None
+    wrong = []
+    for (snap,) in s.query(McqAttemptItem.snapshot).join(McqAttempt, McqAttempt.id == McqAttemptItem.attempt_id).filter(
+            McqAttempt.user_id == u.id, McqAttempt.status == "submitted", McqAttemptItem.topic_id == t.id, McqAttemptItem.ok == False).order_by(McqAttemptItem.id.desc()).limit(20):  # noqa: E712
+        wrong.append(json.loads(snap).get("text", ""))
+    for a in s.query(Attempt).filter(Attempt.user_id == u.id, Attempt.snapshot.isnot(None)).order_by(Attempt.id.desc()).limit(30):
+        for d, x in zip(json.loads(a.detail or "[]"), json.loads(a.snapshot)):
+            if x and x.get("topic_id") == t.id and not d[1]: wrong.append(x.get("text", ""))
+    wrong = list(dict.fromkeys(w for w in wrong if w))[:6]
+    marked = [h.text[:200] for h in s.query(Highlight).filter_by(user_id=u.id, topic_id=t.id).order_by(Highlight.id.desc()).limit(5)]
+    not_yet = s.query(func.count(StepLog.id)).filter(StepLog.user_id == u.id, StepLog.topic_id == t.id, StepLog.kind == "check", StepLog.outcome == "not_yet").scalar() or 0
+    st = mcq_topic_stats(s, u.id, [t.id]).get(t.id)
+    return {"wrong": wrong, "marked": marked, "not_yet": not_yet, "standing": {**st, "status": area_status(st["percent"])} if st else None}
+@app.get("/api/topics/{tid}/revision")
+async def revision(tid: int, make: bool = False, u: User = Depends(me), s: Session = Depends(db)):
+    """A topic's revision sheet. Opening it never asks the AI: the sheet comes back when it was written before (for this version of the topic and this
+    language), and is written only when the student asks for it (make=1)."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s)
+    f = full(t, s); prompt = in_lang(u, prompt_for(s, "revision")); has_text = bool(words_of(f["content"], f["content_format"]).strip())
+    mine = my_notes(s, u.id, tid) if u.role == "student" and not has_text else None
+    last = s.query(func.max(StepLog.at)).filter(StepLog.user_id == u.id, StepLog.topic_id == tid, StepLog.kind == "revised").scalar()
+    extra = {"focus": revision_focus(u, t, s), "revised_at": utc_iso(last), "own_notes": bool(mine)}
+    if not has_text and not mine: return {"sheet": None, "empty": True, **extra}
+    key_or_fail(u, s)  # without a key AI is off, even for a saved sheet (as for every AI answer)
+    if mine:
+        ch = hashlib.sha256("|".join(["own", topic_hash(t, "revision", prompt), mine]).encode()).hexdigest()
+        hit = s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind="revision", chash=ch).first()
+    else:
+        ch = topic_hash(t, "revision", prompt); hit = s.query(AICache).filter_by(topic_id=tid, kind="revision", chash=ch).first()
+    if hit:
+        if not mine: hit.hits += 1; s.commit()
+        return {"sheet": revision_sheet(hit.text), "cached": True, **extra}
+    if not make: return {"sheet": None, **extra}
+    if mine:
+        key_or_fail(u, s); text = await study_ask(u, s, "t_revision", prompt, topic_msg(f, "exam", mine), max_tokens=REVISION_TOKENS, topic_id=tid); tokens = 0
+    else:
+        key = key_or_fail(u, s); text, tokens = await ask_ai(u, s, key, prompt, topic_msg(f, "exam"), max_tokens=REVISION_TOKENS, kind="topic_revision", topic_id=tid)
+    sheet = revision_sheet(text)
+    if not sheet: raise HTTPException(502, "The AI's answer could not be read. Try again.")  # not kept, so the next try asks again
+    try:
+        if mine:
+            s.query(PrivateAnswer).filter_by(user_id=u.id, topic_id=tid, kind="revision").delete()  # a sheet from older notes is no use now
+            s.add(PrivateAnswer(user_id=u.id, topic_id=tid, kind="revision", chash=ch, text=text))
+        else: s.add(AICache(topic_id=tid, kind="revision", chash=ch, text=text, tokens=tokens))
+        s.commit()
+    except Exception: s.rollback()  # another tap kept the same sheet a moment ago
+    return {"sheet": sheet, "cached": False, **extra}
+@app.post("/api/topics/{tid}/revised")
+def mark_revised(tid: int, u: User = Depends(me), s: Session = Depends(db)):  # "I've revised this": kept for the student (and for when to revise again, S35)
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s); now = dt.datetime.utcnow(); s.add(StepLog(user_id=u.id, topic_id=tid, kind="revised", at=now)); s.commit()
+    return {"revised_at": utc_iso(now)}
+class ExplainIn(BaseModel): text: str
+@app.post("/api/topics/{tid}/explain")
+async def explain_passage(tid: int, b: ExplainIn, u: User = Depends(me), s: Session = Depends(db)):
+    """Explain this: what a passage of the topic (a line of its revision sheet, say) means. The same prompt, saved answers and daily limit as a highlight."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s); text = " ".join((b.text or "").split())[:600]
+    if len(text) < 2: raise HTTPException(400, "Choose something to explain")
+    prompt = in_lang(u, prompt_for(s, "line")); key = key_or_fail(u, s)
+    got = line_saved(s, t, u, text, prompt)
+    if got: return {"explain": got}
+    if not is_staff(u) and s.query(func.count(StepLog.id)).filter(StepLog.user_id == u.id, StepLog.kind == "line", StepLog.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= LINE_DAILY:
+        raise HTTPException(429, f"You have used today's {LINE_DAILY} explanations. Ask again tomorrow.")
+    f = full(t, s)
+    msg = f"Program: {f['program']}\nSemester: {f['semester']}\nCourse: {f['course']}\nTopic: {f['title']}\n\nThe passage the student wants explained:\n{text}"
+    reply, tokens = await ask_ai(u, s, key, prompt, msg, max_tokens=STEPS["line"], kind="line", topic_id=t.id)
+    d = step_reply("line", reply)
+    if not d: raise HTTPException(502, "The AI's answer could not be read. Try again.")
+    if not is_staff(u): s.add(StepLog(user_id=u.id, topic_id=t.id, kind="line"))
+    row = AICache(topic_id=t.id, kind="line", chash=line_hash(t, prompt, text), text=reply, tokens=tokens, author_id=author_of(u))
+    try: s.add(row); s.commit()
+    except Exception: s.rollback(); row = None
+    return {"explain": {"id": row.id if row else None, "text": d["text"]}}
+# ---- course completion (S36): a course is finished when every required topic (published, not optional, in a live unit) is marked learned and every
+# ---- published test and unit quiz of the course has been tried at least once, whatever the score: finishing is not mastering. Worked out from the
+# ---- student's progress and attempts each time; the moment it first happens is kept (CourseCompletion) and stays even if the course grows later
+def course_status(s, uid, c):
+    units = s.query(Unit).filter(Unit.course_id == c.id, Unit.archived_at.is_(None)).order_by(*ORDER[Unit]).all()
+    topics = s.query(Topic).filter(Topic.unit_id.in_([u.id for u in units] or [0]), Topic.published != False, Topic.archived_at.is_(None)).order_by(*ORDER[Topic]).all()  # noqa: E712
+    req = [t for t in topics if not t.optional]
+    done = {tid: at for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == uid, Progress.topic_id.in_([t.id for t in topics] or [0]), Progress.completed_at.isnot(None))}
+    tests = [q for q, un in course_tests(c.id, s) if (un is None or un.archived_at is None) and s.query(Question.id).filter_by(quiz_id=q.id).first()]
+    cyc = current_cycle(s, uid, c.id); tried = defaultdict(list)  # after a restart, only the tests tried in this pass count toward finishing it
+    aq = s.query(Attempt.quiz_id, Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id.in_([q.id for q in tests] or [0]))
+    if cyc and cyc.number > 1: aq = aq.filter(Attempt.at >= cyc.started_at)
+    for qid, pct, at in aq.order_by(Attempt.at): tried[qid].append((pct, at))
+    need = len(req) + len(tests); got = sum(t.id in done for t in req) + sum(q.id in tried for q in tests)
+    by_unit = defaultdict(list)
+    for t in req: by_unit[t.unit_id].append(t)
+    unit_rows = [{"id": u.id, "name": u.name, "required": len(by_unit[u.id]), "done": sum(t.id in done for t in by_unit[u.id]),
+                  "completed_at": utc_iso(max(done[t.id] for t in by_unit[u.id])) if by_unit[u.id] and all(t.id in done for t in by_unit[u.id]) else None} for u in units]
+    complete = need > 0 and got == need
+    rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()
+    when = max([done[t.id] for t in req] + [tried[q.id][0][1] for q in tests]) if complete else None  # the last required topic learned or the last test first tried
+    if complete and not rec:  # the first time ever: kept for good
+        try: rec = CourseCompletion(user_id=uid, course_id=c.id, completed_at=when); s.add(rec); s.commit()
+        except IntegrityError: s.rollback(); rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()  # another request kept it first
+    if complete and cyc and not cyc.completed_at: cyc.completed_at = when; s.commit()  # this pass's own finish
+    finished = cyc.completed_at if cyc else rec.completed_at if rec else None
+    bests = [max(p for p, _ in tried[q.id]) for q in tests if q.id in tried]
+    return {"course_id": c.id, "course": c.name, "percent": round(100 * got / need) if need else 0, "complete": complete, "completed_at": utc_iso(finished),
+            "first_completed_at": utc_iso(rec.completed_at) if rec else None, "cycle": cyc.number if cyc else 1,
+            "topics": {"required": len(req), "done": sum(t.id in done for t in req), "optional": len(topics) - len(req)},
+            "units": unit_rows, "remaining": [{"id": t.id, "title": t.title} for t in req if t.id not in done][:50],
+            "tests": {"total": len(tests), "tried": sum(q.id in tried for q in tests)}, "pending_tests": [{"id": q.id, "title": q.title} for q in tests if q.id not in tried],
+            "average": round(sum(bests) / len(bests)) if bests else None}
+def my_courses_for(u, s):  # the courses a student studies (their own program's, not archived)
+    return [s.get(Course, c["id"]) for c in mcq_courses(u, s)]
+@app.get("/api/me/completion")
+def my_completion(u: User = Depends(me), s: Session = Depends(db)):  # each of my courses: how far, what's left, when finished, and my test average
+    return {"courses": [course_status(s, u.id, c) for c in my_courses_for(u, s) if c]}
+@app.get("/api/courses/{cid}/completion")
+def course_completion(cid: int, u: User = Depends(author), s: Session = Depends(db)):  # for its teachers: every student's standing toward finishing the course
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s)
+    links = defaultdict(list)
+    for l in s.query(CourseLink).filter_by(course_id=cid): links[cid].append(l.semester_id)
+    aud = course_audience(c, s.query(User).filter_by(role="student", active=True).all(), {x.id: x for x in s.query(Semester)}, links)
+    rows = []
+    for x in sorted(aud, key=lambda x: x.name.lower()):
+        st = course_status(s, x.id, c)
+        rows.append({"user_id": x.id, "name": x.name, "percent": st["percent"], "complete": st["complete"], "completed_at": st["completed_at"],
+                     "topics_left": st["topics"]["required"] - st["topics"]["done"], "tests_left": st["tests"]["total"] - st["tests"]["tried"], "average": st["average"],
+                     "cycle": st["cycle"], "first_completed_at": st["first_completed_at"]})
+    return {"course": c.name, "students": rows, "completed": sum(r["complete"] for r in rows), "close": sum(not r["complete"] and r["percent"] >= 75 for r in rows)}
+# ---- comparing passes (S37): each pass's window runs from its start (the first from the beginning) to the next one's start. A topic's standing in a pass
+# ---- comes from its sittings in that window (MCQ sets and tests), by the S38 rule (classify): weak means "needs attention", never from thin evidence
+def course_cycles(s, uid, c):
+    rows = s.query(LearningCycle).filter_by(user_id=uid, course_id=c.id).order_by(LearningCycle.number).all()
+    rec = s.query(CourseCompletion).filter_by(user_id=uid, course_id=c.id).first()
+    if not rows: rows = [LearningCycle(number=1, started_at=first_activity(s, uid, c.id), completed_at=rec.completed_at if rec else None, unit_restarts="[]")]  # not saved
+    units = s.query(Unit).filter(Unit.course_id == c.id, Unit.archived_at.is_(None)).order_by(*ORDER[Unit]).all(); uname = {u.id: u.name for u in units}
+    topics = s.query(Topic).filter(Topic.unit_id.in_(list(uname) or [0]), Topic.published != False, Topic.archived_at.is_(None)).order_by(*ORDER[Topic]).all()  # noqa: E712
+    tid_set = {t.id for t in topics}
+    learned = [(tid, at) for tab in (Progress, ProgressHistory) for tid, at in s.query(tab.topic_id, tab.completed_at).filter(tab.user_id == uid, tab.topic_id.in_(tid_set or [0]), tab.completed_at.isnot(None))]
+    tests = [q for q, un in course_tests(c.id, s) if (un is None or un.archived_at is None)]
+    atts = s.query(Attempt.quiz_id, Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id.in_([q.id for q in tests] or [0])).all()
+    checks = [x for x in topic_checks(s, uid) if x[0] in tid_set]
+    now = dt.datetime.utcnow(); out = []
+    for cy in rows:
+        lo = cy.started_at if cy.number > 1 else None; hi = cy.ended_at
+        def inw(at): return at is not None and (lo is None or at >= lo) and (hi is None or at < hi)
+        best = {}
+        for qid, pct, at in atts:
+            if inw(at): best[qid] = max(best.get(qid, 0), pct)
+        per, sits = defaultdict(lambda: [0, 0]), defaultdict(list)
+        for tid, at, ok, n, _ in checks:
+            if inw(at): per[tid][0] += ok; per[tid][1] += n; sits[tid].append((at, ok, n))
+        stand = {tid: {"strong": "strong", "needs_study": "weak"}.get(classify(x)) for tid, x in sits.items()}
+        out.append({"number": cy.number, "started_at": utc_iso(cy.started_at), "ended_at": utc_iso(cy.ended_at), "completed_at": utc_iso(cy.completed_at),
+                    "days": (cy.completed_at - cy.started_at).days if cy.completed_at and cy.started_at else None, "current": cy.ended_at is None,
+                    "learned": len({tid for tid, at in learned if inw(at)}), "topics_total": len(topics), "tests_tried": len(best), "tests_total": len(tests),
+                    "average": round(sum(best.values()) / len(best)) if best else None,
+                    "unit_restarts": [{"unit_id": r["unit_id"], "name": uname.get(r["unit_id"], ""), "at": r["at"]} for r in json.loads(cy.unit_restarts or "[]")],
+                    "_best": best, "_per": per, "_stand": stand})
+    def tlist(ids, d): return [{"id": t.id, "title": t.title, "percent": round(100 * d[t.id][0] / d[t.id][1])} for t in topics if t.id in ids]
+    compare = None
+    if len(out) > 1:  # the last two passes, on what both had: the same tests, the same topics
+        a, b = out[-2], out[-1]
+        compare = {"from": a["number"], "to": b["number"],
+                   "tests": [{"id": q.id, "title": q.title, "before": a["_best"][q.id], "after": b["_best"][q.id]} for q in tests if q.id in a["_best"] and q.id in b["_best"]],
+                   "improved": tlist({t for t, v in a["_stand"].items() if v == "weak" and b["_stand"].get(t) == "strong"}, b["_per"]),
+                   "still_weak": tlist({t for t, v in a["_stand"].items() if v == "weak" and b["_stand"].get(t) == "weak"}, b["_per"])}
+    relearn = None
+    if len(out) > 1 and out[-1]["current"]:  # what the last pass showed, to start this one with
+        p = out[-2]
+        relearn = {"weak": tlist({t for t, v in p["_stand"].items() if v == "weak"}, p["_per"]), "strong": tlist({t for t, v in p["_stand"].items() if v == "strong"}, p["_per"])}
+    for x in out: del x["_best"], x["_per"], x["_stand"]
+    return {"course": c.name, "current": out[-1]["number"], "cycles": out, "compare": compare, "relearn": relearn, "first_completed_at": utc_iso(rec.completed_at) if rec else None}
+@app.get("/api/courses/{cid}/cycles")
+def get_course_cycles(cid: int, student: int | None = None, u: User = Depends(me), s: Session = Depends(db)):  # a student's own passes; a course's teachers may look at a student's
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    if student and student != u.id:
+        need_edit(u, cid, s); x = s.get(User, student)
+        if not x or x.role != "student": raise HTTPException(404, "Student not found")
+        return course_cycles(s, student, c)
+    check_course_access(u, cid, s); return course_cycles(s, u.id, c)
+# ---- learning history and trends (S38): a reporting layer over the records already kept (progress, attempts, MCQ sets, revision steps, completions and
+# ---- passes). Nothing new is stored. Tests ("test") and MCQ practice ("practice") are kept apart throughout; a test attempt is one row however often its
+# ---- submit was retried (request_id), so nothing is counted twice.
+def place_names(s, tids=(), uids=()):  # {topic: (title, unit id)}, {unit: (name, course id)}, {course: name}
+    topics = {t.id: (t.title, t.unit_id) for t in s.query(Topic).filter(Topic.id.in_(list(tids) or [0]))}
+    uids = set(uids) | {u for _, u in topics.values() if u}
+    units = {x.id: (x.name, x.course_id) for x in s.query(Unit).filter(Unit.id.in_(list(uids) or [0]))}
+    courses = {c.id: c.name for c in s.query(Course).filter(Course.id.in_([c for _, c in units.values()] or [0]))}
+    return topics, units, courses
+def local_bounds(since, until):  # "YYYY-MM-DD" days on the students' clock, either may be empty
+    try: return (dt.date.fromisoformat(since) if since else None), (dt.date.fromisoformat(until) if until else None)
+    except ValueError: raise HTTPException(400, "Dates must look like 2026-01-31")
+HISTORY_KINDS = ("learned", "unit_done", "studied", "revised", "practice", "test", "course_done", "restart", "unit_restart")
+def learning_history(s, u, course_id=0, unit_id=0, since="", until="", kind="", limit=300):
+    lo, hi = local_bounds(since, until); uid = u.id; ev = []
+    learned = {(tid, at) for tab in (Progress, ProgressHistory) for tid, at in s.query(tab.topic_id, tab.completed_at).filter(tab.user_id == uid, tab.completed_at.isnot(None))}  # a topic set aside keeps its learned date once
+    revised = s.query(StepLog.topic_id, StepLog.at).filter(StepLog.user_id == uid, StepLog.kind == "revised").all()
+    sets = s.query(McqAttempt).filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted").all()
+    atts = s.query(Attempt).filter(Attempt.user_id == uid).order_by(Attempt.at, Attempt.id).all()
+    quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}
+    topics, units, courses = place_names(s, {t for t, _ in learned} | {t for t, _ in revised} | {x.topic_id for x in sets if x.topic_id}, {q.unit_id for q in quizzes.values() if q.unit_id})
+    extra = {q.course_id for q in quizzes.values() if q.course_id} | {x.course_id for x in sets if x.course_id}
+    courses.update({c.id: c.name for c in s.query(Course).filter(Course.id.in_(list(extra - set(courses)) or [0]))})
+    def where(tid=None, unit=None, cid=None):
+        if tid in topics: unit = topics[tid][1]
+        if unit in units: cid = units[unit][1]
+        return {"topic_id": tid, "unit_id": unit, "unit": units.get(unit, ("", 0))[0], "course_id": cid, "course": courses.get(cid, "")}
+    for tid, at in learned: ev.append({"kind": "learned", "at": at, "title": topics.get(tid, ("",))[0], **where(tid)})
+    for tid, at in revised: ev.append({"kind": "revised", "at": at, "title": topics.get(tid, ("",))[0], **where(tid)})
+    for x in sets:
+        if not x.submitted_at: continue
+        ev.append({"kind": "practice", "at": x.submitted_at, "title": topics[x.topic_id][0] if x.topic_id in topics else courses.get(x.course_id, ""), "percent": x.percent, "score": x.score, "total": x.total,
+                   **where(x.topic_id if x.topic_id in topics else None, cid=x.course_id)})
+    nth = defaultdict(int)
+    for a in atts:
+        q = quizzes.get(a.quiz_id)
+        if not q: continue
+        nth[a.quiz_id] += 1
+        ev.append({"kind": "test", "at": a.at, "title": q.title, "percent": a.percent, "score": a.score, "total": a.total, "attempt": nth[a.quiz_id], "attempt_id": a.id, **where(unit=q.unit_id, cid=q.course_id)})
+    if not course_id and not unit_id:  # days they opened topics: the store doesn't say which, so they show only without a course or unit filter
+        for d, n in s.query(ActivityDay.day, ActivityDay.reads).filter(ActivityDay.user_id == uid, ActivityDay.reads > 0):
+            ev.append({"kind": "studied", "at": dt.datetime.combine(d, dt.time()) - dt.timedelta(minutes=DAY_OFFSET), "title": "", "reads": n, **where()})
+    for c in my_courses_for(u, s):
+        if not c or (course_id and c.id != course_id): continue
+        for un in course_status(s, uid, c)["units"]:
+            if un["completed_at"]: ev.append({"kind": "unit_done", "at": dt.datetime.fromisoformat(un["completed_at"].rstrip("Z")), "title": un["name"], **where(unit=un["id"], cid=c.id), "unit": un["name"], "course": c.name})
+    cyc = s.query(LearningCycle).filter_by(user_id=uid).all(); seen = {x.course_id for x in cyc}
+    cn = {c.id: c.name for c in s.query(Course).filter(Course.id.in_({x.course_id for x in cyc} | {r.course_id for r in s.query(CourseCompletion).filter_by(user_id=uid)} or {0}))}
+    for x in cyc:
+        base = {"unit_id": None, "unit": "", "topic_id": None, "course_id": x.course_id, "course": cn.get(x.course_id, "")}
+        if x.completed_at: ev.append({"kind": "course_done", "at": x.completed_at, "title": cn.get(x.course_id, ""), "cycle": x.number, **base})
+        if x.number > 1: ev.append({"kind": "restart", "at": x.started_at, "title": cn.get(x.course_id, ""), "cycle": x.number, **base})
+        for r in json.loads(x.unit_restarts or "[]"):
+            un = s.get(Unit, r["unit_id"]); ev.append({"kind": "unit_restart", "at": dt.datetime.fromisoformat(r["at"].rstrip("Z")), "title": un.name if un else "", "cycle": x.number, **base, "unit_id": r["unit_id"], "unit": un.name if un else ""})
+    for r in s.query(CourseCompletion).filter_by(user_id=uid):
+        if r.course_id not in seen: ev.append({"kind": "course_done", "at": r.completed_at, "title": cn.get(r.course_id, ""), "cycle": 1, "unit_id": None, "unit": "", "topic_id": None, "course_id": r.course_id, "course": cn.get(r.course_id, "")})
+    kinds = set(kind.split(",")) & set(HISTORY_KINDS) if kind else set(HISTORY_KINDS)
+    out = [e for e in ev if e["at"] and e["kind"] in kinds and (not course_id or e["course_id"] == course_id) and (not unit_id or e["unit_id"] == unit_id)
+           and (lo is None or local_day(e["at"]) >= lo) and (hi is None or local_day(e["at"]) <= hi)]
+    out.sort(key=lambda e: e["at"], reverse=True)
+    return {"items": [{**e, "at": utc_iso(e["at"])} for e in out[:limit]], "total": len(out), "kinds": list(HISTORY_KINDS),
+            "courses": [{"id": c.id, "name": c.name, "units": [{"id": x.id, "name": x.name} for x in s.query(Unit).filter(Unit.course_id == c.id, Unit.archived_at.is_(None)).order_by(*ORDER[Unit])]}
+                        for c in my_courses_for(u, s) if c]}
+@app.get("/api/me/history")
+def my_history(course_id: int = 0, unit_id: int = 0, since: str = "", until: str = "", kind: str = "", u: User = Depends(me), s: Session = Depends(db)):
+    return learning_history(s, u, course_id, unit_id, since, until, kind)
+NOT_REVISED_DAYS = 14
+def pct(right, asked): return round(100 * right / asked) if asked else None
+def learning_trends(s, uid, course_id=0, now=None):  # numbers only from stored results; insights are sentences made from these numbers, never from the AI
+    now = now or dt.datetime.utcnow()
+    atts = s.query(Attempt).filter(Attempt.user_id == uid).order_by(Attempt.at, Attempt.id).all()
+    quizzes = {q.id: q for q in s.query(Quiz).filter(Quiz.id.in_({a.quiz_id for a in atts} or {0}))}
+    qcourse = {q.id: quiz_course_id(q, s) for q in quizzes.values()}
+    atts = [a for a in atts if a.quiz_id in quizzes and (not course_id or qcourse[a.quiz_id] == course_id)]
+    per_test = defaultdict(list); right = wrong = 0
+    for a in atts:
+        per_test[a.quiz_id].append(a)
+        if a.detail: d = json.loads(a.detail); right += sum(1 for x in d if x[1]); wrong += sum(1 for x in d if not x[1])
+    tests = [{"id": qid, "title": quizzes[qid].title, "attempts": [{"at": utc_iso(a.at), "percent": a.percent} for a in L], "first": L[0].percent, "latest": L[-1].percent,
+              "best": max(a.percent for a in L), "change": L[-1].percent - L[0].percent if len(L) > 1 else None} for qid, L in per_test.items()]
+    sets = [x for x in s.query(McqAttempt).filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted").order_by(McqAttempt.submitted_at) if x.submitted_at]
+    tids = {t.id: t for t in s.query(Topic).join(Unit, Unit.id == Topic.unit_id).filter(*( [Unit.course_id == course_id] if course_id else []), Topic.published != False, Topic.archived_at.is_(None))}  # noqa: E712
+    if course_id: sets = [x for x in sets if x.course_id == course_id or x.topic_id in tids]
+    weeks = defaultdict(lambda: [0, 0])
+    for x in sets:
+        d = local_day(x.submitted_at); w = weeks[(d - dt.timedelta(days=d.weekday())).isoformat()]; w[0] += x.score or 0; w[1] += x.total or 0
+    p_right = sum(v[0] for v in weeks.values()); p_asked = sum(v[1] for v in weeks.values())
+    sits = defaultdict(lambda: {"test": [], "practice": []})
+    for tid, at, ok, n, kind in topic_checks(s, uid):
+        if tid in tids: sits[tid][kind].append((at, ok, n))
+    topics = []
+    for tid, k in sits.items():
+        allx = sorted(k["test"] + k["practice"], key=lambda x: x[0] or dt.datetime.min); t = tids[tid]
+        topics.append({"topic_id": tid, "title": t.title, "unit_id": t.unit_id, "status": classify(allx), "sittings": len(allx),
+                       "right": sum(x[1] for x in allx), "asked": sum(x[2] for x in allx), "percent": pct(sum(x[1] for x in allx), sum(x[2] for x in allx)),
+                       "test_percent": pct(sum(x[1] for x in k["test"]), sum(x[2] for x in k["test"])), "practice_percent": pct(sum(x[1] for x in k["practice"]), sum(x[2] for x in k["practice"])),
+                       "first": pct(allx[0][1], allx[0][2]), "latest": pct(allx[-1][1], allx[-1][2])})
+    topics.sort(key=lambda x: (x["percent"] if x["percent"] is not None else 101, x["title"]))
+    again = [x for x in tests if x["change"] is not None]
+    out = {"tests": sorted(tests, key=lambda x: x["title"]), "timeline": [{"at": utc_iso(a.at), "percent": a.percent, "title": quizzes[a.quiz_id].title} for a in atts],
+           "test_answers": {"right": right, "wrong": wrong, "percent": pct(right, right + wrong)},
+           "practice": {"sets": len(sets), "right": p_right, "wrong": p_asked - p_right, "percent": pct(p_right, p_asked),
+                        "weeks": [{"week": w, "right": v[0], "asked": v[1], "percent": pct(v[0], v[1])} for w, v in sorted(weeks.items())]},
+           "retakes": {"tests": len(again), "first": round(sum(x["first"] for x in again) / len(again)) if again else None, "latest": round(sum(x["latest"] for x in again) / len(again)) if again else None},
+           "topics": topics, "rule": {"min_questions": EVIDENCE_MIN_ASKED, "min_sittings": EVIDENCE_MIN_SITTINGS, "strong": STRONG, "weak": WEAK}}
+    out["insights"] = trend_insights(s, uid, out, set(tids), now)
+    return out
+def trend_insights(s, uid, d, tids, now):  # short sentences, each carrying the numbers it was made from
+    out = []
+    grew = sorted([t for t in d["topics"] if t["sittings"] >= EVIDENCE_MIN_SITTINGS and t["asked"] >= EVIDENCE_MIN_ASKED and t["latest"] - t["first"] >= 20], key=lambda t: t["first"] - t["latest"])
+    for t in grew[:2]: out.append({"kind": "improved", "text": f"Your accuracy in {t['title']} improved from {t['first']}% to {t['latest']}%.", "numbers": {"topic_id": t["topic_id"], "from": t["first"], "to": t["latest"]}})
+    strong = [t["title"] for t in sorted(d["topics"], key=lambda t: -t["percent"]) if t["status"] == "strong"][:3]
+    if strong: out.append({"kind": "strong", "text": f"You consistently do well in {', '.join(strong)}.", "numbers": {"topics": strong}})
+    for t in [t for t in d["topics"] if t["status"] == "needs_study"][:2]:
+        out.append({"kind": "attention", "text": f"{t['title']} needs attention: {t['right']} of {t['asked']} right over {t['sittings']} sittings.", "numbers": {"topic_id": t["topic_id"], "right": t["right"], "asked": t["asked"], "sittings": t["sittings"]}})
+    said = {t["topic_id"] for t in grew[:2]}
+    mixed = [t for t in d["topics"] if t["status"] == "getting_there" and t["topic_id"] not in said and t["latest"] is not None and t["latest"] > t["percent"]][:1]
+    for t in mixed: out.append({"kind": "improving", "text": f"{t['title']} is improving ({t['latest']}% last time), but needs more practice.", "numbers": {"topic_id": t["topic_id"], "latest": t["latest"], "overall": t["percent"]}})
+    r = d["retakes"]
+    if r["tests"] and r["latest"] != r["first"]:
+        out.append({"kind": "retakes", "text": f"On tests you took again, your score went from {r['first']}% to {r['latest']}% on average.", "numbers": r})
+    ev, _, _ = revision_events(s, uid); cut = now - dt.timedelta(days=NOT_REVISED_DAYS); stale = 0
+    for tid, e in ev.items():
+        if tid not in tids or not any(k == "learned" for _, k, _ in e): continue
+        if all(at < cut for at, k, _ in e if k != "postpone"): stale += 1
+    if stale: out.append({"kind": "not_revised", "text": "You have not revised 1 topic in the last two weeks." if stale == 1 else f"You have not revised {stale} topics in the last two weeks.", "numbers": {"topics": stale, "days": NOT_REVISED_DAYS}})
+    return out
+@app.get("/api/me/trends")
+def my_trends(course_id: int = 0, u: User = Depends(me), s: Session = Depends(db)):
+    d = learning_trends(s, u.id, course_id)
+    if course_id:
+        c = s.get(Course, course_id)
+        if c: check_course_access(u, course_id, s); d["cycles"] = course_cycles(s, u.id, c)
+    return d
+def student_of_course(s, c, sid):  # a student who is on this course's list, else 404: a teacher sees only their own course's students
+    x = s.get(User, sid)
+    if not x or x.role != "student" or x.id not in {y.id for y in course_users(c, s)}: raise HTTPException(404, "Student not found")
+    return x
+@app.get("/api/reports/courses/{cid}/students/{sid}/trends")
+def student_trends(cid: int, sid: int, u: User = Depends(author), s: Session = Depends(db)):  # one student's trends in this course, for its teachers
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s); x = student_of_course(s, c, sid)
+    return {"student": x.name, **learning_trends(s, sid, cid), "cycles": course_cycles(s, sid, c)}
+@app.get("/api/reports/courses/{cid}/trends")
+def class_trends(cid: int, u: User = Depends(author), s: Session = Depends(db)):  # the class: each test's first and latest scores, and the monthly average
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s)
+    aud = {x.id for x in course_users(c, s) if x.active}; qids = course_quiz_ids(cid, s); titles = {q.id: q.title for q in s.query(Quiz).filter(Quiz.id.in_(qids or [0]))}
+    per = defaultdict(lambda: defaultdict(list)); months = defaultdict(list)
+    for a in s.query(Attempt).filter(Attempt.user_id.in_(aud or {0}), Attempt.quiz_id.in_(qids or [0])).order_by(Attempt.at, Attempt.id):
+        per[a.quiz_id][a.user_id].append(a.percent); months[local_day(a.at).strftime("%Y-%m")].append(a.percent)
+    def avg(xs): return round(sum(xs) / len(xs)) if xs else None
+    tests = []
+    for qid, by in per.items():
+        again = [v for v in by.values() if len(v) > 1]
+        tests.append({"id": qid, "title": titles.get(qid, ""), "students": len(by), "first": avg([v[0] for v in by.values()]), "best": avg([max(v) for v in by.values()]),
+                      "retook": len(again), "retake_first": avg([v[0] for v in again]), "retake_latest": avg([v[-1] for v in again])})
+    return {"course": c.name, "students": len(aud), "tests": sorted(tests, key=lambda x: x["title"]),
+            "months": [{"month": m, "attempts": len(v), "average": avg(v)} for m, v in sorted(months.items())]}
+# ---- classroom learning intelligence (S44): where a course's students are struggling, read from the records already kept (progress, tests, MCQ sets,
+# ---- doubts, "Not clear?", revision, teacher resources). Nothing new is stored. Each student's standing on a topic is the S38 rule (classify); a topic
+# ---- is judged from those standings only once CI_MIN_ASSESSED students have enough evidence. Every count shows its sample size. Opening a topic is
+# ---- "studied"; marking it learned is the student's word; neither is mastery. The AI, only when a teacher asks, explains the evidence it is given.
+CI_MIN_ASSESSED, CI_SHARE, CI_DOUBT_STUDENTS, CI_WRONG_SHARE, CI_WRONG_MIN = 3, 0.4, 3, 0.3, 5
+CI_RULE = {"min_assessed": CI_MIN_ASSESSED, "share": round(100 * CI_SHARE), "doubt_students": CI_DOUBT_STUDENTS, "wrong_share": round(100 * CI_WRONG_SHARE), "wrong_min": CI_WRONG_MIN,
+           "student": {"min_questions": EVIDENCE_MIN_ASKED, "min_sittings": EVIDENCE_MIN_SITTINGS, "strong": STRONG, "weak": WEAK}}
+def ci_bounds(since, until):  # local days -> UTC instants (either may be None)
+    lo, hi = local_bounds(since, until)
+    return (dt.datetime.combine(lo, dt.time()) - dt.timedelta(minutes=DAY_OFFSET) if lo else None,
+            dt.datetime.combine(hi + dt.timedelta(days=1), dt.time()) - dt.timedelta(minutes=DAY_OFFSET) if hi else None)
+def ci_in(at, lo, hi): return at is not None and (lo is None or at >= lo) and (hi is None or at < hi)
+def ci_scope(s, u, cid, unit_id=0):  # (course, active students, live published topics in syllabus order), for the course's teachers only
+    c = s.get(Course, cid)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s)
+    studs = [x for x in course_users(c, s) if x.active]
+    units = [n for n in s.query(Unit).filter(Unit.course_id == cid, Unit.archived_at.is_(None)).order_by(*ORDER[Unit]) if not unit_id or n.id == unit_id]
+    topics = s.query(Topic).filter(Topic.unit_id.in_([n.id for n in units] or [0]), Topic.published != False, Topic.archived_at.is_(None)).order_by(*ORDER[Topic]).all()  # noqa: E712
+    order = {n.id: k for k, n in enumerate(units)}; topics.sort(key=lambda t: order.get(t.unit_id, 0))
+    return c, studs, units, topics
+def ci_evidence(s, c, uids, tids, lo, hi):
+    """(sittings {(student, topic): [(at, right, asked, kind)]}, questions {key: stats}): tests (one row per submission) and submitted MCQ sets
+    (abandoned or open ones never count), in the window, on these topics."""
+    sits, qs = defaultdict(list), {}
+    def q_stat(key, tid, text, options, correct, source):
+        return qs.setdefault(key, {"key": f"{key[0]}{key[1]}", "topic_id": tid, "text": (text or "")[:500], "options": options, "correct": correct, "source": source,
+                                   "answered": 0, "right": 0, "picks": defaultdict(int), "students": set(), "wrong": defaultdict(lambda: defaultdict(int))})
+    for uid, q, qm, detail, at in all_batches(s, uids, course_quiz_ids(c.id, s)):
+        if not ci_in(at, lo, hi): continue
+        per = defaultdict(lambda: [0, 0])
+        for d in detail:
+            x = qm.get(d[0]); tid = getattr(x, "topic_id", None) if x is not None else None
+            if tid not in tids: continue
+            per[tid][0] += bool(d[1]); per[tid][1] += 1
+            try: opts = json.loads(x.options)
+            except (TypeError, ValueError): opts = []
+            st = q_stat(("t", d[0]), tid, x.text, opts, x.correct, q.title); st["answered"] += 1; st["right"] += bool(d[1]); st["students"].add(uid)
+            ch = d[2] if len(d) > 2 else None
+            if not d[1] and ch is not None: st["picks"][ch] += 1; st["wrong"][uid][ch] += 1
+        for tid, (ok, n) in per.items(): sits[(uid, tid)].append((at, ok, n, "test"))
+    sets = defaultdict(lambda: [None, 0, 0])
+    for aid, uid, at, tid, ok, ch, item, snap in s.query(McqAttempt.id, McqAttempt.user_id, McqAttempt.submitted_at, McqAttemptItem.topic_id, McqAttemptItem.ok, McqAttemptItem.chosen,
+                                                         McqAttemptItem.item_id, McqAttemptItem.snapshot).join(McqAttemptItem, McqAttemptItem.attempt_id == McqAttempt.id) \
+            .filter(McqAttempt.user_id.in_(uids or [0]), McqAttempt.status == "submitted", McqAttemptItem.topic_id.in_(tids or [0])):
+        if not ci_in(at, lo, hi): continue
+        k = sets[(aid, uid, tid)]; k[0] = at; k[1] += bool(ok); k[2] += 1
+        try: x = json.loads(snap or "{}")
+        except ValueError: x = {}
+        key = ("b", item) if item else ("a", hashlib.sha256((x.get("text") or "").encode()).hexdigest()[:12])
+        st = q_stat(key, tid, x.get("text"), x.get("options") or [], x.get("correct"), "practice"); st["answered"] += 1; st["right"] += bool(ok); st["students"].add(uid)
+        if not ok and ch is not None: st["picks"][ch] += 1; st["wrong"][uid][ch] += 1
+    for (aid, uid, tid), (at, ok, n) in sets.items(): sits[(uid, tid)].append((at, ok, n, "practice"))
+    return sits, qs
+def ci_common_wrong(st):  # a wrong option many chose: (option index, share) when CI_WRONG_MIN+ answered and CI_WRONG_SHARE+ of them picked it
+    if st["answered"] < CI_WRONG_MIN or not st["picks"]: return None
+    opt, n = max(st["picks"].items(), key=lambda kv: kv[1])
+    return (opt, n) if n >= CI_WRONG_SHARE * st["answered"] else None
+def ci_doubts(s, uids, tids, lo, hi):  # doubts sent to the teacher, per topic: [(question, first message)], and "Not clear?" taps per topic
+    asked = defaultdict(list)
+    rows = s.query(TeacherQuestion).filter(TeacherQuestion.user_id.in_(uids or [0]), TeacherQuestion.topic_id.in_(tids or [0]), TeacherQuestion.started_by.is_(None), TeacherQuestion.status != "withdrawn").all()
+    rows = [q for q in rows if ci_in(q.at, lo, hi)]
+    first = {}
+    for r in s.query(TeacherReply).filter(TeacherReply.question_id.in_([q.id for q in rows] or [0])).order_by(TeacherReply.id):
+        first.setdefault(r.question_id, r.text)
+    for q in rows: asked[q.topic_id].append((q, first.get(q.id, "")))
+    taps = defaultdict(lambda: [0, set()]); revised = defaultdict(set)
+    for tid, uid, kind, at in s.query(StepLog.topic_id, StepLog.user_id, StepLog.kind, StepLog.at).filter(StepLog.user_id.in_(uids or [0]), StepLog.topic_id.in_(tids or [0]), StepLog.kind.in_(("doubt", "revised"))):
+        if not ci_in(at, lo, hi): continue
+        if kind == "doubt": taps[tid][0] += 1; taps[tid][1].add(uid)
+        else: revised[tid].add(uid)
+    return asked, taps, revised
+def ci_groups(items):  # doubts grouped by the words they share (no AI): [{words, ids}], biggest first
+    groups = []
+    for qid, words in items:
+        best = max(groups, key=lambda g: len(g["words"] & words), default=None)
+        if best and len(best["words"] & words) >= 2: best["ids"].append(qid); best["words"] = best["words"] & words if len(best["words"] & words) >= 2 else best["words"]
+        else: groups.append({"words": set(words), "ids": [qid]})
+    return sorted([g for g in groups if len(g["ids"]) >= 2], key=lambda g: -len(g["ids"]))
+def ci_student_label(sits):
+    return classify([(at, ok, n) for at, ok, n, _ in sits]) if sits else None
+def ci_topic(t, studs, studied, learned, sits, qs, asked, taps, revised, resources, now):
+    uids = [x.id for x in studs]; mine = {uid: sits.get((uid, t.id), []) for uid in uids}
+    labels = {uid: ci_student_label(x) for uid, x in mine.items() if x}
+    ev = [l for l in labels.values() if l != "not_assessed"]; cnt = {k: sum(1 for l in ev if l == k) for k in ("strong", "getting_there", "needs_study")}
+    def acc(kind):
+        ok = sum(x[1] for v in mine.values() for x in v if x[3] == kind); n = sum(x[2] for v in mine.values() for x in v if x[3] == kind)
+        return {"percent": pct(ok, n), "right": ok, "asked": n, "students": sum(1 for v in mine.values() if any(x[3] == kind for x in v))}
+    common = [(st, cw) for st in qs.values() if st["topic_id"] == t.id for cw in [ci_common_wrong(st)] if cw]
+    dq = asked.get(t.id, []); doubt_students = {q.user_id for q, _ in dq} | set(taps[t.id][1])
+    signals = (len(doubt_students) >= CI_DOUBT_STUDENTS) + bool(common)
+    if len(ev) < CI_MIN_ASSESSED: status = "not_assessed"
+    elif cnt["needs_study"] >= CI_SHARE * len(ev) and signals: status = "needs_study"
+    elif cnt["needs_study"] + cnt["getting_there"] >= CI_SHARE * len(ev): status = "getting_there"
+    else: status = "strong"
+    allx = sorted((x for v in mine.values() for x in v), key=lambda x: x[0]); cut = now - dt.timedelta(days=30)
+    before, recent = [x for x in allx if x[0] < cut], [x for x in allx if x[0] >= cut]
+    nb, nr = sum(x[2] for x in before), sum(x[2] for x in recent)
+    trend = {"before": pct(sum(x[1] for x in before), nb), "recent": pct(sum(x[1] for x in recent), nr), "before_asked": nb, "recent_asked": nr} if nb >= EVIDENCE_MIN_ASKED and nr >= EVIDENCE_MIN_ASKED else None
+    told_learned_but = sum(1 for uid, l in labels.items() if uid in learned.get(t.id, set()) and l in ("getting_there", "needs_study"))
+    repeated = sum(1 for uid, l in labels.items() if l == "needs_study" and len(mine[uid]) >= 3)
+    groups = ci_groups([(q.id, tq_words(text + " " + (q.excerpt or ""))) for q, text in dq])
+    recs = []  # suggestions with the evidence behind each; nothing happens on its own
+    if status == "needs_study": recs.append({"key": "explain", "n": cnt["needs_study"], "of": len(ev)})
+    if groups and len({q.user_id for q, _ in dq if q.id in groups[0]["ids"]}) >= CI_DOUBT_STUDENTS: recs.append({"key": "common", "n": len({q.user_id for q, _ in dq if q.id in groups[0]["ids"]}), "words": sorted(groups[0]["words"])[:4]})
+    if common: st, (opt, n) = max(common, key=lambda p: p[1][1] / p[0]["answered"]); recs.append({"key": "practice", "n": n, "of": st["answered"], "question": st["text"][:120]})
+    if told_learned_but >= CI_MIN_ASSESSED: recs.append({"key": "revise", "n": told_learned_but})
+    if repeated: recs.append({"key": "individual", "n": repeated})
+    if trend and trend["recent"] - trend["before"] >= 10: recs.append({"key": "keep", "from": trend["before"], "to": trend["recent"]})
+    active = {uid for uid in uids if mine[uid]} | doubt_students
+    return {"topic_id": t.id, "title": t.title, "unit_id": t.unit_id, "students": len(uids), "studied": len(studied.get(t.id, set()) & set(uids)), "learned": len(learned.get(t.id, set()) & set(uids)),
+            "assessed": len(labels), "evidence": len(ev), "strong": cnt["strong"], "needs_revision": cnt["getting_there"], "needs_attention": cnt["needs_study"],
+            "status": status, "tests": acc("test"), "practice": acc("practice"), "common_wrong": len(common),
+            "doubts": len(dq), "doubt_students": len({q.user_id for q, _ in dq}), "unresolved": sum(1 for q, _ in dq if q.status != "closed"),
+            "not_clear": taps[t.id][0], "not_clear_students": len(taps[t.id][1]), "revised": len(revised.get(t.id, set())), "resources": resources.get(t.id, 0),
+            "active": len(active), "trend": trend, "recommendations": recs}
+def ci_study(s, uids, tids, lo, hi):  # who opened (studied) and who marked learned each topic, in the window
+    studied, learned = defaultdict(set), defaultdict(set)
+    for tab in (Progress, ProgressHistory):
+        for uid, tid, last, done in s.query(tab.user_id, tab.topic_id, tab.last_read, tab.completed_at).filter(tab.user_id.in_(uids or [0]), tab.topic_id.in_(tids or [0])):
+            if ci_in(last, lo, hi) or ci_in(done, lo, hi) or (lo is None and hi is None): studied[tid].add(uid)
+            if done and ci_in(done, lo, hi) or (done and lo is None and hi is None): learned[tid].add(uid)
+    return studied, learned
+def ci_all(s, u, cid, unit_id=0, since="", until="", only=None):
+    c, studs, units, topics = ci_scope(s, u, cid, unit_id)
+    if only: topics = [t for t in topics if t.id == only]
+    lo, hi = ci_bounds(since, until); uids = [x.id for x in studs]; tids = [t.id for t in topics]
+    sits, qs = ci_evidence(s, c, uids, set(tids), lo, hi); asked, taps, revised = ci_doubts(s, uids, tids, lo, hi); studied, learned = ci_study(s, uids, tids, lo, hi)
+    resources = dict(s.query(TeacherResource.topic_id, func.count(TeacherResource.id)).filter(TeacherResource.topic_id.in_(tids or [0]), TeacherResource.status == "published").group_by(TeacherResource.topic_id).all())
+    now = dt.datetime.utcnow()
+    rows = [ci_topic(t, studs, studied, learned, sits, qs, asked, taps, revised, resources, now) for t in topics]
+    return c, studs, units, topics, rows, sits, qs, asked, taps, studied, learned
+@app.get("/api/reports/courses/{cid}/topics")
+def class_topics(cid: int, unit_id: int = 0, since: str = "", until: str = "", u: User = Depends(author), s: Session = Depends(db)):
+    """Every topic of the course (or a unit) for its teachers: who studied it, who was assessed and how they stand, test and practice accuracy apart,
+    doubts and unresolved ones, a trend, and suggestions with the evidence behind them. Sample sizes come with every figure."""
+    c, studs, units, topics, rows, sits, qs, asked, taps, studied, learned = ci_all(s, u, cid, unit_id, since, until)
+    act = {uid for (uid, _), v in sits.items() if v} | {q.user_id for v in asked.values() for q, _ in v} | {uid for v in studied.values() for uid in v}
+    order = {"needs_study": 0, "getting_there": 1, "strong": 2, "not_assessed": 3}
+    return {"course": c.name, "students": len(studs), "active": len(act & {x.id for x in studs}), "units": [{"id": n.id, "name": n.name} for n in s.query(Unit).filter(Unit.course_id == cid, Unit.archived_at.is_(None)).order_by(*ORDER[Unit])],
+            "rule": CI_RULE, "topics": rows, "attention": [r["topic_id"] for r in sorted(rows, key=lambda r: (order[r["status"]], -r["unresolved"])) if r["status"] in ("needs_study", "getting_there")][:5],
+            "window": {"since": since or None, "until": until or None}}
+CI_CAT = ("attention", "revision", "insufficient", "studied_not_assessed", "not_studied", "strong")
+def ci_student_rows(studs, t, sits, studied, learned, asked, qs):
+    out = []
+    for x in studs:
+        v = sorted(sits.get((x.id, t.id), []), key=lambda y: y[0]); l = ci_student_label(v)
+        cat = ("not_studied" if x.id not in studied.get(t.id, set()) else "studied_not_assessed") if not v else \
+              {"not_assessed": "insufficient", "strong": "strong", "getting_there": "revision", "needs_study": "attention"}[l]
+        first, last = (pct(v[0][1], v[0][2]), pct(v[-1][1], v[-1][2])) if len(v) >= 2 else (None, None)
+        rep = sum(1 for st in qs.values() if st["topic_id"] == t.id and sum(st["wrong"].get(x.id, {}).values()) >= 2)
+        out.append({"id": x.id, "name": x.name, "category": cat, "sittings": len(v), "right": sum(y[1] for y in v), "asked": sum(y[2] for y in v),
+                    "percent": pct(sum(y[1] for y in v), sum(y[2] for y in v)), "improving": first is not None and last - first >= 20, "repeated_errors": rep,
+                    "learned": x.id in learned.get(t.id, set()), "doubts": sum(1 for q, _ in asked.get(t.id, []) if q.user_id == x.id)})
+    return sorted(out, key=lambda r: (CI_CAT.index(r["category"]), r["name"].lower()))
+@app.get("/api/reports/courses/{cid}/topics/{tid}")
+def class_topic(cid: int, tid: int, since: str = "", until: str = "", category: str = "", limit: int = 50, offset: int = 0, u: User = Depends(author), s: Session = Depends(db)):
+    """One topic: its figures, the questions many got wrong in the same way (with the options), the doubts grouped by shared words, and its students
+    by where they stand (not a ranking), a page at a time."""
+    c, studs, units, topics, rows, sits, qs, asked, taps, studied, learned = ci_all(s, u, cid, 0, since, until, only=tid)
+    if not topics: raise HTTPException(404, "Topic not found")
+    t = topics[0]; row = rows[0]
+    common = []
+    for st in qs.values():
+        cw = ci_common_wrong(st) if st["topic_id"] == tid else None
+        if cw: common.append({"key": st["key"], "text": st["text"], "options": st["options"], "correct": st["correct"], "source": st["source"], "answered": st["answered"],
+                              "right": st["right"], "students": len(st["students"]), "wrong_option": cw[0], "wrong_picks": cw[1], "picks": dict(st["picks"])})
+    common.sort(key=lambda x: -x["wrong_picks"] / x["answered"])
+    dq = asked.get(tid, []); texts = {q.id: text for q, text in dq}; names = {x.id: x.name for x in studs}
+    groups = [{"words": sorted(g["words"])[:5], "students": len({q.user_id for q, _ in dq if q.id in g["ids"]}),
+               "doubts": [{"id": q.id, "text": texts[q.id][:300], "student": names.get(q.user_id, ""), "status": q.status} for q, _ in dq if q.id in g["ids"]]} for g in ci_groups([(q.id, tq_words(text + " " + (q.excerpt or ""))) for q, text in dq])]
+    grouped = {d["id"] for g in groups for d in g["doubts"]}
+    studs_rows = ci_student_rows(studs, t, sits, studied, learned, asked, qs)
+    cats = {k: sum(1 for r in studs_rows if r["category"] == k) for k in CI_CAT}
+    if category:
+        if category not in CI_CAT: raise HTTPException(400, "Unknown group")
+        studs_rows = [r for r in studs_rows if r["category"] == category]
+    return {"topic": row, "rule": CI_RULE, "common_wrong": common[:20], "doubt_groups": groups,
+            "other_doubts": [{"id": q.id, "text": texts[q.id][:300], "student": names.get(q.user_id, ""), "status": q.status} for q, _ in dq if q.id not in grouped][:30],
+            "categories": cats, "total": len(studs_rows), "students": studs_rows[max(offset, 0):max(offset, 0) + min(max(limit, 1), 100)]}
+@app.get("/api/reports/courses/{cid}/topics/{tid}/students/{sid}")
+def class_topic_student(cid: int, tid: int, sid: int, u: User = Depends(author), s: Session = Depends(db)):
+    """One student on one topic, for the course's teachers: each sitting, the questions they keep getting wrong, revision, and their doubts with the
+    teacher's answers. The student must be on the course's list."""
+    c, studs, units, topics = ci_scope(s, u, cid)
+    t = next((x for x in topics if x.id == tid), None); x = next((y for y in studs if y.id == sid), None)
+    if not t: raise HTTPException(404, "Topic not found")
+    if not x: raise HTTPException(404, "Student not found")
+    sits, qs = ci_evidence(s, c, [sid], {tid}, None, None)
+    v = sorted(sits.get((sid, tid), []), key=lambda y: y[0])
+    rep = [{"text": st["text"][:300], "options": st["options"], "correct": st["correct"], "times_wrong": sum(st["wrong"][sid].values()),
+            "chosen": max(st["wrong"][sid].items(), key=lambda kv: kv[1])[0] if st["wrong"][sid] else None, "source": st["source"]}
+           for st in qs.values() if sum(st["wrong"].get(sid, {}).values()) >= 2]
+    p = s.query(Progress).filter_by(user_id=sid, topic_id=tid).first()
+    revised = [utc_iso(at) for (at,) in s.query(StepLog.at).filter_by(user_id=sid, topic_id=tid, kind="revised").order_by(StepLog.at)]
+    doubts = []
+    for q in s.query(TeacherQuestion).filter(TeacherQuestion.user_id == sid, TeacherQuestion.topic_id == tid, TeacherQuestion.started_by.is_(None), TeacherQuestion.status != "withdrawn").order_by(TeacherQuestion.at):
+        msgs = s.query(TeacherReply).filter_by(question_id=q.id).order_by(TeacherReply.id).all()
+        doubts.append({"id": q.id, "label": tq_label(s, q), "at": utc_iso(q.at), "messages": [{"teacher": m.user_id != sid, "text": m.text[:500], "at": utc_iso(m.at)} for m in msgs]})
+    return {"student": x.name, "topic": t.title, "label": ci_student_label(v), "studied": p is not None, "learned": bool(p and p.completed_at), "last_read": utc_iso(p.last_read) if p else None,
+            "sittings": [{"at": utc_iso(at), "kind": k, "right": ok, "asked": n, "percent": pct(ok, n)} for at, ok, n, k in v], "repeated_errors": rep, "revised": revised, "doubts": doubts, "rule": CI_RULE["student"]}
+CI_PROMPT = ("You help a teacher see where their class struggles with one topic. You are given numbered evidence lines [E1], [E2]... taken from the school's records. "
+             "Use only that evidence. Cite the lines you rely on, like [E3]. Do not state any number, percentage or count that is not written in the evidence. "
+             "Never judge or name individual students. Write: 1) the likely misunderstandings, 2) what to explain again, 3) one alternative example or analogy "
+             "for teaching it. If the evidence is thin, say so plainly. Keep it under 250 words. Answer in the teacher's language.")
+@app.post("/api/reports/courses/{cid}/topics/{tid}/explain")
+async def class_topic_explain(cid: int, tid: int, since: str = "", until: str = "", u: User = Depends(author), s: Session = Depends(db)):
+    """The AI's reading of the evidence, only when a teacher asks. It gets numbered evidence lines worked out here (counts, the questions many got wrong
+    and how, the doubts' words without names) and must cite them; numbers in its answer that aren't in the evidence are flagged. Saved per evidence."""
+    d = class_topic(cid, tid, since, until, "", 1, 0, u, s); r = d["topic"]
+    ev = [f"Topic: {r['title']}. Students in the course: {r['students']}. Opened the topic: {r['studied']}. Marked it learned: {r['learned']}.",
+          f"Students with enough evidence (at least {EVIDENCE_MIN_ASKED} questions over {EVIDENCE_MIN_SITTINGS} sittings): {r['evidence']}; strong {r['strong']}, need revision {r['needs_revision']}, need attention {r['needs_attention']}.",
+          f"Test answers on this topic: {r['tests']['right']} right of {r['tests']['asked']}. MCQ practice answers: {r['practice']['right']} right of {r['practice']['asked']}.",
+          f"Doubts sent to the teacher: {r['doubts']} from {r['doubt_students']} students, {r['unresolved']} not resolved. 'Not clear?' taps: {r['not_clear']} from {r['not_clear_students']} students."]
+    for q in d["common_wrong"][:6]:
+        opts = q["options"] or []; good = opts[q["correct"]] if isinstance(q["correct"], int) and 0 <= q["correct"] < len(opts) else "?"
+        bad = opts[q["wrong_option"]] if 0 <= q["wrong_option"] < len(opts) else "?"
+        ev.append(f"Question: {q['text'][:300]} Correct answer: {good}. Most chosen wrong answer: {bad} ({q['wrong_picks']} of {q['answered']} answers).")
+    for g in d["doubt_groups"][:4]:
+        ev.extend(f"A student's doubt: {x['text'][:250]}" for x in g["doubts"][:3])
+    ev.extend(f"A student's doubt: {x['text'][:250]}" for x in d["other_doubts"][:6])
+    lines = [{"id": f"E{k + 1}", "text": e} for k, e in enumerate(ev)]
+    msg = "\n".join(f"[{x['id']}] {x['text']}" for x in lines)
+    prompt = in_lang(u, CI_PROMPT); chash = hashlib.sha256((prompt + "\n" + msg).encode()).hexdigest()
+    hit = s.query(AICache).filter_by(topic_id=tid, kind="class", chash=chash).first()
+    if hit: text, cached = hit.text, True
+    else:
+        key = key_or_fail(u, s); text, tokens = await ask_ai(u, s, key, prompt, msg, max_tokens=700, kind="class", topic_id=tid); cached = False
+        try: s.add(AICache(topic_id=tid, kind="class", chash=chash, text=text, tokens=tokens)); s.commit()
+        except Exception: s.rollback()
+    allowed = set(re.findall(r"\d+", msg))
+    unverified = sorted({n for n in re.findall(r"(?<![\w\[E])\d+(?:\.\d+)?", text) if n.split(".")[0] not in allowed})
+    return {"text": text, "evidence": lines, "cited": sorted(set(re.findall(r"\[(E\d+)\]", text)), key=lambda e: int(e[1:])), "unverified_numbers": unverified, "cached": cached}
+# ---- learning support plans (S45): a course's teacher gathers existing activities (a topic to study, its revision sheet, MCQ practice, a test, a resource,
+# ---- asking the teacher, relearning) for chosen students. Each student has their own record under the plan; progress is read from the records those
+# ---- activities already leave after the student was assigned (nothing is copied); the outcome compares the same topics before and after, tests and
+# ---- practice apart, and says "not yet established" until there is enough evidence. The AI can suggest a plan from existing content; a teacher decides.
+IV_KINDS = ("study", "revise", "mcq", "test", "resource", "ask", "relearn")
+IV_STATUS = ("draft", "active", "completed", "cancelled")
+IV_OUTCOMES = ("improved", "partly", "not_yet", "more_support")
+IV_CHANGE = 10  # points of accuracy, on the same kind of evidence, before a change is called a rise or a fall
+class IvActivityIn(BaseModel): id: int | None = None; kind: str; topic_id: int | None = None; ref_id: int | None = None; size: int | None = None; required: bool = True
+class InterventionIn(BaseModel):
+    course_id: int = 0; title: str = ""; description: str = ""; topic_ids: list[int] = []; criteria: str = ""; start: str = ""; target: str = ""
+    activities: list[IvActivityIn] = []; student_ids: list[int] = []; reasons: dict[str, str] = {}; activate: bool = False
+def iv_day(v, end=False):  # "YYYY-MM-DD" on the students' clock -> UTC instant (start of that day, or the end of it)
+    if not v: return None
+    try: d = dt.date.fromisoformat(v)
+    except ValueError: raise HTTPException(400, "Dates must look like 2026-01-31")
+    return dt.datetime.combine(d + dt.timedelta(days=1 if end else 0), dt.time()) - dt.timedelta(minutes=DAY_OFFSET)
+def iv_plan(s, u, iid):
+    p = s.get(Intervention, iid)
+    if not p: raise HTTPException(404, "Plan not found")
+    need_edit(u, p.course_id, s); return p
+def iv_validate(s, u, c, b):  # topics, activities and students checked against this course; nothing taken on trust
+    tids = {t.id for t in ci_scope(s, u, c.id)[3]}
+    if not b.topic_ids or any(t not in tids for t in b.topic_ids): raise HTTPException(400, "Choose topics of this course")
+    quizzes = set(course_quiz_ids(c.id, s))
+    res = {r.id: r for r in s.query(TeacherResource).filter(TeacherResource.course_id == c.id, TeacherResource.status == "published")}
+    acts = []
+    for a in b.activities:
+        if a.kind not in IV_KINDS: raise HTTPException(400, "Unknown activity")
+        if a.kind == "test":
+            if a.ref_id not in quizzes: raise HTTPException(400, "Choose a published test of this course")
+        elif a.kind == "resource":
+            if a.ref_id not in res: raise HTTPException(400, "Choose a published resource of this course")
+            a.topic_id = res[a.ref_id].topic_id
+        elif a.topic_id not in tids: raise HTTPException(400, "Choose a topic of this course for each activity")
+        if a.kind == "mcq": a.size = min(max(a.size or 10, 5), 30)
+        acts.append(a)
+    if not acts: raise HTTPException(400, "Add at least one activity")
+    studs = {x.id for x in course_users(c, s) if x.active}
+    if any(x not in studs for x in b.student_ids): raise HTTPException(400, "Choose students of this course")
+    return acts
+def iv_evidence(s, uid, tids, start=None, end=None):  # {test: {right, asked, sittings}, practice: {...}, label}: the S38 evidence on these topics in [start, end)
+    out = {"test": [0, 0, 0], "practice": [0, 0, 0]}; sits = []
+    for tid, at, ok, n, kind in topic_checks(s, uid):
+        if tid in tids and at and (start is None or at >= start) and (end is None or at < end): k = out[kind]; k[0] += ok; k[1] += n; k[2] += 1; sits.append((at, ok, n))
+    return {**{k: {"right": v[0], "asked": v[1], "sittings": v[2], "percent": pct(v[0], v[1])} for k, v in out.items()}, "label": classify(sits) if sits else None}
+def iv_since(st, a): return max(st.assigned_at, a.added_at) if st.assigned_at else None
+def iv_activity_state(s, uid, a, since, now):  # (status, evidence): read from the records the activity leaves after `since`; opening is never understanding
+    if since is None: return "todo", ""
+    if a.kind == "study":
+        p = s.query(Progress).filter_by(user_id=uid, topic_id=a.topic_id).first()
+        if p and p.completed_at and max(p.completed_at, p.last_read or p.completed_at) >= since: return "done", "learned"  # learned, and opened again since (or learned since)
+        return ("started", "opened") if p and p.last_read and p.last_read >= since else ("todo", "")
+    if a.kind == "revise":
+        n = s.query(func.count(StepLog.id)).filter(StepLog.user_id == uid, StepLog.topic_id == a.topic_id, StepLog.kind == "revised", StepLog.at >= since).scalar()
+        return ("done", "read") if n else ("todo", "")
+    if a.kind == "mcq":
+        ok = asked = 0
+        for good, in s.query(McqAttemptItem.ok).join(McqAttempt, McqAttempt.id == McqAttemptItem.attempt_id).filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted",
+                                                                                                                   McqAttempt.submitted_at >= since, McqAttemptItem.topic_id == a.topic_id):
+            ok += bool(good); asked += 1
+        st = "done" if asked >= (a.size or 10) else "started" if asked else "todo"
+        return st, f"{ok}/{asked}" if asked else ""
+    if a.kind == "test":
+        rows = s.query(Attempt.percent).filter(Attempt.user_id == uid, Attempt.quiz_id == a.ref_id, Attempt.at >= since).all()
+        return ("done", f"{max(p for p, in rows)}%") if rows else ("todo", "")
+    if a.kind == "resource":
+        n = s.query(func.count(StepLog.id)).filter(StepLog.user_id == uid, StepLog.kind == "resource", StepLog.outcome == str(a.ref_id), StepLog.at >= since).scalar()
+        return ("done", "opened") if n else ("todo", "")
+    if a.kind == "ask":
+        n = s.query(func.count(TeacherQuestion.id)).filter(TeacherQuestion.user_id == uid, TeacherQuestion.topic_id == a.topic_id, TeacherQuestion.at >= since, TeacherQuestion.status != "withdrawn").scalar()
+        return ("done", "asked") if n else ("todo", "")
+    if a.kind == "relearn":
+        h = s.query(ProgressHistory.redone_at).filter(ProgressHistory.user_id == uid, ProgressHistory.topic_id == a.topic_id, ProgressHistory.redone_at >= since).order_by(ProgressHistory.redone_at).first()
+        if not h: return "todo", ""
+        p = s.query(Progress).filter_by(user_id=uid, topic_id=a.topic_id).first()
+        return ("done", "learned again") if p and p.completed_at and p.completed_at >= h[0] else ("started", "started over")
+    return "todo", ""
+def iv_compare(base, after):  # per kind: before and after on the same topics, and whether that says anything yet
+    out = {}
+    for k in ("test", "practice"):
+        b, a = base.get(k) or {}, after.get(k) or {}
+        enough = (a.get("asked") or 0) >= EVIDENCE_MIN_ASKED and (a.get("sittings") or 0) >= EVIDENCE_MIN_SITTINGS and (b.get("asked") or 0) >= EVIDENCE_MIN_ASKED
+        change = (a["percent"] - b["percent"]) if enough else None
+        out[k] = {"before": b, "after": a, "established": enough, "change": change,
+                  "direction": None if change is None else "rose" if change >= IV_CHANGE else "fell" if change <= -IV_CHANGE else "steady"}
+    est = [v for v in out.values() if v["established"]]
+    out["overall"] = "not_established" if not est else "rose" if any(v["direction"] == "rose" for v in est) and not any(v["direction"] == "fell" for v in est) \
+        else "fell" if any(v["direction"] == "fell" for v in est) and not any(v["direction"] == "rose" for v in est) else "mixed" if len({v["direction"] for v in est}) > 1 else "steady"
+    return out
+def iv_student(s, p, st, acts, tids, now, detail=False):
+    rows = []
+    for a in acts:
+        state, ev = iv_activity_state(s, st.user_id, a, iv_since(st, a), now)
+        if a.removed_at and state != "done": continue  # a removed activity stays only where it was done (history)
+        rows.append({"id": a.id, "kind": a.kind, "topic_id": a.topic_id, "ref_id": a.ref_id, "size": a.size, "required": bool(a.required), "removed": bool(a.removed_at), "state": state, "evidence": ev})
+    live = [r for r in rows if not r["removed"]]; req = [r for r in live if r["required"]]
+    done = sum(r["state"] == "done" for r in req); any_move = any(r["state"] != "todo" for r in live)
+    progress = "completed" if req and done == len(req) else "in_progress" if any_move else "not_started"
+    overdue = bool(p.target_at and now > p.target_at and progress != "completed")
+    out = {"user_id": st.user_id, "assigned_at": utc_iso(st.assigned_at), "removed": bool(st.removed_at), "reason": st.reason or "", "progress": progress, "done": done, "required": len(req),
+           "overdue": overdue, "needs_review": bool(st.assigned_at and not st.outcome and not st.removed_at and (progress == "completed" or overdue)),
+           "outcome": st.outcome, "outcome_note": st.outcome_note or "", "reviewed_at": utc_iso(st.reviewed_at)}
+    base = json.loads(st.baseline) if st.baseline else iv_evidence(s, st.user_id, tids, end=st.assigned_at or now)  # every row carries the comparison (counts use it)
+    after = iv_evidence(s, st.user_id, tids, start=st.assigned_at) if st.assigned_at else {"test": {}, "practice": {}, "label": None}
+    out["comparison"] = iv_compare(base, after); out["baseline_label"], out["after_label"] = base.get("label"), after.get("label")
+    if detail: out["activities"] = rows
+    return out
+def iv_json(s, p, detail=False, now=None):
+    now = now or dt.datetime.utcnow(); tids = set(json.loads(p.topic_ids or "[]"))
+    acts = s.query(InterventionActivity).filter_by(intervention_id=p.id).order_by(InterventionActivity.position, InterventionActivity.id).all()
+    studs = s.query(InterventionStudent).filter_by(intervention_id=p.id).all(); names = {x.id: x.name for x in s.query(User).filter(User.id.in_([x.user_id for x in studs] or [0]))}
+    rows = [{**iv_student(s, p, st, acts, tids, now, detail), "name": names.get(st.user_id, "")} for st in studs]
+    live = [r for r in rows if not r["removed"]]
+    tops = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_(tids or {0}))}
+    out = {"id": p.id, "course_id": p.course_id, "title": p.title, "description": p.description or "", "criteria": p.criteria or "", "status": p.status,
+           "topics": [{"id": t, "title": tops.get(t, "")} for t in json.loads(p.topic_ids or "[]")], "start": utc_iso(p.start_at), "target": utc_iso(p.target_at),
+           "created_at": utc_iso(p.created_at), "updated_at": utc_iso(p.updated_at),
+           "counts": {"students": len(live), **{k: sum(r["progress"] == k for r in live) for k in ("not_started", "in_progress", "completed")},
+                      "needs_review": sum(r["needs_review"] for r in live), "overdue": sum(r["overdue"] for r in live),
+                      "outcome_not_established": sum(r["comparison"]["overall"] == "not_established" for r in live), "rose": sum(r["comparison"]["overall"] == "rose" for r in live)}}
+    if detail:
+        out["activities"] = [{"id": a.id, "kind": a.kind, "topic_id": a.topic_id, "ref_id": a.ref_id, "size": a.size, "required": bool(a.required), "added_at": utc_iso(a.added_at),
+                              "removed_at": utc_iso(a.removed_at), "label": iv_label(s, a)} for a in acts]
+        out["students"] = sorted(rows, key=lambda r: (r["removed"], not r["needs_review"], r["name"].lower()))
+    return out
+def iv_label(s, a):  # what an activity is, in words a student can act on
+    t = s.get(Topic, a.topic_id) if a.topic_id else None
+    if a.kind == "test": q = s.get(Quiz, a.ref_id); return q.title if q else ""
+    if a.kind == "resource": r = s.get(TeacherResource, a.ref_id); v = res_version(s, r) if r else None; return v.title if v else ""
+    return t.title if t else ""
+def iv_save_acts(s, p, acts, now, existing=None):  # keep, add and remove activities; a removed one keeps its row (and so its history)
+    existing = existing or {}; keep = set()
+    for k, a in enumerate(acts):
+        if a.id and a.id in existing:
+            x = existing[a.id]; x.position, x.required = k, a.required; keep.add(a.id)
+        else: s.add(InterventionActivity(intervention_id=p.id, position=k, kind=a.kind, topic_id=a.topic_id, ref_id=a.ref_id, size=a.size, required=a.required, added_at=now))
+    changed = len(keep) != len([x for x in existing.values() if not x.removed_at]) or any(not a.id or a.id not in existing for a in acts)
+    for i, x in existing.items():
+        if i not in keep and not x.removed_at: x.removed_at = now
+    return changed
+def iv_assign(s, p, uids, reasons, now):  # each student gets their own record; their baseline is frozen when the plan starts for them
+    have = {x.user_id: x for x in s.query(InterventionStudent).filter_by(intervention_id=p.id)}; tids = set(json.loads(p.topic_ids or "[]"))
+    for uid in uids:
+        x = have.get(uid)
+        if not x: x = InterventionStudent(intervention_id=p.id, user_id=uid, reason=(reasons.get(str(uid)) or "")[:500] or None); s.add(x)
+        elif x.removed_at: x.removed_at = None
+        if p.status == "active" and not x.assigned_at:
+            x.assigned_at = now; x.baseline = json.dumps(iv_evidence(s, uid, tids, end=now))
+    for uid, x in have.items():
+        if uid not in uids and not x.removed_at: x.removed_at = now
+@app.post("/api/interventions")
+def new_intervention(b: InterventionIn, u: User = Depends(author), s: Session = Depends(db)):
+    c = s.get(Course, b.course_id)
+    if not c: raise HTTPException(404, "Course not found")
+    need_edit(u, c.id, s); acts = iv_validate(s, u, c, b); title = " ".join(b.title.split())[:200]
+    if not title: raise HTTPException(400, "Give the plan a title")
+    if not b.student_ids: raise HTTPException(400, "Choose at least one student")
+    now = dt.datetime.utcnow(); start = iv_day(b.start) or now; target = iv_day(b.target, end=True)
+    if target and target <= start: raise HTTPException(400, "The target date must come after the start")
+    p = Intervention(course_id=c.id, title=title, description=b.description.strip()[:4000] or None, topic_ids=json.dumps(list(dict.fromkeys(b.topic_ids))), criteria=b.criteria.strip()[:2000] or None,
+                     start_at=start, target_at=target, status="active" if b.activate else "draft", created_by=u.id, created_at=now, updated_at=now, changed_at=now if b.activate else None)
+    s.add(p); s.flush(); iv_save_acts(s, p, acts, now); s.flush(); iv_assign(s, p, b.student_ids, b.reasons, now); s.commit()
+    return iv_json(s, p, True)
+@app.put("/api/interventions/{iid}")
+def edit_intervention(iid: int, b: InterventionIn, u: User = Depends(author), s: Session = Depends(db)):
+    """Title, instructions, dates and criteria change in place. Activities: kept ones stay (with their history), new ones count from now, removed
+    ones leave the students' lists but stay where they were done. Students: new ones start now, removed ones keep their record."""
+    p = iv_plan(s, u, iid)
+    if p.status in ("completed", "cancelled"): raise HTTPException(400, "This plan has ended. Make a new one.")
+    c = s.get(Course, p.course_id); b.course_id = c.id; acts = iv_validate(s, u, c, b); now = dt.datetime.utcnow()
+    title = " ".join(b.title.split())[:200]
+    if not title: raise HTTPException(400, "Give the plan a title")
+    if not b.student_ids: raise HTTPException(400, "Choose at least one student")
+    p.title, p.description, p.criteria = title, b.description.strip()[:4000] or None, b.criteria.strip()[:2000] or None
+    p.topic_ids = json.dumps(list(dict.fromkeys(b.topic_ids))); p.target_at = iv_day(b.target, end=True)
+    if p.status == "draft" and b.start: p.start_at = iv_day(b.start)
+    existing = {x.id: x for x in s.query(InterventionActivity).filter_by(intervention_id=p.id)}
+    changed = iv_save_acts(s, p, acts, now, existing)
+    before = {x.user_id for x in s.query(InterventionStudent).filter_by(intervention_id=p.id, removed_at=None)}
+    if b.activate and p.status == "draft": p.status = "active"; changed = True
+    iv_assign(s, p, b.student_ids, b.reasons, now)
+    if p.status == "active" and (changed or set(b.student_ids) != before): p.changed_at = now  # students hear once about a real change
+    p.updated_at = now; s.commit(); return iv_json(s, p, True)
+class IvStatusIn(BaseModel): status: str
+@app.post("/api/interventions/{iid}/status")
+def intervention_status(iid: int, b: IvStatusIn, u: User = Depends(author), s: Session = Depends(db)):
+    p = iv_plan(s, u, iid)
+    if b.status not in IV_STATUS or b.status == "draft": raise HTTPException(400, "Choose active, completed or cancelled")
+    if p.status in ("completed", "cancelled") and b.status != p.status: raise HTTPException(400, "This plan has ended. Make a new one.")
+    now = dt.datetime.utcnow()
+    if b.status == "active" and p.status == "draft":
+        p.status = "active"; p.changed_at = now
+        iv_assign(s, p, [x.user_id for x in s.query(InterventionStudent).filter_by(intervention_id=p.id, removed_at=None)], {}, now)
+    else: p.status = b.status
+    p.updated_at = now; s.commit(); return iv_json(s, p, True)
+@app.get("/api/interventions")
+def list_interventions(course_id: int = 0, status: str = "", topic_id: int = 0, u: User = Depends(author), s: Session = Depends(db)):
+    q = s.query(Intervention)
+    if u.role != "admin": q = q.join(Course, Course.id == Intervention.course_id).filter(Course.faculty_owner_id == u.id)
+    if course_id: q = q.filter(Intervention.course_id == course_id)
+    if status:
+        if status not in IV_STATUS: raise HTTPException(400, "Choose draft, active, completed or cancelled")
+        q = q.filter(Intervention.status == status)
+    ps = [p for p in q.order_by(Intervention.updated_at.desc()).limit(200) if not topic_id or topic_id in json.loads(p.topic_ids or "[]")]
+    names = {c.id: c.name for c in s.query(Course).filter(Course.id.in_({p.course_id for p in ps} or {0}))}
+    return {"items": [{**iv_json(s, p), "course": names.get(p.course_id, "")} for p in ps]}
+@app.get("/api/interventions/{iid}")
+def get_intervention(iid: int, u: User = Depends(author), s: Session = Depends(db)):
+    p = iv_plan(s, u, iid); return iv_json(s, p, True)
+class IvReviewIn(BaseModel): outcome: str; note: str = ""
+@app.post("/api/interventions/{iid}/students/{sid}/review")
+def review_intervention(iid: int, sid: int, b: IvReviewIn, u: User = Depends(author), s: Session = Depends(db)):  # the teacher's word on the outcome, beside the numbers
+    p = iv_plan(s, u, iid); x = s.query(InterventionStudent).filter_by(intervention_id=p.id, user_id=sid).first()
+    if not x or not x.assigned_at: raise HTTPException(404, "Student not found")
+    if b.outcome not in IV_OUTCOMES: raise HTTPException(400, "Choose improved, partly, not yet or needs more support")
+    x.outcome, x.outcome_note, x.reviewed_at, x.reviewed_by = b.outcome, b.note.strip()[:2000] or None, dt.datetime.utcnow(), u.id; s.commit()
+    return iv_json(s, p, True)
+@app.get("/api/courses/{cid}/support-options")
+def support_options(cid: int, topic_ids: str = "", u: User = Depends(author), s: Session = Depends(db)):
+    """What a plan can use on these topics, all existing: tests that ask about them, published resources, how many bank questions there are, whether a
+    revision sheet can be made; and each student with what their records show on these topics (S44), so the teacher sees the reason before choosing."""
+    c, studs, units, topics = ci_scope(s, u, cid)
+    want = [int(x) for x in topic_ids.split(",") if x.strip().isdigit()]; chosen = [t for t in topics if t.id in want]
+    tids = {t.id for t in chosen}
+    tests = []
+    for qz in s.query(Quiz).filter(Quiz.id.in_(course_quiz_ids(cid, s) or [0])):
+        n = s.query(func.count(Question.id)).filter(Question.quiz_id == qz.id, Question.topic_id.in_(tids or {0})).scalar()
+        if n: tests.append({"id": qz.id, "title": qz.title, "questions": n})
+    res = s.query(TeacherResource).filter(TeacherResource.course_id == cid, TeacherResource.status == "published", or_(TeacherResource.topic_id.in_(tids or {0}), TeacherResource.topic_id.is_(None))).all()
+    bank = dict(s.query(McqItem.topic_id, func.count(McqItem.id)).filter(McqItem.topic_id.in_(tids or {0}), McqItem.status == "published").group_by(McqItem.topic_id).all())
+    who = {}
+    if chosen:
+        c_, studs_, units_, tops_, rows, sits, qs, asked, taps, studied, learned = ci_all(s, u, cid)
+        for t in chosen:
+            for r in ci_student_rows(studs, t, sits, studied, learned, asked, qs):
+                w = who.setdefault(r["id"], {"id": r["id"], "name": r["name"], "topics": []}); w["topics"].append({"topic_id": t.id, "title": t.title, **{k: r[k] for k in ("category", "percent", "asked", "sittings", "repeated_errors", "doubts")}})
+    order = {"attention": 0, "revision": 1, "insufficient": 2, "studied_not_assessed": 3, "not_studied": 4, "strong": 5}
+    return {"topics": [{"id": t.id, "title": t.title, "has_notes": bool((t.content or "").strip()), "bank": bank.get(t.id, 0)} for t in topics],
+            "tests": tests, "resources": [{"id": r.id, "title": res_version(s, r).title, "kind": r.kind, "topic_id": r.topic_id} for r in res],
+            "students": sorted(who.values(), key=lambda w: (min(order[x["category"]] for x in w["topics"]), w["name"].lower())) if who else [{"id": x.id, "name": x.name, "topics": []} for x in sorted(studs, key=lambda x: x.name.lower())]}
+IV_PROMPT = ("You help a teacher plan extra support on some topics. You get evidence lines about the class and a catalogue of EXISTING activities, each with an id. "
+             "Suggest a short sequence of activities chosen only from the catalogue (use their ids exactly), with one sentence each on why, citing evidence like [E2]. "
+             "Do not invent activities, numbers or students, and do not judge students. Reply only with JSON: "
+             '{"activities": [{"id": "A3", "why": "..."}], "note": "one or two sentences for the teacher"}')
+class IvSuggestIn(BaseModel): course_id: int; topic_ids: list[int]
+@app.post("/api/interventions/suggest")
+async def suggest_intervention(b: IvSuggestIn, u: User = Depends(author), s: Session = Depends(db)):
+    """A suggested plan, only when the teacher asks: picked by the AI from the existing activities listed here (anything else it names is dropped),
+    each with its reason. Nothing is saved or assigned; the teacher edits and decides."""
+    opts = support_options(b.course_id, ",".join(str(t) for t in b.topic_ids), u, s)
+    tops = {t["id"]: t for t in opts["topics"] if t["id"] in b.topic_ids}
+    if not tops: raise HTTPException(400, "Choose topics of this course")
+    cat = []
+    for t in tops.values():
+        cat.append({"kind": "study", "topic_id": t["id"], "label": f"Study the topic {t['title']}"})
+        if t["has_notes"]: cat.append({"kind": "revise", "topic_id": t["id"], "label": f"Read the revision sheet of {t['title']}"})
+        if t["bank"] >= 5: cat.append({"kind": "mcq", "topic_id": t["id"], "size": 10, "label": f"MCQ practice on {t['title']} ({t['bank']} bank questions)"})
+        cat.append({"kind": "ask", "topic_id": t["id"], "label": f"Ask the teacher about {t['title']}"})
+    cat += [{"kind": "test", "ref_id": q["id"], "label": f"Test: {q['title']}"} for q in opts["tests"]]
+    cat += [{"kind": "resource", "ref_id": r["id"], "topic_id": r["topic_id"], "label": f"Teacher resource ({r['kind']}): {r['title']}"} for r in opts["resources"]]
+    for k, x in enumerate(cat): x["id"] = f"A{k + 1}"
+    ev = []
+    for tid in tops:
+        d = class_topic(b.course_id, tid, "", "", "", 1, 0, u, s); r = d["topic"]
+        ev.append(f"{r['title']}: {r['evidence']} students with enough evidence; strong {r['strong']}, need revision {r['needs_revision']}, need attention {r['needs_attention']}; "
+                  f"{r['doubts']} doubts, {r['unresolved']} unresolved; {len(d['common_wrong'])} questions many got wrong the same way.")
+    msg = "\n".join(f"[E{k + 1}] {e}" for k, e in enumerate(ev)) + "\n\nCatalogue:\n" + "\n".join(f"{x['id']}: {x['label']}" for x in cat)
+    key = key_or_fail(u, s); text, _ = await ask_ai(u, s, key, in_lang(u, IV_PROMPT), msg, max_tokens=600, kind="plan")
+    try: d = json.loads(re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip())
+    except ValueError: raise HTTPException(502, "The AI's suggestion could not be read. Try again.")
+    by = {x["id"]: x for x in cat}; picked, dropped = [], 0
+    for x in (d.get("activities") or [])[:12] if isinstance(d, dict) else []:
+        a = by.get(str(x.get("id")) if isinstance(x, dict) else "")
+        if a: picked.append({**{k: v for k, v in a.items() if k != "id"}, "why": str(x.get("why") or "")[:300], "required": True})
+        else: dropped += 1
+    return {"activities": picked, "note": str(d.get("note") or "")[:600] if isinstance(d, dict) else "", "dropped": dropped, "evidence": ev, "suggested_by_ai": True}
+# ---- what a student sees: their active plans, each activity with where it stands (from their own records) and a way to open it
+@app.get("/api/me/support")
+def my_support(u: User = Depends(me), s: Session = Depends(db)):
+    if u.role != "student": return {"items": []}
+    rows = s.query(InterventionStudent, Intervention).join(Intervention, Intervention.id == InterventionStudent.intervention_id) \
+        .filter(InterventionStudent.user_id == u.id, InterventionStudent.removed_at.is_(None), InterventionStudent.assigned_at.isnot(None), Intervention.status == "active").all()
+    now = dt.datetime.utcnow(); out = []
+    for st, p in rows:
+        acts = s.query(InterventionActivity).filter_by(intervention_id=p.id).order_by(InterventionActivity.position, InterventionActivity.id).all()
+        x = iv_student(s, p, st, acts, set(json.loads(p.topic_ids or "[]")), now, detail=True)
+        cname = s.get(Course, p.course_id); tops = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_(json.loads(p.topic_ids or "[]") or [0]))}
+        out.append({"id": p.id, "title": p.title, "description": p.description or "", "course": cname.name if cname else "", "target": utc_iso(p.target_at),
+                    "topics": [{"id": t, "title": tops.get(t, "")} for t in json.loads(p.topic_ids or "[]")], "progress": x["progress"], "done": x["done"], "required": x["required"],
+                    "activities": [{**a, "label": iv_label(s, next(y for y in acts if y.id == a["id"]))} for a in x["activities"] if not a["removed"]]})
+    return {"items": out}
+@app.post("/api/resources/{rid}/opened")
+def resource_opened(rid: int, u: User = Depends(me), s: Session = Depends(db)):  # S45: a student opened a resource (only that: never a sign of understanding)
+    r = s.get(TeacherResource, rid)
+    if not r or not res_visible(s, u, r): raise HTTPException(404, "Not found")
+    if u.role == "student":
+        recent = s.query(StepLog.id).filter(StepLog.user_id == u.id, StepLog.kind == "resource", StepLog.outcome == str(rid), StepLog.at >= dt.datetime.utcnow() - dt.timedelta(hours=1)).first()
+        if not recent: s.add(StepLog(user_id=u.id, topic_id=r.topic_id, kind="resource", outcome=str(rid))); s.commit()
+    return {"ok": True}
+def support_notes(u, s):  # the bell: a student hears about a plan when it starts or really changes; a course's teacher about students to review
+    if u.role == "student":
+        return [{"key": f"plan:{p.id}:{p.changed_at:%Y%m%d%H%M%S%f}", "text": "Your teacher has prepared some extra practice", "sub": p.title}
+                for st, p in s.query(InterventionStudent, Intervention).join(Intervention, Intervention.id == InterventionStudent.intervention_id)
+                .filter(InterventionStudent.user_id == u.id, InterventionStudent.removed_at.is_(None), InterventionStudent.assigned_at.isnot(None), Intervention.status == "active", Intervention.changed_at.isnot(None))]
+    if not is_author(u): return []
+    q = s.query(Intervention).filter(Intervention.status == "active")
+    if u.role != "admin": q = q.join(Course, Course.id == Intervention.course_id).filter(Course.faculty_owner_id == u.id)
+    n = sum(iv_json(s, p)["counts"]["needs_review"] for p in q.limit(100))
+    return [{"key": f"plans-review:{n}", "text": f"Students to review in support plans: {n}", "sub": ""}] if n else []
+# ---- achievements (S36): a few milestones worked out from what the student did; no points, nothing for just opening the app
+def my_achievements_list(u, s):
+    out = []
+    sts = [course_status(s, u.id, c) for c in my_courses_for(u, s) if c]
+    unit_days = [(st["course"], un["name"], un["completed_at"]) for st in sts for un in st["units"] if un["completed_at"]]
+    first_unit = min(unit_days, key=lambda x: x[2], default=None)
+    out.append({"key": "first_unit", "title": "First unit finished", "at": first_unit[2] if first_unit else None, "detail": f"{first_unit[1]} · {first_unit[0]}" if first_unit else ""})
+    rec = s.query(CourseCompletion).filter_by(user_id=u.id).order_by(CourseCompletion.completed_at).first()
+    cname = s.get(Course, rec.course_id).name if rec and s.get(Course, rec.course_id) else ""
+    out.append({"key": "first_course", "title": "First course finished", "at": utc_iso(rec.completed_at) if rec else None, "detail": cname})
+    weeks = {}  # revising: reading a sheet, or an MCQ set on a topic already learned
+    learned = {tid: at for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == u.id, Progress.completed_at.isnot(None))}
+    stamps = [at for (at,) in s.query(StepLog.at).filter(StepLog.user_id == u.id, StepLog.kind == "revised")]
+    stamps += [at for at, tid in s.query(McqAttempt.submitted_at, McqAttempt.topic_id).filter(McqAttempt.user_id == u.id, McqAttempt.status == "submitted") if tid in learned and at and at > learned[tid]]
+    for at in sorted(stamps):
+        w = local_day(at).isocalendar()[:2]; weeks.setdefault(w, at)
+    fourth = sorted(weeks.values())[3] if len(weeks) >= 4 else None
+    out.append({"key": "steady", "title": "Steady revision", "at": utc_iso(fourth), "detail": f"Revised in {len(weeks)} different weeks" if weeks else ""})
+    best = None  # improvement: a later attempt of the same test 20 points or more above the first
+    for qid in {q for (q,) in s.query(Attempt.quiz_id).filter(Attempt.user_id == u.id)}:
+        rows = s.query(Attempt.percent, Attempt.at).filter(Attempt.user_id == u.id, Attempt.quiz_id == qid).order_by(Attempt.at, Attempt.id).all()
+        hit = next(((p, at) for p, at in rows[1:] if p >= rows[0][0] + 20), None)
+        if hit and (not best or hit[1] < best[2]): q = s.get(Quiz, qid); best = (q.title if q else "", f"{rows[0][0]}% → {hit[0]}%", hit[1])
+    out.append({"key": "improved", "title": "Big improvement", "at": utc_iso(best[2]) if best else None, "detail": f"{best[0]}: {best[1]}" if best else ""})
+    ev, _, _ = revision_events(s, u.id); hard = None  # a hard topic overcome: a check under 60%, later one at 80%+
+    for tid, e in ev.items():
+        low = None
+        for at, kind, v in sorted(e, key=lambda x: x[0]):
+            if kind != "check": continue
+            if v < 0.6 and low is None: low = at
+            elif v >= 0.8 and low is not None:
+                if not hard or at < hard[1]: t = s.get(Topic, tid); hard = (t.title if t else "", at)
+                break
+    out.append({"key": "hard_topic", "title": "Hard topic overcome", "at": utc_iso(hard[1]) if hard else None, "detail": hard[0] if hard else ""})
+    return out
+@app.get("/api/me/achievements")
+def my_achievements(u: User = Depends(me), s: Session = Depends(db)): return {"items": my_achievements_list(u, s)}
+# ---- revision schedule (S35): when to revise each topic of a teacher's course, worked out from the evidence every time it is asked for, never stored, so
+# ---- a corrected result recalculates by itself. The same rule as study courses (schedule_review, REVIEW_DAYS 1/3/7/14/30): a topic enters when it is
+# ---- marked learned (or at its first evidence) and is due a day later; a check (an MCQ set or a test, scored on that topic's questions) at 80%+ moves
+# ---- it to the next interval, under 60% brings it back the next day, in between keeps the interval; reading its sheet ("Mark as revised") counts as a
+# ---- review at the same interval and never moves it on; postponing adds 1, 3 or 7 days.
+POSTPONE_DAYS = (1, 3, 7)
+def topic_checks(s, uid):  # [(topic id, at, right, asked, "practice" or "test")]: each submitted MCQ set and each test, per topic it asked about
+    sets, out = defaultdict(lambda: [0, 0]), []
+    for aid, at, tid, ok in s.query(McqAttempt.id, McqAttempt.submitted_at, McqAttemptItem.topic_id, McqAttemptItem.ok).join(McqAttemptItem, McqAttemptItem.attempt_id == McqAttempt.id) \
+            .filter(McqAttempt.user_id == uid, McqAttempt.status == "submitted", McqAttemptItem.topic_id.isnot(None)):
+        k = sets[(aid, at, tid)]; k[0] += bool(ok); k[1] += 1
+    out += [(tid, at, ok, n, "practice") for (aid, at, tid), (ok, n) in sets.items()]
+    for a in s.query(Attempt).filter(Attempt.user_id == uid, Attempt.snapshot.isnot(None), Attempt.detail.isnot(None)):
+        per = defaultdict(lambda: [0, 0])
+        for d, x in zip(json.loads(a.detail), json.loads(a.snapshot)):
+            if x and x.get("topic_id"): per[x["topic_id"]][0] += bool(d[1]); per[x["topic_id"]][1] += 1
+        out += [(tid, a.at, ok, n, "test") for tid, (ok, n) in per.items()]
+    return out
+def revision_events(s, uid):  # {topic id: [(at, kind, value)]} and {topic id: wrong answers} from what the student did
+    ev, wrong, not_yet = defaultdict(list), defaultdict(int), defaultdict(int)
+    for tid, at in s.query(Progress.topic_id, Progress.completed_at).filter(Progress.user_id == uid, Progress.completed_at.isnot(None)): ev[tid].append((at, "learned", None))
+    for tid, at, ok, n, _ in topic_checks(s, uid): ev[tid].append((at, "check", ok / n)); wrong[tid] += n - ok
+    for tid, kind, outcome, at in s.query(StepLog.topic_id, StepLog.kind, StepLog.outcome, StepLog.at).filter(StepLog.user_id == uid, StepLog.kind.in_(("revised", "postpone", "check"))):
+        if kind == "revised": ev[tid].append((at, "read", None))
+        elif kind == "postpone": ev[tid].append((at, "postpone", int(outcome or 1)))
+        elif outcome == "not_yet": not_yet[tid] += 1  # "Not quite" on a quick check: a topic they find hard (it orders the list; it is not a score)
+    return ev, wrong, not_yet
+def revision_replay(events):  # one topic's schedule from its evidence, oldest first: {step, due, last, checks, last_ratio}; None until it enters
+    step, due, last, checks, ratio = 0, None, None, 0, None
+    for at, kind, v in sorted(events, key=lambda e: e[0]):
+        if kind == "postpone":
+            if due is not None: due = max(due, at) + dt.timedelta(days=v)
+            continue
+        if kind == "check":
+            checks += 1; ratio = v
+            step = min(step + 1, len(REVIEW_DAYS)) if v >= 0.8 else 0 if v < 0.6 else step
+        due = at + dt.timedelta(days=REVIEW_DAYS[max(step - 1, 0)]); last = (kind, at, v)  # learned, read or checked: the next one is an interval away
+    return {"step": step, "due": due, "last": last, "checks": checks, "last_ratio": ratio} if due else None
+def revision_plan(s, u, now=None):  # every scheduled topic the student can still open, with why it matters
+    now = now or dt.datetime.utcnow(); ev, wrong, not_yet = revision_events(s, u.id)
+    names = {t["id"]: (t["title"], t["unit"], c["name"]) for c in mcq_courses(u, s) for t in c["topics"]}
+    out = []
+    for tid, e in ev.items():
+        if tid not in names: continue
+        r = revision_replay(e)
+        if not r: continue
+        title, unit, course = names[tid]
+        out.append({"topic_id": tid, "title": title, "unit": unit, "course": course, "due": local_day(r["due"]).isoformat(), "due_at": utc_iso(r["due"]), "step": r["step"],
+                    "interval": REVIEW_DAYS[max(r["step"] - 1, 0)], "last": {"kind": r["last"][0], "at": utc_iso(r["last"][1]), "percent": round(100 * r["last"][2]) if r["last"][0] == "check" else None},
+                    "checked": r["checks"] > 0, "weak": r["last_ratio"] is not None and r["last_ratio"] < 0.6, "wrong": wrong.get(tid, 0), "not_yet": not_yet.get(tid, 0)})
+    return out
+@app.get("/api/me/revision")
+def my_revision(u: User = Depends(me), s: Session = Depends(db)):
+    """What to revise: overdue, due today, coming up in the next week, and what was revised or checked in the last week. Weak topics, ones with
+    repeated mistakes and ones marked hard come first."""
+    now = dt.datetime.utcnow(); today = local_day(now).isoformat(); week = (local_day(now) + dt.timedelta(days=7)).isoformat()
+    items = revision_plan(s, u, now)
+    rank = lambda x: (not x["weak"], -(x["wrong"] + x["not_yet"]), x["due"], x["title"])
+    recent = sorted([x for x in items if x["last"]["kind"] in ("read", "check") and x["last"]["at"] and dt.datetime.fromisoformat(x["last"]["at"][:-1]) >= now - dt.timedelta(days=7)],
+                    key=lambda x: x["last"]["at"], reverse=True)
+    return {"overdue": sorted([x for x in items if x["due"] < today], key=rank), "today": sorted([x for x in items if x["due"] == today], key=rank),
+            "upcoming": sorted([x for x in items if today < x["due"] <= week], key=lambda x: (x["due"], x["title"])), "recent": recent[:10], "intervals": REVIEW_DAYS}
+class PostponeIn(BaseModel): days: int
+@app.post("/api/me/revision/{tid}/postpone")
+def postpone_revision(tid: int, b: PostponeIn, u: User = Depends(me), s: Session = Depends(db)):  # later, by 1, 3 or 7 days: changes the date, never the evidence
+    if b.days not in POSTPONE_DAYS: raise HTTPException(400, "Postpone by 1, 3 or 7 days")
+    if not any(x["topic_id"] == tid for x in revision_plan(s, u)): raise HTTPException(404, "This topic isn't on your revision list")
+    s.add(StepLog(user_id=u.id, topic_id=tid, kind="postpone", outcome=str(b.days))); s.commit()
+    x = next(x for x in revision_plan(s, u) if x["topic_id"] == tid); return {"due": x["due"]}
+def revision_notes(u, s):  # the bell (and the daily email): one line a day when topics are due
+    if u.role != "student": return []
+    d = my_revision(u=u, s=s); n, late = len(d["today"]) + len(d["overdue"]), len(d["overdue"])
+    if not n: return []
+    return [{"key": f"revise:{local_day(dt.datetime.utcnow()).isoformat()}", "text": f"Topics to revise: {n}", "sub": f"{late} overdue" if late else ""}]
+# ---- return after a break (S39): how long since a student last learned, from the same study days the streak uses (topics opened or learned, tests,
+# ---- MCQ sets, study courses); signing in or opening the app is not among them. Nothing is reset or restarted and missed days are not held against
+# ---- anyone: a student back from a break gets a short welcome with a choice of where to start, a lighter daily session for a week, and their
+# ---- overdue revision can be spread out. Thresholds are settings (break_extended_days, break_long_days).
+BREAK_DEFAULTS, EASE_DAYS = (7, 30), 7
+def break_days(s):
+    try: ext, lng = int(setting(s, "break_extended_days", str(BREAK_DEFAULTS[0]))), int(setting(s, "break_long_days", str(BREAK_DEFAULTS[1])))
+    except ValueError: return BREAK_DEFAULTS
+    return (ext, lng) if 1 <= ext < lng else BREAK_DEFAULTS
+def learning_gap(s, uid, now=None):  # {state: new | active | extended | long, days_away, last_day, break_from, back_on, gap}
+    now = now or dt.datetime.utcnow(); today = local_day(now); ext, lng = break_days(s)
+    days = sorted(d for d in study_days(s, uid, today - dt.timedelta(days=400)) if d <= today)
+    if not days: return {"state": "new", "days_away": None, "last_day": None, "break_from": None, "back_on": None, "gap": None}
+    away = (today - days[-1]).days
+    if away >= ext:  # away now: the break started on their last study day
+        return {"state": "long" if away >= lng else "extended", "days_away": away, "last_day": days[-1].isoformat(), "break_from": days[-1].isoformat(), "back_on": None, "gap": away}
+    back = next(((a, b) for a, b in zip(reversed(days[:-1]), reversed(days[1:])) if (b - a).days >= ext), None)  # the latest break they came back from
+    recent = back and (today - back[1]).days < EASE_DAYS
+    return {"state": "active", "days_away": away, "last_day": days[-1].isoformat(), "break_from": back[0].isoformat() if recent else None,
+            "back_on": back[1].isoformat() if recent else None, "gap": (back[1] - back[0]).days if recent else None}
+def seen_key(s, uid, key): return s.query(NoteSeen.id).filter_by(user_id=uid, key=key).first() is not None
+def easing(s, uid, g=None):  # a lighter week after a break, unless they chose their usual plan
+    g = g or learning_gap(s, uid)
+    return bool(g["break_from"]) and not seen_key(s, uid, f"ease-off:{g['break_from']}")
+def welcome_view(s, u, now=None):
+    now = now or dt.datetime.utcnow(); g = learning_gap(s, u.id, now); ext, lng = break_days(s); today = local_day(now).isoformat()
+    out = {**g, "thresholds": {"extended": ext, "long": lng}, "easing": easing(s, u.id, g), "ease_days": EASE_DAYS, "return_reminders": u.return_reminders is not False, "show": False}
+    if u.role != "student" or not g["break_from"] or (g["back_on"] and g["back_on"] != today) or seen_key(s, u.id, f"welcome:{g['break_from']}"): return out
+    names = {t["id"]: (t["title"], c["id"], c["name"]) for c in mcq_courses(u, s) for t in c["topics"]}  # what they can still open
+    last = next(((p.topic_id, p.completed_at) for p in s.query(Progress).filter(Progress.user_id == u.id, Progress.last_read.isnot(None)).order_by(Progress.last_read.desc()) if p.topic_id in names), None)
+    out["last"] = {"topic_id": last[0], "topic": names[last[0]][0], "course_id": names[last[0]][1], "course": names[last[0]][2], "learned": bool(last[1])} if last else None
+    if last:
+        c = s.get(Course, names[last[0]][1]); st = course_status(s, u.id, c) if c else None
+        out["progress"] = {"percent": st["percent"], "done": st["topics"]["done"], "required": st["topics"]["required"]} if st else None
+    asg = assigned_to_me(u=u, s=s)["items"]
+    out["assignments"] = {"open": [x for x in asg if x["status"] in ("to_do", "upcoming")][:3], "open_count": sum(x["status"] in ("to_do", "upcoming") for x in asg),
+                          "closed": [x for x in asg if x["status"] == "missed" and x["due_at"] and x["due_at"] >= utc_iso(now - dt.timedelta(days=g["gap"] + 1))][:3]}  # closed while they were away; they stay closed
+    rv = my_revision(u=u, s=s); due = rv["overdue"] + rv["today"]
+    out["revision"] = {"due": len(due), "top": due[:3]}
+    tr = learning_trends(s, u.id, now=now); weak = [t for t in tr["topics"] if t["status"] in ("needs_study", "getting_there") and t["topic_id"] in names]
+    weak.sort(key=lambda t: (t["status"] != "needs_study", t["percent"]))
+    unfinished = next((p.topic_id for p in s.query(Progress).filter(Progress.user_id == u.id, Progress.completed_at.is_(None)).order_by(Progress.last_read.desc()) if p.topic_id in names), None)
+    nxt = None
+    if last:
+        st = course_status(s, u.id, s.get(Course, names[last[0]][1]))
+        nxt = next((t["id"] for t in st["remaining"] if t["id"] != unfinished and t["id"] in names), None)
+    check = (weak[0]["topic_id"] if weak else (last[0] if last and last[1] else None))
+    paths = []  # the student picks; nothing happens on its own
+    if unfinished: paths.append({"key": "resume", "topic_id": unfinished, "title": names[unfinished][0]})
+    if weak: paths.append({"key": "revise", "topic_id": weak[0]["topic_id"], "title": weak[0]["title"], "topics": [{"topic_id": t["topic_id"], "title": t["title"], "percent": t["percent"]} for t in weak[:3]]})
+    elif due: paths.append({"key": "revise", "topic_id": due[0]["topic_id"], "title": due[0]["title"], "topics": [{"topic_id": t["topic_id"], "title": t["title"], "percent": None} for t in due[:3]]})
+    if check: paths.append({"key": "check", "topic_id": check, "title": names[check][0]})
+    if nxt: paths.append({"key": "next", "topic_id": nxt, "title": names[nxt][0]})
+    out.update({"show": True, "paths": paths})
+    return out
+@app.get("/api/me/welcome")
+def my_welcome(u: User = Depends(me), s: Session = Depends(db)): return welcome_view(s, u)
+class WelcomeIn(BaseModel): what: str
+@app.post("/api/me/welcome")
+def welcome_choice(b: WelcomeIn, u: User = Depends(me), s: Session = Depends(db)):
+    """hide: close the welcome card. usual: back to the usual session size. spread: spread overdue revision (beyond the first three) over the next week,
+    with the same postpone the revision page uses, so nothing is listed twice."""
+    g = learning_gap(s, u.id)
+    if not g["break_from"]: raise HTTPException(400, "There is no break to come back from")
+    if b.what in ("hide", "usual"):
+        key = f"{'welcome' if b.what == 'hide' else 'ease-off'}:{g['break_from']}"
+        if not seen_key(s, u.id, key): s.add(NoteSeen(user_id=u.id, key=key)); s.commit()
+        return welcome_view(s, u)
+    if b.what == "spread":
+        rv = my_revision(u=u, s=s); later = (rv["overdue"] + rv["today"])[3:]
+        for i, x in enumerate(later): s.add(StepLog(user_id=u.id, topic_id=x["topic_id"], kind="postpone", outcome=str(POSTPONE_DAYS[i % len(POSTPONE_DAYS)])))
+        s.commit(); return {**welcome_view(s, u), "spread": len(later)}
+    raise HTTPException(400, "Choose hide, usual or spread")
+def return_notes(u, s):  # one gentle line on the day a break reaches each threshold: the bell, and so the daily email for those who asked for it
+    if u.role != "student" or u.return_reminders is False: return []
+    g = learning_gap(s, u.id)
+    if g["state"] not in ("extended", "long") or g["days_away"] not in break_days(s): return []
+    last = s.query(Progress).filter(Progress.user_id == u.id, Progress.last_read.isnot(None)).order_by(Progress.last_read.desc()).first(); t = s.get(Topic, last.topic_id) if last else None
+    return [{"key": f"return:{g['break_from']}:{g['days_away']}", "text": "Ready when you are: pick up where you left off", "sub": t.title if t else ""}]
+def activity_label(s, uid):  # for a student's teachers: recently active, away (extended or long) or back from a break, never what they did
+    g = learning_gap(s, uid); return {"state": g["state"], "days_away": g["days_away"], "back_on": g["back_on"]}
 # ---- "this looks wrong": a student flags an AI reply; the topic's teachers see it (never who sent it) and write it again or let it stand ----
 class FlagIn(BaseModel): source: str; id: int | None = None; topic_id: int | None = None; kind: str = ""; excerpt: str = ""; reason: str = ""
 FLAG_DAILY = 20
 @app.post("/api/ai/flag")
 def flag_ai(b: FlagIn, u: User = Depends(me), s: Session = Depends(db)):
-    if b.source not in ("topic", "search", "photo"): raise HTTPException(400, "Unknown source")
+    if b.source not in ("topic", "search", "photo", "notes"): raise HTTPException(400, "Unknown source")
     if s.query(func.count(AIFlag.id)).filter(AIFlag.user_id == u.id, AIFlag.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= FLAG_DAILY:
         raise HTTPException(429, "Thanks, that's plenty of reports for today.")
     excerpt, kind, tid = (b.excerpt or "")[:600], (b.kind or "")[:10], None
-    if b.source == "topic":
+    if b.source == "notes":  # the topic's own notes, not an AI answer: missing, incomplete, incorrect, or about a different topic
+        if b.kind not in NOTE_PROBLEMS: raise HTTPException(400, "Choose missing, incomplete, incorrect or wrong topic")
+        t = s.get(Topic, b.topic_id or 0)
+        if not t: raise HTTPException(404, "Topic not found")
+        check_topic_access(u, t, s); tid, kind, b.id, excerpt = t.id, b.kind, t.id, ""
+    elif b.source == "topic":
         t = s.get(Topic, b.topic_id or 0)
         if not t: raise HTTPException(404, "Topic not found")
         check_topic_access(u, t, s); tid = t.id
@@ -4217,9 +5618,10 @@ def flag_ai(b: FlagIn, u: User = Depends(me), s: Session = Depends(db)):
         row = s.get(SearchAnswer, b.id) if b.id else None
         if row: excerpt, kind = row.text[:600], "search"
         kind = "search"
-    if b.id and s.query(AIFlag).filter_by(user_id=u.id, source=b.source, ref=b.id, status="open").first(): return {"ok": True}  # already reported
+    if b.id and s.query(AIFlag).filter_by(user_id=u.id, source=b.source, ref=b.id, kind=kind, status="open").first(): return {"ok": True}  # already reported
     s.add(AIFlag(user_id=u.id, topic_id=tid, source=b.source, kind=kind, ref=b.id, excerpt=excerpt, reason=(b.reason or "").strip()[:300] or None)); s.commit()
     return {"ok": True}
+NOTE_PROBLEMS = ("missing", "incomplete", "incorrect", "wrong")  # what a student can report about a topic's notes
 def readable(kind, text):  # a saved step reply (JSON) as plain lines, for a teacher reading a flag
     d = step_reply(kind, text) if kind in STEPS else None
     if not d: return text
@@ -4234,7 +5636,7 @@ def list_flags(limit: int = 10, offset: int = 0, u: User = Depends(staff), s: Se
     """Open flags, one row per reply flagged (with how many students flagged it and what they said), newest first."""
     groups = {}
     for f in flags_for(u, s).order_by(AIFlag.id.desc()).all():
-        g = groups.setdefault((f.source, f.ref or -f.id), {"id": f.id, "source": f.source, "kind": f.kind, "topic_id": f.topic_id, "excerpt": f.excerpt, "reasons": [], "count": 0, "at": f.at.isoformat() + "Z"})
+        g = groups.setdefault((f.source, f.ref or -f.id, f.kind if f.source == "notes" else ""), {"id": f.id, "source": f.source, "kind": f.kind, "topic_id": f.topic_id, "excerpt": f.excerpt, "reasons": [], "count": 0, "at": f.at.isoformat() + "Z"})
         g["count"] += 1
         if f.reason and len(g["reasons"]) < 5: g["reasons"].append(f.reason)
     items = list(groups.values()); page = items[max(offset, 0):max(offset, 0) + min(max(limit, 1), 50)]
@@ -4247,12 +5649,13 @@ def resolve_flag(fid: int, b: FlagDo, u: User = Depends(staff), s: Session = Dep
     """'rewrite' drops the saved reply so the next request writes it again; 'keep' lets it stand. Either closes every flag on that reply."""
     f = flags_for(u, s).filter(AIFlag.id == fid).first()
     if not f: raise HTTPException(404, "Flag not found")
-    if b.action not in ("rewrite", "keep"): raise HTTPException(400, "Choose rewrite or keep")
+    if b.action not in (("fixed", "keep") if f.source == "notes" else ("rewrite", "keep")): raise HTTPException(400, "Choose rewrite or keep")  # notes: the teacher fixed them, or they stand
     same = s.query(AIFlag).filter(AIFlag.source == f.source, AIFlag.ref == f.ref, AIFlag.status == "open") if f.ref else s.query(AIFlag).filter(AIFlag.id == f.id)
+    if f.source == "notes": same = same.filter(AIFlag.kind == f.kind)  # each problem reported about a topic's notes is closed on its own
     if b.action == "rewrite" and f.ref:
         if f.source == "topic": s.query(AICache).filter(AICache.id == f.ref).delete(synchronize_session=False)
         else: s.query(SearchAnswer).filter(SearchAnswer.id == f.ref).delete(synchronize_session=False)
-    n = same.update({"status": "fixed" if b.action == "rewrite" else "kept"}, synchronize_session=False); s.commit()
+    n = same.update({"status": "kept" if b.action == "keep" else "fixed"}, synchronize_session=False); s.commit()
     return {"ok": True, "closed": n}
 # ---- ask the teacher: a student asks the teacher of a topic's course a question (from the topic, or from a passage they highlighted). The course's
 # ---- owner, or an admin when it has none, answers in a short thread. Unlike a flag it is not anonymous: a teacher answers a person.
@@ -4268,11 +5671,12 @@ def tq_teachers(s, cid):  # who answers: the course's owner, else every admin
     owner = s.get(User, co.faculty_owner_id) if co and co.faculty_owner_id else None
     return [owner] if owner and owner.active else s.query(User).filter(User.role == "admin", User.active == True).all()  # noqa: E712
 def tq_for(u, s):  # the questions this person answers: their own courses' (admins: every course)
-    q = s.query(TeacherQuestion)
+    q = s.query(TeacherQuestion).filter(TeacherQuestion.status != "withdrawn")
     if u.role != "admin": q = q.join(Course, Course.id == TeacherQuestion.course_id).filter(Course.faculty_owner_id == u.id)
     return q
 def tq_mine(qid, u, s):  # (question, as the teacher?) when this person may read and write in it
     q = s.get(TeacherQuestion, qid)
+    if q and q.status == "withdrawn": q = None  # gone for both sides
     if q and q.user_id == u.id: return q, False
     if q and can_edit(u, q.course_id, s): return q, True
     raise HTTPException(404, "Question not found")
@@ -4310,23 +5714,55 @@ def similar_questions(tid: int, q: str = "", u: User = Depends(me), s: Session =
         if n >= (1 if x.topic_id == tid and len(want) <= 3 else 2): scored.append((n + (1 if x.topic_id == tid else 0), x))
     scored.sort(key=lambda p: -p[0]); tops = {k.id: k.title for k in s.query(Topic).filter(Topic.id.in_([x.topic_id for _, x in scored[:3]] or [0]))}
     return {"items": [{"id": x.id, "topic_id": x.topic_id, "topic": tops.get(x.topic_id, ""), "excerpt": x.excerpt, "mine": x.user_id == u.id, "messages": tq_msgs(s, x, u, None)} for _, x in scored[:3]]}
-class AskTeacherIn(BaseModel): text: str = ""; excerpt: str = ""; photo: str = ""
+class AskAI(BaseModel): kind: str; id: int
+class AskTeacherIn(BaseModel): text: str = ""; excerpt: str = ""; photo: str = ""; request_id: str = ""; ai: AskAI | None = None
+TQ_AI_CHARS = 1200
+def ai_answer_text(raw):  # the readable part of a kept AI answer (some are JSON with a "text"; revision sheets are JSON too)
+    try: d = json.loads(raw)
+    except (ValueError, TypeError): return raw or ""
+    if isinstance(d, dict) and isinstance(d.get("text"), str): return d["text"]
+    if isinstance(d, dict): return " ".join(str(x.get("point") or x) if isinstance(x, dict) else str(x) for v in d.values() if isinstance(v, list) for x in v)
+    return raw or ""
+def ai_context_for(s, u, t, ai):  # S40: the AI answer a question was asked from, looked up here (never taken from the app): {"q", "a"}, or a 400
+    if ai.kind == "doubt": row = s.get(DoubtAnswer, ai.id); ok = row is not None and row.topic_id == t.id; q = row.phrase if ok else ""
+    elif ai.kind == "topic": row = s.get(AICache, ai.id); ok = row is not None and row.topic_id == t.id; q = ""
+    elif ai.kind == "private": row = s.get(PrivateAnswer, ai.id); ok = row is not None and row.topic_id == t.id and row.user_id == u.id; q = ""
+    else: raise HTTPException(400, "Unknown AI answer")
+    if not ok: raise HTTPException(400, "That AI answer is not from this topic")
+    a = " ".join(ai_answer_text(row.text).split())
+    return {"q": q, "a": a[:TQ_AI_CHARS] + ("…" if len(a) > TQ_AI_CHARS else "")}
 @app.post("/api/topics/{tid}/questions")
 def ask_teacher(tid: int, b: AskTeacherIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
     if u.role != "student": raise HTTPException(403, "Students ask their teacher")
     if ask_state(u) == "pro": raise HTTPException(403, TQ_PRO)
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
-    check_topic_access(u, t, s); text_ = tq_text(b.text, bool(b.photo))
+    check_topic_access(u, t, s); text_ = tq_text(b.text, bool(b.photo)); rid = (b.request_id or "").strip()[:64] or None
+    if rid:  # S40: sent again (a retry, a double tap): the question already made, not a second one
+        again = s.query(TeacherQuestion).filter_by(user_id=u.id, request_id=rid).first()
+        if again: return tq_json(again, u, s)
+    ctx = ai_context_for(s, u, t, b.ai) if b.ai else None
     if s.query(func.count(TeacherQuestion.id)).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= TQ_DAILY:
         raise HTTPException(429, "You have asked 10 questions today. Ask more tomorrow.")
     cid = topic_course_id(t, s); excerpt = " ".join((b.excerpt or "").split())[:600] or None
     img = tq_photo(s, u, b.photo)
-    q = TeacherQuestion(user_id=u.id, topic_id=t.id, course_id=cid, excerpt=excerpt); s.add(q); s.flush()
-    s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, image=img)); s.commit()
+    q = TeacherQuestion(user_id=u.id, topic_id=t.id, course_id=cid, excerpt=excerpt, request_id=rid, ai_kind=b.ai.kind if ctx else None, ai_ref=b.ai.id if ctx else None,
+                        ai_context=json.dumps(ctx, ensure_ascii=False) if ctx else None)
+    try: s.add(q); s.flush(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, image=img)); s.commit()
+    except IntegrityError:  # the same ask arrived twice at the same moment: one question either way
+        s.rollback(); again = s.query(TeacherQuestion).filter_by(user_id=u.id, request_id=rid).first()
+        if img:
+            try: os.remove(os.path.join(UPLOADS, "questions", img))  # this copy's photo isn't needed: the first one kept its own
+            except OSError: pass
+        if again: return tq_json(again, u, s)
+        raise
     for x in tq_teachers(s, cid):
         notify(s, x, "question", "A question from {name} on {app}", "{name} asked a question about {topic}. Open {app} to answer it.", run=bg.add_task, name=u.name, topic=t.title)
     return tq_json(q, u, s)
+def tq_label(s, q):  # S40, for people: pending (no teacher reply yet), follow_up (the student wrote again after one), answered, resolved (closed)
+    if q.status == "closed": return "resolved"
+    if q.status == "answered": return "answered"
+    return "follow_up" if s.query(TeacherReply.id).filter(TeacherReply.question_id == q.id, TeacherReply.user_id != q.user_id).first() else "pending"
 def tq_row(q, t, c, last, who=None):
     return {"id": q.id, "topic_id": q.topic_id, "topic": t.title if t else (q.subject or ""), "message": bool(q.started_by), "course": c.name if c else "", "status": q.status, "updated": utc_iso(q.updated),
             "last": (last or "")[:160], **({"student": who} if who is not None else {})}
@@ -4337,30 +5773,170 @@ def tq_last(s, ids):
 @app.get("/api/me/questions")
 def my_questions(u: User = Depends(me), s: Session = Depends(db)):
     rows = s.query(TeacherQuestion, Topic, Course).outerjoin(Topic, Topic.id == TeacherQuestion.topic_id).outerjoin(Course, Course.id == TeacherQuestion.course_id) \
-        .filter(TeacherQuestion.user_id == u.id).order_by(TeacherQuestion.updated.desc()).limit(100).all()
+        .filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status != "withdrawn").order_by(TeacherQuestion.updated.desc()).limit(100).all()
     last = tq_last(s, [q.id for q, _, _ in rows])
-    return {"items": [{**tq_row(q, t, c, last.get(q.id)), "unread": q.status == "answered" and (q.seen is None or q.seen < q.updated)} for q, t, c in rows]}
-@app.get("/api/questions")
-def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0, u: User = Depends(author), s: Session = Depends(db)):
-    """Students' questions to this teacher (every course's for admins): waiting for an answer first, oldest first; or all of them, newest first."""
-    q = tq_for(u, s)
-    if status == "waiting": q = q.filter(TeacherQuestion.status == "waiting").order_by(TeacherQuestion.updated)
-    else: q = q.order_by(TeacherQuestion.updated.desc())
-    total = q.count(); page = q.offset(max(offset, 0)).limit(min(max(limit, 1), 50)).all()
+    return {"items": [{**tq_row(q, t, c, last.get(q.id)), "label": tq_label(s, q), "at": utc_iso(q.at), "unread": q.status == "answered" and (q.seen is None or q.seen < q.updated)} for q, t, c in rows]}
+# ---- the doubt management centre (S42): one list of a teacher's doubts (their own courses'; admins: every course) with counts, filters, search, sort,
+# ---- an optional overdue flag and operational counts. It reads the same records as everything else (teacher_questions, teacher_replies,
+# ---- question_events); a doubt's teacher is its course's owner, so moving doubts to another teacher means changing the course's owner.
+DQ_LABELS = ("pending", "follow_up", "answered", "resolved")
+def doubt_targets(s):  # (hours to a first answer, hours to answer a follow-up); 0: no target. Set by an admin; none by default
+    def h(k):
+        try: return max(0, int(setting(s, k, "0") or 0))
+        except ValueError: return 0
+    return h("doubt_first_hours"), h("doubt_followup_hours")
+def s_exists_teacher_reply():  # SQL: this doubt has a reply from someone other than the student who asked
+    from sqlalchemy import exists
+    return exists().where(TeacherReply.question_id == TeacherQuestion.id, TeacherReply.user_id != TeacherQuestion.user_id)
+def dq_label_filter(label):
+    tr = s_exists_teacher_reply()
+    return {"pending": and_(TeacherQuestion.status == "waiting", ~tr), "follow_up": and_(TeacherQuestion.status == "waiting", tr),
+            "answered": TeacherQuestion.status == "answered", "resolved": TeacherQuestion.status == "closed"}[label]
+def dq_unassigned():  # the course has no active owner: the doubt waits in the admins' queue
+    from sqlalchemy import exists
+    owner_ok = exists().where(Course.id == TeacherQuestion.course_id, User.id == Course.faculty_owner_id, User.active == True)  # noqa: E712
+    return ~owner_ok
+def dq_overdue(s, now=None):  # None when no target is set; else the SQL condition (elapsed hours, no working-hours calendar)
+    first, follow = doubt_targets(s); now = now or dt.datetime.utcnow(); conds = []
+    if first: conds.append(and_(dq_label_filter("pending"), TeacherQuestion.at <= now - dt.timedelta(hours=first)))
+    if follow: conds.append(and_(dq_label_filter("follow_up"), TeacherQuestion.updated <= now - dt.timedelta(hours=follow)))
+    return or_(*conds) if conds else None
+def dq_scope(u, s):  # the doubts this person may manage: questions students asked (not messages a teacher started), not withdrawn
+    return tq_for(u, s).filter(TeacherQuestion.started_by.is_(None))
+def dq_filtered(u, s, label="", course_id=0, unit_id=0, topic_id=0, student="", q="", since="", until="", teacher_id=0, unassigned=False, overdue=False):
+    x = dq_scope(u, s)
+    if label:
+        if label not in DQ_LABELS: raise HTTPException(400, "Choose pending, follow_up, answered or resolved")
+        x = x.filter(dq_label_filter(label))
+    if course_id: x = x.filter(TeacherQuestion.course_id == course_id)
+    if topic_id: x = x.filter(TeacherQuestion.topic_id == topic_id)
+    if unit_id: x = x.filter(TeacherQuestion.topic_id.in_(s.query(Topic.id).filter(Topic.unit_id == unit_id)))
+    if student: x = x.filter(TeacherQuestion.user_id.in_(s.query(User.id).filter(or_(User.name.ilike(f"%{student[:80]}%"), User.email.ilike(f"%{student[:80]}%")))))
+    if q:
+        like = f"%{q.strip()[:100]}%"
+        x = x.filter(or_(TeacherQuestion.user_id.in_(s.query(User.id).filter(User.name.ilike(like))), TeacherQuestion.topic_id.in_(s.query(Topic.id).filter(Topic.title.ilike(like))),
+                         TeacherQuestion.id.in_(s.query(TeacherReply.question_id).filter(TeacherReply.text.ilike(like))), TeacherQuestion.excerpt.ilike(like)))
+    lo, hi = local_bounds(since, until)
+    if lo: x = x.filter(TeacherQuestion.at >= dt.datetime.combine(lo, dt.time()) - dt.timedelta(minutes=DAY_OFFSET))
+    if hi: x = x.filter(TeacherQuestion.at < dt.datetime.combine(hi + dt.timedelta(days=1), dt.time()) - dt.timedelta(minutes=DAY_OFFSET))
+    if teacher_id or unassigned:
+        if u.role != "admin": raise HTTPException(403, "Only admins filter by teacher")
+        if teacher_id: x = x.filter(TeacherQuestion.course_id.in_(s.query(Course.id).filter(Course.faculty_owner_id == teacher_id)))
+        if unassigned: x = x.filter(dq_unassigned())
+    if overdue:
+        cond = dq_overdue(s)
+        x = x.filter(cond) if cond is not None else x.filter(TeacherQuestion.id == -1)  # no target set: nothing is overdue
+    return x
+def dq_rows(s, page, now=None):  # list rows, loaded in a few queries (never one per doubt)
+    now = now or dt.datetime.utcnow(); ids = [x.id for x in page]
     tops = {t.id: t for t in s.query(Topic).filter(Topic.id.in_([x.topic_id for x in page] or [0]))}
+    units = {un.id: un for un in s.query(Unit).filter(Unit.id.in_([t.unit_id for t in tops.values() if t.unit_id] or [0]))}
     cos = {c.id: c for c in s.query(Course).filter(Course.id.in_([x.course_id for x in page if x.course_id] or [0]))}
-    names = {x.id: x.name for x in s.query(User).filter(User.id.in_([x.user_id for x in page] or [0]))}
-    last = tq_last(s, [x.id for x in page])
-    return {"total": total, "items": [tq_row(x, tops.get(x.topic_id), cos.get(x.course_id), last.get(x.id), names.get(x.user_id, "")) for x in page]}
+    people = {x.id: x for x in s.query(User).filter(User.id.in_([x.user_id for x in page] + [c.faculty_owner_id for c in cos.values() if c.faculty_owner_id] or [0]))}
+    first, answered_ids, first_ans, by_id = {}, set(), {}, {x.id: x for x in page}
+    for r in s.query(TeacherReply).filter(TeacherReply.question_id.in_(ids or [0])).order_by(TeacherReply.id):
+        q = by_id[r.question_id]
+        if r.user_id == q.user_id: first.setdefault(r.question_id, r.text)
+        else: answered_ids.add(r.question_id); first_ans.setdefault(r.question_id, r.at)
+    tf, tu = doubt_targets(s); out = []
+    for x in page:
+        t = tops.get(x.topic_id); un = units.get(t.unit_id) if t else None; c = cos.get(x.course_id); owner = people.get(c.faculty_owner_id) if c and c.faculty_owner_id else None
+        label = "resolved" if x.status == "closed" else "answered" if x.status == "answered" else "follow_up" if x.id in answered_ids else "pending"
+        since = x.at if label == "pending" else x.updated if label == "follow_up" else None
+        wait = (now - since).total_seconds() / 3600 if since else None
+        limit = tf if label == "pending" else tu if label == "follow_up" else 0
+        out.append({"id": x.id, "student": people[x.user_id].name if x.user_id in people else "", "course_id": x.course_id, "course": c.name if c else "", "unit": un.name if un else "",
+                    "topic_id": x.topic_id, "topic": t.title if t else "", "preview": (first.get(x.id) or "")[:160], "at": utc_iso(x.at), "updated": utc_iso(x.updated), "label": label,
+                    "status": x.status, "teacher": owner.name if owner and owner.active else None, "waiting_hours": round(wait, 1) if wait is not None else None,
+                    "overdue": bool(limit and wait is not None and wait >= limit), "reopens": x.reopens or 0, "helpful": x.helpful,
+                    "first_response_hours": round((first_ans[x.id] - x.at).total_seconds() / 3600, 1) if x.id in first_ans else None,
+                    "resolution_hours": round((x.resolved_at - x.at).total_seconds() / 3600, 1) if x.resolved_at else None})
+    return out
+DQ_SORTS = ("priority", "submitted", "updated", "followups")
+@app.get("/api/questions")
+def teacher_questions(status: str = "waiting", limit: int = 10, offset: int = 0, label: str = "", sort: str = "", course_id: int = 0, unit_id: int = 0, topic_id: int = 0,
+                      student: str = "", q: str = "", since: str = "", until: str = "", teacher_id: int = 0, unassigned: bool = False, overdue: bool = False,
+                      u: User = Depends(author), s: Session = Depends(db)):
+    """Students' questions to this teacher (every course's for admins). Without the S42 filters it is the older inbox (waiting first, or all, newest
+    first, teacher-started messages included). With them: the doubt centre's list, filtered and sorted on the server, a page at a time."""
+    if not (label or sort or course_id or unit_id or topic_id or student or q or since or until or teacher_id or unassigned or overdue):
+        x = tq_for(u, s)
+        if status == "waiting": x = x.filter(TeacherQuestion.status == "waiting").order_by(TeacherQuestion.updated)
+        else: x = x.order_by(TeacherQuestion.updated.desc())
+        total = x.count(); page = x.offset(max(offset, 0)).limit(min(max(limit, 1), 50)).all()
+        tops = {t.id: t for t in s.query(Topic).filter(Topic.id.in_([y.topic_id for y in page] or [0]))}
+        cos = {c.id: c for c in s.query(Course).filter(Course.id.in_([y.course_id for y in page if y.course_id] or [0]))}
+        names = {y.id: y.name for y in s.query(User).filter(User.id.in_([y.user_id for y in page] or [0]))}
+        last = tq_last(s, [y.id for y in page])
+        return {"total": total, "items": [tq_row(y, tops.get(y.topic_id), cos.get(y.course_id), last.get(y.id), names.get(y.user_id, "")) for y in page]}
+    if sort and sort not in DQ_SORTS: raise HTTPException(400, "Choose priority, submitted, updated or followups")
+    x = dq_filtered(u, s, label, course_id, unit_id, topic_id, student, q, since, until, teacher_id, unassigned, overdue)
+    waiting = case((TeacherQuestion.status == "waiting", 0), else_=1); fu = case((dq_label_filter("follow_up"), 0), else_=1)
+    order = {"priority": (waiting, case((TeacherQuestion.status == "waiting", TeacherQuestion.updated), else_=None), TeacherQuestion.updated.desc()),  # oldest unanswered first, then the rest newest first
+             "submitted": (TeacherQuestion.at.desc(),), "updated": (TeacherQuestion.updated.desc(),),
+             "followups": (fu, waiting, TeacherQuestion.updated)}[sort or "priority"]
+    total = x.count(); page = x.order_by(*order, TeacherQuestion.id).offset(max(offset, 0)).limit(min(max(limit, 1), 50)).all()
+    return {"total": total, "items": dq_rows(s, page)}
+@app.get("/api/questions/summary")
+def doubt_summary(u: User = Depends(author), s: Session = Depends(db)):  # the centre's counts, from the very same scope and definitions as the list
+    out = {k: dq_scope(u, s).filter(dq_label_filter(k)).count() for k in DQ_LABELS}
+    cond = dq_overdue(s); first, follow = doubt_targets(s)
+    out["overdue"] = dq_scope(u, s).filter(cond).count() if cond is not None else None
+    out["unassigned"] = dq_scope(u, s).filter(dq_unassigned(), TeacherQuestion.status == "waiting").count() if u.role == "admin" else None
+    out["targets"] = {"first_hours": first or None, "followup_hours": follow or None}
+    cids = {c for (c,) in dq_scope(u, s).with_entities(TeacherQuestion.course_id).distinct() if c}
+    out["courses"] = [{"id": c.id, "name": c.name, "units": [{"id": n.id, "name": n.name} for n in s.query(Unit).filter(Unit.course_id == c.id, Unit.archived_at.is_(None)).order_by(*ORDER[Unit])]}
+                      for c in s.query(Course).filter(Course.id.in_(cids or {0})).order_by(Course.name)]
+    out["teachers"] = [{"id": t.id, "name": t.name} for t in s.query(User).filter(User.id.in_(s.query(Course.faculty_owner_id).filter(Course.id.in_(cids or {0})))).order_by(User.name)] if u.role == "admin" else []
+    return out
+@app.get("/api/questions/report")
+def doubt_report(days: int = 90, u: User = Depends(author), s: Session = Depends(db)):
+    """Operational counts over the last days, within the same scope: doubts by course, unit and topic (with what is still waiting), reopened doubts,
+    and students who often ask again after an answer. Counting only; no AI."""
+    days = min(max(days, 7), 365); since = dt.datetime.utcnow() - dt.timedelta(days=days)
+    base = dq_scope(u, s).filter(TeacherQuestion.at >= since)
+    rows = base.with_entities(TeacherQuestion.id, TeacherQuestion.course_id, TeacherQuestion.topic_id, TeacherQuestion.status, TeacherQuestion.reopens, TeacherQuestion.user_id).all()
+    ids = [r.id for r in rows]; replied = {qid for (qid,) in s.query(TeacherReply.question_id).join(TeacherQuestion, TeacherQuestion.id == TeacherReply.question_id)
+                                           .filter(TeacherReply.question_id.in_(ids or [0]), TeacherReply.user_id != TeacherQuestion.user_id)}
+    tops = {t.id: t for t in s.query(Topic).filter(Topic.id.in_({r.topic_id for r in rows} or {0}))}
+    units = {n.id: n for n in s.query(Unit).filter(Unit.id.in_({t.unit_id for t in tops.values()} or {0}))}
+    cos = {c.id: c.name for c in s.query(Course).filter(Course.id.in_({r.course_id for r in rows} or {0}))}
+    def lab(r): return "resolved" if r.status == "closed" else "answered" if r.status == "answered" else "follow_up" if r.id in replied else "pending"
+    def group(key, name):
+        g = {}
+        for r in rows:
+            k = key(r)
+            if k is None: continue
+            x = g.setdefault(k, {"id": k, "name": name(k), "doubts": 0, "pending": 0, "follow_up": 0, "reopened": 0}); x["doubts"] += 1
+            l = lab(r); x["reopened"] += bool(r.reopens)
+            if l in ("pending", "follow_up"): x[l] += 1
+        return sorted(g.values(), key=lambda x: (-x["doubts"], x["name"]))
+    by_topic = group(lambda r: r.topic_id if r.topic_id in tops else None, lambda k: tops[k].title)
+    for x in by_topic: t = tops[x["id"]]; x["unit"] = units[t.unit_id].name if t.unit_id in units else ""; x["course"] = cos.get(units[t.unit_id].course_id, "") if t.unit_id in units else ""
+    asks_again = defaultdict(int)  # a student writing again after an answer: a follow_up event they made
+    for uid, in s.query(QuestionEvent.user_id).join(TeacherQuestion, TeacherQuestion.id == QuestionEvent.question_id).filter(QuestionEvent.question_id.in_(ids or [0]), QuestionEvent.after == "follow_up", QuestionEvent.user_id == TeacherQuestion.user_id):
+        asks_again[uid] += 1
+    names = {x.id: x.name for x in s.query(User).filter(User.id.in_(list(asks_again) or [0]))}
+    return {"days": days, "total": len(rows), "pending": sum(lab(r) == "pending" for r in rows), "follow_up": sum(lab(r) == "follow_up" for r in rows),
+            "reopened": sum(bool(r.reopens) for r in rows), "by_course": group(lambda r: r.course_id, lambda k: cos.get(k, "")),
+            "by_unit": group(lambda r: tops[r.topic_id].unit_id if r.topic_id in tops and tops[r.topic_id].unit_id in units else None, lambda k: units[k].name),
+            "by_topic": by_topic[:20], "asks_again": sorted([{"id": k, "name": names.get(k, ""), "follow_ups": v} for k, v in asks_again.items() if v >= 2], key=lambda x: -x["follow_ups"])[:10]}
 def tq_json(q, u, s):
     t, c = s.get(Topic, q.topic_id) if q.topic_id else None, s.get(Course, q.course_id) if q.course_id else None
     asker = s.get(User, q.user_id); teach = q.user_id != u.id
     msgs = tq_msgs(s, q, u, (asker.name if asker else ""))
+    co = s.get(Course, q.course_id) if q.course_id else None; owner = s.get(User, co.faculty_owner_id) if co and co.faculty_owner_id else None
+    un = s.get(Unit, t.unit_id) if t and t.unit_id else None
     return {**tq_row(q, t, c, msgs[-1]["text"] if msgs else "", asker.name if teach and asker else None), "excerpt": q.excerpt, "messages": msgs, "teacher": teach, "shared": bool(q.shared),
-            "can_share": teach and any(m["teacher"] for m in msgs)}
+            "label": tq_label(s, q), "at": utc_iso(q.at), "unit": un.name if un else "", "ai": json.loads(q.ai_context) if q.ai_context else None,
+            "answered_by": owner.name if owner and owner.active else None,  # None: no teacher assigned yet; the question is kept and the admins see it
+            "helpful": q.helpful, "can_reopen": not teach and can_reopen(q), "reopens_left": max(0, REOPEN_MAX - (q.reopens or 0)) if q.status == "closed" else None,
+            "events": [{"before": e.before, "after": e.after, "at": utc_iso(e.at), "who": "you" if e.user_id == u.id else ("teacher" if e.user_id != q.user_id else "student")}
+                       for e in s.query(QuestionEvent).filter_by(question_id=q.id).order_by(QuestionEvent.id)],
+            "can_share": teach and any(m["teacher"] for m in msgs), "can_withdraw": not teach and not q.started_by and not any(m["teacher"] for m in msgs)}
 def tq_msgs(s, q, u, asker_name):  # asker_name None: the class's view, where the student who asked is not named
     return [{"id": r.id, "mine": r.user_id == u.id, "teacher": r.user_id != q.user_id, "who": (w.name if w else "") if r.user_id != q.user_id else asker_name,
-             "text": r.text, "image": f"/api/qimg/{r.image}" if r.image else None, "at": utc_iso(r.at),
+             "text": r.text, "image": f"/api/qimg/{r.image}" if r.image else None, "at": utc_iso(r.at), "edited": utc_iso(r.edited_at),
              "file": {"url": f"/api/qfile/{r.file}?n={urllib.parse.quote(r.file_name or '')}", "name": r.file_name or "file"} if r.file else None}
             for r, w in s.query(TeacherReply, User).outerjoin(User, User.id == TeacherReply.user_id).filter(TeacherReply.question_id == q.id).order_by(TeacherReply.id)]
 class ShareIn(BaseModel): shared: bool
@@ -4384,23 +5960,80 @@ def read_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
     q, teach = tq_mine(qid, u, s)
     if not teach: q.seen = dt.datetime.utcnow(); s.commit()
     return tq_json(q, u, s)
-class ReplyIn(BaseModel): text: str = ""; photo: str = ""
+class MessageFile(BaseModel): name: str; data: str  # data: base64, or a data: URL
+class ReplyIn(BaseModel): text: str = ""; photo: str = ""; file: MessageFile | None = None
+# S41: a doubt's life. A teacher's reply makes it answered (never resolved by itself); the student says "I understand now" (resolved) or writes again
+# (follow-up); either side can resolve it; the student can reopen a resolved doubt REOPEN_MAX times within REOPEN_DAYS days. Every change is recorded.
+REOPEN_DAYS, REOPEN_MAX = 14, 2
+def tq_moved(s, q, u, before):  # record a status change, if there was one
+    after = tq_label(s, q)
+    if after != before: s.add(QuestionEvent(question_id=q.id, user_id=u.id, before=before, after=after))
+def can_reopen(q, now=None):
+    now = now or dt.datetime.utcnow()
+    return q.status == "closed" and not q.started_by and (q.reopens or 0) < REOPEN_MAX and q.resolved_at is not None and now - q.resolved_at <= dt.timedelta(days=REOPEN_DAYS)
 @app.post("/api/questions/{qid}/replies")
 def reply_question(qid: int, b: ReplyIn, bg: BackgroundTasks, u: User = Depends(me), s: Session = Depends(db)):
-    q, teach = tq_mine(qid, u, s); text_ = tq_text(b.text, bool(b.photo))
-    if q.status == "closed": raise HTTPException(400, TQ_CLOSED)
+    q, teach = tq_mine(qid, u, s); text_ = tq_text(b.text, bool(b.photo)); before = tq_label(s, q)
+    if q.status == "closed":
+        if teach or not can_reopen(q): raise HTTPException(400, TQ_CLOSED)
+        q.reopens = (q.reopens or 0) + 1  # "I still have a doubt" on a resolved doubt: the same thread, not a new one
+    if b.file and not teach: raise HTTPException(403, "Only your teacher can attach a document. Add a photo instead.")
     if s.query(func.count(TeacherReply.id)).filter(TeacherReply.question_id == q.id).scalar() >= TQ_REPLIES: raise HTTPException(400, "This thread is long enough. Ask a new question from the topic.")
-    img = tq_photo(s, u, b.photo); now = dt.datetime.utcnow(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, at=now, image=img))
+    stored, shown = save_message_file(b.file) if b.file else (None, None)
+    img = tq_photo(s, u, b.photo); now = dt.datetime.utcnow(); s.add(TeacherReply(question_id=q.id, user_id=u.id, text=text_, at=now, image=img, file=stored, file_name=shown))
+    if not teach and before == "answered": q.helpful = False  # they wrote again after an answer: it didn't settle it yet
     q.status, q.updated = ("answered" if teach else "waiting"), now
     if not teach: q.seen = now
-    s.commit()
+    s.flush(); tq_moved(s, q, u, before); s.commit()
     t = s.get(Topic, q.topic_id); asker = s.get(User, q.user_id)
     if teach and asker:
         notify(s, asker, "answer", "Your teacher answered on {app}", "{teacher} answered your question about {topic}. Open {app} to read it.", run=bg.add_task, teacher=u.name, topic=t.title if t else "")
+    elif not teach and before in ("answered", "resolved"):  # a follow-up: the teacher hears that there is one, not what it says
+        for x in tq_teachers(s, q.course_id):
+            notify(s, x, "question", "A follow-up from {name} on {app}", "{name} still has a doubt about {topic}. Open {app} to answer it.", run=bg.add_task, name=u.name, topic=t.title if t else "")
     return tq_json(q, u, s)
+@app.post("/api/questions/{qid}/understood")
+def understood(qid: int, u: User = Depends(me), s: Session = Depends(db)):  # S41: the student: "Yes, I understand now"
+    q, teach = tq_mine(qid, u, s); before = tq_label(s, q)
+    if teach: raise HTTPException(403, "Only the student who asked can say this")
+    if before != "answered": raise HTTPException(400, "Your teacher hasn't answered yet")
+    q.status, q.helpful, q.resolved_at, q.updated = "closed", True, dt.datetime.utcnow(), dt.datetime.utcnow(); tq_moved(s, q, u, before); s.commit()
+    return tq_json(q, u, s)
+class EditIn(BaseModel): text: str
+@app.put("/api/questions/{qid}/replies/{rid}")
+def edit_reply(qid: int, rid: int, b: EditIn, u: User = Depends(me), s: Session = Depends(db)):
+    """S41: a teacher corrects their own explanation. The earlier text is kept (reply_edits) and the reply shows it was edited; its photo or document stays."""
+    q, teach = tq_mine(qid, u, s); r = s.get(TeacherReply, rid)
+    if not r or r.question_id != q.id: raise HTTPException(404, "Reply not found")
+    if not teach or r.user_id != u.id: raise HTTPException(403, "Only its author can edit a reply")
+    text_ = tq_text(b.text, bool(r.image or r.file))
+    if text_ == r.text: return tq_json(q, u, s)
+    s.add(ReplyEdit(reply_id=r.id, user_id=u.id, text=r.text)); r.text, r.edited_at = text_, dt.datetime.utcnow(); s.commit()
+    return tq_json(q, u, s)
+@app.get("/api/questions/{qid}/replies/{rid}/edits")
+def reply_edits(qid: int, rid: int, u: User = Depends(me), s: Session = Depends(db)):  # the earlier versions of a reply, oldest first
+    q, _ = tq_mine(qid, u, s); r = s.get(TeacherReply, rid)
+    if not r or r.question_id != q.id: raise HTTPException(404, "Reply not found")
+    return {"items": [{"text": e.text, "until": utc_iso(e.at)} for e in s.query(ReplyEdit).filter_by(reply_id=rid).order_by(ReplyEdit.id)], "now": r.text}
+@app.post("/api/questions/{qid}/withdraw")
+def withdraw_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
+    """The student takes a question back before any teacher has answered: its words and photos are deleted and it leaves the teacher's list.
+    The row stays, empty, so it still counts toward the day's questions (asking and taking back can't flood a teacher's inbox)."""
+    q, teach = tq_mine(qid, u, s)
+    if teach or q.started_by: raise HTTPException(403, "Only the student who asked can withdraw a question")
+    if s.query(TeacherReply.id).filter(TeacherReply.question_id == q.id, TeacherReply.user_id != q.user_id).first():
+        raise HTTPException(400, "Your teacher has answered, so it can't be withdrawn. You can close it instead.")
+    for (img,) in s.query(TeacherReply.image).filter(TeacherReply.question_id == q.id, TeacherReply.image.isnot(None)):
+        try: os.remove(os.path.join(UPLOADS, "questions", img))
+        except OSError: pass
+    s.query(TeacherReply).filter_by(question_id=q.id).delete()
+    q.status, q.excerpt, q.shared, q.updated = "withdrawn", None, False, dt.datetime.utcnow(); s.commit()
+    return {"ok": True}
 @app.post("/api/questions/{qid}/close")
-def close_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):
-    q, _ = tq_mine(qid, u, s); q.status = "closed"; q.updated = dt.datetime.utcnow(); s.commit(); return tq_json(q, u, s)
+def close_question(qid: int, u: User = Depends(me), s: Session = Depends(db)):  # resolved: by the teacher, or by the student without saying it helped
+    q, _ = tq_mine(qid, u, s); before = tq_label(s, q)
+    if q.status != "closed": q.status = "closed"; q.resolved_at = q.updated = dt.datetime.utcnow(); tq_moved(s, q, u, before); s.commit()
+    return tq_json(q, u, s)
 def tq_answered(u, s):  # a student's questions answered since they last looked, for the bell
     return [{"key": f"answer:{q.id}:{int(q.updated.timestamp())}", "text": "A message from your teacher" if q.started_by else "Your teacher answered your question", "sub": t.title if t else (q.subject or "")}
             for q, t in s.query(TeacherQuestion, Topic).outerjoin(Topic, Topic.id == TeacherQuestion.topic_id).filter(TeacherQuestion.user_id == u.id, TeacherQuestion.status == "answered",
@@ -4443,7 +6076,7 @@ def struggles(days: int = 30, course_id: int = 0, u: User = Depends(author), s: 
     if not topics: return {"days": days, "items": [], "courses": [{"id": c.id, "name": c.name} for c in live_courses(u, s)]}
     rows = defaultdict(lambda: {"questions": 0, "doubts": 0, "not_quite": 0, "simpler": 0, "flags": 0, "students": set()})
     ids = list(topics)
-    for tid, uid in s.query(TeacherQuestion.topic_id, TeacherQuestion.user_id).filter(TeacherQuestion.topic_id.in_(ids), TeacherQuestion.at >= since): rows[tid]["questions"] += 1; rows[tid]["students"].add(uid)
+    for tid, uid in s.query(TeacherQuestion.topic_id, TeacherQuestion.user_id).filter(TeacherQuestion.topic_id.in_(ids), TeacherQuestion.at >= since, TeacherQuestion.status != "withdrawn"): rows[tid]["questions"] += 1; rows[tid]["students"].add(uid)
     for tid, uid, kind, out in s.query(StepLog.topic_id, StepLog.user_id, StepLog.kind, StepLog.outcome).filter(StepLog.topic_id.in_(ids), StepLog.at >= since, StepLog.kind.in_(("doubt", "check", "simpler"))):
         if kind == "doubt": rows[tid]["doubts"] += 1
         elif kind == "simpler": rows[tid]["simpler"] += 1
@@ -4863,7 +6496,6 @@ def enrol_notes(u, s):  # the bell: a student's invitations waiting; a teacher's
     return out
 # ---- writing to students: a teacher starts a message thread with each chosen student of a course (all of them by default); the student reads and
 # ---- answers it like a question to the teacher. "Offer help" writes to the students who were stuck on a topic, without the teacher learning who they are.
-class MessageFile(BaseModel): name: str; data: str  # data: base64, or a data: URL
 class MessageIn(BaseModel): subject: str; text: str; student_ids: list[int] = []; file: MessageFile | None = None
 MSG_FILE_MAX = 15 * 1024 * 1024
 MSG_FILE_TYPES = {"pdf": "application/pdf", "doc": "application/msword", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -4887,6 +6519,147 @@ def message_file(name: str, n: str = ""):  # the link is the key (128 random bit
     shown = re.sub(r'[^\w .()-]', "_", n)[:150] or name
     return FileResponse(path, media_type=MSG_FILE_TYPES.get(name.rsplit(".", 1)[-1], "application/octet-stream"), filename=shown,
                         headers={"Cache-Control": "private, max-age=31536000", "X-Content-Type-Options": "nosniff"})
+# ---- teacher resources (S43): a course's teacher adds material of their own to the course, a unit or a topic; students see the published ones inside the
+# ---- topic they are studying. Every save is a new version (the earlier ones stay); documents and videos are served only to people who may see them.
+RES_KINDS = ("note", "example", "image", "document", "video", "link")
+RES_STATUS = ("draft", "published", "archived")
+RES_VIDEO_TYPES = {"mp4": "video/mp4", "webm": "video/webm"}
+class ResFile(BaseModel): name: str; data: str
+class ResourceIn(BaseModel):
+    course_id: int = 0; unit_id: int | None = None; topic_id: int | None = None; kind: str = "note"; title: str = ""; description: str = ""
+    body: str = ""; url: str = ""; image: str = ""; file: ResFile | None = None; publish: bool = False
+def res_place(s, b):  # (course id, unit id, topic id) checked to belong together; the topic decides its unit and course
+    if b.topic_id:
+        t = s.get(Topic, b.topic_id)
+        if not t: raise HTTPException(400, "Choose a topic of this course")
+        return topic_course_id(t, s), t.unit_id, t.id
+    if b.unit_id:
+        un = s.get(Unit, b.unit_id)
+        if not un: raise HTTPException(400, "Choose a unit of this course")
+        return un.course_id, un.id, None
+    if not b.course_id or not s.get(Course, b.course_id): raise HTTPException(400, "Choose a course")
+    return b.course_id, None, None
+def save_resource_file(f, video):
+    name = re.sub(r"[\\/\x00-\x1f]", "", (f.name or "").strip())[-150:] or "file"; ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    types = RES_VIDEO_TYPES if video else MSG_FILE_TYPES
+    if ext not in types: raise HTTPException(400, "Upload an MP4 or WebM video" if video else "Send a PDF, Word, PowerPoint, Excel, text, CSV, ZIP or image file")
+    try: raw = base64.b64decode(f.data.split(",", 1)[-1], validate=False)
+    except Exception: raise HTTPException(400, "That file could not be read")
+    if not raw or len(raw) > MSG_FILE_MAX: raise HTTPException(400, "Keep the file under 15 MB")
+    if video and not (raw[4:8] == b"ftyp" or raw[:4] == b"\x1aE\xdf\xa3"): raise HTTPException(400, "That does not look like an MP4 or WebM video")
+    if ext == "pdf" and not raw.startswith(b"%PDF"): raise HTTPException(400, "That does not look like a PDF")
+    stored = os.urandom(16).hex() + "." + ext; d = os.path.join(UPLOADS, "resources"); os.makedirs(d, exist_ok=True)
+    with open(os.path.join(d, stored), "wb") as out: out.write(raw)
+    return stored, name
+def res_version(s, r, n=None):
+    return s.query(ResourceVersion).filter_by(resource_id=r.id, number=n or r.version).first()
+def res_json(s, r, v, staff=False, names=None):
+    names = names or {}
+    out = {"id": r.id, "kind": r.kind, "course_id": r.course_id, "unit_id": r.unit_id, "topic_id": r.topic_id, "level": "topic" if r.topic_id else "unit" if r.unit_id else "course",
+           "title": v.title, "description": v.description or "", "body": v.body or "", "url": v.url or "", "image": v.image or "",
+           "file": {"name": v.file_name or "file", "url": f"/resources/{r.id}/file?v={v.number}", "video": (v.file or "").rsplit(".", 1)[-1] in RES_VIDEO_TYPES} if v.file else None,
+           "version": v.number, "updated": utc_iso(r.updated_at)}
+    if staff: out.update({"status": r.status, "created_by": names.get(r.created_by, ""), "created_at": utc_iso(r.created_at), "saved_by": names.get(v.saved_by, ""), "saved_at": utc_iso(v.saved_at)})
+    return out
+def res_values(s, b, keep=None):  # the new version's fields from the request; a file not replaced carries over (no copy)
+    title = " ".join((b.title or "").split())[:200]
+    if not title: raise HTTPException(400, "Give it a title")
+    if b.kind not in RES_KINDS: raise HTTPException(400, "Choose note, worked example, image, document, video or link")
+    v = {"title": title, "description": (b.description or "").strip()[:2000] or None, "body": None, "url": None, "image": None, "file": None, "file_name": None}
+    if b.kind in ("note", "example"):
+        if len((b.body or "").strip()) < 3: raise HTTPException(400, "Write the note first")
+        v["body"] = b.body.strip()[:20000]
+    elif b.kind == "image":
+        img = (b.image or "").strip()
+        if not re.fullmatch(r"/api/uploads/[0-9a-f]{32}\.(png|jpg|gif|webp)", img): raise HTTPException(400, "Upload the picture first")
+        v["image"] = img
+    elif b.kind == "link" or (b.kind == "video" and not b.file and (b.url or "").strip()):
+        u = (b.url or "").strip()
+        if not re.fullmatch(r"https://[^\s<>\"']{4,490}", u): raise HTTPException(400, "Paste a link starting with https://")
+        v["url"] = u
+    if b.kind in ("document", "video") and not v["url"]:
+        if b.file: v["file"], v["file_name"] = save_resource_file(b.file, b.kind == "video")
+        elif keep and keep.file: v["file"], v["file_name"] = keep.file, keep.file_name
+        else: raise HTTPException(400, "Attach the video, or paste its link" if b.kind == "video" else "Attach the document")
+    return v
+@app.get("/api/courses/{cid}/resources")
+def course_resources(cid: int, u: User = Depends(author), s: Session = Depends(db)):  # every resource of the course, for its teachers: drafts and archived ones too
+    if not s.get(Course, cid): raise HTTPException(404, "Course not found")
+    need_edit(u, cid, s)
+    rs = s.query(TeacherResource).filter_by(course_id=cid).order_by(TeacherResource.status, TeacherResource.updated_at.desc()).all()
+    vs = {(v.resource_id, v.number): v for v in s.query(ResourceVersion).filter(ResourceVersion.resource_id.in_([r.id for r in rs] or [0]))}
+    names = {x.id: x.name for x in s.query(User).filter(User.id.in_({r.created_by for r in rs} | {v.saved_by for v in vs.values()} or {0}))}
+    return {"items": [res_json(s, r, vs[(r.id, r.version)], True, names) for r in rs if (r.id, r.version) in vs]}
+@app.post("/api/resources")
+def new_resource(b: ResourceIn, u: User = Depends(author), s: Session = Depends(db)):
+    cid, uid, tid = res_place(s, b)
+    if b.course_id and cid != b.course_id: raise HTTPException(400, "That unit or topic is not in this course")
+    need_edit(u, cid, s); v = res_values(s, b); now = dt.datetime.utcnow()
+    r = TeacherResource(course_id=cid, unit_id=uid, topic_id=tid, kind=b.kind, status="published" if b.publish else "draft", created_by=u.id, created_at=now, updated_at=now, version=1)
+    s.add(r); s.flush(); s.add(ResourceVersion(resource_id=r.id, number=1, saved_by=u.id, saved_at=now, **v)); s.commit()
+    return res_json(s, r, res_version(s, r), True, {u.id: u.name})
+@app.put("/api/resources/{rid}")
+def edit_resource(rid: int, b: ResourceIn, u: User = Depends(author), s: Session = Depends(db)):
+    """A new version (the earlier ones stay). Students get it at once if the resource is published; its place in the syllabus and its kind stay."""
+    r = s.get(TeacherResource, rid)
+    if not r: raise HTTPException(404, "Resource not found")
+    need_edit(u, r.course_id, s); b.kind = r.kind; old = res_version(s, r); v = res_values(s, b, keep=old); now = dt.datetime.utcnow()
+    if all(getattr(old, k) == v[k] for k in v): return res_json(s, r, old, True, {u.id: u.name})  # nothing changed: no empty version
+    r.version += 1; r.updated_at = now; s.add(ResourceVersion(resource_id=r.id, number=r.version, saved_by=u.id, saved_at=now, **v))
+    if b.publish and r.status == "draft": r.status = "published"
+    s.commit(); return res_json(s, r, res_version(s, r), True, {u.id: u.name})
+class ResStatusIn(BaseModel): status: str
+@app.post("/api/resources/{rid}/status")
+def resource_status(rid: int, b: ResStatusIn, u: User = Depends(author), s: Session = Depends(db)):  # publish, back to draft, or archive (nothing is deleted)
+    r = s.get(TeacherResource, rid)
+    if not r: raise HTTPException(404, "Resource not found")
+    need_edit(u, r.course_id, s)
+    if b.status not in RES_STATUS: raise HTTPException(400, "Choose draft, published or archived")
+    r.status = b.status; r.updated_at = dt.datetime.utcnow(); s.commit(); return res_json(s, r, res_version(s, r), True, {})
+@app.get("/api/resources/{rid}/versions")
+def resource_versions(rid: int, u: User = Depends(author), s: Session = Depends(db)):  # who saved what and when, newest first; the current one marked
+    r = s.get(TeacherResource, rid)
+    if not r: raise HTTPException(404, "Resource not found")
+    need_edit(u, r.course_id, s); vs = s.query(ResourceVersion).filter_by(resource_id=rid).order_by(ResourceVersion.number.desc()).all()
+    names = {x.id: x.name for x in s.query(User).filter(User.id.in_({v.saved_by for v in vs} or {0}))}
+    return {"current": r.version, "status": r.status, "items": [{**res_json(s, r, v, True, names), "current": v.number == r.version} for v in vs]}
+def res_visible(s, u, r):  # may this person see this resource (and so its file)?
+    if can_edit(u, r.course_id, s): return True
+    if r.status != "published": return False
+    check_course_access(u, r.course_id, s)
+    if r.unit_id:
+        un = s.get(Unit, r.unit_id)
+        if not un or un.archived_at: return False
+    if r.topic_id:
+        t = s.get(Topic, r.topic_id)
+        if not t or t.published is False or topic_off(s, t): return False
+    return True
+@app.get("/api/topics/{tid}/resources")
+def topic_resources(tid: int, u: User = Depends(me), s: Session = Depends(db)):
+    """The teacher resources for this topic: its own, its unit's and its course's, published ones only for students (a course's teachers also see drafts)."""
+    t = s.get(Topic, tid)
+    if not t: raise HTTPException(404, "Topic not found")
+    check_topic_access(u, t, s); cid = topic_course_id(t, s); staff = can_edit(u, cid, s)
+    q = s.query(TeacherResource).filter(TeacherResource.course_id == cid, or_(TeacherResource.topic_id == tid, and_(TeacherResource.topic_id.is_(None), or_(TeacherResource.unit_id == t.unit_id, TeacherResource.unit_id.is_(None)))))
+    q = q.filter(TeacherResource.status.in_(("published", "draft") if staff else ("published",)))
+    rs = q.order_by(case((TeacherResource.topic_id.isnot(None), 0), (TeacherResource.unit_id.isnot(None), 1), else_=2), TeacherResource.position, TeacherResource.id).all()
+    vs = {(v.resource_id, v.number): v for v in s.query(ResourceVersion).filter(ResourceVersion.resource_id.in_([r.id for r in rs] or [0]))}
+    return {"items": [res_json(s, r, vs[(r.id, r.version)], staff) for r in rs if (r.id, r.version) in vs]}
+@app.get("/api/resources/{rid}/file")
+def resource_file(rid: int, v: int = 0, u: User = Depends(me), s: Session = Depends(db)):
+    """A resource's document or video, only to someone who may see the resource. Students get the current version only; its teachers any version."""
+    r = s.get(TeacherResource, rid)
+    if not r or not res_visible(s, u, r): raise HTTPException(404, "Not found")
+    n = v or r.version
+    if n != r.version and not can_edit(u, r.course_id, s): raise HTTPException(404, "Not found")
+    x = res_version(s, r, n)
+    if not x or not x.file: raise HTTPException(404, "Not found")
+    path = os.path.join(UPLOADS, "resources", x.file)
+    if not re.fullmatch(r"[0-9a-f]{32}\.[a-z0-9]{2,4}", x.file) or not os.path.exists(path): raise HTTPException(404, "This file is no longer available")
+    ext = x.file.rsplit(".", 1)[-1]; shown = re.sub(r'[^\w .()-]', "_", x.file_name or "")[:150] or x.file
+    return FileResponse(path, media_type=RES_VIDEO_TYPES.get(ext) or MSG_FILE_TYPES.get(ext, "application/octet-stream"), filename=shown,
+                        content_disposition_type="inline" if ext in RES_VIDEO_TYPES or ext in ("pdf", "png", "jpg", "jpeg") else "attachment",
+                        headers={"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"})
 def send_messages(s, c, author_u, people, subject, text, bg, file=None):
     now = dt.datetime.utcnow(); stored, shown = file or (None, None)
     for st in people:
@@ -4920,7 +6693,7 @@ def offer_help(tid: int, b: HelpIn, bg: BackgroundTasks, u: User = Depends(autho
     t = s.get(Topic, tid)
     if not t: raise HTTPException(404, "Topic not found")
     cid = topic_course_id(t, s); need_edit(u, cid, s); text_ = tq_text(b.text); since = dt.datetime.utcnow() - dt.timedelta(days=min(max(b.days, 7), 180))
-    ids = {i for (i,) in s.query(TeacherQuestion.user_id).filter(TeacherQuestion.topic_id == tid, TeacherQuestion.at >= since)}
+    ids = {i for (i,) in s.query(TeacherQuestion.user_id).filter(TeacherQuestion.topic_id == tid, TeacherQuestion.at >= since, TeacherQuestion.status != "withdrawn")}
     ids |= {i for i, k, o in s.query(StepLog.user_id, StepLog.kind, StepLog.outcome).filter(StepLog.topic_id == tid, StepLog.at >= since, StepLog.kind.in_(("doubt", "check", "simpler"))) if k != "check" or o == "not_yet"}
     ids |= {i for (i,) in s.query(AIFlag.user_id).filter(AIFlag.topic_id == tid, AIFlag.at >= since)}
     people = [x for x in s.query(User).filter(User.id.in_(ids or {0}), User.role == "student", User.active == True)]  # noqa: E712
@@ -5140,7 +6913,7 @@ def doubt_local(tid: int, b: DoubtIn, u: User = Depends(me), s: Session = Depend
     _, qh = doubt_key(u, t, phrase, s); hit = s.query(DoubtAnswer).filter_by(qhash=qh).first() if key_for(u, s) else None
     if hit: hit.hits += 1; s.commit(); note_use(s, u, "doubt", hit.id, hit.author_id)
     return {"phrase": phrase, "where": {"program": f["program"], "semester": f["semester"], "course": f["course"], "topic": f["title"]},
-            "passage": passage_around(words_of(t.content, fmt_of(t)), phrase), "my_passage": passage_around(mine, phrase) if mine else "", "saved": hit.text if hit else None,
+            "passage": passage_around(words_of(t.content, fmt_of(t)), phrase), "my_passage": passage_around(mine, phrase) if mine else "", "saved": hit.text if hit else None, "saved_id": hit.id if hit else None,
             "ai_left": max(0, DOUBT_DAILY - s.query(func.count(AIEgress.id)).filter(AIEgress.user_id == u.id, AIEgress.kind == "doubt", AIEgress.ok == True, AIEgress.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar()) if u.role == "student" else None}  # noqa: E712
 @app.post("/api/topics/{tid}/doubt/ask")
 async def doubt_ask(tid: int, b: DoubtIn, u: User = Depends(me), s: Session = Depends(db)):
@@ -5149,16 +6922,17 @@ async def doubt_ask(tid: int, b: DoubtIn, u: User = Depends(me), s: Session = De
     if crisis(phrase): return {"text": SUPPORT.get(u.lang or "en", SUPPORT["en"]), "cached": False, "support": True}
     key = key_or_fail(u, s); lite_search_left(u, s); prompt, qh = doubt_key(u, t, phrase, s)
     hit = s.query(DoubtAnswer).filter_by(qhash=qh).first()
-    if hit: hit.hits += 1; s.commit(); note_use(s, u, "doubt", hit.id, hit.author_id); return {"text": hit.text, "cached": True}
+    if hit: hit.hits += 1; s.commit(); note_use(s, u, "doubt", hit.id, hit.author_id); return {"text": hit.text, "cached": True, "id": hit.id}
     if not is_staff(u) and s.query(func.count(AIEgress.id)).filter(AIEgress.user_id == u.id, AIEgress.kind == "doubt", AIEgress.ok == True, AIEgress.at >= dt.datetime.utcnow() - dt.timedelta(hours=24)).scalar() >= DOUBT_DAILY:  # noqa: E712
         raise HTTPException(429, f"You have used today's {DOUBT_DAILY} AI doubts. Try again tomorrow, or reread the passage above.")
     f = full(t, s)
     msg = f"Program: {f['program']}\nSemester: {f['semester']}\nCourse: {f['course']}\nTopic: {f['title']}\n\nThe student does not understand this phrase:\n{phrase}"
     text, tokens = await ask_ai(u, s, key, prompt, msg, max_tokens=500, kind="doubt", topic_id=tid)
     lite_search_used(u, s)
-    try: s.add(DoubtAnswer(qhash=qh, topic_id=tid, phrase=phrase[:300], text=text, tokens=tokens, author_id=author_of(u))); s.commit()
-    except Exception: s.rollback()
-    return {"text": text, "cached": False}
+    row = DoubtAnswer(qhash=qh, topic_id=tid, phrase=phrase[:300], text=text, tokens=tokens, author_id=author_of(u))
+    try: s.add(row); s.commit()
+    except Exception: s.rollback(); row = None
+    return {"text": text, "cached": False, "id": row.id if row else None}
 @app.get("/api/admin/egress")
 def egress_report(days: int = 30, _: User = Depends(admin), s: Session = Depends(db)):
     """What has left for the AI provider, by kind: requests, characters sent and failures. Sizes only, never the text."""
@@ -5371,9 +7145,32 @@ def search(q: str = "", limit: int = 10, u: User = Depends(me), s: Session = Dep
     scored.sort(key=lambda x: (-x[0], x[3].title)); top = scored[:max(1, min(limit, 25))]
     sems = {x.id: x for x in s.query(Semester).filter(Semester.id.in_({x[5].semester_id for x in top if x[5].semester_id} or {0}))}
     progs = {x.id: x.name for x in s.query(Program).filter(Program.id.in_({x[5].program_id for x in top} or {0}))}
-    return {"q": q, "terms": terms, "confident": any(near or (full_ and len(terms) > 1) for _, near, full_, *_ in scored),  # a lone word found only inside some notes is not a confident match
+    mine = my_note_hits(s, u, terms, need)
+    return {"q": q, "terms": terms, "mine": mine,
+            "confident": any(near or (full_ and len(terms) > 1) for _, near, full_, *_ in scored) or any(m["all"] for m in mine),  # a lone word found only inside some notes is not a confident match
             "results": [{"id": t.id, "title": t.title, "unit": un.name, "course": co.name, "program": progs.get(co.program_id, ""), "semester": sems[co.semester_id].name if co.semester_id in sems else "",
                          "snippet": snippet(body, terms), "score": sc, "in_title": near} for sc, near, _, t, un, co, body in top]}
+def my_note_hits(s, u, terms, need, n=5):
+    """The student's own words that match: their notes filed under a topic, and the notes they wrote on highlights. Only ever theirs, only on
+    topics they can still open, and never sent to the AI."""
+    if u.role != "student": return []
+    like = lambda col, t: func.lower(col).like(f"%{t}%"); found = {}
+    for kind, col, rows in (("notes", TopicNote.content, s.query(TopicNote.topic_id, TopicNote.content).filter(TopicNote.user_id == u.id)),
+                            ("highlight", Highlight.note, s.query(Highlight.topic_id, Highlight.note).filter(Highlight.user_id == u.id, Highlight.note.isnot(None)))):
+        for tid, text in rows.filter(or_(*[like(col, t) for t in terms])).limit(200):
+            body = plain(text); hit = [t for t in terms if t in body.lower()]
+            if len(hit) < need: continue
+            k = (tid, kind); score = len(hit)
+            if k not in found or score > found[k][0]: found[k] = (score, len(hit) == len(terms), body)
+    out = []
+    for (tid, kind), (score, full_, body) in sorted(found.items(), key=lambda x: -x[1][0]):
+        t = s.get(Topic, tid)
+        if not t or topic_off(s, t) or t.published is False: continue
+        try: check_topic_access(u, t, s)
+        except HTTPException: continue
+        out.append({"topic_id": tid, "title": t.title, "kind": kind, "snippet": snippet(body, terms), "all": full_})
+        if len(out) >= n: break
+    return out
 class SearchAIIn(BaseModel): q: str; refresh: bool = False
 @app.post("/api/search/ai")
 async def search_ai(b: SearchAIIn, u: User = Depends(me), s: Session = Depends(db)):
@@ -5490,6 +7287,8 @@ class StudyAttempt(Base):
     id = Column(Integer, primary_key=True); quiz_id = Column(Integer, ForeignKey("study_quizzes.id", ondelete="CASCADE"), index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     answers = Column(Text); score = Column(Integer); total = Column(Integer); percent = Column(Integer); at = Column(DateTime, default=dt.datetime.utcnow)
+    request_id = Column(String(64), nullable=True)  # the app's id for this submission: sent again (a double tap, a retry), it gets the same attempt back
+    __table_args__ = (UniqueConstraint("user_id", "request_id", name="uq_study_attempts_user_request"),)
 class StudyAICall(Base):  # one row per AI call for a student-built course on the shared key; used for the daily limit
     __tablename__ = "study_ai_calls"
     id = Column(Integer, primary_key=True); user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -5812,7 +7611,8 @@ def study_list(u: User = Depends(me), s: Session = Depends(db)):
 def study_get(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s); mine = c.owner_id == u.id or u.role == "admin"
     out = {**study_row(c, s, u), "can_edit": mine, "notes": (c.notes or "") if mine else "", "sliced_by": c.sliced_by or "", **study_ai_status(u, s)}
-    if mine: out.update(reading=scan_state(c, s), ocr_available=ocr_ready(), sources=json.loads(c.sources or "[]"), paragraphs=len(json.loads(c.paras or "[]")), plan=plan_view(c))
+    if mine: out.update(reading=scan_state(c, s), ocr_available=ocr_ready(), sources=json.loads(c.sources or "[]"), paragraphs=len(json.loads(c.paras or "[]")), plan=plan_view(c),
+                        classmates_using=study_classmates_using(s, c))
     if c.status == "ready":
         prog = {p.topic_id: p for p in s.query(StudyProgress).filter(StudyProgress.user_id == u.id, StudyProgress.topic_id.in_(s.query(StudyTopic.id).filter_by(course_id=c.id)))}
         best = study_best(s, u.id, c.id); now = dt.datetime.utcnow()
@@ -5839,6 +7639,11 @@ def study_edit(cid: int, b: StudyCourseIn, u: User = Depends(me), s: Session = D
 @app.delete("/api/study/courses/{cid}")
 def study_delete(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s, edit=True); drop_study_content(s, c.id); s.delete(c); s.commit(); return {"ok": True}
+def study_classmates_using(s, c):  # other people with progress or quiz results on this course, which finishing it again would remove
+    tids = s.query(StudyTopic.id).filter_by(course_id=c.id)
+    who = {i for (i,) in s.query(StudyProgress.user_id).filter(StudyProgress.topic_id.in_(tids))}
+    who |= {i for (i,) in s.query(StudyQuiz.user_id).filter(or_(StudyQuiz.topic_id.in_(tids), StudyQuiz.course_id == c.id))}
+    return len(who - {c.owner_id})
 def drop_study_content(s, cid):  # units, topics and everything hanging off them (SQLite does not cascade)
     tids = [i for (i,) in s.query(StudyTopic.id).filter_by(course_id=cid)] or [0]
     qids = [i for (i,) in s.query(StudyQuiz.id).filter(or_(StudyQuiz.topic_id.in_(tids), StudyQuiz.course_id == cid))] or [0]
@@ -5964,30 +7769,39 @@ def study_slicing(cid: int, u: User = Depends(me), s: Session = Depends(db)):
 class PlanIn(BaseModel): units: list[dict]
 @app.put("/api/study/courses/{cid}/plan")
 def study_plan(cid: int, b: PlanIn, u: User = Depends(me), s: Session = Depends(db)):
-    """The preview after the student renamed, merged or removed topics. Topics stay in order and never overlap; removed topics leave their paragraphs out."""
-    c = study_course_or_404(cid, u, s, edit=True); n = len(json.loads(c.paras or "[]")); last, units = 0, []
+    """The preview after the student renamed, merged, removed or moved topics. A topic may move to another unit, where it takes its place by where its text is in
+    the material; no two topics share a paragraph, so nothing is repeated. Removed topics leave their paragraphs out."""
+    c = study_course_or_404(cid, u, s, edit=True); n = len(json.loads(c.paras or "[]")); units = []
     for un in b.units:
         topics = []
         for t in un.get("topics") or []:
             try: f, to = int(t["from"]), int(t["to"])
             except (KeyError, TypeError, ValueError): raise HTTPException(400, "Each topic needs its first and last paragraph")
-            if not (last < f <= to <= n): raise HTTPException(400, "Topics must stay in order without overlapping")
-            last = to; topics.append({"title": (str(t.get("title") or "").strip() or "Untitled topic")[:200], "summary": str(t.get("summary") or "")[:300], "from": f, "to": to})
-        if topics: units.append({"title": (str(un.get("title") or "").strip() or "Untitled unit")[:200], "topics": topics})
+            if not 1 <= f <= to <= n: raise HTTPException(400, "Topics must stay in order without overlapping")
+            topics.append({"title": (str(t.get("title") or "").strip() or "Untitled topic")[:200], "summary": str(t.get("summary") or "")[:300], "from": f, "to": to})
+        if topics: units.append({"title": (str(un.get("title") or "").strip() or "Untitled unit")[:200], "topics": sorted(topics, key=lambda t: t["from"])})
     if not units: raise HTTPException(400, "Keep at least one topic")
+    last = 0
+    for t in sorted((t for un in units for t in un["topics"]), key=lambda t: t["from"]):
+        if t["from"] <= last: raise HTTPException(400, "Topics must stay in order without overlapping")
+        last = t["to"]
     c.plan = json.dumps({"units": units}, ensure_ascii=False); touch(c); s.commit(); return {"plan": plan_view(c)}
 @app.get("/api/study/courses/{cid}/preview")
 def study_preview(cid: int, start: int, end: int, u: User = Depends(me), s: Session = Depends(db)):  # the full text of a planned topic
     c = study_course_or_404(cid, u, s, edit=True); paras = json.loads(c.paras or "[]")
     if not 1 <= start <= end <= len(paras): raise HTTPException(400, "Out of range")
     return {"content": "\n\n".join(paras[start - 1:end]), "paras": paras[start - 1:end]}  # paras: one by one, so the student can split the topic between two
-class FinishIn(BaseModel): replace: bool = False
+class FinishIn(BaseModel): replace: bool = False; classmates: bool = False  # classmates: the owner was told that classmates' progress and quiz results go too
 @app.post("/api/study/courses/{cid}/finish")
 def study_finish(cid: int, b: FinishIn, u: User = Depends(me), s: Session = Depends(db)):
     c = study_course_or_404(cid, u, s, edit=True)
     if not c.plan: raise HTTPException(400, "Slice your material and check the preview first")
     if s.query(StudyTopic.id).filter_by(course_id=c.id).first():
         if not b.replace: raise HTTPException(409, "This course already has topics. Finishing again replaces them, with their progress and quizzes.")
+        n = study_classmates_using(s, c)
+        if n and not b.classmates:  # an older app, or a classmate started meanwhile: say so before their work goes
+            raise HTTPException(409, "A classmate has progress or quiz results on this course. Finishing again removes theirs too." if n == 1 else
+                                     f"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too.")
         drop_study_content(s, c.id)
     paras = json.loads(c.paras or "[]"); n = 0
     for ui, un in enumerate(json.loads(c.plan)["units"]):
@@ -6125,34 +7939,57 @@ def study_check(qid: int, b: CheckIn, u: User = Depends(me), s: Session = Depend
     qs = json.loads(q.questions)
     if not 0 <= b.index < len(qs) or not 0 <= b.answer < len(qs[b.index]["options"]): raise HTTPException(400, "Out of range")
     x = qs[b.index]; return {"ok": b.answer == x["correct"], "correct": x["correct"], "explanation": x["explanation"]}
-class StudyAnswersIn(BaseModel): answers: list[int | None]
+class StudyAnswersIn(BaseModel): answers: list[int | None]; request_id: str = ""
 @app.post("/api/study/quizzes/{qid}/attempt")
 def study_attempt(qid: int, b: StudyAnswersIn, u: User = Depends(me), s: Session = Depends(db)):
-    q = study_quiz_or_404(qid, u, s); qs = json.loads(q.questions)
+    """Marks a check. The same request_id sent again (a double tap, a retry after a lost reply) gets the first result back: one attempt, so its
+    points and review schedule count once."""
+    q = study_quiz_or_404(qid, u, s); qs = json.loads(q.questions); uid = u.id
+    rid = re.sub(r"[^A-Za-z0-9_-]", "", b.request_id or "")[:64] or None
+    def again():
+        a = s.query(StudyAttempt).filter_by(user_id=uid, request_id=rid).first() if rid else None
+        if a and a.quiz_id != q.id: raise HTTPException(409, "That submission was for another check")
+        return a
+    if (a := again()): return study_reply(a, q, qs, u, s, already=True)
     if len(b.answers) != len(qs): raise HTTPException(400, "Answer every question or leave it blank")
     if any(a is not None and not 0 <= a < len(x["options"]) for a, x in zip(b.answers, qs)): raise HTTPException(400, "One of the answers is not a choice of its question")
-    results = [{"chosen": a, "ok": a == x["correct"], "correct": x["correct"], "explanation": x["explanation"], "concept": x.get("concept", "")} for a, x in zip(b.answers, qs)]
-    score = sum(r["ok"] for r in results); pct = round(100 * score / len(qs))
-    xp0, stars0 = study_xp(s, u.id), study_stars(s, u.id, [q.topic_id]).get(q.topic_id, 0) if q.topic_id else 0
-    a = StudyAttempt(quiz_id=q.id, user_id=u.id, answers=json.dumps(b.answers), score=score, total=len(qs), percent=pct); s.add(a)
-    per = defaultdict(lambda: [0, 0])  # topic -> [right, asked]: each topic in the set moves on its own review schedule
-    for x, r_ in zip(qs, results):
-        k = x.get("topic_id") or q.topic_id
-        if k: per[k][0] += r_["ok"]; per[k][1] += 1  # checks on staff-made topics have no review schedule of their own
+    oks = [a == x["correct"] for a, x in zip(b.answers, qs)]; score = sum(oks); pct = round(100 * score / len(qs))
+    xp0, stars0 = study_xp(s, uid), study_stars(s, uid, [q.topic_id]).get(q.topic_id, 0) if q.topic_id else 0
+    a = StudyAttempt(quiz_id=q.id, user_id=uid, answers=json.dumps(b.answers), score=score, total=len(qs), percent=pct, request_id=rid); s.add(a)
+    per = study_per_topic(q, qs, oks)
     now, completed_now = dt.datetime.utcnow(), False
     for tid, (ok, n) in per.items():
-        p = s.query(StudyProgress).filter_by(user_id=u.id, topic_id=tid).first() or StudyProgress(user_id=u.id, topic_id=tid); s.add(p)
+        p = s.query(StudyProgress).filter_by(user_id=uid, topic_id=tid).first() or StudyProgress(user_id=uid, topic_id=tid); s.add(p)
         schedule_review(p, ok / n, now)
         if q.kind != "review" and not p.completed_at and pct >= (QUIZ_PASS if q.kind == "quiz" else 80): p.completed_at = now; completed_now = True  # a good check marks the topic learnt
-    s.commit()
+    try: s.commit()
+    except IntegrityError:  # the same submission, saved by another request just now: theirs stands
+        s.rollback()
+        if (a := again()): return study_reply(a, q, qs, u, s, already=True)
+        raise
+    return study_reply(a, q, qs, u, s, xp0=xp0, stars0=stars0, completed_now=completed_now)
+def study_per_topic(q, qs, oks):  # topic -> [right, asked]: each topic in the set moves on its own review schedule
+    per = defaultdict(lambda: [0, 0])
+    for x, ok in zip(qs, oks):
+        k = x.get("topic_id") or q.topic_id
+        if k: per[k][0] += ok; per[k][1] += 1  # checks on staff-made topics have no review schedule of their own
+    return per
+def study_reply(a, q, qs, u, s, xp0=None, stars0=None, completed_now=False, already=False):  # a check's result from its saved attempt
+    ans = json.loads(a.answers or "[]")
+    results = [{"chosen": c, "ok": c == x["correct"], "correct": x["correct"], "explanation": x["explanation"], "concept": x.get("concept", "")} for c, x in zip(ans, qs)]
     xp1 = study_xp(s, u.id); stars1 = study_stars(s, u.id, [q.topic_id]).get(q.topic_id, 0) if q.topic_id else 0
+    xp0 = xp1 if xp0 is None else xp0; stars0 = stars1 if stars0 is None else stars0
     acc = {}
     for r in results:
         k = r["concept"] or "General"; g = acc.setdefault(k.lower(), {"title": k, "correct": 0, "total": 0}); g["correct"] += r["ok"]; g["total"] += 1
     areas = sorted([{**g, "percent": round(100 * g["correct"] / g["total"]), "status": area_status(round(100 * g["correct"] / g["total"]))} for g in acc.values()], key=lambda g: (g["percent"], g["title"]))
-    return {"attempt_id": a.id, "score": score, "total": len(qs), "percent": pct, "passed": pct >= QUIZ_PASS, "pass_percent": QUIZ_PASS, "results": results, "areas": areas, "summary": area_summary(areas),
+    return {"attempt_id": a.id, "score": a.score, "total": a.total, "percent": a.percent, "passed": a.percent >= QUIZ_PASS, "pass_percent": QUIZ_PASS, "results": results,
+            "counts": result_counts([r["chosen"] for r in results], [r["ok"] for r in results]), "areas": areas, "summary": area_summary(areas),
             "completed_now": completed_now, "stars": {"before": stars0, "after": stars1}, "xp": {"gained": xp1 - xp0, **level_of(xp1), "level_up": level_of(xp1)["level"] > level_of(xp0)["level"]},
-            "next_review": next_review_phrase(per, u, s)}
+            "next_review": next_review_phrase(study_per_topic(q, qs, [r["ok"] for r in results]), u, s), **({"already": True} if already else {})}
+def result_counts(chosen, oks):  # right, wrong and left blank, for any result
+    blank = sum(c is None for c in chosen); right = sum(bool(o) for o in oks)
+    return {"correct": right, "wrong": len(oks) - right - blank, "blank": blank}
 @app.get("/api/study/courses/{cid}/progress")
 def study_progress(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     """Your progress in a course: topics completed, and each topic's best quiz score sorted into strong, getting there and needs another round."""
@@ -6324,22 +8161,41 @@ def next_review_phrase(per, u, s):
     if not ds: return ""
     n = (local_day(min(ds)) - local_day(dt.datetime.utcnow())).days
     return "Review it again tomorrow" if n <= 1 else f"Review it again in {n} days"
-def study_stars(s, uid, tids):  # 1 star: completed; 2: passed a quiz (60%+); 3: mastered (90%+ in a quiz)
+MASTERY = 90  # a check at or above this, on two different days, makes a topic mastered
+def study_mastered(s, uid, tids=None):  # topics this student has mastered: 90%+ on checks (a quiz on the topic, or its part of a review) on two different days.
+    # A topic with a 90%+ quiz before the two-day rule began (setting mastery_rule_since) keeps its mastery
+    since = setting(s, "mastery_rule_since", ""); since = dt.datetime.fromisoformat(since) if since else None
+    days, early = defaultdict(set), set()
+    for tid, pct, at in s.query(StudyQuiz.topic_id, StudyAttempt.percent, StudyAttempt.at).join(StudyAttempt, StudyAttempt.quiz_id == StudyQuiz.id) \
+            .filter(StudyAttempt.user_id == uid, StudyQuiz.kind == "quiz", StudyQuiz.topic_id.isnot(None), StudyAttempt.percent >= MASTERY):
+        if tids is not None and tid not in tids: continue
+        days[tid].add(local_day(at))
+        if since and at < since: early.add(tid)
+    for qjson, ans, at in s.query(StudyQuiz.questions, StudyAttempt.answers, StudyAttempt.at).join(StudyAttempt, StudyAttempt.quiz_id == StudyQuiz.id) \
+            .filter(StudyAttempt.user_id == uid, StudyQuiz.kind == "review"):
+        per = defaultdict(lambda: [0, 0])
+        for x, c in zip(json.loads(qjson or "[]"), json.loads(ans or "[]")):
+            if x.get("topic_id"): per[x["topic_id"]][0] += c == x["correct"]; per[x["topic_id"]][1] += 1
+        for tid, (ok, n) in per.items():
+            if n and 100 * ok / n >= MASTERY and (tids is None or tid in tids): days[tid].add(local_day(at))
+    return {t for t, d in days.items() if len(d) >= 2} | early
+def study_stars(s, uid, tids):  # 1 star: completed; 2: passed a quiz (60%+); 3: mastered (90%+ on checks on two different days)
     tids = [t for t in tids if t]
     if not tids: return {}
     done = {t for (t,) in s.query(StudyProgress.topic_id).filter(StudyProgress.user_id == uid, StudyProgress.topic_id.in_(tids), StudyProgress.completed_at.isnot(None))}
     best = dict(s.query(StudyQuiz.topic_id, func.max(StudyAttempt.percent)).join(StudyAttempt, StudyAttempt.quiz_id == StudyQuiz.id)
                 .filter(StudyQuiz.topic_id.in_(tids), StudyQuiz.kind == "quiz", StudyAttempt.user_id == uid).group_by(StudyQuiz.topic_id).all())
-    return {t: 3 if (best.get(t) or 0) >= 90 else 2 if (best.get(t) or 0) >= QUIZ_PASS else 1 if t in done else 0 for t in tids}
+    mastered = study_mastered(s, uid, set(tids))
+    return {t: 3 if t in mastered else 2 if (best.get(t) or 0) >= QUIZ_PASS else 1 if t in done else 0 for t in tids}
 def study_xp(s, uid):
-    """Points worked out from what the student did, so they never drift: 10 per topic completed, 1 per right answer, 20 per topic with a passed quiz,
-    30 more per mastered topic, 5 per review finished."""
+    """Points worked out from what the student did, so they never drift: 10 per topic completed, 1 per right answer (each check counted once, at its
+    best), 20 per topic with a passed quiz, 30 more per mastered topic, 5 per review finished."""
     done = s.query(func.count(StudyProgress.id)).filter(StudyProgress.user_id == uid, StudyProgress.completed_at.isnot(None)).scalar() or 0
-    right = s.query(func.coalesce(func.sum(StudyAttempt.score), 0)).filter(StudyAttempt.user_id == uid).scalar() or 0
+    right = sum(m or 0 for (m,) in s.query(func.max(StudyAttempt.score)).filter(StudyAttempt.user_id == uid).group_by(StudyAttempt.quiz_id))
     best = [p for _, p in s.query(StudyQuiz.topic_id, func.max(StudyAttempt.percent)).join(StudyAttempt, StudyAttempt.quiz_id == StudyQuiz.id)
             .filter(StudyAttempt.user_id == uid, StudyQuiz.kind == "quiz").group_by(StudyQuiz.topic_id)]
     reviews = s.query(func.count(StudyAttempt.id)).join(StudyQuiz, StudyQuiz.id == StudyAttempt.quiz_id).filter(StudyAttempt.user_id == uid, StudyQuiz.kind == "review").scalar() or 0
-    return 10 * done + int(right) + 20 * sum(p >= QUIZ_PASS for p in best) + 30 * sum(p >= 90 for p in best) + 5 * reviews
+    return 10 * done + int(right) + 20 * sum(p >= QUIZ_PASS for p in best) + 30 * len(study_mastered(s, uid)) + 5 * reviews
 def level_of(xp):  # level n starts at 50·n·(n−1) points: 0, 100, 300, 600, 1000 …
     n = 1
     while 50 * (n + 1) * n <= xp: n += 1
@@ -6456,6 +8312,10 @@ def plan_advice(r, qs, today):
     return p
 def routine_view(r): return {"days": r.days, "minutes": r.minutes, "at": r.at, "new_per_session": SLOTS.get(r.minutes, 1)}
 def item_done(it, u, s, now):
+    if it["kind"] == "revise":  # revised today: the sheet read or a check on the topic
+        start = dt.datetime.combine(local_day(now), dt.time()) - dt.timedelta(minutes=DAY_OFFSET)
+        return bool(s.query(StepLog.id).filter(StepLog.user_id == u.id, StepLog.topic_id == it["id"], StepLog.kind == "revised", StepLog.at >= start).first()
+                    or s.query(McqAttempt.id).filter(McqAttempt.user_id == u.id, McqAttempt.topic_id == it["id"], McqAttempt.status == "submitted", McqAttempt.submitted_at >= start).first())
     if it["kind"] == "review":
         due = s.query(func.count(StudyProgress.id)).filter(StudyProgress.user_id == u.id, StudyProgress.topic_id.in_(it["topic_ids"] or [0]), StudyProgress.review_due <= now).scalar()
         return due == 0
@@ -6466,8 +8326,12 @@ def item_alive(it, s):
     if it["kind"] == "review" or it["src"] == "study": return it["kind"] == "review" or s.get(StudyTopic, it["id"]) is not None
     x = s.get(Topic, it["id"]); return bool(x and x.published is not False and not topic_off(s, x))
 def make_session(u, s, r, today, now):
-    items = pick_topics(study_queues(u, s), SLOTS.get(r.minutes, 1)); rv = review_item(u, s, now)
+    ease = easing(s, u.id); slots = SLOTS.get(r.minutes, 1)
+    items = pick_topics(study_queues(u, s), max(1, slots // 2) if ease else slots); rv = review_item(u, s, now)
     if rv: items.append(rv)
+    if ease:  # S39, the week after a break: fewer new topics, and the most pressing revision first
+        due = my_revision(u=u, s=s); top = (due["overdue"] + due["today"])[:1]
+        items = [{"kind": "revise", "src": "course", "id": x["topic_id"], "title": x["title"], "course": x["course"]} for x in top] + items
     for x in items: x.pop("due", None); x.pop("started", None)
     s.add(DaySession(user_id=u.id, day=today, items=json.dumps(items, ensure_ascii=False)))
     try: s.commit()
@@ -6481,7 +8345,8 @@ def session_view(u, s, r, ds, today, now):
     since = max(today - dt.timedelta(days=14), local_day(r.started_at or r.updated_at or dt.datetime.utcnow()) + dt.timedelta(days=1))  # the day it was set up doesn't count
     while d >= since and d not in days:  # study days missed since they last studied, and only since the routine began
         missed += r.days[d.weekday()] == "1"; d -= dt.timedelta(days=1)
-    out = {"routine": routine_view(r), "planned_today": r.days[today.weekday()] == "1", "studied_today": today in days, "missed": missed,
+    ease = easing(s, u.id)
+    out = {"routine": routine_view(r), "planned_today": r.days[today.weekday()] == "1", "studied_today": today in days, "missed": 0 if ease else missed, "easing": ease,
            "streak": streak_of(days, today, r.days), "plan": plan_advice(r, study_queues(u, s), today), "session": None,
            "next_day": next_study_day(r.days, today)}
     if ds:
@@ -6526,12 +8391,12 @@ def notes_for(u, s):  # [{key, text, sub}]: staff get what needs attention, stud
     if u.role == "student":
         asks = [{"key": f"invite:{l.id}", "text": f"{g.name} wants to follow your progress", "sub": "Accept or decline on Home"} for l, g in invitations(s, u.id)]
         return asks + enrol_notes(u, s) + tq_answered(u, s) + ann_notes(u, s) + [{"key": f"{i['kind']}:{i.get('quiz_id') or i.get('id')}"[:120], "text": i.get("title") or "", "sub": i.get("reason") or ""}
-                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + cal_notes(u, s)
-    return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + enrol_notes(u, s) + (ann_notes(u, s) if u.role == "admin" else [])
+                for i in my_today(u=u, s=s)["focus"] if i.get("kind") in STUDENT_NOTES] + assign_notes(u, s) + revision_notes(u, s) + return_notes(u, s) + support_notes(u, s) + cal_notes(u, s)
+    return [{"key": f"{a['kind']}:{a['count']}"[:120], "text": a["text"], "sub": ""} for a in overview(u=u, s=s)["attention"]] + enrol_notes(u, s) + (ann_notes(u, s) if u.role == "admin" else []) + support_notes(u, s)
 @app.get("/api/me/notifications")
 def my_notifications(u: User = Depends(me), s: Session = Depends(db)):
     items = notes_for(u, s); seen = {k for (k,) in s.query(NoteSeen.key).filter(NoteSeen.user_id == u.id, NoteSeen.key.in_([i["key"] for i in items] or [""]))}
-    return {"items": [{**i, "unread": i["key"] not in seen} for i in items], "digest": bool(u.digest), "mail": mail_on(s)}
+    return {"items": [{**i, "unread": i["key"] not in seen} for i in items], "digest": bool(u.digest), "mail": mail_on(s), **({"return_reminders": u.return_reminders is not False} if u.role == "student" else {})}
 class SeenIn(BaseModel): keys: list[str]
 @app.post("/api/me/notifications/seen")
 def notes_seen(b: SeenIn, u: User = Depends(me), s: Session = Depends(db)):
@@ -6540,11 +8405,13 @@ def notes_seen(b: SeenIn, u: User = Depends(me), s: Session = Depends(db)):
         if k not in have: s.add(NoteSeen(user_id=u.id, key=k))
     s.query(NoteSeen).filter(NoteSeen.user_id == u.id, NoteSeen.at < dt.datetime.utcnow() - dt.timedelta(days=120)).delete()  # old ones stop mattering
     s.commit(); return {"ok": True}
-class DigestIn(BaseModel): digest: bool
+class DigestIn(BaseModel): digest: bool | None = None; return_reminders: bool | None = None
 @app.put("/api/me/notifications/settings")
 def notes_settings(b: DigestIn, u: User = Depends(me), s: Session = Depends(db)):
     if b.digest and not mail_on(s): raise HTTPException(400, "Email is not set up on this server yet")
-    u.digest = b.digest; s.commit(); return {"digest": u.digest}
+    if b.digest is not None: u.digest = b.digest
+    if b.return_reminders is not None: u.return_reminders = b.return_reminders
+    s.commit(); return {"digest": bool(u.digest), **({"return_reminders": u.return_reminders is not False} if u.role == "student" else {})}
 DIGEST_HOUR = int(os.getenv("DIGEST_HOUR") or 7)  # the local hour (see DAY_OFFSET_MINUTES) after which the daily summary goes out
 def send_digests(now=None):  # once a local day, after DIGEST_HOUR: everyone who asked gets their unseen notifications by email (nothing if there are none)
     now = now or dt.datetime.utcnow(); sent = 0
@@ -6586,7 +8453,7 @@ def version():
             "hint": None if SERVER_HEAD and screens and SERVER_HEAD == screens else "The screens are older than the server code (or were never built). Run ./run.sh, or: cd frontend && npm ci && npm run build, then restart."}
 # ---- the Android app: GitHub Actions builds it in mobile/ and publishes each version as a release tagged android-v<version>. The server looks
 # ---- once a day for the newest one, so the home page and the app itself can offer it (version, date and the download link) ----
-ANDROID_REPO = os.getenv("ANDROID_REPO", "BT-Rajan/iniyavan")  # owner/name of the GitHub repository whose releases carry the APK; empty turns this off
+ANDROID_REPO = os.getenv("ANDROID_REPO", "BT-Rajan/zigora")  # owner/name of the GitHub repository whose releases carry the APK; empty turns this off. A renamed repository still works (GitHub redirects)
 ANDROID_CHECK = 24 * 3600; ANDROID_RETRY = 3600  # seconds between checks, and before trying again after GitHub could not be reached
 android_seen = {"at": 0.0, "release": None}
 def android_release(now=None):
@@ -6596,7 +8463,7 @@ def android_release(now=None):
     if now - android_seen["at"] < (ANDROID_CHECK if android_seen["release"] else ANDROID_RETRY): return android_seen["release"]
     android_seen["at"] = now
     try:
-        r = httpx.get(f"https://api.github.com/repos/{ANDROID_REPO}/releases", params={"per_page": 20}, timeout=10,
+        r = httpx.get(f"https://api.github.com/repos/{ANDROID_REPO}/releases", params={"per_page": 20}, timeout=10, follow_redirects=True,
                       headers={"Accept": "application/vnd.github+json", "User-Agent": "zigora-server"})
         r.raise_for_status()
         for rel in r.json():
@@ -6966,6 +8833,16 @@ def mcq_feedback(rows, titles):  # per topic: how this set went and whether to r
     for r in rows: by[r.topic_id][0] += bool(r.ok); by[r.topic_id][1] += 1
     out = [{"topic_id": tid, "topic": titles.get(tid, ""), "correct": c, "total": n, "percent": round(100 * c / n), "status": area_status(round(100 * c / n))} for tid, (c, n) in by.items()]
     return sorted(out, key=lambda a: (a["percent"], a["topic"]))
+def mcq_number(at, s):  # which set this is: within its assignment ("2 of 3"), or among all the person's sets
+    q = s.query(func.count(McqAttempt.id)).filter(McqAttempt.user_id == at.user_id, McqAttempt.status == "submitted", McqAttempt.id <= at.id)
+    if at.assignment_id:
+        a = s.get(Assignment, at.assignment_id)
+        return {"n": q.filter(McqAttempt.assignment_id == at.assignment_id).scalar() or 1, "of": (a.attempts or None) if a else None}
+    return {"n": q.scalar() or 1, "of": None}
+def mcq_standing(uid, tids, titles, s):  # each topic of a set: where the student stands now, over every MCQ they have submitted on it
+    st = mcq_topic_stats(s, uid, list(tids))
+    return sorted([{"topic_id": t, "title": titles.get(t, ""), "correct": v["correct"], "total": v["answered"], "percent": v["percent"], "status": area_status(v["percent"])}
+                   for t, v in st.items()], key=lambda a: (a["percent"], a["title"]))
 def mcq_view(at, s, resumed=False):
     """A set as its owner sees it. Before it is submitted it carries no correct answers and no explanations: those stay on the server."""
     rows = s.query(McqAttemptItem).filter_by(attempt_id=at.id).order_by(McqAttemptItem.pos).all(); done = at.status == "submitted"; qs = []
@@ -6980,7 +8857,8 @@ def mcq_view(at, s, resumed=False):
     if done:
         titles = {t.id: t.title for t in s.query(Topic).filter(Topic.id.in_({r.topic_id for r in rows} or {0}))}
         titles.update({r.topic_id: json.loads(r.snapshot).get("topic", "") for r in rows if r.topic_id not in titles})
-        out.update(score=at.score, percent=at.percent, feedback=mcq_feedback(rows, titles))
+        out.update(score=at.score, percent=at.percent, feedback=mcq_feedback(rows, titles), counts=result_counts([r.chosen for r in rows], [r.ok for r in rows]),
+                   number=mcq_number(at, s), standing=mcq_standing(at.user_id, {r.topic_id for r in rows if r.topic_id}, titles, s))
     return out
 def mcq_own(aid, u, s, read=False):  # a set is its owner's; admins, and faculty who own its course, may read a submitted one. Anyone else: not found
     at = s.get(McqAttempt, aid)
@@ -7096,8 +8974,9 @@ def mcq_home(u: User = Depends(mcq_user), s: Session = Depends(db)):
     courses = mcq_courses(u, s); tids = [t["id"] for c in courses for t in c["topics"]]
     counts = dict(s.query(McqItem.topic_id, func.count(McqItem.id)).filter(McqItem.topic_id.in_(tids or [0]), McqItem.status == "published").group_by(McqItem.topic_id).all())
     stats = mcq_topic_stats(s, u.id, tids)
+    empty = {t.id for t in s.query(Topic).filter(Topic.id.in_(tids or [0])) if topic_empty(t)}
     for c in courses:
-        for t in c["topics"]: t["questions"] = counts.get(t["id"], 0); t["stats"] = stats.get(t["id"])
+        for t in c["topics"]: t["questions"] = counts.get(t["id"], 0); t["stats"] = stats.get(t["id"]); t["notes"] = t["id"] not in empty  # notes: an AI set has something to be written from
         c["questions"] = sum(t["questions"] for t in c["topics"])
     op = s.query(McqAttempt).filter_by(user_id=u.id, status="open").first()
     return {"quota": mcq_quota(u, s), "ai": bool(key_for(u, s)) and not ai_off(u, s), "size": MCQ_SIZE, "min": MCQ_MIN_SET, "max": MCQ_MAX_SIZE,
@@ -7339,6 +9218,14 @@ def cal_feed(token: str, s: Session = Depends(db)):
             seen.add((who, it["id"])); lines += ics_event(it, who, stamp)
     body = "\r\n".join(ics_fold(x) for x in lines + ["END:VCALENDAR"]) + "\r\n"
     return Response(body, media_type="text/calendar; charset=utf-8", headers={"Cache-Control": "private, max-age=900", "Content-Disposition": 'inline; filename="zigora.ics"'})
+def assign_notes(u, s, now=None):  # the bell (and so the daily email): a test assigned, and one due within a day, while it is still to do
+    now = now or dt.datetime.utcnow(); out = []
+    if u.role != "student": return out
+    for a in assigned_to(s, u.id).filter(Assignment.due_at > now).order_by(Assignment.due_at).limit(30):
+        if (a.opens_at and now < a.opens_at) or student_state(s, a, u.id, now)["status"] != "to_do": continue
+        due = due_local(a.due_at).replace("T", " "); soon = a.due_at - now <= dt.timedelta(days=1)
+        out.append({"key": f"assignment:{a.id}:{'soon' if soon else 'new'}", "text": a.title, "sub": f"Due within a day · {due}" if soon else f"New test · due {due}"})
+    return out
 def cal_notes(u, s, now=None):  # reminders: events today and tomorrow, in the bell, the daily email and the app's daily note
     now = now or dt.datetime.utcnow(); today = local_day(now); tmw = today + dt.timedelta(days=1); out = []
     def add(e, who):
@@ -7391,6 +9278,9 @@ class Assignment(Base):
     topic_ids = Column(Text, nullable=True); size = Column(Integer, default=10)  # an MCQ set: its topics (JSON) and how many questions
     title = Column(String(200)); due_at = Column(DateTime, index=True); attempts = Column(Integer, default=1)  # 0: unlimited
     created_at = Column(DateTime, default=dt.datetime.utcnow)
+    opens_at = Column(DateTime, nullable=True)  # students can start from this instant (UTC); null: at once
+    instructions = Column(Text, nullable=True)  # what the teacher wants students to know, shown with the assignment
+    counts = Column(String(8), default="best")  # which on-time attempt is the result: best, latest or first
 class AssignmentStudent(Base):
     __tablename__ = "assignment_students"
     id = Column(Integer, primary_key=True); assignment_id = Column(Integer, ForeignKey("assignments.id", ondelete="CASCADE"), index=True)
@@ -7434,6 +9324,13 @@ def assign_options(course_id: int = 0, u: User = Depends(assigner), s: Session =
 class AssignIn(BaseModel):
     course_id: int; kind: str; quiz_id: int | None = None; topic_ids: list[int] = []; size: int = MCQ_SIZE
     students: list[int]; due: str; attempts: int = 1; title: str = ""
+    opens: str | None = None; instructions: str = ""; counts: str = "best"  # opens: "2026-11-05T09:00" on the students' clock; empty: at once
+COUNTS = ("best", "latest", "first")
+def assign_window(opens, due, counts):  # checks the start time and the result rule; -> opens_at (UTC or None)
+    if counts not in COUNTS: raise HTTPException(400, "Choose which attempt counts: best, latest or first")
+    o = local_due(opens) if opens else None
+    if o and o >= due: raise HTTPException(400, "The start time must be before the due time")
+    return o
 @app.post("/api/assignments")
 def create_assignment(b: AssignIn, u: User = Depends(assigner), s: Session = Depends(db)):
     c = next((c for c in assign_courses(u, s) if c.id == b.course_id), None)
@@ -7455,25 +9352,32 @@ def create_assignment(b: AssignIn, u: User = Depends(assigner), s: Session = Dep
         title = b.title.strip() or ("MCQ set: " + ", ".join(ok[t]["title"] for t in tids[:3]))
     allowed = {x.id for x in assignable_students(u, c, s)}; who = [i for i in dict.fromkeys(b.students) if i in allowed]
     if not who: raise HTTPException(400, "Choose at least one student who takes this course")
+    opens = assign_window(b.opens, due, b.counts)
     a = Assignment(created_by=u.id, kind=b.kind, quiz_id=b.quiz_id if b.kind == "quiz" else None, course_id=c.id, topic_ids=json.dumps(tids) if tids else None,
-                   size=size, title=title[:200], due_at=due, attempts=b.attempts)
+                   size=size, title=title[:200], due_at=due, attempts=b.attempts, opens_at=opens, instructions=b.instructions.strip()[:2000] or None, counts=b.counts)
     s.add(a); s.flush(); s.add_all([AssignmentStudent(assignment_id=a.id, user_id=i) for i in who]); s.commit()
     return {"id": a.id, "students": len(who), "skipped": len(set(b.students)) - len(who)}
-def assignment_attempts(s, a, uid):  # [(percent, at, late)] for this student and assignment
-    if a.kind == "quiz":
-        rows = s.query(Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id == a.quiz_id, Attempt.at >= a.created_at).all()
+def assignment_attempts(s, a, uid):  # [(percent, at, late)] for this student and assignment, oldest first
+    if a.kind == "quiz":  # attempts made for it; and, from before attempts were tied, any attempt of its quiz after it was set
+        since = setting(s, "assign_tie_since", ""); since = dt.datetime.fromisoformat(since) if since else None
+        old = and_(Attempt.assignment_id.is_(None), Attempt.at >= a.created_at, Attempt.at < since) if since else and_(Attempt.assignment_id.is_(None), Attempt.at >= a.created_at)
+        rows = s.query(Attempt.percent, Attempt.at).filter(Attempt.user_id == uid, Attempt.quiz_id == a.quiz_id, or_(Attempt.assignment_id == a.id, old)).order_by(Attempt.at, Attempt.id).all()
     else:
-        rows = s.query(McqAttempt.percent, McqAttempt.submitted_at).filter(McqAttempt.user_id == uid, McqAttempt.assignment_id == a.id, McqAttempt.status == "submitted").all()
+        rows = s.query(McqAttempt.percent, McqAttempt.submitted_at).filter(McqAttempt.user_id == uid, McqAttempt.assignment_id == a.id, McqAttempt.status == "submitted").order_by(McqAttempt.submitted_at).all()
     return [(p or 0, t, t > a.due_at) for p, t in rows if t]
-def student_state(s, a, uid, now):
-    rows = assignment_attempts(s, a, uid); on_time = [p for p, _, late in rows if not late]
-    used = len(on_time); best = max(on_time) if on_time else None; late = max((p for p, _, l in rows if l), default=None)
-    status = "done" if on_time else "late" if late is not None else "missed" if now > a.due_at else "to_do"
+def counted(ps, rule):  # the result of a list of scores (oldest first) under the assignment's rule
+    if not ps: return None
+    return ps[-1] if rule == "latest" else ps[0] if rule == "first" else max(ps)
+def student_state(s, a, uid, now):  # best: the result under the assignment's rule (best, latest or first on-time attempt)
+    rows = assignment_attempts(s, a, uid); on_time = [p for p, _, late in rows if not late]; rule = a.counts or "best"
+    used = len(on_time); best = counted(on_time, rule); late = counted([p for p, _, l in rows if l], rule)
+    status = "done" if on_time else "late" if late is not None else "missed" if now > a.due_at else "upcoming" if a.opens_at and now < a.opens_at else "to_do"
     left = None if not a.attempts else max(0, a.attempts - used)
     return {"status": status, "used": used, "left": left, "best": best, "late_best": late}
 def assignment_json(a, s, extra=None):
     return {"id": a.id, "kind": a.kind, "title": a.title, "course_id": a.course_id, "quiz_id": a.quiz_id, "due": due_local(a.due_at), "due_at": utc_iso(a.due_at),
-            "attempts": a.attempts, "size": a.size if a.kind == "mcq" else None, **(extra or {})}
+            "attempts": a.attempts, "size": a.size if a.kind == "mcq" else None, "opens": due_local(a.opens_at) if a.opens_at else None, "opens_at": utc_iso(a.opens_at),
+            "instructions": a.instructions or "", "counts": a.counts or "best", **(extra or {})}
 @app.get("/api/assignments")
 def my_assignments(u: User = Depends(assigner), s: Session = Depends(db)):  # what this person assigned, newest due first, with how far each has got
     now = dt.datetime.utcnow(); out = []
@@ -7491,7 +9395,7 @@ def assignment_detail(aid: int, u: User = Depends(assigner), s: Session = Depend
     for x in s.query(User).join(AssignmentStudent, AssignmentStudent.user_id == User.id).filter(AssignmentStudent.assignment_id == a.id).order_by(User.name):
         rows.append({"id": x.id, "name": x.name, **student_state(s, a, x.id, now)})
     return assignment_json(a, s, {"rows": rows})
-class AssignEditIn(BaseModel): due: str | None = None; attempts: int | None = None
+class AssignEditIn(BaseModel): due: str | None = None; attempts: int | None = None; opens: str | None = None; instructions: str | None = None; counts: str | None = None
 @app.patch("/api/assignments/{aid}")
 def edit_assignment(aid: int, b: AssignEditIn, u: User = Depends(assigner), s: Session = Depends(db)):
     a = assignment_mine(aid, u, s)
@@ -7502,6 +9406,9 @@ def edit_assignment(aid: int, b: AssignEditIn, u: User = Depends(assigner), s: S
     if b.attempts is not None:
         if b.attempts not in ATTEMPT_CHOICES: raise HTTPException(400, "Choose 1, 2 or 3 attempts, or unlimited")
         a.attempts = b.attempts
+    if b.opens is not None or b.counts is not None: a.opens_at = assign_window(b.opens if b.opens is not None else (due_local(a.opens_at) if a.opens_at else ""), a.due_at, b.counts or a.counts or "best")
+    if b.counts is not None: a.counts = b.counts
+    if b.instructions is not None: a.instructions = b.instructions.strip()[:2000] or None
     s.commit(); return assignment_json(a, s)
 def assigned_to(s, uid):
     return s.query(Assignment).join(AssignmentStudent, AssignmentStudent.assignment_id == Assignment.id).filter(AssignmentStudent.user_id == uid)
@@ -7511,12 +9418,25 @@ def assigned_to_me(u: User = Depends(me), s: Session = Depends(db)):  # a studen
     for a in assigned_to(s, u.id).order_by(Assignment.due_at).all():
         by = s.get(User, a.created_by); c = s.get(Course, a.course_id)
         out.append(assignment_json(a, s, {**student_state(s, a, u.id, now), "by": by.name if by else "", "course": c.name if c else ""}))
-    out.sort(key=lambda x: (x["status"] not in ("to_do",), x["due_at"]))
+    out.sort(key=lambda x: ({"to_do": 0, "upcoming": 1}.get(x["status"], 2), x["due_at"]))
     return {"items": out}
-def quiz_attempt_allowed(s, u, qid):  # an assigned quiz with its attempts used up waits until the assignment is over
-    now = dt.datetime.utcnow()
-    for a in assigned_to(s, u.id).filter(Assignment.kind == "quiz", Assignment.quiz_id == qid, Assignment.due_at > now, Assignment.attempts > 0):
-        if student_state(s, a, u.id, now)["left"] == 0: raise HTTPException(403, f"You have used all {a.attempts} attempts for this assignment.")
+def quiz_assignment(s, u, qid, now=None):  # the assignment a student's sitting of this quiz is for: of those already open and not yet due, the one due
+    # soonest that still has attempts left (else the one due soonest), else the one due last. None when the quiz isn't assigned to them; a refusal when it is assigned but hasn't opened yet
+    if u.role != "student": return None
+    now = now or dt.datetime.utcnow(); mine = assigned_to(s, u.id).filter(Assignment.kind == "quiz", Assignment.quiz_id == qid).all()
+    live = [a for a in mine if not a.opens_at or a.opens_at <= now]
+    if not live and mine:
+        first = min(mine, key=lambda a: a.opens_at); raise HTTPException(403, f"This test opens on {due_local(first.opens_at).replace('T', ' ')}.")
+    ahead = sorted([a for a in live if a.due_at > now], key=lambda a: a.due_at)
+    room = [a for a in ahead if not a.attempts or student_state(s, a, u.id, now)["left"] != 0]  # one with attempts left comes first
+    return (room or ahead)[0] if ahead else max(live, key=lambda a: a.due_at, default=None)
+def not_open_yet(s, u, now=None):  # quizzes assigned to this student whose every assignment opens later
+    now = now or dt.datetime.utcnow(); by = defaultdict(list)
+    for a in assigned_to(s, u.id).filter(Assignment.kind == "quiz"): by[a.quiz_id].append(bool(a.opens_at and now < a.opens_at))
+    return {q for q, later in by.items() if all(later)}
+def quiz_attempt_allowed(s, u, a, now=None):  # an assignment with its attempts used up waits until it is over
+    now = now or dt.datetime.utcnow()
+    if a and a.attempts and a.due_at > now and student_state(s, a, u.id, now)["left"] == 0: raise HTTPException(403, f"You have used all {a.attempts} attempts for this assignment.")
 class AssignStartIn(BaseModel): request_id: str = ""
 @app.post("/api/assignments/{aid}/start")
 def start_assigned_mcq(aid: int, b: AssignStartIn, u: User = Depends(me), s: Session = Depends(db)):
@@ -7524,6 +9444,7 @@ def start_assigned_mcq(aid: int, b: AssignStartIn, u: User = Depends(me), s: Ses
     a = assigned_to(s, u.id).filter(Assignment.id == aid).first()
     if not a: raise HTTPException(404, "Assignment not found")
     if a.kind != "mcq": raise HTTPException(400, "This assignment is a quiz: open it from its course")
+    if a.opens_at and dt.datetime.utcnow() < a.opens_at: raise HTTPException(403, f"This test opens on {due_local(a.opens_at).replace('T', ' ')}.")
     hit = s.query(McqAttempt).filter_by(user_id=u.id, status="open").first()
     if hit and hit.assignment_id == a.id: return mcq_view(hit, s, resumed=True)
     if hit: raise HTTPException(409, "Finish or leave your open MCQ set first.")
@@ -7540,8 +9461,10 @@ def start_assigned_mcq(aid: int, b: AssignStartIn, u: User = Depends(me), s: Ses
         s.add(at); s.flush()
         s.add_all([McqAttemptItem(attempt_id=at.id, pos=i, item_id=x["item_id"], version=x["version"], topic_id=x["topic_id"], snapshot=json.dumps(x, ensure_ascii=False)) for i, x in enumerate(snaps)])
         s.commit()
-    except IntegrityError:
-        s.rollback(); raise HTTPException(409, "Another set was being started. Try again.")
+    except IntegrityError:  # a second tap started it at the same moment: theirs is the set, resumed here too
+        s.rollback(); hit = s.query(McqAttempt).filter_by(user_id=u.id, status="open").first()
+        if hit and hit.assignment_id == a.id: return mcq_view(hit, s, resumed=True)
+        raise HTTPException(409, "Another set was being started. Try again.")
     return mcq_view(at, s)
 # the site: the home page (web/) at the root, and the app itself under /app/
 web = os.path.join(os.path.dirname(__file__), "..", "web")

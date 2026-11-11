@@ -274,5 +274,65 @@
 [
 "^Your invitation to (?<course>.+) lapsed$",
 "Your invitation to {course} lapsed"
+],
+[
+"^(?<n>\\d+) classmates have progress or quiz results on this course\\. Finishing again removes theirs too\\.$",
+"{n} classmates have progress or quiz results on this course. Finishing again removes theirs too."
+],
+[
+"^New test · due (?<due>.+)$",
+"New test · due {due}"
+],
+[
+"^Due within a day · (?<due>.+)$",
+"Due within a day · {due}"
+],
+[
+"^This test opens on (?<when>.+)\\.$",
+"This test opens on {when}."
+],
+[
+"^You have used today's (?<n>\\d+) explanations\\. Ask again tomorrow\\.$",
+"You have used today's {n} explanations. Ask again tomorrow."
+],
+[
+"^Topics to revise: (?<n>\\d+)$",
+"Topics to revise: {n}"
+],
+[
+"^(?<n>\\d+) overdue$",
+"{n} overdue"
+],
+[
+"^Your accuracy in (?<t>.+) improved from (?<a>\\d+)% to (?<b>\\d+)%\\.$",
+"Your accuracy in {t} improved from {a}% to {b}%."
+],
+[
+"^You consistently do well in (?<t>.+)\\.$",
+"You consistently do well in {t}."
+],
+[
+"^(?<t>.+) needs attention: (?<r>\\d+) of (?<n>\\d+) right over (?<k>\\d+) sittings\\.$",
+"{t} needs attention: {r} of {n} right over {k} sittings."
+],
+[
+"^(?<t>.+) is improving \\((?<p>\\d+)% last time\\), but needs more practice\\.$",
+"{t} is improving ({p}% last time), but needs more practice."
+],
+[
+"^On tests you took again, your score went from (?<a>\\d+)% to (?<b>\\d+)% on average\\.$",
+"On tests you took again, your score went from {a}% to {b}% on average."
+],
+[
+"^You have not revised 1 topic in the last two weeks\\.$",
+"You have not revised 1 topic in the last two weeks."
+],
+[
+"^You have not revised (?<n>\\d+) topics in the last two weeks\\.$",
+"You have not revised {n} topics in the last two weeks."
+],
+[
+"^Students to review in support plans: (?<n>\\d+)$",
+"Students to review in support plans: {n}"
 ]
 ]

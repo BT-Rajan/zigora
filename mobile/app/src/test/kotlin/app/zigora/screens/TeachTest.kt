@@ -6,6 +6,8 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
@@ -25,6 +27,9 @@ import app.zigora.data.Sealer
 import app.zigora.data.Store
 import app.zigora.data.json
 import app.zigora.ui.ZigoraRoot
+import app.zigora.ui.coursesOf
+import app.zigora.data.ProgramNode
+import kotlinx.serialization.builtins.ListSerializer
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
@@ -60,8 +65,9 @@ class TeachTest {
 
     @Test fun aTeacherAnswersSharesAndSchedules() {
         signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
-        see("Student questions"); tap("All"); see("Hardness of Water"); shot("1-inbox")
-        tap("Heat splits the bicarbonate"); see("Why does only the bicarbonate"); see("Stop sharing with the class"); see("Your answer"); shot("2-thread")
+        see("Student questions"); see("Hardness of Water"); shot("1-inbox")  // S42: the centre lists every doubt until a filter is picked
+        tap("Why does only the bicarbonate"); see("Heat splits the bicarbonate")  // S42: rows show the question, the thread shows the answer
+        see("Stop sharing with the class"); see("Your answer"); shot("2-thread")
         tab("Classes"); see("Revision: water technology"); see("Join the class"); shot("3-classes")
         tap("Schedule a class or post an announcement"); see("Video link")
         rule.onAllNodes(hasSetTextAction())[0].performTextInput("Doubt-clearing session")
@@ -71,6 +77,70 @@ class TeachTest {
         rule.waitUntil(20_000) { rule.onAllNodesWithText("Video link").fetchSemanticsNodes().isEmpty() }  // the form closed: it was saved
         see("Doubt-clearing session"); see("Coming up"); shot("4-scheduled")
         tab("Struggles"); see("Where students struggle"); see("Hardness of Water"); see("questions to you"); shot("5-struggles")
+        // a topic as the teacher sees it, opened from its row in the list (the row is the one that opens; its name is also in the course links' area)
+        rule.onAllNodes(hasText("Hardness of Water") and hasClickAction()).onFirst().performClick(); see("Hard water carries dissolved calcium"); shot("27-teacher-topic")
+    }
+
+    /** the doubt centre's folded filters and its report, and a class's changes behind its menu */
+    @Test fun aTeacherFiltersReportsAndChangesAClass() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        see("Student questions"); see("Hardness of Water")
+        rule.onAllNodesWithContentDescription("Filters").onFirst().performClick(); see("Sort by"); see("Oldest unanswered first"); shot("10-inbox-filters")
+        tab("Report"); see("Topics with the most doubts"); shot("11-doubt-report")
+        tab("Classes"); see("Join the class")
+        rule.onAllNodesWithContentDescription("More options").onFirst().performClick(); see("Change the time"); shot("12-class-menu")
+    }
+
+    /** the teacher's own offered course: the list, its students and what can be done with it */
+    @Test fun aTeacherRunsAnOfferedCourse() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        tab("Courses"); see("Offered courses"); see("Python for engineers"); shot("13-courses")
+        tap("Python for engineers"); see("Invite students"); shot("14-course-students")
+        tab("Course"); see("Repeat this course"); rule.onNodeWithText("Repeat this course").performScrollTo(); shot("15-course-manage")
+        tab("Message"); see("Attach material"); shot("24-course-message")  // a note to every student on the course, with a file if wanted
+        tab("Course"); tap("Repeat this course"); see("Make the new run"); rule.onNodeWithText("Make the new run").performScrollTo(); shot("26-repeat-form")
+    }
+
+    /** a course's class insight: the topics, one topic's evidence, one student's record on it */
+    @Test fun aTeacherReadsClassInsight() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        tab("Struggles"); tap("Class insight"); see("students were active"); shot("16-class-insight")
+        tap("Hardness of Water"); see("Ask the AI what the evidence suggests"); shot("17-insight-topic")
+        // her name is also under the doubts she wrote; the student row is the one that opens
+        see("Meena Kumar"); rule.onAllNodes(hasText("Meena Kumar") and hasClickAction()).onFirst().performScrollTo().performClick()
+        see("Sittings"); shot("18-insight-student")
+    }
+
+    /** a support plan made for Meena (through the API, as on the web), then the teacher follows it on the phone */
+    @Test fun aTeacherFollowsASupportPlan() {
+        signIn("stu@mail.com")
+        val (sid, cid, tid) = runBlocking {  // Meena's id, and the course and topic, as she sees them
+            val me = json.decodeFromString(Me.serializer(), app.store.userJson!!)
+            val c = coursesOf(app.api.get("/tree", ListSerializer(ProgramNode.serializer()))).first { it.name == "Engineering Chemistry" }
+            Triple(me.id, c.id, c.units.flatMap { it.topics }.first { it.title == "Hardness of Water" }.id)
+        }
+        signIn("teacher@mail.com")
+        runBlocking {
+            app.api.raw("POST", "/interventions", buildJsonObject {
+                put("course_id", cid); put("title", "Hardness, once more"); put("description", "Two short steps before the unit test."); put("activate", true)
+                put("topic_ids", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(tid)) })
+                put("student_ids", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(sid)) })
+                put("activities", kotlinx.serialization.json.buildJsonArray {
+                    add(buildJsonObject { put("kind", "study"); put("topic_id", tid) }); add(buildJsonObject { put("kind", "revise"); put("topic_id", tid) })
+                })
+            })
+        }
+        rule.setContent { ZigoraRoot(null) {} }
+        tab("Struggles"); tap("Support plans"); see("Hardness, once more"); shot("19-support-plans")
+        tap("Hardness, once more"); see("Activities"); shot("20-support-plan")
+        tap("Meena Kumar"); see("Before and after"); shot("21-support-student")
+    }
+
+    /** the teacher's Me tab, and offering a course */
+    @Test fun aTeacherSeesMeAndOffersACourse() {
+        signIn("teacher@mail.com"); rule.setContent { ZigoraRoot(null) {} }
+        tab("Me"); see("Sign out"); shot("22-me")
+        tab("Courses"); tap("Offer a course"); see("Who may join"); shot("23-offer-form")
     }
 
     /** a weekly class from the app: every session is scheduled, and the list shows the next one with its place in the series */

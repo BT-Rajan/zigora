@@ -89,10 +89,18 @@ fun SearchScreen(initial: String, back: () -> Unit, openTopic: (Int) -> Unit, op
                 if (f.results.isEmpty()) Quiet(stringResource(R.string.nothing_in_topics))
                 else {
                     SectionTitle(stringResource(R.string.in_your_topics))
-                    Paged(f.results, key = f.q) { h ->
+                    Paged(f.results, key = f.q, grouped = false) { h ->
                         ListItem(modifier = Modifier.clickableRounded { openTopic(h.id) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                             headlineContent = { Text(h.title) }, overlineContent = { Text(listOf(h.course, h.unit).filter { it.isNotEmpty() }.joinToString(" › ")) },
                             supportingContent = { Text(h.snippet, maxLines = 3) })
+                    }
+                }
+                if (f.mine.isNotEmpty()) {  // their own words that match: only ever theirs, never sent to the AI
+                    SectionTitle(tl("Your notes"))
+                    f.mine.forEach { m ->
+                        ListItem(modifier = Modifier.clickableRounded { openTopic(m.topic_id) }, colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                            headlineContent = { Text(m.title) }, overlineContent = { Text(if (m.kind == "highlight") tl("Your highlight note") else tl("Your notes")) },
+                            supportingContent = { Text(m.snippet, maxLines = 3) })
                     }
                 }
                 Gap(8)

@@ -3,6 +3,7 @@ package app.zigora.ui
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,8 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -136,7 +139,7 @@ fun StudyHomeScreen(back: () -> Unit, open: (Int, Boolean) -> Unit, openTopic: (
 private val STEPS = listOf("Name", "Material", "Slice", "Preview")
 private const val NOTES_HINT = "Optional. For example: \"One topic per verse\", \"Keep the vocabulary table in one topic\", \"Units should follow the chapters\", \"Make topics very short\"."
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
     val a = api(); val scope = rememberCoroutineScope(); val toast = rememberToast(); val ctx = LocalContext.current
@@ -148,7 +151,6 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
     var plan by remember { mutableStateOf<StudyPlan?>(null) }
     var dirty by remember { mutableStateOf(false) }
     var peek by remember { mutableStateOf<Peek?>(null) }
-    var undo by remember { mutableStateOf<Pair<StudyPlan, String>?>(null) }  // the outline before a topic was removed, and that topic's title
     var ask by remember { mutableStateOf<Ask?>(null) }
     val scroll = rememberScrollState()
     suspend fun load(go: Int? = null) {
@@ -182,7 +184,7 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
         }; Unit }
         if (dirty) ask = Ask(tl("Slice again?"), tl("Your renames, merges and removals in the current outline are replaced."), tl("Slice again"), yes = go) else go()
     }
-    fun edit(f: (MutableList<app.zigora.data.PUnit>) -> Unit) { val p = plan ?: return; val u = p.units.toMutableList(); f(u); plan = StudyPlan(u.filter { it.topics.isNotEmpty() }); dirty = true; undo = null }
+    fun edit(f: (MutableList<app.zigora.data.PUnit>) -> Unit) { val p = plan ?: return; val u = p.units.toMutableList(); f(u); plan = StudyPlan(u.filter { it.topics.isNotEmpty() }); dirty = true }
     suspend fun savePlan() { val p = plan ?: return
         plan = a.send("PUT", "/study/courses/$id/plan", json.encodeToJsonElement(StudyPlan.serializer(), p), PlanOutWrap.serializer()).plan; dirty = false }
     fun finish() = scope.launch {
@@ -193,9 +195,12 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
             catch (e: ApiError) {
                 if (e.code != 409) throw e
                 busy = ""
-                ask = Ask(tl("Replace the course's topics?"), tl("Finishing again builds the topics from this outline. Progress and quiz results on the old topics are removed."), tl("Replace topics"), true) {
+                val n = runCatching { a.get("/study/courses/$id", StudyCourseFull.serializer()).classmates_using }.getOrDefault(0)  // how many classmates would lose their work, as of now
+                ask = Ask(tl("Replace the course's topics?"), tl("Finishing again builds the topics from this outline. Progress and quiz results on the old topics are removed.") +
+                          (if (n == 0) "" else " " + tl(if (n == 1) "A classmate studies this course too: their progress and quiz results on it are removed as well." else "{n} classmates study this course too: their progress and quiz results on it are removed as well.", "n" to n)),
+                          tl("Replace topics"), true) {
                     scope.launch { busy = "Building your course…"
-                        try { a.raw("POST", "/study/courses/$id/finish", buildJsonObject { put("replace", true) }); toast(tl("Your course is ready")); onMain(done) } catch (x: Exception) { toast(x.message.orEmpty()) }
+                        try { a.raw("POST", "/study/courses/$id/finish", buildJsonObject { put("replace", true); put("classmates", n > 0) }); toast(tl("Your course is ready")); onMain(done) } catch (x: Exception) { toast(x.message.orEmpty()) }
                         busy = "" }
                 }
             }
@@ -256,36 +261,50 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
             }
             else -> plan?.let { p ->
                 val flat = p.units.flatMap { it.topics }
-                undo?.let { (before, title) -> Panel { Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tl("Removed “{title}”. Its text won't be in the course.", "title" to title), Modifier.weight(1f))
-                    TextButton(onClick = { plan = before; undo = null }) { Text(tl("Undo")) } } } }
                 SectionTitle(tl("Check the outline"))
-                Quiet(pl(p.units.size, "unit") + tl(", {n}{v}. Rename anything, merge a topic into the next one, split a long one, or remove one you don't need. Not right? Change the notes and slice again.",
+                Quiet(pl(p.units.size, "unit") + tl(", {n}{v}. Rename anything, merge a topic into the next one, split a long one, move one to another unit, or remove one you don't need. Not right? Change the notes and slice again.",
                                                     "n" to pl(flat.size, "topic"), "v" to if (cc.sliced_by == "headings") tl(" · sliced by headings") else ""))
                 p.units.forEachIndexed { ui, u ->
                     Panel {
                         OutlinedTextField(u.title, { v -> edit { it[ui] = it[ui].copy(title = v) } }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(tl("Unit {v} title", "v" to ui + 1)) },
                                           textStyle = MaterialTheme.typography.titleMedium)
                         u.topics.forEachIndexed { ti, t ->
-                            val last = ui == p.units.size - 1 && ti == u.topics.size - 1
+                            val last = flat.none { it.from > t.to }  // nothing comes after it in the material
                             Column(Modifier.padding(top = 10.dp)) {
                                 OutlinedTextField(t.title, { v -> edit { it[ui] = it[ui].copy(topics = it[ui].topics.toMutableList().also { l -> l[ti] = l[ti].copy(title = v) }) } },
                                                   Modifier.fillMaxWidth(), singleLine = true, label = { Text(tl("Topic title")) })
                                 Quiet((if (t.summary.isNotEmpty()) t.summary + " · " else "") + pl(t.words, "word"))
                                 if (t.excerpt.isNotEmpty()) Text(t.excerpt + if (t.excerpt.length >= 280) "…" else "", style = MaterialTheme.typography.bodySmall, maxLines = 4)
-                                Row {
+                                androidx.compose.foundation.layout.FlowRow {
                                     TextButton(onClick = { scope.launch {
                                         try { val r = a.raw("GET", "/study/courses/$id/preview?start=${t.from}&end=${t.to}") as JsonObject
                                               peek = Peek(t.title, (r["content"] as? JsonPrimitive)?.content.orEmpty(), (r["paras"] as? kotlinx.serialization.json.JsonArray)?.map { (it as JsonPrimitive).content }.orEmpty(), ui, ti)
                                         } catch (e: Exception) { toast(e.message.orEmpty()) }
                                     } }) { Text(if (t.to > t.from) tl("Read it all or split it") else tl("Read it all")) }
-                                    if (!last) TextButton(onClick = { edit { us ->  // this topic takes in the next one, wherever that is
-                                        val pos = us.flatMapIndexed { a2, x -> x.topics.indices.map { b -> a2 to b } }; val k = pos.indexOf(ui to ti); val (na, nb) = pos[k + 1]
+                                    if (!last) TextButton(onClick = { edit { us ->  // this topic takes in the one right after it in the material, wherever that sits now
+                                        val (na, nb) = us.flatMapIndexed { a2, x -> x.topics.indices.map { b -> a2 to b } }.filter { (a2, b) -> us[a2].topics[b].from > t.to }
+                                            .minBy { (a2, b) -> us[a2].topics[b].from }
                                         val nx = us[na].topics[nb]
                                         us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l[ti] = l[ti].copy(to = nx.to, words = l[ti].words + nx.words) })
                                         us[na] = us[na].copy(topics = us[na].topics.toMutableList().also { l -> l.removeAt(nb) })
                                     } }) { Text(tl("Merge with next")) }
-                                    if (flat.size > 1) TextButton(onClick = { val before = p; edit { us -> us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l.removeAt(ti) }) }; undo = before to t.title }) { Text(tl("Remove topic and its text")) }
+                                    if (flat.size > 1) TextButton(onClick = {
+                                        ask = Ask(tl("Remove “{title}”?", "title" to t.title), tl("Its text ({n}) won't be in your course. To keep the text, merge it into another topic instead.", "n" to pl(t.words, "word")),
+                                                  tl("Remove"), danger = true) { edit { us -> us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l.removeAt(ti) }) } }
+                                    }) { Text(tl("Remove")) }
+                                    if (p.units.size > 1) Box {
+                                        var menu by remember { mutableStateOf(false) }
+                                        TextButton(onClick = { menu = true }) { Text(tl("Move to unit…")) }
+                                        DropdownMenu(menu, { menu = false }) {
+                                            p.units.forEachIndexed { k, x -> if (k != ui) DropdownMenuItem(text = { Text(tl("Unit {v}", "v" to k + 1) + if (x.title.isNotEmpty()) ": " + x.title else "") }, onClick = {
+                                                menu = false
+                                                edit { us ->  // its place in the unit is where its text is in the material
+                                                    us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l.removeAt(ti) })
+                                                    us[k] = us[k].copy(topics = (us[k].topics + t).sortedBy { it.from })
+                                                }
+                                            }) }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -364,12 +383,10 @@ fun StudyCourseScreen(id: Int, back: () -> Unit, setup: () -> Unit, openTopic: (
             if (all.size > 12) OutlinedTextField(find, { find = it }, Modifier.fillMaxWidth(), singleLine = true, leadingIcon = { Icon(Icons.Outlined.Search, null) }, placeholder = { Text(tl("Find a topic")) })
             val q = find.trim().lowercase()
             val rows = cc.units.flatMap { u -> u.topics.filter { q.isEmpty() || q in it.title.lowercase() || q in it.summary.lowercase() }.map { u to it } }
-            Paged(rows, key = "$id/$q") { (u, t) ->
-                val i = rows.indexOfFirst { it.second.id == t.id }
-                if (i == 0 || rows[i - 1].first.id != u.id) SectionTitle(u.title)
+            rows.groupBy { it.first.id }.values.forEach { inUnit -> SectionTitle(inUnit.first().first.title); Paged(inUnit, key = "$id/$q/${inUnit.first().first.id}") { (_, t) ->  // each unit: its title, then its topics on one surface
                 RowLink(t.title + (if (t.stars > 0) "  " + "★".repeat(t.stars) else "") + (if (t.due) "  ·  " + tl("Review due") else ""),
                         t.summary + (t.best?.let { tl("{v}best quiz {best}%", "v" to if (t.summary.isNotEmpty()) " · " else "", "best" to it) } ?: ""), { openTopic(t.id) })
-            }
+            } }
             if (p != null && p.areas.isNotEmpty()) {
                 SectionTitle(tl("From your quizzes")); Quiet(tl("Your best quiz score in each topic, weakest first."))
                 Paged(p.areas, key = "ar") { ar -> RowLink(ar.title + "  ·  " + tl(AREA_LABEL[ar.status].orEmpty()), tl("Best quiz {percent}%", "percent" to ar.percent), ar.topic_id?.let { { openTopic(it) } }) { ScoreBar(ar.percent) } }
@@ -453,7 +470,11 @@ fun StudyTopicScreen(id: Int, back: () -> Unit, go: (Int) -> Unit, quiz: (StudyQ
                 try { a.raw("PUT", "/study/topics/$id/progress", buildJsonObject { put("completed", on) }); completed = on
                       toast(if (on) tl("Marked as completed") else tl("Marked as not completed")) } catch (e: Exception) { toast(e.message.orEmpty()) }
             }; Unit }
-            if (isDone) OutlinedButton(onClick = { mark(false) }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(tl("Mark as not completed")) }
+            if (isDone) {  // where to go now; nothing else is marked
+                x.next?.let { n -> Button(onClick = { go(n.id) }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(tl("Next topic: {title}", "title" to n.title) + " ›") } }
+                    ?: run { Quiet(tl("That was the last topic of this course.")); Button(onClick = back, modifier = Modifier.fillMaxWidth()) { Text(tl("Back to the course")) } }
+                OutlinedButton(onClick = { mark(false) }, Modifier.fillMaxWidth()) { Text(tl("Mark as not completed")) }
+            }
             else Button(onClick = { mark(true) }, Modifier.fillMaxWidth().padding(top = 8.dp)) { Icon(Icons.Filled.Check, null); Text("  " + tl("Mark as completed")) }
             Row(Modifier.fillMaxWidth()) {
                 x.prev?.let { p -> TextButton(onClick = { go(p.id) }) { Text("‹ " + tl("Previous")) } }

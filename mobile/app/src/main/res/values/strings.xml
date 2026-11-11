@@ -218,7 +218,7 @@
     <string name="remove_key">Remove key</string>
     <string name="remove_key_body">You go back to Lite: the free daily allowance.</string>
     <string name="remove_key_q">Remove your key?</string>
-    <string name="remove_material_body">The notes it made in this course are removed too. Your progress and quiz results stay.</string>
+    <string name="remove_material_body">All your notes in this course go with it, in every topic, not just one file\'s. Your progress and quiz results stay.</string>
     <string name="remove_material_q">Remove your material?</string>
     <string name="remove_my_key">Remove my key</string>
     <string name="remove_my_material">Remove my material from this course</string>

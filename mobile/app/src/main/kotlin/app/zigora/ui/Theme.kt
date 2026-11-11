@@ -25,14 +25,14 @@ val Cream = Color(0xFFFEE7C8)
 
 private val Light = lightColorScheme(
     primary = Plum, onPrimary = Color.White, primaryContainer = Color(0xFFF2DAFF), onPrimaryContainer = Color(0xFF2A1238),
-    secondary = Color(0xFF8E4A5B), secondaryContainer = Color(0xFFFFD9DF), onSecondaryContainer = Color(0xFF3A0718),
+    secondary = Color(0xFF6B5778), onSecondary = Color.White, secondaryContainer = Color(0xFFEBDDF6), onSecondaryContainer = Color(0xFF26182F),  // a soft plum: selected tabs, chips and tracks stay in the brand's family
     tertiary = Color(0xFF7A5900), tertiaryContainer = Cream, onTertiaryContainer = Color(0xFF261A00),
     background = Color(0xFFFBF9FC), surface = Color(0xFFFBF9FC), surfaceContainerLow = Color(0xFFF6F1F8), surfaceContainer = Color(0xFFF3EEF6),
     surfaceContainerHigh = Color(0xFFEDE7F0), onSurfaceVariant = Color(0xFF655B6E), outlineVariant = Color(0xFFE8E0EE),
 )
 private val Dark = darkColorScheme(
     primary = Color(0xFFDFB7FF), onPrimary = Color(0xFF45106A), primaryContainer = Color(0xFF5D2483), onPrimaryContainer = Color(0xFFF2DAFF),
-    secondary = Color(0xFFFFB1C1), secondaryContainer = Color(0xFF72334A), tertiary = Color(0xFFF2C14F), tertiaryContainer = Color(0xFF5B4300),
+    secondary = Color(0xFFD7BFE4), onSecondary = Color(0xFF3B2A47), secondaryContainer = Color(0xFF4A3857), onSecondaryContainer = Color(0xFFF2DAFF), tertiary = Color(0xFFF2C14F), tertiaryContainer = Color(0xFF5B4300),
     background = Color(0xFF120E17), surface = Color(0xFF120E17), surfaceContainerLow = Color(0xFF1B1522), surfaceContainer = Color(0xFF1F1826),
     surfaceContainerHigh = Color(0xFF251D2E), onSurfaceVariant = Color(0xFFA79DB0), outlineVariant = Color(0xFF322839),
 )

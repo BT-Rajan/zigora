@@ -90,16 +90,17 @@ fun McqHomeScreen(topic: Int, back: () -> Unit, play: (Int) -> Unit) {
             if (perTopic) {
                 SectionTitle(tl("Topic"))
                 if (c == null) Quiet(tl("Choose a course"))
-                c?.topics?.forEach { t ->
+                c?.topics?.let { ts -> Paged(ts, key = course) { t ->
                     ListRow(t.title, pl(t.questions, "question") + (t.stats?.let { " · " + tl("you {p}%", "p" to it.percent) } ?: ""), onClick = { tid = t.id },
                             trailing = { if (tid == t.id) Icon(Icons.Filled.Check, tl("Chosen"), tint = MaterialTheme.colorScheme.primary) })
-                }
+                } }
             }
             SectionTitle(tl("Questions in the set"))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf(5, 10, 15, 20).filter { it <= h.max }.forEach { n -> FilterChip(size == n, { size = n }, { Text("$n") }) } }
             val t = c?.topics?.firstOrNull { it.id == tid }
             val pool = if (perTopic) t?.questions ?: 0 else c?.questions ?: h.courses.sumOf { it.questions }
             val ready = !perTopic || t != null; val left = (h.quota.left ?: 1) > 0
+            val notes = if (perTopic) t?.notes == true else (c?.topics ?: h.courses.flatMap { it.topics }).any { it.notes }  // an AI set is written from the topics' notes
             val go = { source: String -> scope.launch {
                 busy = source
                 try {
@@ -112,16 +113,15 @@ fun McqHomeScreen(topic: Int, back: () -> Unit, play: (Int) -> Unit) {
                 } catch (e: Exception) { toast(e.message.orEmpty()); tick++ }
                 busy = ""
             } }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(enabled = busy.isEmpty() && ready && pool >= h.min && left, onClick = { go("bank") }) { Text(if (busy == "bank") tl("Starting…") else tl("Questions from the bank")) }
-                if (h.ai) OutlinedButton(enabled = busy.isEmpty() && ready && left, onClick = { go("ai") }) { Text(if (busy == "ai") tl("Writing questions…") else tl("A new AI set")) }
-            }
-            Quiet((if (ready && pool < h.min) tl("Not enough published questions here yet.") else tl(if (pool == 1) "{n} published question to draw from." else "{n} published questions to draw from.", "n" to pool))
+            Button(enabled = busy.isEmpty() && ready && pool >= h.min && left, onClick = { go("bank") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text(if (busy == "bank") tl("Starting…") else tl("Questions from the bank")) }
+            if (h.ai) OutlinedButton(enabled = busy.isEmpty() && ready && left && notes, onClick = { go("ai") }, modifier = Modifier.fillMaxWidth()) { Text(if (busy == "ai") tl("Writing questions…") else tl("A new AI set")) }
+            Quiet((if (ready && pool < h.min) tl("Not enough published questions here yet: a set needs at least {min}.", "min" to h.min) else tl(if (pool == 1) "{n} published question to draw from." else "{n} published questions to draw from.", "n" to pool))
                   + " " + tl("A set counts when it starts."))
+            if (h.ai && ready && !notes) Quiet(if (perTopic) tl("This topic has no notes yet, so the AI can't write questions for it.") else tl("These topics have no notes yet, so the AI can't write questions for them."))
         }
         (hist.state as? Load.Ok)?.value?.takeIf { it.total > 0 }?.let { hs ->
             SectionTitle(tl("Your sets"))
-            hs.items.forEach { x ->
+            Paged(hs.items, key = "sets") { x ->
                 ListRow(x.topic.ifEmpty { x.course.ifEmpty { tl("All my courses") } },
                         stamp(x.at.orEmpty()) + " · " + (if (x.mode == "topic") tl("Per topic") else tl("Practice")) + " · " + (if (x.source == "ai") tl("AI set") else tl("Bank")),
                         onClick = if (x.status == "submitted") ({ play(x.id) }) else null,
@@ -151,17 +151,19 @@ fun McqSetScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
             if (!open) {
                 Panel {
                     Text("${s.score} / ${s.total} · ${s.percent}%", style = MaterialTheme.typography.headlineSmall)
+                    ResultFacts(s.counts, s.number)
                     Quiet(if (s.source == "ai") tl("An AI set, written from your topics' notes.") else tl("A set from the question bank."))
                 }
                 if (s.feedback.isNotEmpty()) {
                     SectionTitle(tl("What you are good at and what to revisit"))
                     AreaList(s.feedback.map { Area(topic_id = it.topic_id, title = it.topic, percent = it.percent, status = it.status, correct = it.correct, total = it.total) }, onStudy = openTopic)
                 }
+                Standing(s.standing, openTopic)
             }
             s.questions.forEachIndexed { i, x ->
                 Panel {
                     Text(tl("Question") + " ${i + 1}" + (if (!open) " · " + (if (x.ok) tl("Right") else tl("Wrong")) else "") + (if (s.mode != "topic" && x.topic.isNotEmpty()) " · ${x.topic}" else ""), fontWeight = FontWeight.SemiBold)
-                    MathMd(x.text); QImage(x.image)
+                    MathMd(x.text); QImage(x.image, tl("Picture for question {pos}", "pos" to i + 1))
                     x.options.forEachIndexed { k, o ->
                         val st = if (open) (if (picks.getOrNull(i) == k) OptState.Picked else OptState.Plain)
                                  else if (k == x.correct) OptState.Ok else if (k == x.chosen) OptState.Bad else OptState.Plain
@@ -173,7 +175,7 @@ fun McqSetScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
                     }
                     if (!open && x.chosen == null) Quiet(tl("Left blank."))
                     if (!open && x.explanation.isNotBlank()) MathMd(x.explanation)
-                    if (!open) QImage(x.explanation_image)
+                    if (!open) QImage(x.explanation_image, tl("Picture for the explanation"))
                 }
             }
             if (open) {

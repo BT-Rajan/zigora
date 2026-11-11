@@ -176,7 +176,7 @@ fun ReaderScreen(t: TopicFull, close: () -> Unit) {
             Text(stringResource(R.string.your_highlights), style = MaterialTheme.typography.titleMedium)
             Quiet(stringResource(R.string.highlights_how), Modifier.padding(vertical = 6.dp))
             if (list.isEmpty()) Quiet(stringResource(R.string.none_yet))
-            Paged(list.toList(), key = list.size) { h ->
+            Paged(list.toList(), key = list.size, grouped = false) { h ->
                 HlItem(h, focus = noteFor == h.id, onGo = { goTo(h.id) }, onExplain = if (aiOn) ({ panel = false; explain(h.id) }) else null,
                        onSaved = { r -> val i = list.indexOfFirst { it.id == r.id }; if (i >= 0) list[i] = r.copy(explain = list[i].explain); noteFor = null },
                        onDrop = { drop(h) }, topicId = t.id)
@@ -244,7 +244,7 @@ fun DoubtBox(tid: Int, phrase: String, askOn: Boolean = true, close: () -> Unit)
             SectionTitle(stringResource(R.string.in_your_topic))
             if (x.passage.isNotEmpty()) Text(x.passage) else Quiet(stringResource(R.string.phrase_not_found))
             if (x.my_passage.isNotEmpty()) { SectionTitle(stringResource(R.string.in_your_own_notes)); Text(x.my_passage) }
-            val shown = ans ?: x.saved?.let { Answer(text = it, cached = true) }
+            val shown = ans ?: x.saved?.let { Answer(text = it, cached = true, id = x.saved_id) }
             if (shown != null) {
                 SectionTitle(stringResource(R.string.explained))
                 if (shown.cached) Quiet(stringResource(R.string.saved_nothing_sent))
@@ -260,7 +260,7 @@ fun DoubtBox(tid: Int, phrase: String, askOn: Boolean = true, close: () -> Unit)
             }
             if (student && askOn) {
                 if (sent) Quiet(tl("Sent. Your teacher's answer will be in My questions."), Modifier.padding(top = 12.dp))
-                else if (asking) Column(Modifier.padding(top = 8.dp)) { AskTeacherBox(tid, phrase) { ok -> asking = false; if (ok) sent = true } }
+                else if (asking) Column(Modifier.padding(top = 8.dp)) { AskTeacherBox(tid, phrase, aiKind = shown?.id?.let { "doubt" }, aiId = shown?.id, aiText = if (shown != null && !shown.support) shown.text else "") { ok -> asking = false; if (ok) sent = true } }
                 else TextButton(onClick = { asking = true }, modifier = Modifier.padding(top = 8.dp)) { Text(tl("Still not clear? Ask my teacher")) }
             }
         }

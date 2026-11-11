@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
@@ -20,6 +21,9 @@ import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -122,7 +126,12 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
         }
         handled()
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me) { NavigationSuiteScaffold(navigationSuiteItems = {
+    val snackState = remember { androidx.compose.material3.SnackbarHostState() }; val snackScope = androidx.compose.runtime.rememberCoroutineScope()
+    val snack = remember { Snack(snackState, snackScope) }
+    androidx.compose.runtime.CompositionLocalProvider(LocalMe provides me, LocalSnack provides snack) {
+    // the reader and a diagram take the whole screen: no tabs under them, so they read as full screen; Close brings the tabs back
+    val full = dest?.hasRoute(ReaderR::class) == true || dest?.hasRoute(DiagramR::class) == true
+    NavigationSuiteScaffold(layoutType = if (full) NavigationSuiteType.None else NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo()), navigationSuiteItems = {
         tabs.forEach { t ->
             item(selected = dest?.hasRoute(t.route::class) == true, icon = { Icon(t.icon, null) }, label = { Text(t.label, maxLines = 1, softWrap = false, autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp)) },
                  onClick = { nav.navigate(t.route) { popUpTo(nav.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } })
@@ -140,7 +149,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             x.src == "study" -> x.course_id?.let { ownTopic(it, x.id) } ?: nav.navigate(StudyTopicR(x.id))
             else -> open(x.id)
         } }
-        androidx.compose.foundation.layout.Column {
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) { androidx.compose.foundation.layout.Column {
             val net = app().api
             LaunchedEffect(net.unreachable.value) { if (net.unreachable.value) { kotlinx.coroutines.delay(8_000); net.unreachable.value = false } }  // a failed request: the note fades
             val note = when {
@@ -155,7 +164,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             composable<HomeR> { HomeScreen(me, openTopic = open, openCourse = { nav.navigate(CourseR(it)) }, openQuiz = { nav.navigate(QuizR(it)) },
                                            openNotes = { nav.navigate(NotesR) }, openPhoto = { nav.navigate(PhotoR()) }, openSearch = search,
                                            openRoutine = { nav.navigate(RoutineR) }, openSession = session, openStudy = { nav.navigate(StudyR) }, openMcq = { nav.navigate(McqR()) }, openCalendar = { nav.navigate(CalendarR) }, openProgress = { nav.navigate(ProgressR) }, openPlan = { nav.navigate(MeR) }, openClasses = { nav.navigate(ClassesR) }, openJoin = { nav.navigate(JoinR) },
-                                           openOwn = ownTopic, review = review) }
+                                           openOwn = ownTopic, review = review, openSet = { nav.navigate(McqSetR(it)) }) }
             composable<CoursesR> { CoursesScreen(me, search, openStudy = { nav.navigate(StudyR) }, openJoin = { nav.navigate(JoinR) }) { nav.navigate(CourseR(it)) } }
             composable<StudyR> { StudyHomeScreen(back = { nav.popBackStack() }, open = { id, wizard -> nav.navigate(if (wizard) StudyWizardR(id) else StudyCourseR(id)) },
                                                  openTopic = ownTopic, review = review) }
@@ -207,6 +216,8 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, wallpaper: (B
             composable<PhotoR> { PhotoScreen(it.toRoute<PhotoR>().uri) { nav.popBackStack() } }
             composable<NotesR> { NotificationsScreen(back = { nav.popBackStack() }, openTopic = open, openQuestion = { nav.navigate(QuestionR(it)) }) }
         }
+        }
+        androidx.compose.material3.SnackbarHost(snackState, Modifier.align(androidx.compose.ui.Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp))
         }
     }
     }

@@ -28,6 +28,8 @@ import app.zigora.data.Store
 import app.zigora.data.Me
 import app.zigora.data.json
 import app.zigora.ui.ZigoraRoot
+import app.zigora.ui.coursesOf
+import app.zigora.data.ProgramNode
 import com.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
@@ -59,6 +61,9 @@ class ScreensTest {
     }
     private fun see(text: String, ms: Long = 20_000) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), ms)
     private fun shot(name: String) { rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
+    /** waits until any of these texts shows: a screen that loads its data has more than one finished look (a list, or the line saying it is empty) */
+    private fun seeAny(vararg texts: String, ms: Long = 20_000) = rule.waitUntil(ms) {
+        texts.any { rule.onAllNodes(hasText(it, substring = true)).fetchSemanticsNodes().isNotEmpty() } }
 
     @Test fun signInScreen() {
         app.store.server = System.getProperty("screens.server")!!; app.store.signOut()
@@ -66,6 +71,12 @@ class ScreensTest {
         see("Calm, curious learning"); shot("01-sign-in")
     }
 
+    /** the topic's row on the course page. Home can name the topic too (a teacher's support plan: "Study the topic: Hardness of Water"),
+     *  so first wait for the course page itself (Desalination is listed only there; a topic's title isn't translated), then tap the row that opens */
+    private fun openHardness() {
+        see("Desalination")
+        rule.onAllNodes(hasText("Hardness of Water") and hasClickAction()).onFirst().performScrollTo().performClick()
+    }
     private fun openChemistry() {  // the course row: the last "Engineering Chemistry" on Home (cards above may name it too), scrolled into view
         rule.waitUntilAtLeastOneExists(hasText("Engineering Chemistry"), 20_000)
         val row = rule.onAllNodesWithText("Engineering Chemistry").onLast(); runCatching { row.performScrollTo() }; row.performClick()
@@ -93,6 +104,37 @@ class ScreensTest {
         see("Rewards"); shot("08-me")
     }
 
+    /** the screens no other walk reaches: a teacher's support plan on Home, the notifications, and the notes in full screen */
+    @Test fun supportPlanNotificationsAndReader() {
+        signIn()
+        runBlocking {  // the course's teacher makes a support plan for Meena on Boiler Troubles, through the API, as on the web
+            val me = json.decodeFromString(Me.serializer(), app.store.userJson!!)
+            val tree = app.api.get("/tree", kotlinx.serialization.builtins.ListSerializer(ProgramNode.serializer()))
+            val c = coursesOf(tree).first { it.name == "Engineering Chemistry" }
+            val tid = c.units.flatMap { it.topics }.first { it.title == "Boiler Troubles" }.id
+            val student = app.store.token
+            app.store.token = app.api.send("POST", "/login", buildJsonObject { put("email", "teacher@mail.com"); put("password", "pw123456") }, LoginOut.serializer()).token
+            app.api.raw("POST", "/interventions", buildJsonObject {
+                put("course_id", c.id); put("title", "Boilers: a second look"); put("description", "Go through these before Friday."); put("activate", true)
+                put("topic_ids", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(tid)) })
+                put("student_ids", kotlinx.serialization.json.buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(me.id)) })
+                put("activities", kotlinx.serialization.json.buildJsonArray {
+                    add(buildJsonObject { put("kind", "study"); put("topic_id", tid) }); add(buildJsonObject { put("kind", "revise"); put("topic_id", tid) })
+                })
+            })
+            app.store.token = student
+        }
+        rule.setContent { ZigoraRoot(null) {} }
+        see("Extra practice from your teacher"); see("My courses")  // drawn once Home's refresh is over, so the spinner is gone
+        rule.onAllNodesWithText("Extra practice from your teacher").onFirst().performScrollTo(); shot("25-home-support-plan")
+        rule.onAllNodesWithContentDescription("Notifications").onFirst().performClick()
+        see("Your teacher has prepared some extra practice"); shot("26-notifications")
+        rule.onNodeWithContentDescription("Back").performClick()
+        openChemistry(); openHardness()
+        see("Read in full screen"); rule.onNodeWithText("Read in full screen", substring = true).performScrollTo().performClick()
+        see("Select text to highlight it"); shot("27-reader")  // the notes themselves are drawn by a WebView, which Robolectric leaves blank: this shows the reader's own bar and tools
+    }
+
     @Test fun materialYou() {
         signIn(wallpaper = true)
         rule.setContent { ZigoraRoot(null) {} }
@@ -111,7 +153,7 @@ class ScreensTest {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
         openChemistry()
-        see("Hardness of Water"); rule.onAllNodesWithText("Hardness of Water").onFirst().performClick(); see("calcium and magnesium"); shot("11-topic-tamil-dark")
+        openHardness(); see("calcium and magnesium"); shot("11-topic-tamil-dark")
     }
 
     @Test fun aLiteStudentsPlan() {
@@ -125,9 +167,9 @@ class ScreensTest {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNodeWithText("Saved").performClick()
-        see("Bookmarks"); shot("13-saved")
+        see("Bookmarks"); seeAny("topic saved", "topics saved", "Nothing saved yet"); shot("13-saved")  // its subtitle shows once the list has loaded
         rule.onNodeWithText("Highlights").performClick(); see("All colours"); shot("14-highlights")
-        rule.onNode(hasText("Progress") and hasClickAction()).performClick(); see("Study routine"); shot("15-progress")
+        rule.onNode(hasText("Progress") and hasClickAction()).performClick(); see("Study routine"); see("Topics learned"); shot("15-progress")  // once it has loaded
         rule.onNodeWithText("Set or change your study days").performClick(); see("Minutes a session"); shot("16-routine")
         rule.onNodeWithText("Save routine").performScrollTo().performClick()
         see("Study routine"); rule.onNode(hasText("Home") and hasClickAction()).performClick()
@@ -142,6 +184,7 @@ class ScreensTest {
         see("Which salts cause temporary hardness?"); rule.onNodeWithText("Bicarbonates").performClick()
         rule.onNodeWithText("Calcium carbonate").performScrollTo().performClick(); shot("18-quiz")
         rule.onNodeWithText("Submit answers").performScrollTo().performClick()
+        see("Confirm submission"); rule.onNodeWithText("Confirm submission").performClick()  // the test asks before it is submitted
         see("2 / 2 · 100%"); shot("19-quiz-result")
         rule.onNodeWithText("Review answers").performClick(); see("Your answer"); shot("20-attempt")
     }

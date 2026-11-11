@@ -68,11 +68,12 @@ class AskTest {
         rule.onAllNodesWithText("Heat splits the bicarbonate", substring = true).onFirst().performScrollTo(); shot("0-class-questions")
         tap("Ask my teacher"); see("Your teacher sees your name")
         rule.onNode(hasSetTextAction()).performTextInput("How do we measure hardness in ppm?"); shot("1-ask")
+        tap("Review and send"); see("Check before sending")  // S40: what will be sent, before it is
         rule.onAllNodesWithText("Send to my teacher").onLast().performScrollTo().performClick(); rule.waitUntil(20_000) { rule.onAllNodesWithText("Your teacher sees your name", substring = true).fetchSemanticsNodes().isEmpty() }
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithContentDescription("Back").performClick()
         see("Saved"); rule.onNode(hasText("Saved") and hasClickAction()).performClick(); tap("Questions")
-        see("How do we measure hardness"); see("Waiting for your teacher"); shot("2-my-questions")
+        see("How do we measure hardness"); see("Pending");  // S40: where a question stands, in the student's words shot("2-my-questions")
         tap("Heat splits the bicarbonate"); see("Why does only the bicarbonate"); see("Priya Raman"); shot("3-thread")
     }
 

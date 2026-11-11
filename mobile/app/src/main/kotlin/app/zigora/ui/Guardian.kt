@@ -149,13 +149,13 @@ fun GuardianHome(me: Me, signOut: () -> Unit) {
         val dd = (dash.state as? Load.Ok)?.value
         if (dd != null && dd.items.isNotEmpty()) {
             SectionTitle(tl("Needs you"))
-            dd.items.forEach { x -> NeedsYouRow(x) { if (x.action == "key") keyOpen = true else view = x.student_id } }
+            Paged(dd.items, key = "need") { x -> NeedsYouRow(x) { if (x.action == "key") keyOpen = true else view = x.student_id } }
         } else if (dd != null && dd.students.isNotEmpty()) Panel { Text(if (parent) tl("All good. Nothing needs you right now.") else tl("All good. No student needs you right now."), style = MaterialTheme.typography.titleMedium) }
         SectionTitle(if (parent) tl("Your children") else tl("Your students"))
-        dd?.students?.forEach { c -> WardSummary(c) { view = c.id } }
+        dd?.students?.let { ws -> Paged(ws, key = "ward") { c -> WardSummary(c) { view = c.id } } }  // one surface, a line between students
         Loaded(list) { d ->
             if (d.students.isEmpty()) Quiet(if (parent) tl("No children are linked to your account yet.") else tl("No students yet. Add your class, or invite students who already have an account."))
-            d.students.filter { it.status != "active" || dd == null }.forEach { x ->
+            Paged(d.students.filter { it.status != "active" || dd == null }, key = "others") { x ->
                 val sub = listOfNotNull(x.username?.let { tl("Signs in as {username}", "username" to it) }, x.place.ifEmpty { tl("Waiting for an admin to place them") }).joinToString(" · ")
                 val stop = { ask = Ask(tl("Stop following {name}?", "name" to x.name), tl("Their account and progress stay. You no longer see their progress, and your AI key no longer covers them."),
                                        tl("Stop following"), danger = true) { scope.launch { try { a.raw("DELETE", "/guardian/students/${x.id}"); list.reload(); dash.reload() } catch (e: Exception) { toast(e.message.orEmpty()) } } } }
@@ -164,9 +164,9 @@ fun GuardianHome(me: Me, signOut: () -> Unit) {
             }
             if (parent && d.students.isNotEmpty()) Quiet(tl("Each child signs in with their own username and password on the sign-in page."))
             if (d.students.any { it.status == "active" }) {
-                ListRow(if (parent) tl("Your children's calendar") else tl("Your students' calendar"), tl("Exams, deadlines and study days in one place"), onClick = { calOpen = true },
-                        leading = { RowIcon(androidx.compose.material.icons.Icons.Outlined.CalendarMonth) })
-                GuardianReminders(parent)
+                Rows({ ListRow(if (parent) tl("Your children's calendar") else tl("Your students' calendar"), tl("Exams, deadlines and study days in one place"), onClick = { calOpen = true },
+                               leading = { RowIcon(androidx.compose.material.icons.Icons.Outlined.CalendarMonth) }) },
+                     { GuardianReminders(parent) })
             }
         }
         if (!adding) OutlinedButton(onClick = { rows.clear(); rows.add(NewStudent()); adding = true }, modifier = Modifier.fillMaxWidth()) { Text(if (parent) tl("Add a child") else tl("Add students")) }
@@ -320,7 +320,8 @@ private fun GuardianReminders(parent: Boolean) {
 private fun WardActivityCard(a: WardActivity) {
     val loc = LocalConfiguration.current.locales[0]
     SectionTitle(tl("Study activity"))
-    Quiet(tl("{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · {done} topics learned this week",
+    Quiet(tl(if (a.completed_this_week == 1) "{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · 1 topic learned this week"
+             else "{streak}-day streak · studied on {week} of the last 7 days and {days} of the last 28 · {done} topics learned this week",
         "streak" to a.streak, "week" to a.active_days_week, "days" to a.active_days_28, "done" to a.completed_this_week))
     a.days.chunked(7).forEach { week ->
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -355,16 +356,22 @@ private fun WardScoresCard(sc: WardScores, mcq: WardMcq?) {
     }
     if (mcq != null) {
         SectionTitle(tl("MCQ practice"))
-        Quiet(if (mcq.sets > 0) tl("{sets} sets done, {average}% correct on average. Last practised {when}.", "sets" to mcq.sets, "average" to (mcq.average ?: 0), "when" to (mcq.last_at?.let { day(it) } ?: ""))
+        Quiet(if (mcq.sets > 0) tl(if (mcq.sets == 1) "1 set done, {average}% correct on average. Last practised {when}." else "{sets} sets done, {average}% correct on average. Last practised {when}.", "sets" to mcq.sets, "average" to (mcq.average ?: 0), "when" to (mcq.last_at?.let { day(it) } ?: ""))
               else tl("No MCQ practice yet."))
         if (mcq.revisit.isNotEmpty()) Quiet(tl("Topics to revisit: {topics}", "topics" to mcq.revisit.joinToString(", ")))
     }
 }
 
+private val ISO_DAY = Regex("""\d{4}-\d{2}-\d{2}""")
+/** a calendar date ("2026-11-07"), written the phone's way ("7 Nov 2026") */
+private fun plainDay(iso: String): String = runCatching {
+    java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).format(java.time.LocalDate.parse(iso))
+}.getOrDefault(iso)
+
 /** one thing a child needs from their parent or teacher, with the one action that deals with it; the dot says how soon */
 @Composable
 private fun NeedsYouRow(x: GDashItem, act: () -> Unit) {
-    val v = x.vars.mapValues { (k, e) -> val raw = (e as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty(); if (k == "date") day(raw) else raw }
+    val v = x.vars.mapValues { (k, e) -> val raw = (e as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty(); if (ISO_DAY.matches(raw)) plainDay(raw) else if (k == "date") day(raw) else raw }  // a date reads as the phone shows dates
     val dot = when (x.level) { "now" -> MaterialTheme.colorScheme.error; "soon" -> MaterialTheme.colorScheme.tertiary; else -> MaterialTheme.colorScheme.outline }
     ListRow(tl(x.text, *v.map { it.key to it.value }.toTypedArray()), "", onClick = act,
         leading = { Box(Modifier.padding(4.dp).background(dot, RoundedCornerShape(50)).padding(5.dp)) },

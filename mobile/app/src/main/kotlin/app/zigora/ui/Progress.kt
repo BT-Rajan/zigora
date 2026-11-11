@@ -155,14 +155,13 @@ private fun Bookmarks(openTopic: (Int) -> Unit, sub: (String) -> Unit) {
         }
         if (msg.isNotEmpty()) Quiet(msg)
         val rows = marks(co)
-        Paged(rows, key = co.id) { m ->
+        rows.groupBy { it.unit }.forEach { (unit, inUnit) -> SectionTitle(unit); Paged(inUnit, key = "${co.id}/$unit") { m ->  // each unit: its title, then its marks on one surface
             val i = rows.indexOf(m)
-            if (i == 0 || rows[i - 1].unit != m.unit) SectionTitle(m.unit)
             ListRow(m.t.title, onClick = { openTopic(m.t.id) }, leading = { Dot(m.t.title, CourseColors[i % CourseColors.size]) }, extra = { StatusLine(m.t.status) },
                 trailing = { IconButton(onClick = { scope.launch {
                     try { a.raw("DELETE", "/topics/${m.t.id}/bookmark"); gone = gone + m.t.id; msg = tl("Bookmark removed") } catch (e: Exception) { msg = e.message.orEmpty() }
                 } }) { Icon(Icons.Filled.Bookmark, tl("Remove bookmark: {title}", "title" to m.t.title), tint = MaterialTheme.colorScheme.primary) } })
-        }
+        } }
     }
 }
 
@@ -222,21 +221,32 @@ private fun MyHighlights(openTopic: (Int) -> Unit, sub: (String) -> Unit) {
 @Composable
 fun ProgressScreen(openTopic: (Int) -> Unit, openRoutine: () -> Unit, openScores: (Int) -> Unit) {
     val d = rememberLoad("insights") { get("/me/insights", Insights.serializer()) }
+    val td = (rememberLoad("today-courses") { runCatching { get("/me/today", app.zigora.data.Today.serializer()) }.getOrNull() }.state as? Load.Ok)?.value
     Page(tl("My progress")) {
+        td?.takeIf { it.courses.isNotEmpty() }?.let { t ->  // what they marked as learned: their own word for it, not a score
+            Panel {  // where they stand, at a glance
+                Text(tl("Topics learned"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text("${t.topics_completed} / ${t.topics_total}", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 4.dp))
+                ScoreBar(if (t.topics_total > 0) 100 * t.topics_completed / t.topics_total else 0)
+                Text(tl("Your own word for each topic; the scores below show how well they stuck."), style = MaterialTheme.typography.bodySmall,
+                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+            }
+            SectionTitle(tl("Your courses"))
+            Paged(t.courses, key = "courses") { c ->
+                RowLink(c.name, tl("{done} of {total} topics marked as learned", "done" to c.completed, "total" to c.total), null) { ScoreBar(if (c.total > 0) 100 * c.completed / c.total else 0) }
+            }
+        }
+        SectionTitle(tl("Test scores"))
+        MyScores(openScores)
         Loaded(d) { x ->
             val clicked = x.strong; val looks = x.needs_study + x.getting_there
             val item = @Composable { ar: app.zigora.data.Area -> RowLink(ar.title, ar.course, ar.topic_id?.let { { openTopic(it) } }) }
-            if (clicked.isEmpty() && looks.isEmpty()) Quiet(tl("After you try a quiz or a test, the topics that clicked and the ones worth another look show up here."), Modifier.padding(top = 12.dp))
-            if (clicked.isNotEmpty()) { SectionTitle(tl("What clicked")); Paged(clicked, key = "c") { item(it) } }
             if (looks.isNotEmpty()) { SectionTitle(tl("Worth another look")); Paged(looks, key = "l") { item(it) } }
+            if (clicked.isNotEmpty()) { SectionTitle(tl("What clicked")); Paged(clicked, key = "c") { item(it) } }
+            if (clicked.isEmpty() && looks.isEmpty()) Quiet(tl("After you try a quiz or a test, the topics that clicked and the ones worth another look show up here."))
         }
         SectionTitle(tl("Study routine"))
         RowLink(tl("Set or change your study days"), tl("Optional. Some people like a rhythm; nothing changes unless you set one."), openRoutine)
-        var open by rememberSaveable { mutableStateOf(false) }
-        SectionTitle(tl("Test results"))
-        ListRow(tl("Scores"), onClick = { open = !open }, leading = { RowIcon(Icons.Outlined.Assessment) },
-                trailing = { Icon(if (open) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null) })
-        if (open) MyScores(openScores)
         AdaptCard()
     }
 }
@@ -245,7 +255,7 @@ fun ProgressScreen(openTopic: (Int) -> Unit, openRoutine: () -> Unit, openScores
 private fun MyScores(open: (Int) -> Unit) {
     val d = rememberLoad("scores") { get("/me/scores", Scores.serializer()) }
     val x = (d.state as? Load.Ok)?.value ?: return
-    if (x.courses.isEmpty()) { Quiet(tl("No test results yet.")); return }
+    if (x.courses.isEmpty()) { Quiet(tl("No test results yet.")); return }  // nothing above: the section title says what will be here
     Paged(x.courses, key = "sc") { c ->
         RowLink(c.course, (if (c.final == null) tl("No tests taken yet") else tl("Final score {final}%", "final" to c.final)) + " " +
                 tl("· {taken} of {length} taken · {passed} passed", "taken" to c.taken, "length" to c.tests.size, "passed" to c.passed), { open(c.course_id) }) {
@@ -322,6 +332,7 @@ fun AttemptScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
         Loaded(d) { v ->
             Panel {
                 Text("${v.score} / ${v.total} · ${v.percent}%", style = MaterialTheme.typography.headlineSmall)
+                ResultFacts(v.counts, v.number)
                 Quiet(tl("Pass mark {pass}%.", "pass" to v.pass_percent) + if (v.summary.isNotEmpty()) " " + v.summary else "")
             }
             if (v.areas.isNotEmpty()) { SectionTitle(tl("What you are good at and what to revisit")); AreaList(v.areas, onStudy = openTopic) }
@@ -338,14 +349,14 @@ fun AttemptScreen(id: Int, back: () -> Unit, openTopic: (Int) -> Unit) {
 @Composable
 private fun AttemptQuestion(i: Int, x: AQuestion, reveal: Boolean) = Panel {
     Text(tl("Question {v} ·", "v" to i + 1) + " " + (if (x.ok) tl("Right") else tl("Wrong")) + (if (x.area.isNotEmpty()) " · " + x.area else ""), fontWeight = FontWeight.SemiBold)
-    Md(x.text); QImage(x.image)
+    MathMd(x.text); QImage(x.image, tl("Picture for question {pos}", "pos" to i + 1))
     x.options.forEachIndexed { k, o ->
         val mine = x.chosen_known && x.chosen == k; val key = reveal && x.correct == k
         Option(k, o, x.option_images.getOrElse(k) { "" }, when { key || (mine && x.ok) -> OptState.Ok; mine -> OptState.Bad; else -> OptState.Plain },
                tag = listOfNotNull(if (mine) tl("Your answer") else null, if (key) tl("Correct answer") else null).joinToString(" · "))
     }
     if (x.chosen_known && x.chosen == null) Quiet(tl("Left blank."))
-    if (x.explanation.isNotEmpty()) Md(x.explanation)
+    if (x.explanation.isNotEmpty()) MathMd(x.explanation)
 }
 
 enum class OptState { Plain, Picked, Ok, Bad }
@@ -365,7 +376,7 @@ fun Option(k: Int, text: String, img: String, state: OptState, tag: String = "",
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(LET[k].toString(), fontWeight = FontWeight.Bold, color = line, modifier = Modifier.padding(end = 12.dp))
             Column(Modifier.weight(1f)) {
-                if (img.isNotEmpty()) QImage(img)
+                if (img.isNotEmpty()) QImage(img, tl("Answer {k}", "k" to LET[k]))
                 if (text.isNotEmpty()) MathMd(text) else if (img.isEmpty()) Text("—")
                 if (tag.isNotEmpty()) Text(tag, style = MaterialTheme.typography.labelMedium, color = line)
             }
@@ -377,8 +388,9 @@ fun Option(k: Int, text: String, img: String, state: OptState, tag: String = "",
     else Card(Modifier.fillMaxWidth().padding(top = 6.dp), shape = shape, colors = colors, border = BorderStroke(1.dp, line)) { body() }
 }
 
+/** a picture on a question, an answer or an explanation, with what it is for a screen reader */
 @Composable
-fun QImage(src: String) { if (src.isNotEmpty()) AsyncImage(api().base + src, null, Modifier.fillMaxWidth().heightIn(max = 260.dp).padding(vertical = 4.dp)) }
+fun QImage(src: String, label: String) { if (src.isNotEmpty()) AsyncImage(api().base + src, label, Modifier.fillMaxWidth().heightIn(max = 260.dp).padding(vertical = 4.dp)) }
 
 // ---- the study routine and today's session
 

@@ -245,6 +245,7 @@ textarea.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:
 .schip{display:inline-flex;align-items:center;gap:4px;padding:6px 10px;border-radius:99px;background:rgba(255,255,255,.16);color:inherit;font-size:13px;font-weight:600;flex:none}
 .sfile{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}.sfile .chip{margin:0}.sfile .tool{margin:0}
 .chip.none{background:transparent;border:1px solid var(--line);color:var(--mut)}
+.chip.on{background:var(--vio);color:#fff}
 
 /* ---- Zigora enterprise layer ---- */
 @media (min-width:600px) and (max-width:899px){:root{--w:760px}.main{padding-inline-start:24px;padding-inline-end:24px}.bar{padding-inline-start:24px;padding-inline-end:24px}.stats{grid-template-columns:repeat(4,1fr)}}
@@ -561,4 +562,37 @@ a.btn,a.tool{text-decoration:none}
 .roster{align-items:flex-start;gap:8px}.roster .tools .tool{margin:2px}.pickppl{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow:auto;margin:6px 0 10px;padding:6px;border:1px solid var(--line);border-radius:10px}
 .msgfile{display:flex;align-items:center;gap:8px;margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--s2);color:var(--tx);text-decoration:none;overflow-wrap:anywhere}
 .msgfile span{flex:1;font-weight:600}.msgfile small{color:var(--acct);font-weight:600}
+
+.revline{padding:6px 0;border-top:1px solid var(--line)}.revline:first-of-type{border-top:0}.revline .prose p{margin:4px 0}.revline .tool{margin-top:2px}
+.spark{display:flex;align-items:flex-end;gap:2px;height:28px;min-width:40px;max-width:120px;flex-shrink:0}.spark i{flex:1;min-width:3px;background:var(--acc);border-radius:2px 2px 0 0;opacity:.8}
+.vcard{text-decoration:none}
+.dqstats .stat{cursor:pointer;text-align:start}.dqstats .stat.on{outline:2px solid var(--acc)}
+.resvideo{width:100%;max-height:60vh;border-radius:10px;margin-top:6px;background:#000}
+
+/* admin pages on a desktop: an admin works at a desk, so buttons are as wide as their words, a page's filters share a row, settings read at a
+   comfortable width and the section tabs line up with the page. Phones keep the full-width controls above. */
+@media (min-width:900px){
+  [data-role=admin] .main .btn:not(.choice){width:auto;padding:11px 20px}
+  [data-role=admin] .main .two{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  [data-role=admin] .main .two>*{flex:1 1 220px;min-width:0}
+  [data-role=admin] .main .two>.btn{flex:0 0 auto}
+  [data-role=admin] .main .btn:not(.choice)+.btn{margin-inline-start:10px}  /* two buttons side by side, outside a .two row */
+  [data-role=admin] .main .two>.btn+.btn{margin-inline-start:0}
+  [data-role=admin] .filters{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  [data-role=admin] .filters select:nth-child(3){grid-column:auto}
+  [data-role=admin] .cfg>:not(.tabs){max-width:760px}
+  [data-role=admin] .sectabs{max-width:1120px;padding:0 32px}
+  [data-role=admin] .sectabs .tabs{width:fit-content;max-width:100%}
+  [data-role=admin] .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}  /* five counts in one row, not four and one */
+  [data-role=admin] .stats+.known{margin-top:10px}
+  [data-role=admin] .main>.btn{margin-bottom:12px}
+  [data-role=admin] .filters+.card{margin-top:12px}
+}
+/* the MCQ bank on a wider screen: a question's options two by two, in slimmer rows, so a page holds several questions */
+.qbox>.chips:last-child{padding-bottom:0}  /* a question's tools end its box */
+@media (min-width:900px){.bopts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}.bopts .opt{margin:0;padding:8px 12px}}
+
+/* the sidebar's groups: a quiet heading over each (Students, Tests, Saved), or a thin line before the last few */
+.dgrp{padding:14px 16px 4px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mut);opacity:.75}
+.dsep{border:0;border-top:1px solid var(--line);margin:8px 14px}
 .splithere{display:flex;align-items:center;gap:6px;width:100%;justify-content:center;margin:6px 0;padding:6px;border:1px dashed var(--line,#ccc);border-radius:var(--r-ctl,8px);color:var(--acc)}

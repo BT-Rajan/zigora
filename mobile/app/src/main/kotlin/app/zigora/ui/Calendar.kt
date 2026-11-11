@@ -162,11 +162,11 @@ fun CalendarScreen(back: (() -> Unit)?) {
             if (sel != null) {
                 SectionTitle(runCatching { LocalDate.parse(sel).let { "${it.dayOfWeek.getDisplayName(TextStyle.FULL, loc)}, ${dayLabel(sel, loc)}" } }.getOrDefault(sel))
                 val xs = r.items.filter { covers(it, sel) }
-                if (xs.isEmpty()) Quiet(tl("Nothing on this day.")) else xs.forEach { CalRow(it) { x -> open(x) } }
+                if (xs.isEmpty()) Quiet(tl("Nothing on this day.")) else Paged(xs, key = "day") { CalRow(it) { x -> open(x) } }
             } else {
                 SectionTitle(tl("Coming up"))
                 val up = r.items.filter { (it.end ?: it.date) >= today && it.kind !in listOf("studied", "result") && it.state != "done" }.take(8)
-                if (up.isEmpty()) Quiet(tl("Nothing coming up this month.")) else up.forEach { CalRow(it) { x -> open(x) } }
+                if (up.isEmpty()) Quiet(tl("Nothing coming up this month.")) else Paged(up, key = "up") { CalRow(it) { x -> open(x) } }
             }
         }
         SectionTitle(tl("On your phone's calendar"))
@@ -255,6 +255,6 @@ fun ComingUp(openCalendar: () -> Unit) {
     val now = LocalDate.now()
     val r = rememberLoad("coming-up") { runCatching { get("/calendar?start=$now&end=${now.plusDays(14)}", CalResp.serializer()) }.getOrNull() }
     val xs = (r.state as? Load.Ok)?.value?.items.orEmpty().filter { it.kind !in listOf("studied", "result", "session") && it.state != "done" }
-    if (xs.isNotEmpty()) { SectionTitle(tl("Coming up")); xs.take(3).forEach { CalRow(it, null) } }
+    if (xs.isNotEmpty()) { SectionTitle(tl("Coming up")); Paged(xs.take(3), key = "soon") { CalRow(it, null) } }
     ListRow(tl("Calendar"), tl("Exams, deadlines and your study days in one place"), onClick = openCalendar, leading = { RowIcon(Icons.Outlined.CalendarMonth) })
 }

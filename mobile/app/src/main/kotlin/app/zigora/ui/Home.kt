@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -87,7 +88,7 @@ fun firstName(n: String): String {  // as on the web: a title stays with the sur
 @Composable
 fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, openQuiz: (Int) -> Unit, openNotes: () -> Unit, openPhoto: () -> Unit,
                openSearch: () -> Unit, openRoutine: () -> Unit, openSession: (app.zigora.data.SessionItem) -> Unit, openStudy: () -> Unit,
-               openOwn: (Int, Int) -> Unit, review: (Int) -> Unit, openMcq: () -> Unit = {}, openCalendar: () -> Unit = {}, openProgress: () -> Unit = {}, openPlan: () -> Unit = {}, openClasses: () -> Unit = {}, openJoin: () -> Unit = {}) {
+               openOwn: (Int, Int) -> Unit, review: (Int) -> Unit, openMcq: () -> Unit = {}, openCalendar: () -> Unit = {}, openProgress: () -> Unit = {}, openPlan: () -> Unit = {}, openClasses: () -> Unit = {}, openJoin: () -> Unit = {}, openSet: (Int) -> Unit = {}) {
     val tree = rememberLoad("tree") { get("/tree", ListSerializer(ProgramNode.serializer())) }
     val zapp = app(); androidx.compose.runtime.LaunchedEffect(tree.state) { if (tree.state !is Load.Loading) zapp.firstScreenReady.value = true }
     val today = rememberLoad("today") { get("/me/today", Today.serializer()) }
@@ -119,10 +120,11 @@ fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, open
                 CourseInvitesCard(openJoin)
                 NextClassCard(openClasses)
                 sess?.let { SessionCard(it, openRoutine, openSession) { n -> sess = n } }
+                if (me.role == "student") SupportCard(openTopic, openQuiz, openSet)  // S45: a teacher's extra practice
                 if (dd != null) {  // what to do next, then this week; with a routine, today's session already lists the topics
                     val items = if (sess?.routine != null) dd.items.filter { !it.key.startsWith("focus_") } else dd.items
                     if (items.isNotEmpty()) SectionTitle(tl("Do next"))
-                    items.forEach { x -> DoNextRow(x) {
+                    Paged(items) { x -> DoNextRow(x) {
                         when (x.action) {
                             "topic" -> x.target.topic_id?.let(openTopic) ?: openProgress()
                             "quiz" -> x.target.quiz_id?.let(openQuiz) ?: openProgress()
@@ -137,8 +139,9 @@ fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, open
                                                      onClick = { openTopic(f.topic_id) }, leading = { RowIcon(Icons.Filled.PlayArrow) })
                 }
                 RecallCard(openTopic)
-                ListRow(tl("MCQ practice"), tl("Questions from your courses, with answers explained"), onClick = openMcq, leading = { RowIcon(Icons.Outlined.Checklist) })
                 ComingUp(openCalendar)
+                SectionTitle(tl("Practice"))
+                ListRow(tl("MCQ practice"), tl("Questions from your courses, with answers explained"), onClick = openMcq, leading = { RowIcon(Icons.Outlined.Checklist) })
                 if (sme != null && sme.courses > 0) { SectionTitle(tl("Your own courses")); LearnCard(sme, openOwn, review) }
                 Loaded(tree) { list ->
                     val courses = coursesOf(list)
@@ -160,20 +163,20 @@ fun HomeScreen(me: Me, openTopic: (Int) -> Unit, openCourse: (Int) -> Unit, open
 
 @Composable
 fun CourseList(courses: List<CourseNode>, open: (Int) -> Unit) {
-    val ctx = LocalContext.current
+    val toast = rememberToast(); val unavailable = stringResource(R.string.course_unavailable)
     Paged(courses) { c ->
         val topics = c.units.flatMap { it.topics }
         val done = topics.count { it.status == "completed" }; val opened = topics.count { it.status != "not_started" }
         val i = courses.indexOf(c)
         val soon = (c.upcoming && c.starts_on != null) || c.paused
         val startsMsg = if (c.paused) tl("This course is paused for now. Your teacher will reopen it.") else c.starts_on?.let { tl("This course starts on {date}", "date" to day(it)) }.orEmpty()
-        if (soon) { ListRow(c.name, if (c.paused) tl("Paused") else tl("Starts on {date}", "date" to day(c.starts_on!!)), onClick = { android.widget.Toast.makeText(ctx, startsMsg, android.widget.Toast.LENGTH_SHORT).show() },
+        if (soon) { ListRow(c.name, if (c.paused) tl("Paused") else tl("Starts on {date}", "date" to day(c.starts_on!!)), onClick = { toast(startsMsg) },
                             leading = { RowIcon(Icons.Outlined.Lock) }, trailing = {}); return@Paged }
         ListRow(c.name,
             if (c.archived) stringResource(R.string.course_unavailable)
             else listOfNotNull(pluralStringResource(R.plurals.topics, topics.size, topics.size),
                 if (opened > 0) stringResource(R.string.n_opened, opened) else null, if (done > 0) stringResource(R.string.n_learned, done) else null).joinToString(" · "),
-            onClick = { if (c.archived) android.widget.Toast.makeText(ctx, R.string.course_unavailable, android.widget.Toast.LENGTH_SHORT).show() else open(c.id) },
+            onClick = { if (c.archived) toast(unavailable) else open(c.id) },
             leading = { if (c.archived) RowIcon(Icons.Outlined.Lock) else Dot(c.name, CourseColors[i % CourseColors.size]) },
             trailing = if (c.archived) ({}) else null)
     }
@@ -220,9 +223,8 @@ private fun DoNextRow(x: app.zigora.data.SDashItem, act: () -> Unit) {
     val dot = when (x.level) { "now" -> MaterialTheme.colorScheme.error; "soon" -> MaterialTheme.colorScheme.tertiary; else -> MaterialTheme.colorScheme.outline }
     val label = when (x.action) { "quiz" -> tl("Take the quiz"); "progress" -> tl("See weak topics"); "calendar" -> tl("Open calendar"); "mcq" -> tl("Practise"); "plan" -> tl("See my plan"); else -> tl("Open") }
     ListRow(x.title ?: tl(x.text, *v.map { it.key to it.value }.toTypedArray()),
-        if (x.title != null) listOfNotNull(app.zigora.data.I18n.srv(x.text), x.course).joinToString(" · ") else "", onClick = act,
-        leading = { androidx.compose.foundation.layout.Box(Modifier.padding(4.dp).background(dot, androidx.compose.foundation.shape.RoundedCornerShape(50)).padding(5.dp)) },
-        trailing = { TextButton(onClick = act) { Text(label) } })
+        listOfNotNull(if (x.title != null) app.zigora.data.I18n.srv(x.text) else null, x.course?.takeIf { x.title != null }, label).joinToString(" · "), onClick = act,
+        leading = { androidx.compose.foundation.layout.Box(Modifier.size(10.dp).background(dot, androidx.compose.foundation.shape.CircleShape)) })
 }
 
 /** this week at a glance: the streak, the last seven days, topics learned; tapping opens My progress */
