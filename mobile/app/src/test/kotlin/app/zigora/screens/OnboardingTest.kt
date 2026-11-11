@@ -128,7 +128,7 @@ class OnboardingTest {
         signIn("asha@x.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Asha"); rule.onAllNodesWithContentDescription("Menu").onFirst().performClick()
         see("Join a course"); see("My routine"); see("Classes and announcements"); shot("onboarding-15-drawer")
-        tap("Calendar"); see("Calendar")
+        tap("My routine"); see("Minutes a session")
     }
 
     @Test fun aParentSeesTheirChildAndTheAiKey() {
@@ -152,7 +152,8 @@ class OnboardingTest {
         see("Science"); shot("onboarding-09-child-home")
         rule.onAllNodesWithText("Science").onFirst().performClick()  // the course card (an exact match, not a topic row that names the course)
         see("Soft water"); tap("Soft water")
-        see(AI_OFF); shot("onboarding-10-child-topic-no-ai")
+        see("Notes"); assertTrue("without AI the steps are only the notes", none("The gist"))  // one step per screen: the notes, then I've learned this
+        see("Full page"); tap("Full page"); see(AI_OFF); shot("onboarding-10-child-topic-no-ai")
         assertTrue("no Explain tab without a key", none("Sample answer"))
     }
 

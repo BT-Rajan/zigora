@@ -49,7 +49,7 @@ class TourTest {
 
     private fun shot(name: String) { rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
     private fun see(text: String) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), 20_000)
-    private fun tap(text: String) { see(text); rule.onAllNodesWithText(text, substring = true).onFirst().performScrollTo().performClick() }
+    private fun tap(text: String) { see(text); val n = rule.onAllNodesWithText(text, substring = true).onFirst(); runCatching { n.performScrollTo() }; n.performClick() }  // a top bar button (Full page) has nothing to scroll
     private fun tab(text: String) {  // a bottom tab, or else the item in the drawer, swiped open from the left edge
         if (rule.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isEmpty()) {
             rule.onRoot().performTouchInput { swipeRight(startX = left + 2f, endX = centerX) }
@@ -87,7 +87,7 @@ class TourTest {
         rule.onNodeWithContentDescription("Close").performClick(); tap("Water Technology quiz"); see("Which salts"); shot("06-quiz"); back(); back()
         tab("Saved"); see("Hardness of Water"); shot("07-saved")
         tap("Highlights"); see("hard water"); shot("08-highlights")
-        tab("Progress"); see("Study routine"); see("Topics learned"); see("Final score"); shot("09-progress")  // once it has loaded
+        tab("My progress"); see("Study routine"); see("Topics learned"); see("Final score"); shot("09-progress")  // once it has loaded
         see("Test scores"); see("Final score"); shot("10-test-results")  // scores show on the page itself
         tap("Final score"); see("Water Technology quiz"); shot("11-score-course")
         tap("Water Technology quiz"); see("latest"); shot("12-attempts")
