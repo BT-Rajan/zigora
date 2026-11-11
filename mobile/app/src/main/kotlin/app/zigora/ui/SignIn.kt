@@ -135,7 +135,8 @@ fun SignIn(done: (Me) -> Unit) {
                 com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(cred.data).idToken
             else { msg = tl("Google sign-in didn't work. Try again."); return@act }
         } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) { return@act }  // they closed Google's sheet
-        catch (e: androidx.credentials.exceptions.GetCredentialException) { msg = tl("Google sign-in didn't work. Try again."); return@act }
+        catch (e: androidx.credentials.exceptions.NoCredentialException) { msg = tl("There is no Google account on this phone. Add one in the phone's Settings, or use your email."); return@act }
+        catch (e: androidx.credentials.exceptions.GetCredentialException) { msg = googleTrouble(e); android.util.Log.w("zigora", "Google sign-in: ${e.type}: ${e.message}"); return@act }
         val r = app.api.raw("POST", "/login/google", buildJsonObject { put("credential", token) }).jsonObject
         if (r["token"] != null) { val out = json.decodeFromJsonElement(LoginOut.serializer(), r); app.store.token = out.token; done(out.user) }
         else {  // no account with this Google email: sign up, with the email Google checked and no password to choose
@@ -377,4 +378,15 @@ fun serverCandidates(typed: String): List<String> {
             "${it.scheme.lowercase()}://${it.host}" + (if (it.port != -1) ":${it.port}" else "") + folder
         }
     }.distinct()
+}
+
+/** why Google's sheet gave no sign-in, in words a person (and whoever sets the app up) can act on; the raw reason is kept short at the end */
+fun googleTrouble(e: androidx.credentials.exceptions.GetCredentialException): String {
+    val m = (e.message ?: "") + " " + e.type
+    val why = when {
+        "28444" in m || "eveloper console" in m || "10:" in m -> tl("Google sign-in isn't set up for this app yet: the app's Android client (package and SHA-1) is missing from the Google Cloud project. Use your email meanwhile, and tell your admin.")
+        "network" in m.lowercase() || "7:" in m -> tl("Google couldn't be reached. Check the connection and try again.")
+        else -> tl("Google sign-in didn't work. Try again, or use your email.")
+    }
+    return why + " (" + (e.message ?: e.type).take(80) + ")"
 }

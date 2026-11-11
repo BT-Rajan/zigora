@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="plum">#FF722F99</color>
-    <color name="coral">#FFFF9292</color>
-    <color name="cream">#FFFEE7C8</color>
-    <color name="splash_bg">#FF722F99</color>
-    <color name="window_bg">#FFFBF9FC</color>
+    <!-- Calm blue. The names stay as the logo's parts used them: plum is now the blue tile, coral the amber stroke, cream the white bars. -->
+    <color name="plum">#FF2563EB</color>
+    <color name="coral">#FFF59E0B</color>
+    <color name="cream">#FFFFFFFF</color>
+    <color name="splash_bg">#FF2563EB</color>
+    <color name="window_bg">#FFF8FAFC</color>
 </resources>

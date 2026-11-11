@@ -2,7 +2,7 @@ import {useState,useEffect,useCallback,useRef,createContext,useContext,Children,
 import {createPortal} from 'react-dom'
 import {Md,Body} from './content.jsx'
 import {ROOT,at} from './base.js'
-import {ExternalLink,ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone,Scissors} from 'lucide-react'
+import {ExternalLink,ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone,Scissors} from 'lucide-react'
 import '@fontsource/bricolage-grotesque/600.css'
 import '@fontsource/bricolage-grotesque/800.css'
 import '@fontsource/instrument-sans/400.css'
@@ -37,7 +37,7 @@ const TEMPLATE=`program,semester,course,unit,topic,content,question_pattern,samp
 B.E. Mechanical Engineering,Semester 3,Thermodynamics,Unit 1: Basic concepts,First law of thermodynamics,"Energy can change form but is never created or destroyed.","2 marks: define. 13 marks: derive and solve a numerical.","Q: State the first law for a closed system.","Introduction, labelled diagram, steps, units, conclusion"
 ,,,,Zeroth law of thermodynamics,"If A and B are each in equilibrium with C, they are in equilibrium with each other.","2 marks: state the law.","Q: State the zeroth law.","Definition, one example, significance"
 `
-const COL=['#722f99','#c2464e','#7a6f70','#9a6420','#4e1d6c']
+const COL=['#2563eb','#f59e0b','#15803d','#b91c1c','#64748b']
 const when=iso=>new Date(iso).toLocaleString(locale(),{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'})  // shown in the viewer's own time zone
 const localInput=iso=>{if(!iso)return '';const d=new Date(iso),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`}
 const Mark=({s})=>s==='completed'?<Check className="done" aria-label={tl("Learned")}/>:null  // only what the student marked as learned; nothing for the rest
@@ -51,11 +51,11 @@ const PAGE=10  // the rule: any list longer than ten rows gets numbered pages
 const pl=(n,w)=>tl(n===1?'{n} '+w:'{n} '+(w==='quiz'?'quizzes':w+'s'),{n})  // "1 topic", "3 topics": each form is its own phrase to translate
 const matches=n=>tl(n===1?'{n} match':'{n} matches',{n})
 const Ctx=createContext({})
-const THEMES=L([['system',Monitor,tl("Auto")],['light',Sun,tl("Light")],['dark',Moon,tl("Dark")]])
-const readTheme=()=>{try{return localStorage.theme||'system'}catch{return 'system'}}
-const applyTheme=t=>{const r=document.documentElement;if(t==='light'||t==='dark')r.dataset.theme=t;else delete r.dataset.theme;const dark=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#120e17':'#f6f4f7')}
+const THEMES=L([['light',Sun,tl("Light")],['dark',Moon,tl("Dark")]])
+const readTheme=()=>{try{return localStorage.theme==='dark'?'dark':'light'}catch{return 'light'}}  // light unless the user picks dark
+const applyTheme=t=>{const dark=t==='dark';document.documentElement.dataset.theme=dark?'dark':'light';document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#0f172a':'#f8fafc')}
 // the Zigora mark: a Z in cream and coral on plum (the same drawing as public/favicon.svg)
-const ZMark=({size=40})=><svg className="zmark" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#722f99"/><rect x="16" y="15" width="32" height="8" rx="2.5" fill="#fee7c8"/><path d="M38.5 23H48L25.5 41H16Z" fill="#ff9292"/><rect x="16" y="41" width="32" height="8" rx="2.5" fill="#fee7c8"/></svg>
+const ZMark=({size=40})=><svg className="zmark" width={size} height={size} viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#2563eb"/><rect x="16" y="15" width="32" height="8" rx="2.5" fill="#ffffff"/><path d="M38.5 23H48L25.5 41H16Z" fill="#f59e0b"/><rect x="16" y="41" width="32" height="8" rx="2.5" fill="#ffffff"/></svg>
 const Logo=({src,size=40})=>src?<img className="logo" src={at(src)} alt="" width={size} height={size} style={{width:size,height:size}}/>:<ZMark size={size}/>
 const Lockup=({logo,name,size=40})=><div className="lockup"><Logo src={logo} size={size}/><b>{name}</b></div>
 // sign-in, reset and first-password pages: the form, with a brand panel beside it on wide screens
@@ -64,7 +64,7 @@ const cap=w=>w?w[0].toUpperCase()+w.slice(1):''
 const LangSwitch=({lang,pick})=><label className="langsw" title={tl("Language")}><Globe size={17} aria-hidden="true"/><select aria-label={tl("Language")} value={lang} onChange={e=>pick(e.target.value)}>{LANGS.map(([k,l])=><option key={k} value={k} lang={k}>{l}</option>)}</select></label>
 const AuthFrame=({logo,name,children,lang,pick})=><div className="auth"><div className="authlang"><LangSwitch lang={lang} pick={pick}/></div><aside className="authart" aria-hidden="true"><Lockup logo={logo} name={name} size={44}/>
   <div><h2>{tl("Learn engineering, one topic at a time.")}</h2><p>{tl("Courses, notes, practice tests and progress for every program, semester and student, in one place.")}</p></div>
-  <div className="bands"><i style={{background:'#722f99'}}/><i style={{background:'#c5c1c1'}}/><i style={{background:'#fee7c8'}}/><i style={{background:'#ff9292'}}/></div></aside>{children}</div>
+  <div className="bands"><i style={{background:'#dbeafe'}}/><i style={{background:'#93c5fd'}}/><i style={{background:'#ffffff'}}/><i style={{background:'#f59e0b'}}/></div></aside>{children}</div>
 
 export default function App(){
   const [user,setUser]=useState(null),[ready,setReady]=useState(false),[pageSel,setPage]=useState(null),[msg,setMsg]=useState(''),[open,setOpen]=useState(false),[name,setName]=useState('Zigora'),[canReset,setCanReset]=useState(false),[canReg,setCanReg]=useState(false),[googleId,setGoogleId]=useState(null),[resetTok,setResetTok]=useState(()=>(/^#reset=([\w-]+)$/.exec(location.hash)||[])[1]||null),[start,setStart]=useState(null),[logo,setLogo]=useState(null),[theme,setTheme]=useState(readTheme),[ask,setAsk]=useState(null),[studyStart,setStudyStart]=useState(null),[findQ,setFindQ]=useState({q:'',n:0}),[lang,setLangS]=useState(()=>applyLang(firstLang())),picked=useRef(false)
@@ -82,8 +82,8 @@ export default function App(){
       toast(m[1]==='ok'||r.paid?tl("Payment received. You have Pro until {date}.",{date:new Date(new Date(r.pro_until)-1).toLocaleDateString(locale(),{day:'numeric',month:'short',year:'numeric'})})
         :m[1]==='no'?tl("The payment was not completed."):tl("No word from Razorpay yet. If you paid, Pro starts within a few minutes."))}).catch(()=>{})},[user])
   useEffect(()=>{Promise.allSettled([loadLang(lang),api('/config').then(c=>{setName(c.name);setLogo(c.logo||null);setCanReset(!!c.email_reset);setCanReg(c.self_registration?(c.email_signup===false?'google':'email'):false);setGoogleId(c.google_client_id||null);document.title=c.name}),localStorage.t?api('/me').then(setUser).catch(e=>{if(!e.offline)localStorage.removeItem('t')}):null]).then(()=>setReady(true))},[])
-  useEffect(()=>{applyTheme(theme);if(theme!=='system')return;const m=matchMedia('(prefers-color-scheme: dark)'),f=()=>applyTheme('system');m.addEventListener('change',f);return()=>m.removeEventListener('change',f)},[theme])
-  const pickTheme=t=>{setTheme(t);try{t==='system'?localStorage.removeItem('theme'):localStorage.theme=t}catch{/* private mode: the choice lasts until the page closes */}}
+  useEffect(()=>{applyTheme(theme)},[theme])
+  const pickTheme=t=>{setTheme(t);try{localStorage.theme=t}catch{/* private mode: the choice lasts until the page closes */}}
   useEffect(()=>{const k=e=>e.key==='Escape'&&setOpen(false);addEventListener('keydown',k);return()=>removeEventListener('keydown',k)},[])
   useEffect(()=>{document.body.style.overflow=open?'hidden':''},[open])
   if(!ready)return null
@@ -2692,19 +2692,43 @@ const shrink=file=>new Promise((ok,bad)=>{const fail=()=>bad(new Error(tl("That 
     im.onload=()=>{const k=Math.min(1,PHOTO_SIZE/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k)
       c.getContext('2d').drawImage(im,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.85))}  // a re-drawn JPEG carries no location or camera details
     im.onerror=fail;im.src=rd.result};rd.readAsDataURL(file)})
+// The camera inside the page: a live view and a shutter button. The photo is drawn to a canvas at PHOTO_SIZE, like a chosen photo,
+// so only a small JPEG is kept. When the camera can't be opened (no camera, or permission refused) it says so and offers the gallery.
+function CameraSheet({close,gallery,shot}){
+  const v=useRef(),[err,setErr]=useState(''),[live,setLive]=useState(false)
+  useEffect(()=>{let stream,gone=false
+    if(!navigator.mediaDevices?.getUserMedia){setErr(tl("This browser can't open the camera here. Choose a photo from your gallery instead."));return}
+    navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false}).then(s=>{
+      if(gone){s.getTracks().forEach(t=>t.stop());return}stream=s;v.current.srcObject=s;v.current.play().catch(()=>{});setLive(true)
+    }).catch(e=>setErr(e?.name==='NotAllowedError'?tl("Camera permission was refused. Allow the camera for this site in your browser, or choose a photo from your gallery."):tl("The camera couldn't be opened. Choose a photo from your gallery instead.")))
+    return()=>{gone=true;stream?.getTracks().forEach(t=>t.stop())}},[])
+  const take=()=>{const el=v.current,w=el.videoWidth,h=el.videoHeight;if(!w||!h)return
+    const k=Math.min(1,PHOTO_SIZE/Math.max(w,h)),c=document.createElement('canvas');c.width=Math.round(w*k);c.height=Math.round(h*k)
+    c.getContext('2d').drawImage(el,0,0,c.width,c.height);shot(c.toDataURL('image/jpeg',0.85))}
+  return <div className="camsheet" role="dialog" aria-modal="true" aria-label={tl("Take a photo")}>
+    <video ref={v} playsInline muted autoPlay/>
+    {err&&<p className="camerr">{err}</p>}
+    <div className="cambar"><button className="btn ghost" onClick={close}>{tl("Cancel")}</button>
+      {live?<button className="shutter" aria-label={tl("Take the photo")} onClick={take}/>:<span/>}
+      <button className="btn ghost" onClick={gallery}><ImagePlus size={18}/>{" "}{tl("Gallery")}</button></div>
+  </div>}
 function PhotoAsk({toast}){
   const [img,setImg]=useState(null),[text,setText]=useState(''),[reading,setReading]=useState(false),[q,setQ]=useState(''),[diagram,setDiagram]=useState(false)
-  const [busy,setBusy]=useState(false),[answers,setAnswers]=useState([]),[st,setSt]=useState({}),cam=useRef(),gal=useRef()
+  const [busy,setBusy]=useState(false),[answers,setAnswers]=useState([]),[st,setSt]=useState({}),gal=useRef()
   useEffect(()=>{api('/ai/status').then(setSt).catch(()=>{})},[])
+  const [camOn,setCamOn]=useState(false)
+  const readPhoto=async d=>{setImg(d);setText('');setAnswers([]);setDiagram(false);setReading(true)
+    try{const r=await api('/photo/read',{method:'POST',body:{image:d}});setText(r.text)}catch(er){toast(er.message)}setReading(false)}
   const pick=async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return
-    try{const d=await shrink(f);setImg(d);setText('');setAnswers([]);setDiagram(false);setReading(true)
-      const r=await api('/photo/read',{method:'POST',body:{image:d}});setText(r.text)}catch(er){toast(er.message)}setReading(false)}
+    let d;try{d=await shrink(f)}catch(er){toast(er.message);return}readPhoto(d)}
+  // the camera opens inside the page: handing over to the phone's camera app made Android close the browser tab for memory
   const ask=async(question=q)=>{if(!question.trim())return;setBusy(true)
     try{const r=await api('/photo/ask',{method:'POST',body:{question,text,image:diagram?img:null,diagram}});setAnswers(a=>[{q:question,...r},...a]);setQ('')}catch(er){toast(er.message)}setBusy(false)}
   const quick=diagram?[tl("What does the diagram show?"),tl("Explain the labelled parts")]:[tl("Explain this simply"),tl("Solve it step by step"),tl("What will the exam ask about this?")]
   return <><Bar title={tl("Ask from a photo")} sub={tl("A question, a paragraph or a diagram from your book")}/><div className="main">
-    <input ref={cam} type="file" accept="image/*" capture="environment" hidden onChange={pick}/><input ref={gal} type="file" accept="image/*" hidden onChange={pick}/>
-    <div className="two"><button className="btn" style={{marginTop:0}} onClick={()=>cam.current.click()}><Camera size={18}/>{" "}{img?tl("Retake"):tl("Take a photo")}</button>
+    <input ref={gal} type="file" accept="image/*" hidden onChange={pick}/>
+    {camOn&&<CameraSheet close={()=>setCamOn(false)} gallery={()=>{setCamOn(false);gal.current.click()}} shot={d=>{setCamOn(false);readPhoto(d)}}/>}
+    <div className="two"><button className="btn" style={{marginTop:0}} onClick={()=>setCamOn(true)}><Camera size={18}/>{" "}{img?tl("Retake"):tl("Take a photo")}</button>
       <button className="btn ghost" style={{marginTop:0}} onClick={()=>gal.current.click()}><ImagePlus size={18}/>{" "}{tl("Choose a photo")}</button></div>
     {!img&&<p className="known">{tl("Hold the phone flat over the page, in good light, with only the part you are asking about in the photo.")}</p>}
     {img&&<><img className="photoprev" src={img} alt={tl("Your photo")}/>
@@ -2793,7 +2817,7 @@ function Outline({id}){
 // Markdown and HTML are highlighted right here; an interactive page runs in a sandboxed frame (no access to the app or the sign-in) and
 // sends its highlight requests here by postMessage, which this page checks and saves for it.
 const Content=memo(({text,format})=><Body text={text} format={format}/>)
-const HL_COL={coral:'#ff9292',yellow:'#ffd60a',green:'#50c878',blue:'#5aa0ff'}
+const HL_COL={coral:'#fb923c',yellow:'#ffd60a',green:'#50c878',blue:'#5aa0ff'}
 // one saved highlight: the passage in its colour, where it is (on the list of all of them), the reader's note, and remove
 function HlItem({h,where,onGo,onSaved,onDrop,onExplain,focus,toast}){
   const [ed,setEd]=useState(!!focus),[note,setNote]=useState(h.note||''),ta=useRef(null)

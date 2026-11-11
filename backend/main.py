@@ -517,7 +517,7 @@ async def secure_headers(request: Request, call_next):
     r = await call_next(request)
     if FRAME_PATH.match(request.url.path): r.headers["X-Content-Type-Options"] = "nosniff"; return r  # an interactive topic sets its own sandbox headers
     r.headers.update({"X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "same-origin", "Content-Security-Policy": CSP,
-                      "Permissions-Policy": "camera=(), microphone=(), geolocation=()"})
+                      "Permissions-Policy": "camera=(self), microphone=(), geolocation=()"})
     if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https": r.headers["Strict-Transport-Security"] = "max-age=31536000"
     p = request.url.path
     if not p.startswith("/api/") and "cache-control" not in r.headers:  # the screens: built files carry a hash in their name and never change;
@@ -594,10 +594,10 @@ def letter(lang, name, *parts):  # "Hi Asha," and the paragraphs, each already i
 def mail_day(lang, d): return d.strftime("%d %B %Y") if lang == "en" else f"{d.day}/{d.month}/{d.year}"  # month names only in English
 def mail_html(name, body, link, lang="en"):  # the same words as the text part, with the link as a button; inline styles, because mail apps drop style sheets
     paras = "".join(f'<p style="margin:0 0 14px">{htmllib.escape(x).replace(chr(10), "<br>")}</p>' for x in body.strip().split("\n\n") if not (link and x.strip() == link))
-    button = (f'<p style="margin:6px 0 20px"><a href="{htmllib.escape(link)}" style="background:#722f99;color:#fff;text-decoration:none;padding:12px 20px;'
+    button = (f'<p style="margin:6px 0 20px"><a href="{htmllib.escape(link)}" style="background:#2563eb;color:#fff;text-decoration:none;padding:12px 20px;'
               f'border-radius:999px;font-weight:600;display:inline-block">{htmllib.escape(mt(lang, "Open {name}", name=name))}</a></p>') if link else ""
     return (f'<div dir="{"rtl" if lang == "ar" else "ltr"}" style="font:15px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:#1e1626;max-width:560px;margin:0 auto;padding:24px">'
-            f'<p style="margin:0 0 20px;font-weight:700;font-size:18px;color:#722f99">{htmllib.escape(name)}</p>{paras}{button}</div>')
+            f'<p style="margin:0 0 20px;font-weight:700;font-size:18px;color:#2563eb">{htmllib.escape(name)}</p>{paras}{button}</div>')
 def gmail_login_help(e):
     return ("Gmail did not accept the sign-in (" + (getattr(e, "smtp_error", b"") or b"").decode(errors="replace").strip()[:120] + "). Usually: the account's own password was "
             "entered instead of a 16-letter App Password (Google Account > Security > 2-Step Verification > App passwords); 2-Step Verification is off, so App "
@@ -923,7 +923,7 @@ def manifest():
              {"src": a + "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
              {"src": a + "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]
     return JSONResponse({"name": APP_NAME, "short_name": APP_NAME[:12], "start_url": a, "scope": a, "display": "standalone", "orientation": "portrait",
-                         "background_color": "#f6f4f7", "theme_color": "#722f99", "icons": icons})
+                         "background_color": "#f8fafc", "theme_color": "#2563eb", "icons": icons})
 
 def _addcol(table, col, typ):
     def go(c):

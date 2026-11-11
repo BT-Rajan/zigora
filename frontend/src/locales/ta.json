@@ -3591,5 +3591,14 @@
 "This topic has no notes yet. Open the full page to bring your own notes.": "இந்தத் தலைப்புக்கு இன்னும் குறிப்புகள் இல்லை. உங்கள் குறிப்புகளைக் கொண்டு வர முழுப் பக்கத்தைத் திறங்கள்.",
 "That's the topic": "தலைப்பு முடிந்தது",
 "If it made sense, mark it learned. You can always come back to it.": "புரிந்திருந்தால், கற்றதாகக் குறியுங்கள். எப்போதும் திரும்ப வரலாம்.",
-"You've marked this topic as learned.": "இந்தத் தலைப்பைக் கற்றதாகக் குறித்துள்ளீர்கள்."
+"You've marked this topic as learned.": "இந்தத் தலைப்பைக் கற்றதாகக் குறித்துள்ளீர்கள்.",
+"There is no Google account on this phone. Add one in the phone's Settings, or use your email.": "இந்தத் தொலைபேசியில் Google கணக்கு இல்லை. தொலைபேசி அமைப்புகளில் ஒன்றைச் சேருங்கள், அல்லது உங்கள் மின்னஞ்சலைப் பயன்படுத்துங்கள்.",
+"Google sign-in isn't set up for this app yet: the app's Android client (package and SHA-1) is missing from the Google Cloud project. Use your email meanwhile, and tell your admin.": "இந்தச் செயலிக்கு Google உள்நுழைவு இன்னும் அமைக்கப்படவில்லை: Google Cloud திட்டத்தில் செயலியின் Android கிளையன்ட் (தொகுப்பு, SHA-1) இல்லை. இப்போதைக்கு மின்னஞ்சலைப் பயன்படுத்துங்கள், நிர்வாகியிடம் சொல்லுங்கள்.",
+"Google couldn't be reached. Check the connection and try again.": "Google ஐ அணுக முடியவில்லை. இணைப்பைச் சரிபார்த்து மீண்டும் முயலுங்கள்.",
+"Google sign-in didn't work. Try again, or use your email.": "Google உள்நுழைவு வேலை செய்யவில்லை. மீண்டும் முயலுங்கள், அல்லது மின்னஞ்சலைப் பயன்படுத்துங்கள்.",
+"This browser can't open the camera here. Choose a photo from your gallery instead.": "இந்த உலாவியால் இங்கே கேமராவைத் திறக்க முடியாது. அதற்குப் பதிலாக உங்கள் கேலரியிலிருந்து ஒரு படத்தைத் தேர்ந்தெடுக்கவும்.",
+"Camera permission was refused. Allow the camera for this site in your browser, or choose a photo from your gallery.": "கேமரா அனுமதி மறுக்கப்பட்டது. உங்கள் உலாவியில் இந்தத் தளத்திற்குக் கேமராவை அனுமதிக்கவும், அல்லது கேலரியிலிருந்து ஒரு படத்தைத் தேர்ந்தெடுக்கவும்.",
+"The camera couldn't be opened. Choose a photo from your gallery instead.": "கேமராவைத் திறக்க முடியவில்லை. அதற்குப் பதிலாக உங்கள் கேலரியிலிருந்து ஒரு படத்தைத் தேர்ந்தெடுக்கவும்.",
+"Take the photo": "படம் எடுக்கவும்",
+"Gallery": "கேலரி"
 }
