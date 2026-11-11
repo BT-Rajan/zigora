@@ -1,5 +1,5 @@
 program,semester,semester_no,course,unit,topic,content,diagram_note
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Definitions and terms in pharmacology,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Definitions and terms in pharmacology,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Pharmacology, drug, pharmacokinetics, pharmacodynamics, pharmacy, clinical pharmacology, pharmacotherapeutics
 - Pharmacoeconomics, pharmacogenetics, pharmacogenomics, chemotherapy, toxicology, pharmacoepidemiology
@@ -7,59 +7,59 @@ MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Definit
 - Drug nomenclature: chemical name, non-proprietary name, brand name
 - Essential drug concept, orphan drugs, national drug policy
 - Sources of drugs with examples: plants, animals, minerals, synthetic, micro-organisms, genetic engineering",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Routes of drug administration,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Routes of drug administration,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Enteral: oral, buccal, sublingual, rectal
 - Parenteral: intravenous, intramuscular, subcutaneous, intradermal, intra-arterial, intra-articular, intrathecal, intraocular
 - Inhalation, for local and for systemic effect
 - Topical application, for local and for systemic effect
 - Advantages and disadvantages of each route","A body outline with each route of administration marked where the drug enters (sublingual, oral, rectal, IV, IM, SC, intradermal, intrathecal, inhaled, topical/transdermal). Tap a route to see how fast it acts, whether it passes first-pass metabolism, and its advantages and disadvantages."
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Special drug delivery systems,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Special drug delivery systems,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Transdermal systems, ocusert, implants, osmotic pump
 - Liposome encapsulation, drug targeting
 - Pro-drugs",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Absorption and bioavailability,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Absorption and bioavailability,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Structure and function of the biological membrane
 - Processes involved in absorption, and factors affecting drug absorption
 - Bioavailability, factors affecting bioavailability, bioequivalence","A cell membrane showing the ways a drug crosses it (passive diffusion, filtration, carrier-mediated transport, active transport, pinocytosis), and beside it a plasma concentration-time curve comparing an IV dose with an oral dose, with the area under the curve shaded to show bioavailability."
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Distribution,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Distribution,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Volume of distribution, redistribution
 - Plasma protein binding and tissue storage
 - Barriers to distribution: blood–brain barrier, placental barrier",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Biotransformation,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Biotransformation,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Sites and phases of drug metabolism: phase I (non-synthetic) and phase II (synthetic), with examples
 - Microsomal enzyme induction and inhibition, and their consequences
 - First-pass metabolism and its effects; enterohepatic circulation","A flow from an oral drug through the gut wall and portal vein to the liver (first-pass metabolism), then phase I reactions (oxidation, reduction, hydrolysis) and phase II conjugation to a water-soluble metabolite excreted in urine or bile, with a loop showing enterohepatic circulation. Tap a step for examples."
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Elimination and clinical pharmacokinetics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Elimination and clinical pharmacokinetics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Renal, rectal, pulmonary and biliary excretion; excretion in breast milk, skin and saliva
 - Kinetics of elimination; clearance; plasma half-life and its clinical significance
 - Loading dose, maintenance dose, steady-state concentration
 - Therapeutic drug monitoring; methods of prolonging the duration of action of a drug","A plasma concentration graph for repeated doses rising to a steady state after about 4-5 half-lives, with a second line showing how a loading dose reaches it at once. Let the student change the dosing interval and half-life and watch the curve."
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Principles and mechanisms of drug action,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Principles and mechanisms of drug action,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Principles of drug action: stimulation, depression, irritation, replacement, cytotoxic action
 - Mechanisms with examples: physical action, chemical action, through enzymes, through receptors
 - Receptor: definition and types; agonist, antagonist, partial agonist, inverse agonist; ligand, affinity, intrinsic activity (efficacy)
 - Drug action and drug effect; transducer mechanisms
 - Receptor types, structure and function; regulation of receptors","The four receptor families side by side (ligand-gated ion channel, G-protein coupled receptor, enzyme-linked receptor, intracellular receptor), each showing what happens after the drug binds and how long it takes. Tap to compare an agonist, a partial agonist, an antagonist and an inverse agonist on the same receptor."
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Dose–response and combined effects of drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Dose–response and combined effects of drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Dose–response relationship: potency, efficacy, selectivity
 - Therapeutic index and therapeutic window
 - Combined effect of drugs: synergism (additive, supra-additive); antagonism (physical, chemical, physiological, receptor), with examples
 - Competitive and non-competitive antagonism
 - Fixed-dose drug combinations: advantages and disadvantages, with examples","Log dose-response curves: drug A and drug B with the same efficacy but different potency; a partial agonist with a lower ceiling; then a competitive antagonist shifting the curve to the right and a non-competitive antagonist lowering the maximum. Mark ED50, the therapeutic window and the therapeutic index."
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Factors modifying drug action,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Factors modifying drug action,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Factors that modify drug action
 - Tolerance, cross-tolerance, tachyphylaxis
 - Drug resistance, cumulation",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Adverse drug reactions,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Adverse drug reactions,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification; side effects, secondary effects, toxic effects
 - Intolerance, idiosyncrasy; drug allergy (types, treatment, examples); photosensitivity
@@ -67,39 +67,39 @@ MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Adverse
 - Drug dependence, drug withdrawal reactions
 - Teratogenicity, carcinogenicity, mutagenicity; drug-induced (iatrogenic) disease – definitions with examples
 - Adverse drug reaction monitoring and reporting",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Drug interactions,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Drug interactions,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drug–drug interactions: pharmacological basis and clinical significance
 - Identifying potential interactions: outside the body, at the site of absorption, during distribution, on receptors, during metabolism, during excretion
 - Drug–food interactions; drug and body tissue interactions",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Bioassay,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Bioassay,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Definition and principles of bioassay
 - Types of bioassay",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Rational drug use and prescription writing,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Rational drug use and prescription writing,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Principles of drug therapy; principles of prescription writing
 - Prescribing drugs, drug history, the P-drug concept, cost containment, repeat prescriptions
 - Warnings and consent; compliance (patient and doctor); placebo; medicines and self-medication
 - Prescription for common disorders",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Drugs in special situations,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Drugs in special situations,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drugs in children and in pregnancy
 - Drugs in the elderly (geriatrics)
 - Clinical use of drugs in hepatic and renal failure",
-MBBS,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Drug development and clinical trials,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 1 – General Pharmacological Principles,Drug development and clinical trials,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drug discovery and development: techniques of discovery, models, preclinical studies in animals
 - Ethics, informed consent
 - Phases of clinical development: phase 1, 2, 3 and 4 (post-marketing surveillance)
 - Types and design of clinical trials
 - Pharmacoepidemiology, pharmacovigilance and pharmacoeconomics","A pipeline from drug discovery to the market: preclinical studies in animals, then phase 1 (healthy volunteers), phase 2, phase 3, approval and phase 4 post-marketing surveillance, with roughly how many people and years each phase takes. Tap a phase for its purpose."
-MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,General considerations of the autonomic nervous system,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,General considerations of the autonomic nervous system,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Differences between the somatic and autonomic nervous systems
 - Sympathetic and parasympathetic systems; general outlay of the autonomic nervous system
 - Steps in neurohumoral transmission; co-transmission","The two autonomic chains side by side from the CNS to an organ: sympathetic (short preganglionic fibre, acetylcholine at the ganglion, long postganglionic fibre releasing noradrenaline) and parasympathetic (long preganglionic, short postganglionic, both acetylcholine), with the receptor at each junction labelled (nicotinic, muscarinic, alpha, beta)."
-MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Cholinergic transmission and cholinergic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Cholinergic transmission and cholinergic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Cholinergic transmission; muscarinic and nicotinic receptors and the responses they mediate
 - Cholinergic drugs★: classification; cholinergic agonists – cholinomimetic alkaloids
@@ -108,7 +108,7 @@ MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous Syst
 - Anticholinesterase (organophosphorus compound) poisoning
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","A cholinergic synapse step by step: choline uptake, acetylcholine synthesis and storage, release, binding to muscarinic or nicotinic receptors, and breakdown by acetylcholinesterase. Show where direct agonists act and where reversible and irreversible (organophosphate) anticholinesterases block the enzyme."
-MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Anticholinergic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Anticholinergic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Anticholinergic drugs★: classification
 - Atropine★ as the prototype
@@ -116,11 +116,11 @@ MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous Syst
 - Atropine poisoning
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Drugs acting on autonomic ganglia,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Drugs acting on autonomic ganglia,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Clinically important ganglionic stimulants
 - Ganglion blockers",
-MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Adrenergic transmission and adrenergic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Adrenergic transmission and adrenergic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Adrenergic transmission and its modification by drugs
 - Adrenergic receptors and the responses they mediate
@@ -128,7 +128,7 @@ MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous Syst
 - Uses: pressor agents, cardiac stimulants, bronchodilators, nasal decongestants, CNS stimulants, anorectics, uterine relaxants and vasodilators
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","An adrenergic synapse step by step: tyrosine to dopa to dopamine to noradrenaline, storage in vesicles, release, binding to alpha-1, alpha-2, beta-1 and beta-2 receptors, and removal by reuptake and MAO/COMT. Tap a receptor to see the organs and responses it controls."
-MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Anti-adrenergic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous System,Anti-adrenergic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Anti-adrenergic drugs★: classification
 - α blockers★ – phenoxybenzamine as the prototype
@@ -136,22 +136,22 @@ MBBS,Year 2,2,Pharmacology,Unit 2 – Drugs Acting on the Autonomic Nervous Syst
 - α and β blockers – labetalol
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 3 – Skeletal Muscle Relaxants,Peripheral neuromuscular blockers,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 3 – Skeletal Muscle Relaxants,Peripheral neuromuscular blockers,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Peripheral neuromuscular blockers★: classification★ – competitive (non-depolarising) and depolarising blockers
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","A neuromuscular junction showing acetylcholine binding nicotinic receptors on the muscle end plate; compare a competitive (non-depolarising) blocker occupying the receptor with a depolarising blocker (succinylcholine) causing persistent depolarisation, with the effect on muscle twitch shown for each."
-MBBS,Year 2,2,Pharmacology,Unit 3 – Skeletal Muscle Relaxants,Centrally acting and directly acting muscle relaxants,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 3 – Skeletal Muscle Relaxants,Centrally acting and directly acting muscle relaxants,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Centrally acting muscle relaxants
 - Directly acting muscle relaxants",
-MBBS,Year 2,2,Pharmacology,Unit 4 – Local Anaesthetics,Local anaesthetics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 4 – Local Anaesthetics,Local anaesthetics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification, mechanism and actions of local anaesthetics
 - Synergism with vasopressors
 - Adverse effects, indications and contraindications
 - Complications of the different routes of administration","A nerve fibre with a sodium channel: the un-ionised local anaesthetic crossing the membrane, becoming ionised inside, and blocking the channel from within so the action potential stops. A second panel shows how adding adrenaline (vasoconstriction) keeps the drug at the site longer."
-MBBS,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,Autacoids and histamine,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,Autacoids and histamine,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Definition of autacoids; the various autacoids and their physiological and pathological actions
 - Histamine: actions, releasers, anaphylaxis, clinical significance; betahistine
@@ -159,24 +159,24 @@ MBBS,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,Autacoids and 
 - Drug therapy of vertigo and motion sickness
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,"Serotonin, ergot alkaloids and migraine","**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,"Serotonin, ergot alkaloids and migraine","**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - 5-HT (serotonin): 5-HT agonists and antagonists – pharmacological actions, preparations and therapeutic uses
 - Ergot alkaloids – preparations and uses
 - Pharmacotherapy of migraine",
-MBBS,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,Bradykinin and angiotensin,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,Bradykinin and angiotensin,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Bradykinin and its antagonists
 - Angiotensin; ACE inhibitors★ and angiotensin receptor antagonists
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,Eicosanoids and platelet activating factor,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,Eicosanoids and platelet activating factor,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Lipid-derived autacoids: eicosanoids – prostaglandins★, leukotrienes
 - Platelet activating factor and PAF antagonists – clinical significance, preparations and uses
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","Membrane phospholipids -> phospholipase A2 -> arachidonic acid, branching into the cyclooxygenase path (prostaglandins, prostacyclin, thromboxane) and the lipoxygenase path (leukotrienes). Mark where corticosteroids, NSAIDs and leukotriene antagonists act."
-MBBS,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,"NSAIDs, rheumatoid arthritis and gout","**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,"NSAIDs, rheumatoid arthritis and gout","**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Non-steroidal anti-inflammatory drugs: classification
 - Aspirin★ as the prototype
@@ -184,11 +184,11 @@ MBBS,Year 2,2,Pharmacology,Unit 5 – Autacoids and Related Drugs,"NSAIDs, rheum
 - Drugs used for rheumatoid arthritis and gout
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Neurotransmitters and drug action in the CNS,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Neurotransmitters and drug action in the CNS,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Physiological role of neurotransmitters (excitatory and inhibitory)
 - Principles of neuronal regulation and the basis of drug action in the CNS",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,General anaesthetics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,General anaesthetics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - General anaesthetics★: definition, mechanism of action, stages of anaesthesia, classification
 - Properties of inhalational anaesthetics; advantages and disadvantages
@@ -197,12 +197,12 @@ MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System
 - Preanaesthetic medication
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","Guedel's stages of anaesthesia as a descent: stage I analgesia, stage II delirium, stage III surgical anaesthesia (with its planes) and stage IV medullary paralysis, showing the changes in breathing, pupils, eye movements and reflexes at each stage."
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Alcohol,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Alcohol,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Aliphatic alcohol: pharmacological actions, interactions, toxicity, clinical uses
 - Disulfiram; treatment of alcoholism
 - Treatment of methyl alcohol poisoning",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Sedative-hypnotics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Sedative-hypnotics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Definition and classification
 - Barbiturates★, benzodiazepines★, non-benzodiazepine hypnotics★
@@ -210,41 +210,41 @@ MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System
 - Treatment of barbiturate poisoning
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","The GABA-A receptor chloride channel with separate binding sites: GABA, benzodiazepines (increase how often the channel opens), barbiturates (increase how long it stays open, and open it directly at high doses), and flumazenil blocking the benzodiazepine site."
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Antiepileptic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Antiepileptic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Antiepileptic drugs: classification★
 - Pharmacotherapy of epilepsy
 - Management of status epilepticus
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Drugs for CNS degenerative disorders,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Drugs for CNS degenerative disorders,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drugs for parkinsonism: classification★
 - Pharmacotherapy of Alzheimer's disease, Huntington's disease and motor neuron disease
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","A dopaminergic nigrostriatal synapse: L-dopa crossing the blood-brain barrier with carbidopa blocking peripheral decarboxylation, conversion to dopamine, and the sites of MAO-B inhibitors, COMT inhibitors, dopamine agonists and anticholinergics in restoring the dopamine-acetylcholine balance."
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Antipsychotic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Antipsychotic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★; chlorpromazine★ as the prototype
 - Atypical antipsychotics★
 - Pharmacotherapy of schizophrenia
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Antianxiety drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Antianxiety drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★
 - Sedating and non-sedating antianxiety drugs
 - Pharmacotherapy of anxiety
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Antidepressants and antimanic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Antidepressants and antimanic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Antidepressants: classification★; imipramine★ as the prototype
 - MAO inhibitors; selective serotonin reuptake inhibitors (SSRIs)
 - Antimanic drugs – lithium★ and others
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Opioid analgesics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Opioid analgesics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★; morphine★ as the prototype
 - Management of acute morphine poisoning
@@ -252,23 +252,23 @@ MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System
 - Management of opium dependence
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Drug addiction and drug abuse,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,Drug addiction and drug abuse,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drug addiction and drug abuse",
-MBBS,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,CNS stimulants and therapeutic gases,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 6 – Drugs Acting on the Central Nervous System,CNS stimulants and therapeutic gases,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - CNS stimulants: classification★
 - Cognition enhancers (nootropics) – uses with examples
 - Therapeutic gases: oxygen, nitrous oxide, carbon dioxide and their uses
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drugs affecting the renin–angiotensin system,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drugs affecting the renin–angiotensin system,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Angiotensin converting enzyme inhibitors – captopril★ as the prototype
 - Angiotensin receptor antagonists – losartan★ as the prototype
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","The renin-angiotensin-aldosterone cascade: angiotensinogen -> (renin) angiotensin I -> (ACE) angiotensin II -> AT1 receptors (vasoconstriction, aldosterone, salt and water retention), with bradykinin breakdown by ACE as a side branch. Mark where ACE inhibitors, ARBs and aldosterone antagonists act and why ACE inhibitors cause cough."
-MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drug therapy of heart failure,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drug therapy of heart failure,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification
 - Cardiac glycosides★; digitalis toxicity
@@ -276,18 +276,18 @@ MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,
 - Role of vasodilators, β blockers★, ACE inhibitors and diuretics in heart failure
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Antiarrhythmic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Antiarrhythmic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★, preparations, classes
 - Mechanism of action and indications
 - Torsades de pointes
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","A cardiac action potential (phases 0-4) with the Vaughan Williams classes marked where they act: class I on the sodium channel (phase 0), class II beta blockers on phase 4, class III on potassium channels (phase 3, prolonging the action potential), class IV calcium channel blockers on phase 2 and the AV node."
-MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Lipid-lowering drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Lipid-lowering drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drugs for hypercholesterolaemia: classification, mechanism of action, pharmacological actions
 - Adverse effects, contraindications, drug interactions and uses",
-MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drug therapy of hypertension,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drug therapy of hypertension,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★
 - ACE inhibitors, angiotensin receptor antagonists, calcium channel blockers, diuretics
@@ -295,7 +295,7 @@ MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,
 - Management of hypertensive emergencies
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","Blood pressure as cardiac output x peripheral resistance, with the body's control points drawn (brain, heart, vessels, kidney, renin-angiotensin system) and each antihypertensive class placed where it acts. Tap a class to see how it lowers pressure."
-MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drugs for myocardial ischaemia,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drugs for myocardial ischaemia,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★
 - Rationale of combination therapy in angina pectoris
@@ -303,14 +303,14 @@ MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,
 - Drug treatment of myocardial infarction
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drugs used in peripheral vascular diseases,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 7 – Drugs Acting on the Cardiovascular System,Drugs used in peripheral vascular diseases,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drugs used in peripheral vascular diseases",
-MBBS,Year 2,2,Pharmacology,"Unit 8 – Drugs Acting on Water, Electrolytes and Renal Function","Water, electrolytes and nutritional supplementation","**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,"Unit 8 – Drugs Acting on Water, Electrolytes and Renal Function","Water, electrolytes and nutritional supplementation","**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Water and electrolytes: transport, imbalance, effects and management
 - Nutritional supplementation: enteral and parenteral therapy",
-MBBS,Year 2,2,Pharmacology,"Unit 8 – Drugs Acting on Water, Electrolytes and Renal Function",Diuretics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,"Unit 8 – Drugs Acting on Water, Electrolytes and Renal Function",Diuretics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★
 - Role of diuretics in acute renal failure; forced alkaline diuresis
@@ -318,12 +318,12 @@ MBBS,Year 2,2,Pharmacology,"Unit 8 – Drugs Acting on Water, Electrolytes and R
 - Short-term and long-term side effects; therapeutic uses
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","A nephron from glomerulus to collecting duct with each diuretic class at its site: carbonic anhydrase inhibitors (proximal tubule), osmotic diuretics, loop diuretics (thick ascending limb, Na-K-2Cl), thiazides (distal tubule, Na-Cl), potassium-sparing diuretics (collecting duct). Tap a class to see which ions it makes the body lose."
-MBBS,Year 2,2,Pharmacology,"Unit 8 – Drugs Acting on Water, Electrolytes and Renal Function",Antidiuretics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,"Unit 8 – Drugs Acting on Water, Electrolytes and Renal Function",Antidiuretics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Vasopressin (antidiuretic hormone) and vasopressin analogues★
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Forming Organs,Haematinics and erythropoietin,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Forming Organs,Haematinics and erythropoietin,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Haematinics: iron, vitamin B₁₂ and folic acid★; minerals (trace elements) and vitamins – clinical significance, preparations, uses
 - Treatment of iron deficiency anaemia; disadvantages of shotgun antianaemic preparations
@@ -331,30 +331,30 @@ MBBS,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Formin
 - Erythropoietin★ and other growth factors
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Forming Organs,Coagulants,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Forming Organs,Coagulants,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Vitamin K★, fibrinogen and styptics
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Forming Organs,"Anticoagulants, thrombolytics and antifibrinolytics","**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Forming Organs,"Anticoagulants, thrombolytics and antifibrinolytics","**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Anticoagulants: classification★
 - Thrombolytics★, antifibrinolytics and sclerosing agents
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","The coagulation cascade (intrinsic, extrinsic and common pathways to fibrin) beside the fibrinolytic system (plasminogen to plasmin dissolving fibrin). Mark where heparin, warfarin, the vitamin K dependent factors (II, VII, IX, X), thrombolytics and antifibrinolytics act."
-MBBS,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Forming Organs,"Plasma expanders, blood transfusion and drug-induced blood disorders","**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 9 – Drugs Acting on the Blood and Blood-Forming Organs,"Plasma expanders, blood transfusion and drug-induced blood disorders","**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Plasma expanders and blood transfusion: chemistry, pharmacokinetics, preparations, dosage and uses, adverse effects
 - Drug-induced blood dyscrasias
 - Drugs used in the management of shock",
-MBBS,Year 2,2,Pharmacology,Unit 10 – Drugs Acting on the Respiratory System,Drugs for cough,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 10 – Drugs Acting on the Respiratory System,Drugs for cough,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★
 - Principles of choosing appropriate cough remedies
 - Expectorants, mucolytics, antitussives – preparations and uses
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 10 – Drugs Acting on the Respiratory System,Drugs for bronchial asthma,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 10 – Drugs Acting on the Respiratory System,Drugs for bronchial asthma,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★
 - Principles governing the selection of drugs in bronchial asthma
@@ -362,18 +362,18 @@ MBBS,Year 2,2,Pharmacology,Unit 10 – Drugs Acting on the Respiratory System,Dr
 - Management of acute attacks, prophylaxis and status asthmaticus
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","An airway in asthma (smooth muscle spasm, inflammation, mucus) with each drug class at its target: beta-2 agonists and anticholinergics relaxing smooth muscle, methylxanthines, inhaled corticosteroids and leukotriene antagonists calming inflammation, mast cell stabilisers. Separate reliever and preventer drugs."
-MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Hormones and anterior pituitary hormones,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Hormones and anterior pituitary hormones,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Hormones: definition, types and mechanism of action
 - Anterior pituitary hormones: regulation of secretion, preparations and uses
 - Importance of drug-induced changes in prolactin levels",
-MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Thyroid hormones and antithyroid drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Thyroid hormones and antithyroid drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Levothyroxine★
 - Antithyroid drugs★: classification, preparations and uses
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","Thyroid hormone synthesis in a follicle cell: iodide trapping, oxidation and organification by thyroid peroxidase, coupling to T3 and T4, storage in thyroglobulin and release, then peripheral conversion of T4 to T3. Mark where thioamides, iodides, radioactive iodine and beta blockers act."
-MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,"Insulin, oral hypoglycaemic drugs and glucagon","**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,"Insulin, oral hypoglycaemic drugs and glucagon","**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Insulins: actions, conventional and highly purified preparations, reactions, uses, newer insulin delivery devices
 - Oral hypoglycaemic drugs★: classification
@@ -381,82 +381,82 @@ MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,"Insulin
 - Glucagon: actions and uses
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","Insulin preparations as action curves over 24 hours (rapid-acting, short-acting regular, intermediate NPH, long-acting basal) showing onset, peak and duration, and beside it the sites of oral hypoglycaemic drugs: pancreas (sulfonylureas), liver (metformin), muscle and fat (glitazones), gut (alpha-glucosidase inhibitors)."
-MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Corticosteroids,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Corticosteroids,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Regulation of secretion
 - Preparations★
 - Glucocorticoid antagonists
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,"Androgens, estrogens, progestins and their antagonists","**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,"Androgens, estrogens, progestins and their antagonists","**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Androgens★, anabolic steroids – preparations, side effects, uses; antiandrogens – side effects, uses
 - Estrogens – preparations★; hormone replacement therapy; antiestrogens★; selective estrogen receptor modulators
 - Progestins – preparations★; antiprogestins (mifepristone)
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Hormonal contraceptives,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Hormonal contraceptives,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Types of method (oral, injectable)
 - Preparations★
 - Male contraceptive
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Drugs acting on the uterus,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Drugs acting on the uterus,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Uterine stimulants: classification – oxytocin★, ergometrine★, prostaglandins
 - Uterine relaxants – preparations★
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Drugs affecting calcium balance,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 11 – Hormones and Hormone Antagonists,Drugs affecting calcium balance,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Calcium, parathyroid hormone, calcitonin, vitamin D – preparations and uses
 - Bisphosphonates – actions and uses
 - Pharmacotherapy of osteoporosis",
-MBBS,Year 2,2,Pharmacology,Unit 12 – Gastrointestinal Drugs,Gastric acidity and peptic ulcer,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 12 – Gastrointestinal Drugs,Gastric acidity and peptic ulcer,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drugs used for the control of gastric acidity; digestants, antiflatulents
 - Drug treatment of peptic ulcer★: classification – H₂ blockers★, proton pump inhibitors★, prostaglandin analogues, antacids, ulcer protectives
 - Treatment of Helicobacter pylori infection
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","A gastric parietal cell with its receptors (H2 for histamine, M3 for acetylcholine, CCK2 for gastrin) feeding into the H+/K+ ATPase proton pump. Mark where H2 blockers, proton pump inhibitors, anticholinergics, antacids, prostaglandin analogues and ulcer protectives act."
-MBBS,Year 2,2,Pharmacology,Unit 12 – Gastrointestinal Drugs,"Emetics, antiemetics and prokinetic drugs","**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 12 – Gastrointestinal Drugs,"Emetics, antiemetics and prokinetic drugs","**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Emetics, antiemetics★ and prokinetic drugs: classification★, mechanism of action, actions, adverse reactions, uses and drug interactions
 - Treatment of gastro-oesophageal reflux disease
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.","The vomiting pathways converging on the vomiting centre: chemoreceptor trigger zone (D2, 5-HT3), vestibular system (H1, M1), gut vagal afferents (5-HT3) and higher centres. Place each antiemetic class at the receptor it blocks."
-MBBS,Year 2,2,Pharmacology,Unit 12 – Gastrointestinal Drugs,Gallstones and constipation,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 12 – Gastrointestinal Drugs,Gallstones and constipation,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Drug treatment of gallstones
 - Agents used for constipation: classification, laxatives, purgatives and the hazards of purgatives",
-MBBS,Year 2,2,Pharmacology,Unit 12 – Gastrointestinal Drugs,Diarrhoea and inflammatory bowel disease,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 12 – Gastrointestinal Drugs,Diarrhoea and inflammatory bowel disease,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Indications for antimotility agents★, antimicrobial agents and antisecretory agents
 - Oral rehydration powder
 - Drugs used in the therapy of inflammatory bowel disorders
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,General principles of antimicrobial chemotherapy,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,General principles of antimicrobial chemotherapy,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Antibiotics: definition, sources, chemical nature, mechanism of action, spectrum of activity, type of action
 - Problems: toxicity, hypersensitivity reactions; drug resistance – types, mechanisms; prevention of superinfection
 - Factors determining the choice of an antibiotic; MIC, post-antibiotic effect (PAE), MBC
 - Combinations of antimicrobials – advantages, disadvantages, indications
 - Prophylactic use of antimicrobials, with examples; causes of failure of chemotherapy","A bacterial cell with each antibiotic class at its target: cell wall synthesis (beta-lactams, vancomycin), cell membrane (polymyxin), 30S and 50S ribosomes (aminoglycosides, tetracyclines, macrolides, chloramphenicol, linezolid), DNA gyrase (quinolones), folate synthesis (sulfonamides, trimethoprim). Tap a target for its drugs."
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Sulfonamides and cotrimoxazole,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Sulfonamides and cotrimoxazole,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Sulfonamides★ – preparations
 - Cotrimoxazole★
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Quinolones and drugs for typhoid,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Quinolones and drugs for typhoid,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Quinolones★: classification – first and second generation
 - Drugs used in typhoid fever
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Beta-lactam antibiotics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Beta-lactam antibiotics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification
 - Penicillins★: semisynthetic, acid-resistant, penicillinase-resistant, extended spectrum
@@ -464,29 +464,29 @@ MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Beta-l
 - Cephalosporins★, monobactams★, carbapenems★
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Tetracyclines and chloramphenicol,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Tetracyclines and chloramphenicol,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Tetracyclines★
 - Chloramphenicol★
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Aminoglycosides,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Aminoglycosides,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Aminoglycosides★: classification
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Macrolides and miscellaneous antibiotics,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Macrolides and miscellaneous antibiotics,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Macrolides★ and newer macrolides★: classification
 - Clindamycin, lincomycin, vancomycin, teicoplanin, linezolid
 - Fusidic acid, polymyxin B, bacitracin, tyrothricin – spectrum and uses
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Urinary tract infections and sexually transmitted diseases,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Urinary tract infections and sexually transmitted diseases,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Pharmacotherapy of urinary tract infection; urinary antiseptics
 - Pharmacotherapy of sexually transmitted diseases",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antitubercular drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antitubercular drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Antitubercular drugs★: classification; first-line drugs★
 - Second-line and newer drugs
@@ -495,20 +495,20 @@ MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antitu
 - Drugs used for atypical mycobacteria
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antileprotic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antileprotic drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Antileprotic drugs★: classification
 - Pharmacotherapy, drug regimen (multidrug therapy, MDT), alternative regimens
 - Management of lepra reactions; newer drugs
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antifungal drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antifungal drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification★
 - Local and systemic mycoses – management
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antiviral drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antiviral drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Classification
 - Anti-herpes virus drugs★
@@ -516,88 +516,88 @@ MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antivi
 - Anti-influenza virus drugs★; non-selective antiviral drugs★
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antimalarial drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antimalarial drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Antimalarial drugs★: classification
 - Different forms of antimalarial therapy
 - Management of cerebral malaria; radical cure; malaria prophylaxis; resistant malaria
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.","The malaria parasite's life cycle in the human (liver stage with hypnozoites, red cell stage, gametocytes) and in the mosquito, with each antimalarial placed at the stage it kills: tissue schizonticides (primaquine) for radical cure, blood schizonticides (chloroquine, artemisinins) for the attack, gametocides to stop transmission."
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antiamoebic drugs and drugs for other protozoa,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Antiamoebic drugs and drugs for other protozoa,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Antiamoebic drugs: classification★; drugs for giardiasis
 - Drugs for trichomoniasis
 - Drugs for leishmaniasis (kala-azar)
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Anthelmintics and antifilarial drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 13 – Chemotherapy of Microbial Diseases,Anthelmintics and antifilarial drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Anthelmintics: classification★; choice of drugs for various worm infestations
 - Antifilarial drugs★
 
 ★ For each drug marked ★, know its chemistry, spectrum of activity, mechanism of action, pharmacokinetics, preparations, adverse effects, interactions, precautions and uses.",
-MBBS,Year 2,2,Pharmacology,Unit 14 – Chemotherapy of Neoplastic Diseases,Anticancer drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 14 – Chemotherapy of Neoplastic Diseases,Anticancer drugs,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Anticancer drugs: classification
 - General toxicity and toxicity amelioration
 - General principles in the chemotherapy of malignancy
 - The cell cycle and anticancer drugs","The cell cycle (G1, S, G2, M, G0) with anticancer drug classes placed at the phase they act on: antimetabolites in S, vinca alkaloids and taxanes in M, bleomycin in G2, and alkylating agents and antitumour antibiotics as cell-cycle non-specific. Tap a class for examples."
-MBBS,Year 2,2,Pharmacology,Unit 15 – Drugs Used for Immunomodulation,Immunosuppressants and immunostimulants,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 15 – Drugs Used for Immunomodulation,Immunosuppressants and immunostimulants,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - The immune response; general principles of immunosuppressive therapy
 - Immunosuppressants★
 - Immunostimulants: BCG, peptides, immunoglobulins, cytokines (interferon-α, interleukin-2), levamisole
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 15 – Drugs Used for Immunomodulation,Immune mechanisms and drug allergy,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 15 – Drugs Used for Immunomodulation,Immune mechanisms and drug allergy,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Immune mechanisms and drug allergy",
-MBBS,Year 2,2,Pharmacology,Unit 16 – Toxicology,Heavy metals and their antagonists,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 16 – Toxicology,Heavy metals and their antagonists,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Lead, arsenic, cadmium and mercury poisoning and their management
 - Antagonists★ (e.g. dimercaprol)
 
 ★ For each drug marked ★, know its mechanism of action, pharmacological actions, adverse drug reactions, precautions, contraindications, preparations, drug interactions and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 16 – Toxicology,General principles of treating acute poisoning,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 16 – Toxicology,General principles of treating acute poisoning,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Clinical assessment and emergency stabilisation
 - Active removal of the toxin; methods to increase elimination of toxic agents
 - Plasma exchange and exchange transfusion
 - Management of overdosage with commonly used therapeutic agents",
-MBBS,Year 2,2,Pharmacology,Unit 16 – Toxicology,Environmental and occupational toxicology,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 16 – Toxicology,Environmental and occupational toxicology,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Non-metallic environmental toxicants and occupational toxicology
 - Air pollution by carbon monoxide, hydrogen sulphide, sulphur dioxide, nitrogen dioxide",
-MBBS,Year 2,2,Pharmacology,Unit 16 – Toxicology,Biomedical waste,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 16 – Toxicology,Biomedical waste,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Types of biomedical waste, their potential risks and their safe management",
-MBBS,Year 2,2,Pharmacology,Unit 17 – Dermatopharmacology,Drugs for the skin and mucous membranes,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 17 – Dermatopharmacology,Drugs for the skin and mucous membranes,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Systemic treatment: corticosteroids, antibiotics, antihistamines, immunosuppressants – indications
 - Topical treatment: calamine lotion, creams, emollients, antifungal agents
 - Sunscreens – reflectors and absorbents: indications, advantages, disadvantages
 - Pharmacotherapy of scabies and pediculosis",
-MBBS,Year 2,2,Pharmacology,Unit 18 – Ocular Pharmacology,Ocular pharmacology,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 18 – Ocular Pharmacology,Ocular pharmacology,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Ocular pharmacology",
-MBBS,Year 2,2,Pharmacology,Unit 19 – Gene Therapy,Gene therapy,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 19 – Gene Therapy,Gene therapy,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Principles and uses of gene therapy",
-MBBS,Year 2,2,Pharmacology,Unit 20 – Miscellaneous Drugs,Enzymes in therapy,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 20 – Miscellaneous Drugs,Enzymes in therapy,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Enzymes in therapy",
-MBBS,Year 2,2,Pharmacology,Unit 20 – Miscellaneous Drugs,Antiseptics and disinfectants,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 20 – Miscellaneous Drugs,Antiseptics and disinfectants,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Definition, indications, advantages and disadvantages
 - Examples in the different groups",
-MBBS,Year 2,2,Pharmacology,Unit 20 – Miscellaneous Drugs,Vitamins and food supplements,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 20 – Miscellaneous Drugs,Vitamins and food supplements,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Vitamin B complex – B₁ (thiamine), B₂ (riboflavin), B₃ (nicotinic acid), B₆ (pyridoxine), biotin
 - Vitamin C★, vitamin A★, vitamin E★, vitamin K★
 - Zinc, spirulina – indications
 
 ★ For each vitamin marked ★, know its physiological functions, symptoms and signs of deficiency, preparations, hypervitaminosis, side effects and therapeutic uses.",
-MBBS,Year 2,2,Pharmacology,Unit 20 – Miscellaneous Drugs,Vaccines and sera,"**What this topic covers** (II MBBS Pharmacology syllabus):
+M.B.B.S,Year 2,2,Pharmacology,Unit 20 – Miscellaneous Drugs,Vaccines and sera,"**What this topic covers** (II MBBS Pharmacology syllabus):
 
 - Typhoid vaccine, hepatitis A and B vaccines, rabies vaccine, varicella vaccine
 - Indications, dosage and administration, adverse effects, interactions, contraindications, special precautions",

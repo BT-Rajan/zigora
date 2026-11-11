@@ -14,7 +14,7 @@ def test_replace_catalog_deletes_everything_and_loads_mbbs(env, tmp_path):
         manage.replace_catalog(s, types.SimpleNamespace(csv=FILES, yes=True, dir=str(tmp_path)))
     assert any(f.name.endswith(".sqlite.gz") for f in tmp_path.iterdir())  # backed up first
     with Session_() as s:
-        assert [p.name for p in s.query(Program)] == ["MBBS"]
+        assert [p.name for p in s.query(Program)] == ["M.B.B.S"]
         assert [c.name for c in s.query(Course)] == ["Pharmacology"]
         ph = s.query(Course).one()
         units = s.query(Unit).filter_by(course_id=ph.id).order_by(Unit.position).all()
