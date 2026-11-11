@@ -4,6 +4,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -48,7 +50,14 @@ class AskTest {
 
     private fun shot(name: String) { rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
     private fun see(text: String) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), 20_000)
-    private fun tap(text: String) { see(text); rule.onAllNodesWithText(text, substring = true).onFirst().performScrollTo().performClick() }
+    private fun tap(text: String) { see(text); val n = rule.onAllNodesWithText(text, substring = true).onFirst(); runCatching { n.performScrollTo() }; n.performClick() }  // a top bar button (Full page) has nothing to scroll
+    private fun tab(text: String) {  // a bottom tab, or else the item in the drawer, swiped open from the left edge
+        if (rule.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isEmpty()) {
+            rule.onRoot().performTouchInput { swipeRight(startX = left + 2f, endX = centerX) }
+            rule.waitUntilAtLeastOneExists(hasText(text, substring = true) and hasClickAction(), 10_000)
+        }
+        rule.onAllNodes(hasText(text, substring = true) and hasClickAction()).onFirst().performClick()
+    }
 
     private fun signIn(email: String) = runBlocking {
         app.store = Store(app, object : Sealer { override fun seal(s: String) = s; override fun open(s: String) = s })  // Robolectric has no Android Keystore
@@ -72,7 +81,7 @@ class AskTest {
         rule.onAllNodesWithText("Send to my teacher").onLast().performScrollTo().performClick(); rule.waitUntil(20_000) { rule.onAllNodesWithText("Your teacher sees your name", substring = true).fetchSemanticsNodes().isEmpty() }
         rule.onNodeWithContentDescription("Back").performClick()
         rule.onNodeWithContentDescription("Back").performClick()
-        see("Saved"); rule.onNode(hasText("Saved") and hasClickAction()).performClick(); tap("Questions")
+        tab("Saved"); tap("Questions")
         see("How do we measure hardness"); see("Pending");  // S40: where a question stands, in the student's words shot("2-my-questions")
         tap("Heat splits the bicarbonate"); see("Why does only the bicarbonate"); see("Priya Raman"); shot("3-thread")
     }
@@ -97,7 +106,7 @@ class AskTest {
         signIn("stu@mail.com"); rule.setContent { ZigoraRoot(null) {} }
         see("Engineering Chemistry"); rule.onNode(hasText("Courses") and hasClickAction()).performClick()
         see("Engineering Chemistry"); rule.onAllNodesWithText("Engineering Chemistry").onLast().performClick()
-        tap("Softening Methods"); see("Ask my teacher"); tap("Ask my teacher"); see("Your teacher sees your name")
+        tap("Softening Methods"); tap("Full page"); see("Ask my teacher"); tap("Ask my teacher"); see("Your teacher sees your name")
         rule.onNode(hasSetTextAction()).performTextInput("Why does bicarbonate break down when boiling?")
         see("Already answered for your class"); rule.onAllNodesWithText("Already answered", substring = true).onFirst().performScrollTo(); shot("6-similar")
     }

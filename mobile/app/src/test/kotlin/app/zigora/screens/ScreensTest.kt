@@ -28,6 +28,7 @@ import app.zigora.data.Sealer
 import app.zigora.data.Store
 import app.zigora.data.Me
 import app.zigora.data.json
+import app.zigora.ui.tl
 import app.zigora.ui.ZigoraRoot
 import app.zigora.ui.coursesOf
 import app.zigora.data.ProgramNode
@@ -173,7 +174,8 @@ class ScreensTest {
         signIn()
         rule.setContent { ZigoraRoot(null) {} }
         openChemistry()
-        openHardness(); see("calcium and magnesium"); shot("11-topic-tamil-dark")
+        openHardness(); see(tl("Full page")); rule.onNodeWithText(tl("Full page")).performClick()  // the notes, in their own words
+        see("calcium and magnesium"); shot("11-topic-tamil-dark")
     }
 
     @Test fun aLiteStudentsPlan() {

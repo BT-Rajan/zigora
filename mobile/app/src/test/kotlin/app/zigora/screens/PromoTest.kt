@@ -51,7 +51,7 @@ class PromoTest {
 
     private fun shot(name: String) { rule.waitForIdle(); Thread.sleep(300); rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
     private fun see(text: String) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), 20_000)
-    private fun tap(text: String) { see(text); rule.onAllNodesWithText(text, substring = true).onFirst().performScrollTo().performClick() }
+    private fun tap(text: String) { see(text); val n = rule.onAllNodesWithText(text, substring = true).onFirst(); runCatching { n.performScrollTo() }; n.performClick() }  // a top bar button (Full page) has nothing to scroll
     private fun tapLast(text: String) { see(text); rule.onAllNodesWithText(text).onLast().performScrollTo().performClick() }  // Home: the course row, not the session line
     private fun tab(text: String) {  // a bottom tab, or else the item in the drawer, swiped open from the left edge
         if (rule.onAllNodes(hasText(text) and hasClickAction()).fetchSemanticsNodes().isEmpty()) {
@@ -99,7 +99,7 @@ class PromoTest {
         tap("Bicarbonates"); tap("Calcium carbonate"); tap("Submit answers"); see("Confirm submission"); rule.onAllNodesWithText("Confirm submission").onFirst().performClick(); see("2 / 2"); shot("quiz")
         tap("Review answers"); see("Your answer"); shot("attempt"); back(); back(); back()
         tab("Saved"); tap("Highlights"); see("soap won't lather"); shot("highlights")
-        tab("Progress"); see("Test scores"); see("Final score"); shot("progress")
+        tab("My progress"); see("Test scores"); see("Final score"); shot("progress")
         tab("Courses"); tap("Build a course"); see("Thermodynamics notes"); shot("build")
         tap("Thermodynamics notes"); see("The zeroth law"); shot("own-course")
     }

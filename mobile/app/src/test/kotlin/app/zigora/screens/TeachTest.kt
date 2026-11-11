@@ -52,7 +52,7 @@ class TeachTest {
 
     private fun shot(name: String) { rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
     private fun see(text: String) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), 20_000)
-    private fun tap(text: String) { see(text); rule.onAllNodesWithText(text, substring = true).onFirst().performScrollTo().performClick() }
+    private fun tap(text: String) { see(text); val n = rule.onAllNodesWithText(text, substring = true).onFirst(); runCatching { n.performScrollTo() }; n.performClick() }  // a top bar button (Full page) has nothing to scroll
     private fun tab(text: String) { rule.waitUntilAtLeastOneExists(hasText(text) and hasClickAction(), 20_000); rule.onAllNodes(hasText(text) and hasClickAction()).onFirst().performClick() }
 
     private fun signIn(email: String) = runBlocking {

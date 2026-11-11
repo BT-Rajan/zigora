@@ -1177,7 +1177,7 @@ def me_json(u): return {"id": u.id, "name": u.name, "role": u.role, "must_change
                      "username": u.username, "relation": u.relation, "level": stage_of(u), "google": bool(u.google_sub), "ai_off": school_learner(u) and not guardian_key(u, object_session(u)),
                      "profile_needed": profile_needed(u), "plan": ai_plan(u)}
 def profile_needed(u):  # a student who signed up themselves completes their profile once after first signing in: course of study, then a plan
-    return u.role == "student" and bool(u.self_registered) and u.onboarded_at is None and not (school_learner(u) and u.program_id)
+    return u.role == "student" and bool(u.self_registered) and bool(u.email) and u.onboarded_at is None and not (school_learner(u) and u.program_id)  # no email: a child a parent or teacher added and set up
 @app.get("/api/me/places")
 def my_places(u: User = Depends(me), s: Session = Depends(db)):  # the programs and terms a student can pick for their course of study
     return program_options(s)

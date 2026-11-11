@@ -42,7 +42,7 @@ class DiagramTest {
 
     private fun shot(name: String) { rule.waitForIdle(); rule.onRoot().captureRoboImage("$out/$name.png") }
     private fun see(text: String) = rule.waitUntilAtLeastOneExists(hasText(text, substring = true), 20_000)
-    private fun tap(text: String) { see(text); rule.onAllNodesWithText(text, substring = true).onFirst().performScrollTo().performClick() }
+    private fun tap(text: String) { see(text); val n = rule.onAllNodesWithText(text, substring = true).onFirst(); runCatching { n.performScrollTo() }; n.performClick() }  // a top bar button (Full page) has nothing to scroll
 
     private fun signIn(email: String) = runBlocking {
         app.store = Store(app, object : Sealer { override fun seal(s: String) = s; override fun open(s: String) = s })  // Robolectric has no Android Keystore
@@ -61,7 +61,7 @@ class DiagramTest {
 
     @Test fun aCollegeStudentOpensTheDiagramFullScreen() {
         signIn("stu@mail.com"); openTheTopic()
-        rule.onAllNodesWithText("Diagram").onFirst().performScrollTo(); shot("1-diagram-step")
+        see("Diagram"); rule.onAllNodesWithText("Diagram").onFirst().performScrollTo(); shot("1-diagram-step")
         tap("Diagram")
         rule.waitUntil(20_000) { rule.onAllNodesWithText("The gist").fetchSemanticsNodes().isEmpty() }  // the topic gave way to the full-screen diagram
         see("Diagram"); shot("2-diagram-open")
