@@ -5980,7 +5980,7 @@ def study_plan(cid: int, b: PlanIn, u: User = Depends(me), s: Session = Depends(
 def study_preview(cid: int, start: int, end: int, u: User = Depends(me), s: Session = Depends(db)):  # the full text of a planned topic
     c = study_course_or_404(cid, u, s, edit=True); paras = json.loads(c.paras or "[]")
     if not 1 <= start <= end <= len(paras): raise HTTPException(400, "Out of range")
-    return {"content": "\n\n".join(paras[start - 1:end])}
+    return {"content": "\n\n".join(paras[start - 1:end]), "paras": paras[start - 1:end]}  # paras: one by one, so the student can split the topic between two
 class FinishIn(BaseModel): replace: bool = False
 @app.post("/api/study/courses/{cid}/finish")
 def study_finish(cid: int, b: FinishIn, u: User = Depends(me), s: Session = Depends(db)):
@@ -6290,7 +6290,7 @@ def material_sections(cid: int, b: SectionsIn, u: User = Depends(me), s: Session
 def material_preview(cid: int, start: int, end: int, u: User = Depends(me), s: Session = Depends(db)):
     m = my_material(cid, u, s); paras = json.loads(m.paras or "[]") if m else []
     if not 1 <= start <= end <= len(paras): raise HTTPException(400, "Out of range")
-    return {"content": "\n\n".join(paras[start - 1:end])}
+    return {"content": "\n\n".join(paras[start - 1:end]), "paras": paras[start - 1:end]}  # paras: one by one, so the student can split the topic between two
 @app.post("/api/courses/{cid}/my-material/save")
 def material_save(cid: int, u: User = Depends(me), s: Session = Depends(db)):
     """Writes the student's notes into each matched topic. Their notes for this course are rebuilt from the material each time; reading, completion and quiz records stay."""

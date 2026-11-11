@@ -77,7 +77,8 @@ def test_wizard_slices_previews_adjusts_and_finishes(env, monkeypatch):
     tops = [t for u in plan["units"] for t in u["topics"]]
     assert [(t["from"], t["to"]) for t in tops] == [(1, 2), (3, 3), (4, 6), (7, 7)] and tops[0]["words"] > 0 and tops[0]["excerpt"].startswith("Hard water Hard water contains")  # the bad topic was dropped, coverage is complete
     assert "One topic per method" in FakeAI.calls[-1][1] and "[7] Reverse osmosis" in FakeAI.calls[-1][1]
-    assert env.c.get(f"/api/study/courses/{cid}/preview?start=4&end=6", headers=env.stu).json()["content"].startswith("# Treatment")
+    pv = env.c.get(f"/api/study/courses/{cid}/preview?start=4&end=6", headers=env.stu).json()
+    assert pv["content"].startswith("# Treatment") and len(pv["paras"]) == 3 and pv["paras"][0] == "# Treatment"  # one by one, to split between two
     # the student merges Boiling into the first topic and renames it
     edited = [{"title": "Hard water", "topics": [{"title": "Hardness and boiling", "from": 1, "to": 3}]}, plan["units"][1]]
     assert env.c.put(f"/api/study/courses/{cid}/plan", headers=env.stu, json={"units": edited}).status_code == 200

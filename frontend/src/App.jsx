@@ -2,7 +2,7 @@ import {useState,useEffect,useCallback,useRef,createContext,useContext,Children,
 import {createPortal} from 'react-dom'
 import {Md,Body} from './content.jsx'
 import {ROOT,at} from './base.js'
-import {ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone} from 'lucide-react'
+import {ClipboardCheck,CalendarDays,Plus,Users as UsersIcon,GraduationCap,Sparkles,BarChart3,Info,LogOut,Menu,X,ArrowUp,ArrowDown,Search,ChevronLeft,ChevronRight,Sun,Moon,Monitor,Upload,Copy,Check,Pencil,Trash2,Bookmark,Link2,Eye,EyeOff,History,TrendingUp,Clock,AlertTriangle,Play,Target,RotateCcw,ClipboardList,Archive,ArchiveRestore,Lock,FileText,Bell,BookOpen,Highlighter,Maximize2,Minimize2,Globe,Printer,Flag,Camera,ImagePlus,ListChecks,Shapes,MessageCircle,CreditCard,Megaphone,Scissors} from 'lucide-react'
 import '@fontsource/bricolage-grotesque/600.css'
 import '@fontsource/bricolage-grotesque/800.css'
 import '@fontsource/instrument-sans/400.css'
@@ -1721,7 +1721,7 @@ function StudyHome({toast,start}){
       <button className="btn" disabled={busy||!title.trim()} onClick={create}>{tl("Next: add material")}</button><button className="btn ghost" onClick={()=>setMake(false)}>{tl("Cancel")}</button></Sheet>}</div></>}
 function StudyWizard({id,toast,back,done}){
   const confirm=useConfirm()
-  const [c,setC]=useState(null),[step,setStep]=useState(null),[text,setText]=useState(''),[busy,setBusy]=useState(''),[notes,setNotes]=useState(''),[plan,setPlan]=useState(null),[dirty,setDirty]=useState(false),[peek,setPeek]=useState(null),fileRef=useRef()
+  const [c,setC]=useState(null),[step,setStep]=useState(null),[text,setText]=useState(''),[busy,setBusy]=useState(''),[notes,setNotes]=useState(''),[plan,setPlan]=useState(null),[dirty,setDirty]=useState(false),[peek,setPeek]=useState(null),[undo,setUndo]=useState(null),fileRef=useRef()
   const load=async(go)=>{try{const d=await api('/study/courses/'+id);setC(d);setNotes(d.notes);setPlan(d.plan);setDirty(false);setStep(go??(d.plan?3:d.sources.length?2:1));return d}catch(e){toast(e.message);back()}}
   useEffect(()=>{load()},[id]);usePoll(!!c?.reading,()=>api('/study/courses/'+id).then(d=>setC(d)).catch(()=>{}))  // only the file list refreshes; the step and outline stay
   if(!c||step==null)return <><Bar title={tl("Set up your course")} back={back}/><div className="main"><Skeleton/></div></>
@@ -1738,11 +1738,14 @@ function StudyWizard({id,toast,back,done}){
       setPlan(r.plan);setDirty(false);setStep(3);window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy('')}
   // preview edits stay on this screen until Finish (or Save outline) sends them
   const flat=plan?plan.units.flatMap((u,ui)=>u.topics.map((t,ti)=>({...t,ui,ti}))):[]
-  const edit=f=>{const p=JSON.parse(JSON.stringify(plan));f(p);p.units=p.units.filter(u=>u.topics.length);setPlan(p);setDirty(true)}
+  const edit=f=>{const p=JSON.parse(JSON.stringify(plan));f(p);p.units=p.units.filter(u=>u.topics.length);setPlan(p);setDirty(true);setUndo(null)}
   const rename=(ui,ti,v)=>edit(p=>{if(ti==null)p.units[ui].title=v;else p.units[ui].topics[ti].title=v})
   const merge=(ui,ti)=>edit(p=>{const all=p.units.flatMap((u,a)=>u.topics.map((t,b)=>[a,b])),k=all.findIndex(([a,b])=>a===ui&&b===ti),[na,nb]=all[k+1],nx=p.units[na].topics[nb]
     const t=p.units[ui].topics[ti];t.to=nx.to;t.words=(t.words||0)+(nx.words||0);p.units[na].topics.splice(nb,1)})
-  const remove=(ui,ti)=>edit(p=>{p.units[ui].topics.splice(ti,1)})
+  const remove=(ui,ti)=>{const u={plan,title:plan.units[ui].topics[ti].title};edit(p=>{p.units[ui].topics.splice(ti,1)});setUndo(u)}  // its text is left out of the course: Undo brings it back
+  const split=(ui,ti,j)=>{const t=plan.units[ui].topics[ti],ps=peek.paras,wc=a=>a.join(' ').split(/\s+/).filter(Boolean).length,ex=x=>(x||'').replace(/[#*_`>|-]/g,' ').replace(/\s+/g,' ').trim().slice(0,280)
+    edit(p=>{p.units[ui].topics.splice(ti,1,{...t,to:t.from+j-1,words:wc(ps.slice(0,j))},{title:tl("{title} (part 2)",{title:t.title}),summary:'',from:t.from+j,to:t.to,words:wc(ps.slice(j)),excerpt:ex(ps[j])})})
+    setPeek(null);toast(tl("Split in two. Rename the new topic if you like."))}  // between two paragraphs: the first part keeps the title
   const savePlan=async()=>{const r=await api(`/study/courses/${id}/plan`,{method:'PUT',body:{units:plan.units}});setPlan(r.plan);setDirty(false)}
   const finish=async()=>{setBusy('Building your course…');try{if(dirty)await savePlan()
       try{await api(`/study/courses/${id}/finish`,{method:'POST',body:{}})}catch(e){if(!/already has topics/.test(e.message))throw e
@@ -1750,7 +1753,7 @@ function StudyWizard({id,toast,back,done}){
         setBusy('Building your course…');await api(`/study/courses/${id}/finish`,{method:'POST',body:{replace:true}})}
       toast(tl("Your course is ready"));done()}catch(e){toast(e.message)}setBusy('')}
   const words=c.sources.reduce((a,x)=>a+x.words,0)
-  return <><Bar title={c.title} sub={tl("Set up · step {step}{v} of 4",{step:step,v:1})} back={back}/><div className="main">
+  return <><Bar title={c.title} sub={tl("Set up · step {step} of 4",{step:step+1})} back={back}/><div className="main">
     <Steps at={step}/>
     {busy&&<div className="qbox" role="status" style={{marginTop:0}}><b>{tl(busy)}</b></div>}
     {step===1&&<>
@@ -1769,18 +1772,22 @@ function StudyWizard({id,toast,back,done}){
       <button className={'btn'+(c.ai_available&&c.ai_left!==0?' ghost':'')} disabled={!!busy} onClick={()=>slice('headings')}>{tl("Slice by headings instead (no AI)")}</button>
       <button className="btn ghost" onClick={()=>setStep(1)}>{tl("Back to material")}</button></>}
     {step===3&&plan&&<>
-      <h3 className="sec first">{tl("Check the outline")}</h3><p className="known" style={{marginTop:0}}>{pl(plan.units.length,'unit')}{tl(", {n}{v}. Rename anything, merge a topic into the next one, or remove one you don't need. Not right? Change the notes and slice again.",{n:pl(flat.length,'topic'),v:c.sliced_by==='headings'?tl(' · sliced by headings'):''})}</p>
+      {undo&&<div className="qbox" role="status" style={{marginTop:0,display:'flex',gap:8,alignItems:'center',justifyContent:'space-between'}}><span>{tl("Removed “{title}”. Its text won't be in the course.",{title:undo.title})}</span><button className="btn ghost" style={{width:'auto',margin:0}} onClick={()=>{setPlan(undo.plan);setUndo(null)}}>{tl("Undo")}</button></div>}
+      <h3 className="sec first">{tl("Check the outline")}</h3><p className="known" style={{marginTop:0}}>{pl(plan.units.length,'unit')}{tl(", {n}{v}. Rename anything, merge a topic into the next one, split a long one, or remove one you don't need. Not right? Change the notes and slice again.",{n:pl(flat.length,'topic'),v:c.sliced_by==='headings'?tl(' · sliced by headings'):''})}</p>
       {plan.units.map((u,ui)=><section key={ui} className="qbox"><label className="sr" htmlFor={'u'+ui}>{tl("Unit {v} title",{v:ui+1})}</label><input id={'u'+ui} className="utitle" value={u.title} onChange={e=>rename(ui,null,e.target.value)}/>
         {u.topics.map((t,ti)=>{const last=ui===plan.units.length-1&&ti===u.topics.length-1
           return <div key={t.from} className="ptopic"><label className="sr" htmlFor={`t${ui}-${ti}`}>{tl("Topic title")}</label><input id={`t${ui}-${ti}`} value={t.title} onChange={e=>rename(ui,ti,e.target.value)}/>
             <small className="known">{t.summary?t.summary+' · ':''}{pl(t.words||0,'word')}</small><p className="excerpt">{t.excerpt}{t.excerpt&&t.excerpt.length>=280?'…':''}</p>
-            <div className="acts"><button className="tool" onClick={async()=>{try{setPeek({title:t.title,...(await api(`/study/courses/${id}/preview?start=${t.from}&end=${t.to}`))})}catch(e){toast(e.message)}}}>{tl("Read it all")}</button>
-              {!last&&<button className="tool" onClick={()=>merge(ui,ti)}>{tl("Merge with next")}</button>}{flat.length>1&&<button className="tool" onClick={()=>remove(ui,ti)}>{tl("Remove")}</button>}</div></div>})}</section>)}
+            <div className="acts"><button className="tool" onClick={async()=>{try{setPeek({title:t.title,ui,ti,...(await api(`/study/courses/${id}/preview?start=${t.from}&end=${t.to}`))})}catch(e){toast(e.message)}}}>{t.to>t.from?tl("Read it all or split it"):tl("Read it all")}</button>
+              {!last&&<button className="tool" onClick={()=>merge(ui,ti)}>{tl("Merge with next")}</button>}{flat.length>1&&<button className="tool" onClick={()=>remove(ui,ti)}>{tl("Remove topic and its text")}</button>}</div></div>})}</section>)}
       <h3 className="sec">{tl("Slice it differently")}</h3><label htmlFor="nts2">{tl("Notes for the AI")}</label><textarea id="nts2" value={notes} onChange={e=>setNotes(e.target.value)} placeholder={tl(NOTES_HINT)}/>
       <div className="two"><button className="btn ghost" disabled={!!busy} onClick={()=>slice('ai')}><Sparkles size={16}/>{" "}{tl("Slice again with AI")}</button><button className="btn ghost" disabled={!!busy} onClick={()=>setStep(1)}>{tl("Change material")}</button></div>
       <button className="btn" disabled={!!busy} onClick={finish}><Check size={16}/>{" "}{tl("Finish: build my course")}</button>
       {dirty&&<button className="btn ghost" disabled={!!busy} onClick={async()=>{try{await savePlan();toast(tl("Outline saved"))}catch(e){toast(e.message)}}}>{tl("Save outline and finish later")}</button>}</>}
-    {peek&&<Sheet close={()=>setPeek(null)}><h3>{peek.title}</h3><div className="prose"><Md>{peek.content}</Md></div><button className="btn ghost" onClick={()=>setPeek(null)}>{tl("Close")}</button></Sheet>}</div></>}
+    {peek&&<Sheet close={()=>setPeek(null)}><h3>{peek.title}</h3>{peek.paras?.length>1&&<p className="known" style={{marginTop:0}}>{tl("To make two topics of it, tap Split here between two paragraphs.")}</p>}
+      {peek.paras?.length>1?peek.paras.map((x,j)=><Fragment key={j}>{j>0&&<button className="tool splithere" onClick={()=>split(peek.ui,peek.ti,j)}><Scissors size={14}/> {tl("Split here")}</button>}<div className="prose"><Md>{x}</Md></div></Fragment>)
+        :<div className="prose"><Md>{peek.content}</Md></div>}
+      <button className="btn ghost" onClick={()=>setPeek(null)}>{tl("Close")}</button></Sheet>}</div></>}
 function StudyCourse({id,topic:first,toast,back,setup}){
   const confirm=useConfirm()
   const [c,setC]=useState(null),[p,setP]=useState(null),[topic,setTopic]=useState(first||null),[ren,setRen]=useState(null),[rev,setRev]=useState(null),[find,setFind]=useState('')

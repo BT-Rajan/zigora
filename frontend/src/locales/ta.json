@@ -2929,5 +2929,14 @@
 "Long material is sliced part by part: {done} of {of} done. This can take a few minutes.": "நீண்ட பாடப்பொருள் பகுதி பகுதியாகப் பிரிக்கப்படுகிறது: {of} இல் {done} முடிந்தது. இதற்குச் சில நிமிடங்கள் ஆகலாம்.",
 "The AI's answer could not be read. Try again, or slice by headings.": "செயற்கை நுண்ணறிவின் பதிலைப் படிக்க முடியவில்லை. மீண்டும் முயலுங்கள், அல்லது தலைப்புகளின்படி பிரியுங்கள்.",
 "Your material changed while it was being sliced. Slice it again.": "பிரிக்கும்போது உங்கள் பாடப்பொருள் மாறியது. மீண்டும் பிரியுங்கள்.",
-"Slicing stopped before it finished. Slice it again.": "பிரித்தல் முடிவதற்குள் நின்றது. மீண்டும் பிரியுங்கள்."
+"Slicing stopped before it finished. Slice it again.": "பிரித்தல் முடிவதற்குள் நின்றது. மீண்டும் பிரியுங்கள்.",
+"Read it all or split it": "முழுதும் படியுங்கள் அல்லது பிரியுங்கள்",
+"Remove topic and its text": "தலைப்பையும் அதன் உரையையும் நீக்கு",
+"Removed “{title}”. Its text won't be in the course.": "“{title}” நீக்கப்பட்டது. அதன் உரை பாடநெறியில் இருக்காது.",
+"To make two topics of it, tap Split here between two paragraphs.": "இதை இரண்டு தலைப்புகளாக்க, இரண்டு பத்திகளுக்கு இடையில் \"இங்கே பிரி\" என்பதைத் தட்டுங்கள்.",
+"Split here": "இங்கே பிரி",
+"{title} (part 2)": "{title} (பகுதி 2)",
+"Split in two. Rename the new topic if you like.": "இரண்டாகப் பிரிக்கப்பட்டது. விரும்பினால் புதிய தலைப்புக்குப் பெயர் மாற்றுங்கள்.",
+", {n}{v}. Rename anything, merge a topic into the next one, split a long one, or remove one you don't need. Not right? Change the notes and slice again.": ", {n}{v}. எதையும் மறுபெயரிடுங்கள், ஒரு தலைப்பை அடுத்ததுடன் இணைக்கவும், நீண்ட ஒன்றைப் பிரிக்கவும், அல்லது தேவையில்லாததை நீக்கவும். சரியில்லையா? குறிப்புகளை மாற்றி மீண்டும் பிரிக்கவும்.",
+"Set up · step {step} of 4": "அமைப்பு · படி {step} / 4"
 }

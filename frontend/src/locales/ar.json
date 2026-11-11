@@ -2929,5 +2929,14 @@
 "Long material is sliced part by part: {done} of {of} done. This can take a few minutes.": "تُقسَّم المادة الطويلة جزءًا جزءًا: اكتمل {done} من {of}. قد يستغرق ذلك بضع دقائق.",
 "The AI's answer could not be read. Try again, or slice by headings.": "تعذّرت قراءة إجابة الذكاء الاصطناعي. حاول مرة أخرى، أو قسّم حسب العناوين.",
 "Your material changed while it was being sliced. Slice it again.": "تغيّرت مادتك أثناء تقسيمها. قسّمها مرة أخرى.",
-"Slicing stopped before it finished. Slice it again.": "توقف التقسيم قبل أن ينتهي. قسّمها مرة أخرى."
+"Slicing stopped before it finished. Slice it again.": "توقف التقسيم قبل أن ينتهي. قسّمها مرة أخرى.",
+"Read it all or split it": "اقرأه كله أو قسّمه",
+"Remove topic and its text": "أزل الموضوع ونصه",
+"Removed “{title}”. Its text won't be in the course.": "أُزيل «{title}». لن يكون نصه في المقرر.",
+"To make two topics of it, tap Split here between two paragraphs.": "لجعله موضوعين، اضغط «قسّم هنا» بين فقرتين.",
+"Split here": "قسّم هنا",
+"{title} (part 2)": "{title} (الجزء 2)",
+"Split in two. Rename the new topic if you like.": "قُسّم إلى موضوعين. أعد تسمية الموضوع الجديد إن أردت.",
+", {n}{v}. Rename anything, merge a topic into the next one, split a long one, or remove one you don't need. Not right? Change the notes and slice again.": "، {n}{v}. أعد تسمية أي شيء، أو ادمج موضوعًا في الذي يليه، أو قسّم موضوعًا طويلًا، أو احذف ما لا تحتاجه. ليس صحيحًا؟ غيّر الملاحظات وقسّمها من جديد.",
+"Set up · step {step} of 4": "الإعداد · الخطوة {step} من 4"
 }

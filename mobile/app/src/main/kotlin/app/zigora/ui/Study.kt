@@ -147,7 +147,8 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
     var notes by remember { mutableStateOf("") }
     var plan by remember { mutableStateOf<StudyPlan?>(null) }
     var dirty by remember { mutableStateOf(false) }
-    var peek by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var peek by remember { mutableStateOf<Peek?>(null) }
+    var undo by remember { mutableStateOf<Pair<StudyPlan, String>?>(null) }  // the outline before a topic was removed, and that topic's title
     var ask by remember { mutableStateOf<Ask?>(null) }
     val scroll = rememberScrollState()
     suspend fun load(go: Int? = null) {
@@ -181,7 +182,7 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
         }; Unit }
         if (dirty) ask = Ask(tl("Slice again?"), tl("Your renames, merges and removals in the current outline are replaced."), tl("Slice again"), yes = go) else go()
     }
-    fun edit(f: (MutableList<app.zigora.data.PUnit>) -> Unit) { val p = plan ?: return; val u = p.units.toMutableList(); f(u); plan = StudyPlan(u.filter { it.topics.isNotEmpty() }); dirty = true }
+    fun edit(f: (MutableList<app.zigora.data.PUnit>) -> Unit) { val p = plan ?: return; val u = p.units.toMutableList(); f(u); plan = StudyPlan(u.filter { it.topics.isNotEmpty() }); dirty = true; undo = null }
     suspend fun savePlan() { val p = plan ?: return
         plan = a.send("PUT", "/study/courses/$id/plan", json.encodeToJsonElement(StudyPlan.serializer(), p), PlanOutWrap.serializer()).plan; dirty = false }
     fun finish() = scope.launch {
@@ -202,7 +203,7 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
         if (ask == null) busy = ""
     }
     val cc = c; val st = step
-    Page(cc?.title ?: tl("Set up your course"), if (st != null) tl("Set up · step {step}{v} of 4", "step" to st, "v" to 1) else "", back, scroll = scroll) {
+    Page(cc?.title ?: tl("Set up your course"), if (st != null) tl("Set up · step {step} of 4", "step" to st + 1) else "", back, scroll = scroll) {
         if (cc == null || st == null) { Busy(); return@Page }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             STEPS.forEachIndexed { i, s -> Text((if (i < st) "✓ " else "${i + 1}. ") + tl(s), fontWeight = if (i == st) FontWeight.Bold else FontWeight.Normal,
@@ -255,8 +256,11 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
             }
             else -> plan?.let { p ->
                 val flat = p.units.flatMap { it.topics }
+                undo?.let { (before, title) -> Panel { Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tl("Removed “{title}”. Its text won't be in the course.", "title" to title), Modifier.weight(1f))
+                    TextButton(onClick = { plan = before; undo = null }) { Text(tl("Undo")) } } } }
                 SectionTitle(tl("Check the outline"))
-                Quiet(pl(p.units.size, "unit") + tl(", {n}{v}. Rename anything, merge a topic into the next one, or remove one you don't need. Not right? Change the notes and slice again.",
+                Quiet(pl(p.units.size, "unit") + tl(", {n}{v}. Rename anything, merge a topic into the next one, split a long one, or remove one you don't need. Not right? Change the notes and slice again.",
                                                     "n" to pl(flat.size, "topic"), "v" to if (cc.sliced_by == "headings") tl(" · sliced by headings") else ""))
                 p.units.forEachIndexed { ui, u ->
                     Panel {
@@ -272,15 +276,16 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
                                 Row {
                                     TextButton(onClick = { scope.launch {
                                         try { val r = a.raw("GET", "/study/courses/$id/preview?start=${t.from}&end=${t.to}") as JsonObject
-                                              peek = t.title to ((r["content"] as? JsonPrimitive)?.content.orEmpty()) } catch (e: Exception) { toast(e.message.orEmpty()) }
-                                    } }) { Text(tl("Read it all")) }
+                                              peek = Peek(t.title, (r["content"] as? JsonPrimitive)?.content.orEmpty(), (r["paras"] as? kotlinx.serialization.json.JsonArray)?.map { (it as JsonPrimitive).content }.orEmpty(), ui, ti)
+                                        } catch (e: Exception) { toast(e.message.orEmpty()) }
+                                    } }) { Text(if (t.to > t.from) tl("Read it all or split it") else tl("Read it all")) }
                                     if (!last) TextButton(onClick = { edit { us ->  // this topic takes in the next one, wherever that is
                                         val pos = us.flatMapIndexed { a2, x -> x.topics.indices.map { b -> a2 to b } }; val k = pos.indexOf(ui to ti); val (na, nb) = pos[k + 1]
                                         val nx = us[na].topics[nb]
                                         us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l[ti] = l[ti].copy(to = nx.to, words = l[ti].words + nx.words) })
                                         us[na] = us[na].copy(topics = us[na].topics.toMutableList().also { l -> l.removeAt(nb) })
                                     } }) { Text(tl("Merge with next")) }
-                                    if (flat.size > 1) TextButton(onClick = { edit { us -> us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l.removeAt(ti) }) } }) { Text(tl("Remove")) }
+                                    if (flat.size > 1) TextButton(onClick = { val before = p; edit { us -> us[ui] = us[ui].copy(topics = us[ui].topics.toMutableList().also { l -> l.removeAt(ti) }) }; undo = before to t.title }) { Text(tl("Remove topic and its text")) }
                                 }
                             }
                         }
@@ -299,9 +304,26 @@ fun StudyWizardScreen(id: Int, back: () -> Unit, done: () -> Unit) {
             }
         }
     }
-    peek?.let { (t, body) -> ModalBottomSheet(onDismissRequest = { peek = null }) {
+    peek?.let { pk -> ModalBottomSheet(onDismissRequest = { peek = null }) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
-            Text(t, style = MaterialTheme.typography.titleLarge); Md(body); TextButton(onClick = { peek = null }) { Text(tl("Close")) }
+            Text(pk.title, style = MaterialTheme.typography.titleLarge)
+            if (pk.paras.size > 1) {  // between two paragraphs: the first part keeps the title, the second starts as "(part 2)"
+                Quiet(tl("To make two topics of it, tap Split here between two paragraphs."))
+                pk.paras.forEachIndexed { j, x ->
+                    if (j > 0) OutlinedButton(onClick = {
+                        val wc = { l: List<String> -> l.joinToString(" ").split(Regex("\\s+")).count { it.isNotBlank() } }
+                        edit { us -> val t = us[pk.ui].topics[pk.ti]
+                            us[pk.ui] = us[pk.ui].copy(topics = us[pk.ui].topics.toMutableList().also { l ->
+                                l[pk.ti] = t.copy(to = t.from + j - 1, words = wc(pk.paras.take(j)))
+                                l.add(pk.ti + 1, app.zigora.data.PTopic(tl("{title} (part 2)", "title" to t.title), "", t.from + j, t.to, wc(pk.paras.drop(j)),
+                                                                       pk.paras[j].replace(Regex("[#*_`>|-]"), " ").replace(Regex("\\s+"), " ").trim().take(280)))
+                            }) }
+                        peek = null; toast(tl("Split in two. Rename the new topic if you like."))
+                    }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Text(tl("Split here")) }
+                    Md(x)
+                }
+            } else Md(pk.body)
+            TextButton(onClick = { peek = null }) { Text(tl("Close")) }
         }
     } }
     AskDialog(ask) { ask = null }
@@ -460,3 +482,5 @@ fun StudyTopicScreen(id: Int, back: () -> Unit, go: (Int) -> Unit, quiz: (StudyQ
     } }
     AskDialog(ask) { ask = null }
 }
+
+private data class Peek(val title: String, val body: String, val paras: List<String>, val ui: Int, val ti: Int)  // a planned topic's full text, paragraph by paragraph, to read or split
