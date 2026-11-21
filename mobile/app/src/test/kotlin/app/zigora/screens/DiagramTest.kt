@@ -62,13 +62,19 @@ class DiagramTest {
     @Test fun aCollegeStudentOpensTheDiagramFullScreen() {
         signIn("stu@mail.com"); openTheTopic()
         see("Diagram"); rule.onAllNodesWithText("Diagram").onFirst().performScrollTo(); shot("1-diagram-step")
-        tap("Diagram")
+        diagramChip()
         rule.waitUntil(20_000) { rule.onAllNodesWithText("The gist").fetchSemanticsNodes().isEmpty() }  // the topic gave way to the full-screen diagram
         see("Diagram"); shot("2-diagram-open")
     }
 
     @Test fun aLiteStudentSeesItComesWithPro() {
         signIn("ravi@gmail.com"); openTheTopic()
-        tap("Diagram"); see("Diagrams come with Pro"); shot("3-diagram-pro")
+        diagramChip(); see("Diagrams come with Pro"); shot("3-diagram-pro")
+    }
+    /** the Diagram chip (the badge on the gist says "Diagram" too, but only the chip opens it) */
+    private fun diagramChip() {
+        val chip = androidx.compose.ui.test.hasText("Diagram", substring = true) and androidx.compose.ui.test.hasClickAction()
+        rule.waitUntil(20_000) { rule.onAllNodes(chip, useUnmergedTree = false).fetchSemanticsNodes().isNotEmpty() }
+        rule.onAllNodes(chip).onFirst().performScrollTo().performClick()
     }
 }

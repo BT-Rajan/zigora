@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="${VENV:-$ROOT/venv}"
 cd "$ROOT"
-"$VENV/bin/python" backend/manage.py reset-demo --import content/mbbs_year2_pharmacology.csv "$@"
+"$VENV/bin/python" backend/manage.py reset-demo --import content/pharmacology_mbbs_year2.csv "$@"
 if command -v pm2 >/dev/null && pm2 describe engtutor >/dev/null 2>&1; then
   pm2 restart engtutor >/dev/null && echo "==> Restarted the app, so nothing from before is kept in memory."
 fi

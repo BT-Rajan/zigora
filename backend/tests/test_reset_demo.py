@@ -2,7 +2,7 @@ import os, types
 import main, manage
 from main import Session_, Program, Course, Topic, User, Setting, GuardianLink, UPLOADS
 
-PHARM = os.path.join(os.path.dirname(__file__), "..", "..", "content", "mbbs_year2_pharmacology.csv")
+PHARM = os.path.join(os.path.dirname(__file__), "..", "..", "content", "archive", "pharmacology-v1", "mbbs_year2_pharmacology.csv")
 
 def test_reset_demo_wipes_everything_and_makes_demo_accounts(env, tmp_path):
     env.csv("program,semester,course,unit,topic,content\nB.E,Semester 1,Chem,U1,Water,w\n")

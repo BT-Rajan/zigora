@@ -309,7 +309,7 @@ private fun StaffMeScreen(me: Me, signOut: () -> Unit) {
     Page(stringResource(R.string.tab_me)) {
         Panel { Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             Dot(me.name, MaterialTheme.colorScheme.primary); androidx.compose.foundation.layout.Spacer(Modifier.size(14.dp))
-            Column { Text(me.name, style = MaterialTheme.typography.titleLarge); Quiet(app.store.server) }
+            Column { Text(me.name, style = MaterialTheme.typography.titleLarge); if (!builtIn(app.store.server)) Quiet(app.store.server) }
         } }
         // the website and signing out: rows of one list, as the student's Me screen has them
         Rows({ ListRow(stringResource(R.string.open_in_browser), tl("Courses, topics, tests and settings are on the website."), leading = { RowIcon(Icons.Outlined.OpenInBrowser) },

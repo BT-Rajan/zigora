@@ -37,7 +37,17 @@ function zoom(src,alt){
   const close=()=>{box.remove();removeEventListener('keydown',key)},key=e=>{if(e.key==='Escape')close()}
   box.onclick=e=>{if(e.target===box)close()};x.onclick=close;addEventListener('keydown',key)
   box.append(img,x);document.body.append(box);x.focus()}
-const MdImg=({src,alt})=><img src={src} alt={alt||''} loading="lazy" className="zoomable" onClick={()=>zoom(src,alt)}/>
-export const Md=({children})=><Markdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]} urlTransform={url} components={{img:MdImg}}>{fixTables(texDelims(children))}</Markdown>
+const MdImg=({src,alt})=><img src={src} alt={alt||''} loading="lazy" className="zoomable" onClick={e=>zoom(e.currentTarget.currentSrc||e.currentTarget.src,alt)}/>  // its address as loaded (the app's reader points it at the college's server)
+// a quote in notes is a call-out box; the bold words it opens with say which kind, and so its colour and icon:
+// "> **Key point** …", "> **Exam tip** …", "> **Clinical pearl** …", "> **Caution** …", "> **Diagram** …", "> **Remember (mnemonic)** …", "> **Case** …"
+const CALLOUTS=[['diagram',/^(diagram|figure)/],['exam',/^(exam|viva|examiners|mcq)/],['clinic',/^(clinical|in practice|at the bedside|clinical uses?)/],
+  ['case',/^(case|problem)/],['warn',/^(caution|warning|beware|careful|danger|don't|do not)/],['mnemo',/^(remember|mnemonic|memory)/],['key',/^(key|in short|summary|recap|quick recap|the idea|core idea|note)/]]
+const textOf=n=>!n?'':n.type==='text'?n.value:(n.children||[]).map(textOf).join('')
+function Callout({node,children}){
+  const p=(node?.children||[]).find(c=>c.type==='element'),lead=p&&(p.children||[]).find(c=>c.type==='element'||(c.type==='text'&&c.value.trim()))
+  const label=lead&&lead.type==='element'&&lead.tagName==='strong'?textOf(lead).trim().toLowerCase():''
+  const kind=(CALLOUTS.find(([,re])=>re.test(label))||['plain'])[0]
+  return <blockquote className={'callout '+kind}>{children}</blockquote>}
+export const Md=({children})=><Markdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]} urlTransform={url} components={{img:MdImg,blockquote:Callout}}>{fixTables(texDelims(children))}</Markdown>
 // a topic's content: Markdown, or HTML from an uploaded file (the server cleans it on every save and every read, so it carries no scripts or styles)
 export const Body=({text,format})=>format==='html'?<div className="htmlc" dangerouslySetInnerHTML={{__html:atHtml(text||'')}}/>:<Md>{text}</Md>

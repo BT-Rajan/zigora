@@ -49,19 +49,20 @@ private val LEARN_STEPS = listOf("gist", "why", "example", "exam", "check")
  *  topic has notes), then the notes, then "I've learned this". Back and Next at the bottom, a thin line at the top for how far along they are.
  *  "Full page" opens the topic's usual page (highlights, asking the teacher, practice and the rest). */
 @Composable
-fun LearnScreen(id: Int, back: () -> Unit, fullPage: () -> Unit) {
+fun LearnScreen(id: Int, back: () -> Unit, openDiagram: (String) -> Unit = {}, fullPage: () -> Unit) {
     val topic = rememberLoad("learn-topic", id) { get("/topics/$id", TopicFull.serializer()) }
     val ai = rememberLoad("ai") { get("/ai/status", AiStatus.serializer()) }
     Surface(Modifier.fillMaxSize()) {
         Loaded(topic) { t ->
             val aiOn = (ai.state as? Load.Ok)?.value?.available == true && (!t.content.isNullOrBlank() || t.my_notes != null)
-            val steps = (if (aiOn) LEARN_STEPS else emptyList()) + listOf("notes", "done")
+            val steps = (if (aiOn) LEARN_STEPS + (if (t.diagram != null) listOf("diagram") else emptyList()) else emptyList()) + listOf("notes", "done")  // a topic with a diagram has its own step for it
             var i by rememberSaveable(id) { mutableIntStateOf(0) }
             if (i >= steps.size) i = steps.size - 1  // AI status arrived after they moved on
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = back) { Icon(Icons.Outlined.Close, tl("Close")) }
                     Text(t.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (t.diagram != null && aiOn) StepBadge("diagram", tl("Diagram"), Modifier.padding(start = 6.dp))  // this topic has a diagram
                     TextButton(onClick = fullPage) { Text(tl("Full page")) }
                 }
                 LinearProgressIndicator(progress = { (i + 1f) / steps.size }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
@@ -69,6 +70,7 @@ fun LearnScreen(id: Int, back: () -> Unit, fullPage: () -> Unit) {
                     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState(), reverseScrolling = false).padding(24.dp)) {
                         when (val k = steps[i]) {
                             "gist" -> GistStep(id)
+                            "diagram" -> DiagramStep(id, t.diagram, openDiagram)
                             "notes" -> NotesStep(t)
                             "done" -> DoneStep(t, back)
                             else -> AiStep(id, k)
@@ -100,7 +102,7 @@ private fun GistStep(id: Int) {
         is Load.Loading -> Busy()
         is Load.Failed -> StepFailed(st.message, g.reload)
         is Load.Ok -> { val d = st.value.data ?: return
-            Text(tl("The gist"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            StepBadge("gist", tl("The gist"))
             d.list("points").forEach { p -> Row(Modifier.padding(top = 10.dp)) { Text("•  ", style = MaterialTheme.typography.bodyLarge); Md(p) } }
             if (d.str("hook").isNotEmpty()) Hook(d.str("hook"), d.str("hook_answer"))
         }
@@ -119,7 +121,7 @@ private fun AiStep(id: Int, k: String) {
 
 @Composable
 private fun NotesStep(t: TopicFull) = Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-    Text(tl("Notes"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+    StepBadge("notes", tl("Notes"))
     when {
         t.content_format == "interactive" && !t.content.isNullOrBlank() -> Quiet(tl("This topic is an interactive page. Open the full page to use it."))
         !t.content.isNullOrBlank() -> WebContent(t.content!!, t.content_format)
@@ -139,4 +141,20 @@ private fun DoneStep(t: TopicFull, back: () -> Unit) = Column(verticalArrangemen
         try { status = a.send("PUT", "/topics/${t.id}/complete", null, Learning.serializer()).status } catch (e: Exception) { msg = e.message.orEmpty() }
     } }, modifier = Modifier.fillMaxWidth()) { Text(tl("I've learned this")) }
     if (msg.isNotEmpty()) Text(msg, color = MaterialTheme.colorScheme.error)
+}
+
+/** the topic's diagram: what it is, and a button that opens it full screen (drawn by the AI once, then shared; on Lite it comes with Pro) */
+@Composable
+private fun DiagramStep(id: Int, kind: String?, openDiagram: (String) -> Unit) = Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val a = api(); val scope = rememberCoroutineScope()
+    var busy by remember(id) { mutableStateOf(false) }; var msg by remember(id) { mutableStateOf("") }
+    StepBadge("diagram", tl("Diagram"))
+    Text(tl("This topic has a diagram. It shows the idea as a picture you can tap through."), style = MaterialTheme.typography.bodyLarge)
+    if (kind == "pro") Quiet(tl("Diagrams come with Pro, an own AI key, or a college account."))
+    Button(enabled = !busy, onClick = { scope.launch {
+        busy = true; msg = ""
+        try { val r = a.get("/topics/$id/diagram", app.zigora.data.DiagramOut.serializer()); openDiagram(r.frame_url) } catch (e: Exception) { msg = e.message.orEmpty() }
+        busy = false
+    } }, modifier = Modifier.fillMaxWidth()) { Text(if (busy) tl("Drawing…") else tl("Open the diagram")) }
+    if (msg.isNotEmpty()) Quiet(I18n.srv(msg))
 }
