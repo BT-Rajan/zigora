@@ -1,0 +1,622 @@
+program,semester,semester_no,course,unit,topic,content,question_pattern,diagram_note
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,What pharmacology is about,"Every time a patient swallows a tablet, two stories unfold at once: what the **drug does to the body**, and what the **body does to the drug**. Pharmacology is the study of both.
+
+## The word itself
+
+**Pharmacology** comes from two Greek words: *pharmakon* (drug) and *logos* (study). In the broadest sense it covers any chemical that changes how a living system works, but for a doctor the focus is narrower: drugs used to **diagnose, prevent or treat disease**, safely and rationally.
+
+## What counts as a drug?
+
+> **Key point**
+> The WHO defines a drug as *any substance or product used, or intended to be used, to modify or explore physiological systems or pathological states for the benefit of the recipient.*
+
+Notice the phrase **""for the benefit of the recipient""**. A contraceptive pill or a vaccine qualifies, even though the person is not ill.
+
+> **Note**
+> In everyday speech ""drug"" often means an illicit substance. To avoid confusion, the word **medicine** is used for the therapeutic product.
+
+## The two big halves
+
+| | **Pharmacodynamics** | **Pharmacokinetics** |
+|---|---|---|
+| In one line | What the **drug does to the body** | What the **body does to the drug** |
+| Covers | Mechanism of action, effects on cells, organs and systems | **A**bsorption, **D**istribution, **M**etabolism, **E**xcretion |
+| Example question | *How* does adrenaline raise the heart rate? | *How long* does paracetamol stay in the blood? |
+
+> **Remember (mnemonic)**
+> Pharmacokinetics is **ADME**: the drug's journey *in, around, changed and out*.
+
+A quick example of each:
+
+- **Pharmacodynamics:** adrenaline binds **β₁ receptors** on the heart → a G-protein switches on adenylyl cyclase → more **cAMP** → the heart beats faster and stronger.
+- **Pharmacokinetics:** paracetamol is absorbed well from the gut, peaks in blood in under an hour, is mostly **conjugated in the liver** and leaves in urine, with a half-life of about **2–3 hours**.
+
+## The family of related subjects
+
+| Subject | What it deals with |
+|---|---|
+| **Pharmacotherapeutics** | Using drug knowledge to choose the right drug, dose and duration for a patient |
+| **Clinical pharmacology** | Studying drugs in humans: volunteers and patients, trials, drug use surveillance |
+| **Chemotherapy** | Drugs that kill or stop **invading organisms or cancer cells** with little harm to the host |
+| **Pharmacy** | Preparing, compounding and dispensing medicines |
+| **Toxicology** | Poisons: detection, prevention and treatment of poisoning, including toxic effects of drugs |
+
+> **Exam tip**
+> ""Define pharmacodynamics and pharmacokinetics with one example each"" is a classic 2–3 mark question. Give the one-line definition, then a concrete drug example: it shows understanding, not memory.
+
+> **Key point**
+> Quick recap
+> - Pharmacology = how drugs and the body act on each other.
+> - **Pharmacodynamics** = drug → body. **Pharmacokinetics** = body → drug (ADME).
+> - A ""drug"" includes anything used for diagnosis, prevention or treatment, for the patient's benefit.","Define: drug, pharmacodynamics, pharmacokinetics (2 marks each). Short note: branches of pharmacology.",
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,Where drugs come from,"Some of our oldest medicines were scraped from tree bark; some of the newest are grown in bacteria. Knowing the **source** of a drug often explains its chemistry, how it is given and how it can go wrong.
+
+## What drugs are made of
+
+- Most drugs are **organic molecules**, usually **weak acids** (aspirin, penicillin) or **weak bases** (morphine, chloroquine).
+- A few are **inorganic**: lithium carbonate, ferrous sulfate, magnesium hydroxide.
+- Most are **solids**; some are **liquids** (ethanol, glyceryl trinitrate) and a few are **gases** (nitrous oxide).
+
+### Why size matters
+
+Most drugs weigh **100–1000 Daltons**:
+
+- **Too small** (<100 D) and a molecule has too few features to fit one target selectively.
+- **Too big** (>1000 D) and it cannot slip across membranes easily, so big molecules such as **heparin, insulin, enzymes and antibodies** must be **injected**.
+
+> **Key point**
+> Large protein drugs are destroyed in the gut and cross membranes poorly: that is why **insulin is injected**, not swallowed.
+
+## The six sources
+
+| Source | Examples | Worth remembering |
+|---|---|---|
+| **Plants** | Morphine (opium), atropine (belladonna), digoxin (foxglove), quinine (cinchona), artemisinin | The oldest source |
+| **Animals** | Insulin and thyroxine (once from animal glands), some antisera | Largely replaced by recombinant products |
+| **Microbes** | Penicillin, gentamicin, tetracyclines, streptokinase | Most antibiotics |
+| **Minerals** | Iron salts, lithium, magnesium and aluminium hydroxide, iodine | Simple inorganic compounds |
+| **Synthetic chemistry** | Benzodiazepines, thiazides, ACE inhibitors, fluoroquinolones | Today's **largest** source |
+| **Biotechnology** | Recombinant insulin, growth hormone, erythropoietin, monoclonal antibodies | The fastest-growing source |
+
+## Plant constituents you should know
+
+- **Alkaloids:** nitrogen-containing, alkaline, very potent. *Morphine, atropine, nicotine, quinine, ephedrine, reserpine, vincristine.* Usually given as water-soluble salts (hydrochloride, sulfate).
+- **Glycosides:** a sugar joined to a non-sugar part (the aglycone). *Digoxin* is the classic one; senna's laxative principle is another.
+- **Oils:**
+  - *Fixed oils* (castor oil, groundnut oil): fats, used as purgatives, emollients or food.
+  - *Volatile (essential) oils* (clove, eucalyptus, peppermint, menthol): aromatic, used for flavour, as carminatives, counter-irritants, or for local pain relief (clove oil for toothache).
+  - *Mineral oils* (liquid paraffin): from petroleum, not plants; a lubricant laxative and an ointment base.
+
+> **Exam tip**
+> Alkaloids are the most important plant constituents. Keep **four examples** ready: morphine, atropine, quinine and vincristine.
+
+> **Clinical pearl**
+> **Synthetic congeners** of natural drugs exist because chemists can tune them: atropine substitutes with fewer side effects, β₂-selective agonists for asthma, and synthetic steroids with more anti-inflammatory and less salt-retaining action.
+
+> **Key point**
+> Quick recap
+> - Drugs are mostly weak acids or bases, 100–1000 D in size.
+> - Six sources: **plants, animals, microbes, minerals, synthesis, biotechnology**.
+> - Synthesis is now the biggest source; biotechnology the fastest growing.",Classify drugs by source with two examples each. What are alkaloids and glycosides? Give examples.,
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,"One drug, three kinds of names","Ask three people the name of one medicine and you may get three answers, all correct. A drug has a **chemical name**, a **non-proprietary (generic) name** and usually several **brand names**.
+
+## The three kinds of names
+
+| Kind | What it is | Example (propranolol) |
+|---|---|---|
+| **Chemical name** | Describes the structure exactly | *1-(isopropylamino)-3-(1-naphthyloxy) propan-2-ol* |
+| **Non-proprietary name** | The official short name, agreed internationally | **Propranolol** |
+| **Proprietary (brand) name** | The maker's trade name | Many, differing by company and country |
+
+### Chemical name
+Precise but **far too long** for prescribing. Before a name is chosen, companies may use a **code** (letters and numbers) during development.
+
+### Non-proprietary name
+- Chosen by an official body; the WHO's **International Nonproprietary Name (INN)** keeps names uniform worldwide.
+- Once listed in a pharmacopoeia it is the **official name**.
+- Some older drugs still have two: *pethidine/meperidine*, *lignocaine/lidocaine*.
+
+> **Note**
+> People call it the ""generic name"". Strictly, *generic* should describe a whole **group** (benzodiazepines, aminoglycosides), but the loose use is now universal.
+
+### Brand name
+- **Owned by the manufacturer**; one drug may be sold under **many brand names**.
+- Designed to be **short and catchy**, sometimes hinting at use.
+- The same drug can have **different brand names in different countries**, and combinations get brand names of their own: a major source of confusion.
+
+## Why prescribe by non-proprietary name?
+
+- **Uniform and clear:** drugs of one class sound alike. Propranolol, atenolol and metoprolol are all **β-blockers** (the *-olol* ending); their brand names give no such clue.
+- **Cheaper:** generic products cost less because they carry no brand promotion.
+- **Less confusion** across countries and companies.
+
+> **Clinical pearl**
+> When a drug's effect depends critically on its **formulation** (bioavailability matters, e.g. some antiepileptics or modified-release tablets), a **trusted brand** may be preferred so the patient gets the same product each time.
+
+> **Remember (mnemonic)**
+> Endings tell the class: **-olol** β-blocker, **-pril** ACE inhibitor, **-sartan** AT₁ blocker, **-prazole** proton pump inhibitor, **-caine** local anaesthetic, **-azepam** benzodiazepine.
+
+> **Exam tip**
+> Short note: ""Drug nomenclature"". Write the three kinds with **one example each**, then **3 advantages of generic prescribing** and **one situation where a brand is better**.
+
+> **Key point**
+> Quick recap
+> - Chemical name: exact but unusable. Non-proprietary: official, uniform. Brand: the maker's, many per drug.
+> - Prescribing by non-proprietary name is clearer and cheaper.",Short note: drug nomenclature. Advantages of prescribing by non-proprietary name.,
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,Where to look a drug up,"Before prescribing an unfamiliar drug you need a reliable reference. Drug **compendia** are collections of drug information, and they come in two kinds: **official** (with legal standing) and **non-official**.
+
+## Official compendia
+
+### Pharmacopoeias
+- Published under government authority; they set **standards** for drugs.
+- Contain structure, physical and chemical properties, **identification and assay methods, purity standards**, storage and dosage forms.
+- Mainly used by **manufacturers and regulators**, rarely by doctors.
+- Examples: **Indian Pharmacopoeia (IP)**, British (BP), European (Eur P), United States (USP).
+
+### Formularies
+- **Handy books for prescribers.** Drugs are grouped by therapeutic class.
+- Each drug has **indications, dose, dosage forms, contraindications, precautions, adverse effects** and storage.
+- Often include short treatment guidelines and useful appendices.
+- Examples: **National Formulary of India (NFI)**, **British National Formulary (BNF)**.
+
+## Non-official compendia
+
+| Name | What makes it useful |
+|---|---|
+| **Martindale: The Complete Drug Reference** | Huge, regularly updated, worldwide coverage of drugs |
+| **Physicians' Desk Reference (PDR)** | Product information from manufacturers (USA) |
+| **Drug Facts and Comparisons** | Side-by-side comparisons of similar drugs (USA) |
+
+> **Key point**
+> **Pharmacopoeia = standards** (for makers and regulators). **Formulary = practical prescribing guide** (for doctors).
+
+> **Exam tip**
+> A favourite viva question: ""What is the difference between a pharmacopoeia and a formulary?"" Answer in **two lines**, using the key point above, and name one of each.
+
+> **Key point**
+> Quick recap
+> - Official compendia: pharmacopoeias (IP, BP, USP) and formularies (NFI, BNF).
+> - Non-official: Martindale, PDR, Drug Facts and Comparisons.",Differentiate pharmacopoeia and formulary. Name two drug compendia.,
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,"Essential medicines, OTC and orphan drugs","Thousands of medicines exist, yet a relatively short list covers most of a population's needs. This topic is about **which drugs a health system should always have**, and **who may buy what**.
+
+## Essential medicines
+
+> **Key point**
+> The WHO calls essential medicines *those that satisfy the priority health care needs of the population.*
+
+They are chosen for **public health relevance, evidence of efficacy and safety, and cost-effectiveness**, and should be available **at all times**, in adequate amounts, in the right dosage forms, with assured quality, at a price people can afford.
+
+### How they are chosen (the criteria, simplified)
+1. Good evidence of **efficacy and safety** from clinical studies.
+2. Available in a form whose **quality and stability** can be assured.
+3. Fits the local **pattern of disease**, facilities, staff and money.
+4. Between similar drugs, pick on **efficacy, safety, quality, price and availability**; cost-benefit counts.
+5. Mostly **single drugs**; a **fixed-dose combination** only when it is clearly better (efficacy, safety, adherence, or less resistance).
+6. Reviewed **regularly**, guided by treatment guidelines.
+
+- The **WHO Model List** was first published in **1977** and is revised every two years.
+- India has its own **National List of Essential Medicines (NLEM)**, with medicines marked for **primary, secondary and tertiary** care levels.
+
+> **Clinical pearl**
+> Buying from an essential medicines list makes medicines **more available, cheaper and used more rationally**: a big gain for public hospitals.
+
+## Prescription and OTC drugs
+
+| | **Prescription drugs** | **Over-the-counter (OTC)** |
+|---|---|---|
+| Who can supply | Only against a registered doctor's prescription | Anyone can buy, even from a general shop |
+| Examples | Most drugs, **all antibiotics** | Simple analgesics (paracetamol), antacids, some laxatives, vitamins |
+| In India | Listed in **Schedule H** of the Drugs and Cosmetics Rules | Considered relatively harmless |
+
+## Orphan drugs
+
+**Orphan drugs** are medicines for **rare diseases** (or for common diseases in poor regions) where companies cannot expect to recover development costs from sales.
+
+- Governments offer **tax benefits and other incentives** to develop them.
+- Examples: *rituximab, bortezomib, sodium stibogluconate, rifaximin*.
+
+> **Exam tip**
+> Write ""Essential medicines concept"" as: **definition**, **5 criteria**, **WHO list (1977)** and **NLEM**, then **one benefit**. That structure scores full marks.
+
+> **Key point**
+> Quick recap
+> - Essential medicines meet a population's priority needs: effective, safe, affordable, always available.
+> - Prescription drugs (Schedule H) need a prescription; OTC drugs do not.
+> - Orphan drugs treat rare diseases and need incentives to be made.",Short note: essential medicines concept. What are orphan drugs? Differentiate prescription and OTC drugs.,
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,Dosage forms: how a drug is packaged,"A pure drug is rarely given on its own. It is mixed with **excipients** (fillers, binders, preservatives, flavours) and shaped into a **dosage form**: something that holds an exact dose, protects the drug and can be given easily.
+
+## Solid dosage forms
+
+| Form | What it is | Good to know |
+|---|---|---|
+| **Powders** | Finely ground drug in sachets | ORS; *effervescent* powders fizz (bicarbonate + citric acid release CO₂) |
+| **Tablets** | Compressed powder or granules | Many special types: see below |
+| **Capsules** | Gelatin shells holding powder or liquid | Open in the stomach; *enteric-coated* ones open in the intestine |
+| **Lozenges** | Tablet-like, dissolve slowly in the mouth | Local action on mouth and throat |
+| **Suppositories** | Cone-shaped, melt at body temperature | Rectal; vaginal ones are **pessaries** |
+
+### Special tablets
+
+- **Chewable:** chewed, so they must taste pleasant.
+- **Dispersible:** dropped in a little water first.
+- **Sublingual:** kept under the tongue for fast absorption.
+- **Enteric-coated:** the coat **resists stomach acid** and dissolves in the duodenum (protects acid-sensitive drugs, or the stomach).
+- **Sustained / extended release:** coated granules release the drug **slowly over 12 hours or more**, so fewer doses a day.
+- **Controlled release:** a membrane controls the release rate.
+
+> **Caution**
+> Never crush or split an **enteric-coated** or **sustained-release** tablet unless it is scored for this: you destroy the very coating that makes it work.
+
+## Liquid dosage forms
+
+- **Aqueous solutions:** drug dissolved in water, for oral, topical or injectable use.
+- **Suspensions** (insoluble drug dispersed in water) and **emulsions** (oil and water mixed with an emulsifier): **shake well** before use.
+- **Elixirs:** sweetened water–alcohol solutions. **Syrups** are thicker and sweeter; **dry syrups** are mixed with water just before use and **last only a few days**.
+- **Linctus:** a thick syrup, licked slowly to soothe the throat (cough).
+- **Drops:** concentrated, measured with a dropper. Preferred for **infants**. **Eye drops must be sterile** and isotonic.
+- **Lotions and liniments:** for the skin. Lotions soothe or cool; **liniments are rubbed in** and usually contain counter-irritants.
+
+## Semisolid forms (for skin and mucosa)
+
+| Form | Base | Best for |
+|---|---|---|
+| **Ointment** | Greasy (paraffin, wool fat) | **Dry, chronic** lesions; occlusive |
+| **Cream** | Oil-in-water or water-in-oil emulsion | Better absorption, cosmetically pleasant |
+| **Paste** | Thick, with powders (zinc oxide, starch) | **Oozing or raw** skin; absorbs secretions |
+| **Gel** | Water-based colloid | **Hairy skin**, mouth ulcers; washes off |
+
+## Injections
+
+- **Sterile** solutions or suspensions in **ampoules** (single dose, broken open) or **vials** (rubber-capped, single or multi-dose).
+- **Only clear aqueous solutions can go into a vein**: particles in suspensions or oils could cause **embolism**.
+- Unstable drugs come as **dry powder**, dissolved just before use. Insulin also comes in **pens and prefilled syringes**.
+
+## Inhalers
+
+- **Metered dose inhalers (pMDIs):** a propellant delivers **one measured puff** per press.
+- **Nebulisers:** turn a solution into a fine mist using air or oxygen.
+- **Rotahalers / spinhalers:** a capsule of fine powder is punctured and the patient's own breath disperses it.
+
+> **Key point**
+> Particle size decides where an inhaled drug lands: **1–5 µm** reaches the bronchioles; larger particles stick in the throat; smaller than 1 µm are breathed out again.
+
+> **Exam tip**
+> Commonly asked: ""Why are suspensions not given intravenously?"" and ""What is an enteric-coated tablet and why is it used?"" Both are one-line answers from this topic.
+
+> **Key point**
+> Quick recap
+> - Dosage form = drug + excipients, shaped for an exact, convenient dose.
+> - Solids, liquids, semisolids, injections and inhalers each suit different needs.
+> - IV injections must be **clear aqueous solutions**.",Short note: modified-release tablets. Why are suspensions not given IV? Ointment versus cream versus paste.,
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,"Choosing a route, and the local routes","The same drug can work, fail or harm depending on **how it is given**. Choosing a route is one of the first decisions in every prescription.
+
+## What decides the route
+
+> **Key point**
+> Seven questions to ask
+> 1. What are the drug's **physical and chemical properties** (solid, liquid, gas; solubility; stability; is it irritant)?
+> 2. Where must it act: a **local, reachable** site or the **whole body**?
+> 3. How **fast and how completely** is it absorbed from each route?
+> 4. Will **gut juices** or **first-pass metabolism** in the liver destroy it?
+> 5. How **quickly** is the effect needed (routine or emergency)?
+> 6. How **precisely** must the dose be controlled (IV and inhalation allow fine-tuning)?
+> 7. What is the **patient's condition** (unconscious, vomiting, uncooperative)?
+
+Routes fall into two groups:
+
+| **Local routes** | **Systemic routes** |
+|---|---|
+| Drug acts **where it is put** | Drug enters the **blood** and reaches the whole body |
+| High concentration at the site, **few systemic side effects** | Effects everywhere, including side effects |
+| Topical, deeper tissues, arterial supply | Oral, sublingual, rectal, cutaneous, inhalation, nasal, parenteral |
+
+## The local routes
+
+### 1. Topical
+Applied to a **surface**: skin, eyes, ears, nose, mouth, throat, vagina, anal canal. Forms include ointments, creams, drops, sprays, lozenges and pessaries.
+
+Some drugs given by mouth or inhaled are also **local**, because they act on the surface they touch and are hardly absorbed:
+
+- **Sucralfate** and oral **vancomycin** act on the gut lining.
+- **Inhaled salbutamol** acts on the bronchi.
+- **Lidocaine jelly** in the urethra numbs it before catheterisation.
+
+### 2. Deeper tissues
+Reached with a **needle**, in a form that is not quickly absorbed into blood:
+
+- **Intra-articular** injection: hydrocortisone acetate into a knee joint.
+- **Nerve block or intrathecal** injection: lidocaine around a nerve or into the CSF.
+- **Retrobulbar** injection: behind the eyeball.
+
+### 3. Arterial supply
+Injecting into the artery feeding an area: contrast dye in **angiography**, or anticancer drugs into a limb artery to concentrate them on a tumour.
+
+> **Clinical pearl**
+> A drug can be local in one form and systemic in another: **glyceryl trinitrate** ointment or patch on the skin is absorbed to treat **angina** throughout the heart.
+
+> **Exam tip**
+> List the **7 factors** that govern the choice of route; examiners love this list. Then give one example each of local and systemic routes.
+
+> **Key point**
+> Quick recap
+> - The route depends on the drug, the site of action, speed needed, dose control and the patient.
+> - Local routes keep the drug at the site: topical, deep tissues, arterial supply.",Enumerate the factors governing the choice of route of administration. Short note: local routes with examples.,
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,The oral route and first-pass metabolism,"Swallowing a tablet is the **oldest, commonest and usually safest** way to take a medicine. But on its way to the circulation the drug has to get past the gut wall and the liver, and some of it never makes it.
+
+## Why the oral route is the default
+
+- **Safe and convenient:** no needles, no help needed, painless.
+- **Cheap:** the product need not be sterile.
+- **Many forms:** tablets, capsules, sustained-release forms, syrups, suspensions, elixirs.
+
+## Its limitations
+
+| Limitation | Example |
+|---|---|
+| **Slow onset**: not for emergencies | Tablets take 30–60 minutes or more |
+| **Bad taste** | Chloramphenicol, so it is given in capsules |
+| **Nausea and vomiting** | Many drugs irritate the stomach |
+| **Useless if the patient cannot swallow** | Unconscious, vomiting or uncooperative patients |
+| **Erratic or no absorption** | Streptomycin is **not absorbed** from the gut |
+| **Destroyed before it acts** | **Penicillin G and insulin** by gut juices; **glyceryl trinitrate, lidocaine, testosterone** by the liver |
+
+## First-pass metabolism
+
+Everything absorbed from the stomach and intestine travels in the **portal vein to the liver** before it reaches the rest of the body.
+
+> **Key point**
+> **First-pass metabolism** is the loss of a drug as it passes through the **gut wall and liver** for the first time, *before* it reaches the systemic circulation. A drug with a big first-pass loss needs a much larger oral dose, or a different route.
+
+Where it happens:
+
+1. **Intestinal wall** (enzymes in the gut lining).
+2. **Liver** (the main site).
+3. **Lungs**, to a minor extent, for drugs from any route.
+
+> **Diagram**
+> The path a drug takes into the circulation from each route (oral, sublingual, rectal, skin, intramuscular, intravenous, nasal), and where first-pass metabolism happens in the gut wall, liver and lungs (as seen in a book by KD Tripathi, Fig. 1.1). Open the **Diagram** step to explore our own version.
+
+Routes that **avoid** the liver on the first pass:
+
+- **Sublingual / buccal** (into the veins of the mouth, straight to the heart)
+- **Transdermal** (through the skin)
+- **Inhalation**, **nasal** and all **injections**
+- **Rectal**: only partly (about half the dose bypasses the liver)
+
+> **Clinical pearl**
+> **Glyceryl trinitrate** is almost entirely destroyed by the liver when swallowed, so for angina it is placed **under the tongue**: relief comes in minutes.
+
+> **Exam tip**
+> ""First-pass metabolism"" is a favourite short note: **definition, sites, 3 drug examples, how to avoid it (sublingual, transdermal, parenteral)**, and why it matters (dose adjustment, liver disease raises bioavailability).
+
+> **Key point**
+> Quick recap
+> - Oral: safest, cheapest, most convenient, but slow and unreliable for some drugs.
+> - **First-pass metabolism** in gut wall and liver can destroy much of an oral dose.
+> - Sublingual, transdermal, inhaled and injected drugs avoid it.","Advantages and disadvantages of the oral route. Short note: first-pass metabolism (definition, sites, examples, significance).","Draw our own version of the idea shown in a book by KD Tripathi (Fig. 1.1): an outline of the body showing the route each drug takes into the circulation: oral tablet (gut wall, portal vein, liver, then heart), sublingual tablet (straight to the heart), suppository (about half bypasses the liver), transdermal patch, intramuscular and intravenous injections, nasal spray, all reaching the heart and lungs. Mark the sites of first-pass metabolism: intestinal wall and liver (major) and lungs (minor). Tap a route to see whether it bypasses the liver."
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,"Sublingual, rectal, skin and transdermal routes","These routes all get a drug into the blood **without swallowing it**, and most of them **skip the liver** on the way in.
+
+## Sublingual and buccal
+
+The tablet is kept **under the tongue** (sublingual) or against the **cheek** (buccal).
+
+- Absorption is **quick**: action in **minutes**.
+- The drug enters the veins of the mouth and goes **straight to the heart, bypassing the liver**.
+- The patient can **spit the tablet out** once the effect is enough.
+- Only for drugs that are **lipid soluble and not irritant**: *glyceryl trinitrate, buprenorphine*.
+
+## Rectal
+
+Suppositories or a retention enema.
+
+- Useful when the patient is **vomiting or unconscious**, or for irritant, unpleasant drugs.
+- About **half** of what is absorbed (via the external haemorrhoidal veins) **bypasses the liver**; the rest goes to it.
+- **Drawbacks:** inconvenient and embarrassing, absorption often **slow and irregular**, irritant drugs can inflame the rectum.
+- Reliable exceptions: **diazepam** solution and **paracetamol** suppositories in children.
+
+## Cutaneous
+
+Very **lipid-soluble** drugs can be absorbed through the skin for a slow, prolonged effect, also **bypassing the liver**. Rubbing, an oily base and an occlusive dressing all help.
+
+## Transdermal therapeutic systems (patches)
+
+A **transdermal patch** delivers drug through the skin into the circulation at a **steady, controlled rate**.
+
+From outside in, a patch has:
+
+1. A **backing film** (occlusive)
+2. A **drug reservoir**
+3. A **rate-controlling membrane**: lets drug out more slowly than the skin can absorb it, so **the patch, not the skin, sets the rate**
+4. An **adhesive layer** with a priming dose, under a peel-off cover
+
+> **Diagram**
+> The layers of a transdermal patch and the drug's path through the skin into capillaries (as seen in a book by KD Tripathi, Fig. 1.2). Open the **Diagram** step to explore our own version.
+
+| Advantages | Disadvantages |
+|---|---|
+| **Smooth, steady** blood levels | More **expensive** |
+| **Bypasses the liver** | **Local itching and redness** (rotate sites) |
+| Less variation between patients, fewer side effects | Only for **potent, lipid-soluble** drugs |
+| One patch lasts **1–3 days**: good adherence | Slow to start and to stop |
+
+Examples of patches: **glyceryl trinitrate, fentanyl, nicotine, estradiol**; elsewhere also isosorbide dinitrate, hyoscine and clonidine. Common sites: chest, abdomen, upper arm, back, buttock, behind the ear.
+
+> **Clinical pearl**
+> A **hyoscine patch behind the ear** prevents motion sickness on a long journey, and a **nicotine patch** helps smokers quit by giving steady nicotine without the cigarette.
+
+> **Exam tip**
+> Short note on **transdermal drug delivery**: **structure** (4 layers), **why the rate is constant**, **advantages**, **drawbacks**, **4 examples**. Draw a simple labelled sketch of the layers if you can: it earns marks.
+
+> **Key point**
+> Quick recap
+> - Sublingual: fast, bypasses the liver (GTN in angina).
+> - Rectal: for vomiting or unconscious patients; only half bypasses the liver.
+> - Transdermal patches give steady levels for days, with the membrane controlling the rate.","Short note: transdermal therapeutic systems (structure, advantages, examples). Sublingual route: merits and examples.","Draw our own version of the idea shown in a book by KD Tripathi (Fig. 1.2): a cross-section of a transdermal patch on the skin, labelled from outside in: backing film, drug reservoir, rate-controlling micropore membrane, adhesive layer with priming dose, then the skin and its capillaries. Show the drug moving steadily down into the capillaries. Tap each layer to see what it does."
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,Inhalation and nasal routes,"The lungs offer a huge, thin, well-perfused surface. That makes **inhalation** one of the **fastest** ways for a drug to act.
+
+## Inhalation for systemic effect
+
+**Volatile liquids and gases**, such as the **general anaesthetics**, are breathed in and absorbed through the vast alveolar surface.
+
+- **Very rapid** onset.
+- **Easy to control:** stop giving it and the drug diffuses back into the alveoli and is **breathed out**, so the depth of anaesthesia can be adjusted moment to moment.
+- **Drawback:** irritant vapours (ether) inflame the airways and increase secretions.
+
+## Inhalation for local effect
+
+Aerosols for the airways: **salbutamol**, inhaled steroids, **cromolyn**. They act on the bronchi with little drug reaching the rest of the body. Devices are covered under *dosage forms*.
+
+## Nasal route
+
+The nasal lining absorbs many drugs well, **bypassing the gut juices and the liver**.
+
+- Used for: **desmopressin**, **calcitonin**, **GnRH agonists** (sprays or nebulised solutions).
+- Being explored for peptides like **insulin**, and for crossing the **blood–brain barrier**.
+
+> **Key point**
+> Inhaled anaesthetics are **controllable**: what goes in by the lungs comes out by the lungs.
+
+> **Clinical pearl**
+> In asthma, **inhaled salbutamol** works within minutes at a **tiny fraction of the oral dose**, so tremor and palpitations are far less.
+
+> **Exam tip**
+> ""Why is the inhalation route preferred for general anaesthetics?"" Answer: **rapid onset, rapid recovery, minute-to-minute control**.
+
+> **Key point**
+> Quick recap
+> - Inhalation: fastest absorption, fine control (anaesthetics), or local airway action (asthma).
+> - Nasal: bypasses gut and liver; desmopressin, calcitonin, GnRH agonists.",Advantages of the inhalation route. Drugs given by the nasal route.,
+M.B.B.S,Year 2,2,Pharmacology,1. Introduction to pharmacology and routes of drug administration,Parenteral routes: injections,"*Parenteral* literally means **""beside the gut""**: today it means giving a drug **by injection**, straight into tissue fluid or blood.
+
+## Why inject?
+
+- **Faster and more certain** effect: vital in emergencies.
+- Works in **unconscious, vomiting or uncooperative** patients.
+- **No interference** from food, gut juices or the liver.
+
+## Why not always?
+
+- Must be **sterile**, so costlier.
+- **Invasive and painful**; usually needs someone trained.
+- Risk of **local injury** and infection.
+- Generally **riskier** than swallowing.
+
+## The four main injections
+
+| Route | Where | Speed | Watch out for |
+|---|---|---|---|
+| **Subcutaneous (SC)** | Loose tissue under the skin | Slower than IM | Not for **irritants** (painful) or in **shock** (poor blood flow); small volumes only |
+| **Intramuscular (IM)** | Deltoid, gluteus, thigh muscles | Faster than SC | Avoid in patients on **anticoagulants** (haematoma) |
+| **Intravenous (IV)** | A superficial vein, as a **bolus** or **infusion** | **Immediate** | Most risky: vital organs exposed to high levels; **thrombophlebitis**, tissue damage if it leaks, **air embolism** |
+| **Intradermal** | Into the skin, raising a **bleb** | Local | Only special uses: **BCG**, sensitivity testing |
+
+### Subcutaneous in more detail
+- Patients can **inject themselves** (insulin).
+- **Depot** suspensions give a prolonged effect.
+- Special forms: **jet injection** (needle-free, for mass vaccination), **pellet implantation** (drug released over months, e.g. testosterone), and **implants** (non-biodegradable or biodegradable, used for hormones and contraceptives).
+
+### Intramuscular in more detail
+- Muscles have **fewer pain fibres** and a **rich blood supply**, so mild irritants can be given and aqueous solutions act faster than SC.
+- **Oily depots** last longer. Self-injection is hard because the needle must go deep.
+
+### Intravenous in more detail
+- **100% bioavailability**: the dose is smallest and most certain.
+- **Large volumes** can be infused.
+- The dose can be **titrated against the response** (e.g. blood pressure with sodium nitroprusside).
+- Even **irritant** drugs can be given, because the blood dilutes them quickly.
+- **Only clear aqueous solutions**: particles cause embolism. **No depot** preparations.
+
+> **Caution**
+> IV is the **most dangerous route**: the heart and brain meet the full concentration within seconds. Inject **slowly**, dilute irritants, and never inject suspensions or oils into a vein.
+
+> **Remember (mnemonic)**
+> Speed of action: **IV > IM > SC > oral**. The IV route has **100%** bioavailability; every other route has to *earn* its share.
+
+> **Case**
+> A **5-year-old** is brought with **high fever (40°C), fast breathing (RR 50/min), chest indrawing, wheeze and crackles**. He is irritable and mildly dehydrated. The doctor suspects **severe pneumonia**.
+>
+> 1. The chosen antibiotic can be given orally, IM or IV. **Which route now?** **IV**: the child is very sick, breathing hard and dehydrated, so oral absorption is unreliable and IM absorption may be poor. IV gives a **certain, immediate** blood level.
+> 2. **Should treatment wait for the lab reports?** **No.** Take samples for culture **first**, then start an **empirical** antibiotic straight away; adjust it when the results arrive.
+
+> **Exam tip**
+> Compare **SC, IM and IV** in a table: site, speed, volume, irritants, depot, and one danger each. A neat table scores more than a paragraph.
+
+> **Key point**
+> Quick recap
+> - Injections are fast and certain, but sterile, costly, painful and riskier.
+> - **IV**: immediate, 100% bioavailable, titratable, the most dangerous.
+> - **IM**: faster than SC, allows depots. **SC**: self-injection, implants. **Intradermal**: BCG, skin tests.","Compare subcutaneous, intramuscular and intravenous routes. Advantages and disadvantages of the intravenous route. A child with severe pneumonia: which route and why?",
+M.B.B.S,Year 2,2,Pharmacology,"2. Pharmacokinetics I: how drugs cross membranes, get absorbed and spread",,,,
+M.B.B.S,Year 2,2,Pharmacology,"3. Pharmacokinetics II: biotransformation, excretion and elimination kinetics",,,,
+M.B.B.S,Year 2,2,Pharmacology,"4. Pharmacodynamics: how drugs act, and receptor pharmacology",,,,
+M.B.B.S,Year 2,2,Pharmacology,"5. Pharmacotherapy, clinical pharmacology and how new drugs are developed",,,,
+M.B.B.S,Year 2,2,Pharmacology,6. Adverse drug effects,,,,
+M.B.B.S,Year 2,2,Pharmacology,7. The autonomic nervous system: essentials for pharmacology,,,,
+M.B.B.S,Year 2,2,Pharmacology,8. Cholinergic transmission and drugs that mimic acetylcholine,,,,
+M.B.B.S,Year 2,2,Pharmacology,9. Anticholinergic drugs and drugs acting on autonomic ganglia,,,,
+M.B.B.S,Year 2,2,Pharmacology,10. Adrenergic transmission and sympathomimetic drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,11. Adrenergic blockers and drugs for glaucoma,,,,
+M.B.B.S,Year 2,2,Pharmacology,12. Histamine and the antihistamines,,,,
+M.B.B.S,Year 2,2,Pharmacology,"13. Serotonin, its antagonists and the treatment of migraine",,,,
+M.B.B.S,Year 2,2,Pharmacology,"14. Eicosanoids (prostaglandins, leukotrienes) and platelet activating factor",,,,
+M.B.B.S,Year 2,2,Pharmacology,15. NSAIDs and antipyretic analgesics,,,,
+M.B.B.S,Year 2,2,Pharmacology,16. Drugs for rheumatoid arthritis and gout,,,,
+M.B.B.S,Year 2,2,Pharmacology,17. Drugs for cough and bronchial asthma,,,,
+M.B.B.S,Year 2,2,Pharmacology,18. Hormones: an introduction,,,,
+M.B.B.S,Year 2,2,Pharmacology,19. Anterior pituitary hormones,,,,
+M.B.B.S,Year 2,2,Pharmacology,20. Thyroid hormones and antithyroid drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,"21. Insulin, oral antidiabetic drugs and glucagon",,,,
+M.B.B.S,Year 2,2,Pharmacology,22. Corticosteroids,,,,
+M.B.B.S,Year 2,2,Pharmacology,23. Androgens and drugs for erectile dysfunction,,,,
+M.B.B.S,Year 2,2,Pharmacology,"24. Estrogens, progestins and contraception",,,,
+M.B.B.S,Year 2,2,Pharmacology,25. Oxytocin and other drugs acting on the uterus,,,,
+M.B.B.S,Year 2,2,Pharmacology,26. Calcium balance: hormones and drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,27. Skeletal muscle relaxants,,,,
+M.B.B.S,Year 2,2,Pharmacology,28. Local anaesthetics,,,,
+M.B.B.S,Year 2,2,Pharmacology,29. General anaesthetics,,,,
+M.B.B.S,Year 2,2,Pharmacology,30. Ethanol and methanol,,,,
+M.B.B.S,Year 2,2,Pharmacology,31. Sedatives and hypnotics,,,,
+M.B.B.S,Year 2,2,Pharmacology,32. Antiepileptic drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,33. Drugs for Parkinsonism,,,,
+M.B.B.S,Year 2,2,Pharmacology,34. Antipsychotic drugs and drugs for mania,,,,
+M.B.B.S,Year 2,2,Pharmacology,35. Antidepressants and antianxiety drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,36. Opioid analgesics and their antagonists,,,,
+M.B.B.S,Year 2,2,Pharmacology,37. CNS stimulants and cognition enhancers,,,,
+M.B.B.S,Year 2,2,Pharmacology,38. Cardiac electrophysiology for the pharmacologist,,,,
+M.B.B.S,Year 2,2,Pharmacology,39. Drugs acting on the renin–angiotensin system,,,,
+M.B.B.S,Year 2,2,Pharmacology,40. Nitric oxide and vasoactive peptides,,,,
+M.B.B.S,Year 2,2,Pharmacology,41. Cardiac glycosides and drugs for heart failure,,,,
+M.B.B.S,Year 2,2,Pharmacology,42. Antiarrhythmic drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,43. Drugs for angina and myocardial ischaemia,,,,
+M.B.B.S,Year 2,2,Pharmacology,44. Antihypertensive drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,45. How urine is formed: physiology for diuretics,,,,
+M.B.B.S,Year 2,2,Pharmacology,46. Diuretics,,,,
+M.B.B.S,Year 2,2,Pharmacology,47. Antidiuretics,,,,
+M.B.B.S,Year 2,2,Pharmacology,48. Haematinics and erythropoietin,,,,
+M.B.B.S,Year 2,2,Pharmacology,"49. Drugs for coagulation, bleeding and thrombosis",,,,
+M.B.B.S,Year 2,2,Pharmacology,50. Lipid-lowering drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,51. Drugs for peptic ulcer and GERD,,,,
+M.B.B.S,Year 2,2,Pharmacology,"52. Antiemetics, prokinetics and digestants",,,,
+M.B.B.S,Year 2,2,Pharmacology,53. Drugs for constipation and diarrhoea,,,,
+M.B.B.S,Year 2,2,Pharmacology,54. Antimicrobial drugs: general principles,,,,
+M.B.B.S,Year 2,2,Pharmacology,"55. Sulfonamides, cotrimoxazole and quinolones",,,,
+M.B.B.S,Year 2,2,Pharmacology,56. Beta-lactam antibiotics,,,,
+M.B.B.S,Year 2,2,Pharmacology,57. Tetracyclines and chloramphenicol,,,,
+M.B.B.S,Year 2,2,Pharmacology,58. Aminoglycosides,,,,
+M.B.B.S,Year 2,2,Pharmacology,"59. Macrolides, lincosamides, glycopeptides and urinary antiseptics",,,,
+M.B.B.S,Year 2,2,Pharmacology,60. Antitubercular drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,61. Drugs for leprosy,,,,
+M.B.B.S,Year 2,2,Pharmacology,62. Antifungal drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,63. Antiviral drugs (non-retroviral),,,,
+M.B.B.S,Year 2,2,Pharmacology,64. Antiretroviral drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,65. Antimalarial drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,66. Drugs for amoebiasis and other protozoal infections,,,,
+M.B.B.S,Year 2,2,Pharmacology,67. Anthelmintic drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,68. Anticancer drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,69. Immunosuppressant drugs,,,,
+M.B.B.S,Year 2,2,Pharmacology,70. Drugs for skin and mucous membranes,,,,
+M.B.B.S,Year 2,2,Pharmacology,"71. Antiseptics, disinfectants and ectoparasiticides",,,,
+M.B.B.S,Year 2,2,Pharmacology,72. Chelating agents,,,,
+M.B.B.S,Year 2,2,Pharmacology,73. Vitamins,,,,
+M.B.B.S,Year 2,2,Pharmacology,"74. Vaccines, antisera and immunoglobulins",,,,
+M.B.B.S,Year 2,2,Pharmacology,75. Drug interactions,,,,

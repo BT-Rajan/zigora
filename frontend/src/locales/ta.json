@@ -3601,5 +3601,9 @@
 "The camera couldn't be opened. Choose a photo from your gallery instead.": "கேமராவைத் திறக்க முடியவில்லை. அதற்குப் பதிலாக உங்கள் கேலரியிலிருந்து ஒரு படத்தைத் தேர்ந்தெடுக்கவும்.",
 "Take the photo": "படம் எடுக்கவும்",
 "Gallery": "கேலரி",
-"Leave topic blank to add only the units, for a syllabus outline.": "பாடத்திட்ட வரைவாக அலகுகளை மட்டும் சேர்க்க, தலைப்பைக் காலியாக விடவும்."
+"Leave topic blank to add only the units, for a syllabus outline.": "பாடத்திட்ட வரைவாக அலகுகளை மட்டும் சேர்க்க, தலைப்பைக் காலியாக விடவும்.",
+"This topic has a diagram": "இந்தத் தலைப்பில் ஒரு வரைபடம் உள்ளது",
+"This topic has a diagram. It shows the idea as a picture you can tap through.": "இந்தத் தலைப்பில் ஒரு வரைபடம் உள்ளது. கருத்தைத் தொட்டுப் பார்க்கக்கூடிய படமாக அது காட்டுகிறது.",
+"Diagrams come with Pro, an own AI key, or a college account.": "வரைபடங்கள் Pro, உங்கள் சொந்த AI விசை அல்லது கல்லூரிக் கணக்குடன் கிடைக்கும்.",
+"Open the diagram": "வரைபடத்தைத் திற"
 }

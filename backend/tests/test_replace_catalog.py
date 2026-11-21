@@ -3,7 +3,7 @@ import main, manage
 from main import Session_, Program, Course, Topic, Unit, User
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
-FILES = [os.path.join(ROOT, "content", "mbbs_year2_pharmacology.csv")]
+FILES = [os.path.join(ROOT, "content", "archive", "pharmacology-v1", "mbbs_year2_pharmacology.csv")]
 
 def test_replace_catalog_deletes_everything_and_loads_mbbs(env, tmp_path):
     env.csv("program,semester,course,unit,topic,content\nMech,Semester 1,Chem,U1,Water,w\n")

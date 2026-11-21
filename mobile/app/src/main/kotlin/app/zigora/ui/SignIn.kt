@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentType
@@ -151,7 +152,7 @@ fun SignIn(done: (Me) -> Unit) {
         Column(Modifier.fillMaxSize().safeDrawingPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Gap(32)
-            Image(painterResource(R.drawable.ic_logo), null, Modifier.size(72.dp))
+            Image(painterResource(R.drawable.ic_logo), null, Modifier.size(72.dp).combinedClickable(onClick = {}, onLongClick = { editing = true }))  // the built-in address is hidden; a long press on the logo shows it (for testing another server)
             Text(college ?: stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
             Column(Modifier.widthIn(max = 420.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 val emailField = @Composable {
@@ -296,7 +297,7 @@ fun SignIn(done: (Me) -> Unit) {
                             OutlinedTextField(server, { server = it }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.college_address)) },
                                 supportingText = { Text(stringResource(R.string.college_address_hint)) }, singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next))
-                        } else Row2(server, insecure = server.startsWith("http://")) { editing = true }
+                        } else if (!builtIn(server)) Row2(server, insecure = server.startsWith("http://")) { editing = true }  // the app's own server is never shown
                         emailField()
                         OutlinedTextField(pw, { pw = it }, Modifier.fillMaxWidth().semantics { contentType = ContentType.Password },
                             label = { Text(stringResource(R.string.password)) }, singleLine = true, visualTransformation = PasswordVisualTransformation(),
@@ -317,6 +318,12 @@ fun SignIn(done: (Me) -> Unit) {
             }
         }
     }
+}
+
+/** the server this app was built for (the release passes it in): students never see or type its address */
+fun builtIn(server: String): Boolean {
+    fun bare(x: String) = x.trim().removePrefix("https://").removePrefix("http://").trimEnd('/').lowercase()
+    return app.zigora.BuildConfig.DEFAULT_SERVER.isNotEmpty() && bare(server) == bare(app.zigora.BuildConfig.DEFAULT_SERVER)
 }
 
 /** a big choice on the sign-up steps: a title and a line under it */

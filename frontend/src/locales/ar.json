@@ -3601,5 +3601,9 @@
 "The camera couldn't be opened. Choose a photo from your gallery instead.": "تعذّر فتح الكاميرا. اختر صورة من معرض الصور بدلًا من ذلك.",
 "Take the photo": "التقط الصورة",
 "Gallery": "المعرض",
-"Leave topic blank to add only the units, for a syllabus outline.": "اترك الموضوع فارغًا لإضافة الوحدات فقط، كمخطط للمنهج."
+"Leave topic blank to add only the units, for a syllabus outline.": "اترك الموضوع فارغًا لإضافة الوحدات فقط، كمخطط للمنهج.",
+"This topic has a diagram": "لهذا الموضوع رسم توضيحي",
+"This topic has a diagram. It shows the idea as a picture you can tap through.": "لهذا الموضوع رسم توضيحي يعرض الفكرة كصورة يمكنك التنقل فيها باللمس.",
+"Diagrams come with Pro, an own AI key, or a college account.": "الرسوم التوضيحية متاحة مع Pro أو مفتاح ذكاء اصطناعي خاص بك أو حساب الكلية.",
+"Open the diagram": "افتح الرسم التوضيحي"
 }

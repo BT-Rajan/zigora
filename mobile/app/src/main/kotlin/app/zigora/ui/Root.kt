@@ -228,7 +228,7 @@ private fun Main(me: Me, incoming: Incoming?, handled: () -> Unit, firstOpen: St
                                              openReader = { id -> nav.navigate(ReaderR(id)) }, openPractice = { q -> nav.navigate(StudyQuizR(q, it.toRoute<TopicR>().id)) },
                                              openMcq = { t -> nav.navigate(McqR(t)) }, openDiagram = { u -> nav.navigate(DiagramR(u)) },
                                              openMaterial = { cid, name -> nav.navigate(MaterialR(cid, name)) }) }
-            composable<LearnR> { e -> val id = e.toRoute<LearnR>().id; LearnScreen(id, back = { nav.popBackStack() }) { nav.navigate(TopicR(id)) { popUpTo<LearnR> { inclusive = true } } } }
+            composable<LearnR> { e -> val id = e.toRoute<LearnR>().id; LearnScreen(id, back = { nav.popBackStack() }, openDiagram = { u -> nav.navigate(DiagramR(u)) }) { nav.navigate(TopicR(id)) { popUpTo<LearnR> { inclusive = true } } } }
             composable<DiagramR> { DiagramScreen(it.toRoute<DiagramR>().url) { nav.popBackStack() } }
             composable<ReaderR> { e -> val id = e.toRoute<ReaderR>().id
                 val t = rememberLoad("reader", id) { get("/topics/$id", app.zigora.data.TopicFull.serializer()) }

@@ -97,6 +97,7 @@ class ScreensTest {
         see("The gist"); see("Full page"); shot("17-learn-gist")
         rule.onNodeWithText("Next").performClick(); see("Why?"); shot("18-learn-why")
         repeat(3) { rule.onNodeWithText("Next").performClick(); rule.waitForIdle() }  // Example, Exam angle, Quick check
+        rule.onNodeWithText("Next").performClick(); see("Open the diagram"); shot("18b-learn-diagram")  // this topic has a diagram: its own step
         rule.onNodeWithText("Next").performClick(); see("Notes")
         rule.onNodeWithText("Next").performClick(); see("That's the topic"); shot("19-learn-done")
         rule.onNodeWithText("I've learned this").performClick(); see("You've marked this topic as learned.")

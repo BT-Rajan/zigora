@@ -1527,7 +1527,7 @@ function SelfMark({id,onSimpler}){
   if(got==='not_yet')return <p className="known selfm">{tl("That's fine, it takes a few goes.")}{onSimpler&&<>{" "}<button className="link inl" onClick={onSimpler}>{tl("Explain it more simply")}</button></>}</p>
   return <div className="selfm" role="group" aria-label={tl("How did it go? Only you see this")}><button className="stepchip" onClick={()=>mark('knew')}>{tl("I had it")}</button><button className="stepchip" onClick={()=>mark('not_yet')}>{tl("Not quite")}</button><small className="known">{tl("Only you see this")}</small></div>}
 function StepCard({id,rid,k,d,student,onSimpler}){
-  return <div className={'stepcard '+k}><small className="steplab">{STEP_LABEL(k)}</small>
+  return <div className={'stepcard '+k}><small className={'steplab '+k}>{STEP_LABEL(k)}</small>
     {k==='why'||k==='example'||k==='simpler'?<><Md>{d.text||''}</Md>{d.hook&&<p className="hookq">{d.hook}</p>}</>
       :<><div className="stepq"><Md>{d.question||''}</Md></div><Reveal label={k==='exam'?tl("Show a model answer"):tl("Show the answer")}><Md>{d.answer||''}</Md>{d.tip&&<p className="known">{tl("Examiners look for")}: {d.tip}</p>}{k==='check'&&student&&<SelfMark id={id} onSimpler={onSimpler}/>}</Reveal></>}<FlagLink source="topic" id={rid} topicId={id}/></div>}
 // the top of a topic page: the gist and one curious question, then short steps the reader picks. It adapts to each student, privately:
@@ -1551,9 +1551,9 @@ function TopicSteps({id,student,diagram}){
   const order=you?.order||STEP_KINDS.map(x=>x[0]),left=order.filter(k=>!trail.some(x=>x.k===k)).map(k=>[k,STEP_LABEL(k)])
   const qFirst=you?.question_first&&!open&&g?.hook
   return <section className="gist" aria-label={tl("The gist")} aria-busy={!g}>
-    {!g?<Skeleton rows={2}/>:qFirst?<><h3>{tl("A question first")}<small>{tl("then the gist")}</small></h3><Hook q={g.hook} a={g.hook_answer}/>
+    {!g?<Skeleton rows={2}/>:qFirst?<><h3><span className="steplab kgist">{tl("A question first")}</span><small>{tl("then the gist")}</small></h3><Hook q={g.hook} a={g.hook_answer}/>
         <button className="link" style={{marginTop:10}} onClick={()=>setOpen(true)}>{tl("Show the gist")}</button></>
-      :<><h3>{tl("The gist")}<small>{tl("about 30 seconds")}</small></h3>
+      :<><h3><span className="steplab kgist">{tl("The gist")}</span><small>{tl("about 30 seconds")}</small>{diagram&&<span className="steplab diagram" title={tl("This topic has a diagram")}>{tl("Diagram")}</span>}</h3>
         {own&&<span className="chip">{tl("Written with your own notes")}</span>}<ul>{(g.points||[]).map((x,i)=><li key={i}><Md>{x}</Md></li>)}</ul>
         {g.hook&&!open&&<Hook q={g.hook} a={g.hook_answer}/>}<FlagLink source="topic" id={gid} topicId={id}/></>}
     {g&&<>{trail.map(x=><StepCard key={x.k} id={id} rid={x.rid} k={x.k} d={x.d} student={student} onSimpler={trail.some(y=>y.k==='simpler')?null:()=>step('simpler')}/>)}

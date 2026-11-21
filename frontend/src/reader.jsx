@@ -23,6 +23,7 @@ function Reader(){
   useEffect(()=>{if(!o)return;const r=document.documentElement,c=o.colors||{}
     r.lang=o.lang||'en';r.dir=o.dir||'ltr'
     for(const [k,v] of Object.entries(c))r.style.setProperty('--'+k,v)
+    const m=/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(c.s1||'');r.dataset.theme=m&&(0.299*parseInt(m[1],16)+0.587*parseInt(m[2],16)+0.114*parseInt(m[3],16))<128?'dark':'light'  // the app's theme, for the colours that differ in the dark
     r.style.fontSize=(o.fontScale||1)*100+'%'},[o])
   useEffect(()=>{if(!o||!box.current)return
     box.current.querySelectorAll('img[src^="/api/"]').forEach(i=>{i.src=(o.base||'')+i.getAttribute('src')})  // uploads live on the college's server

@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -270,11 +271,14 @@ private fun Steps(id: Int, student: Boolean, diagram: String? = null, openDiagra
         val d = g.data
         val qFirst = g.you?.question_first == true && !showGist && d.str("hook").isNotEmpty()
         if (qFirst) {
-            Text(stringResource(R.string.question_first), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            StepBadge("gist", stringResource(R.string.question_first))
             Hook(d.str("hook"), d.str("hook_answer"))
             TextButton(onClick = { showGist = true }) { Text(stringResource(R.string.show_gist)) }
         } else {
-            Text(stringResource(R.string.the_gist), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+            androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                StepBadge("gist", stringResource(R.string.the_gist))
+                if (diagram != null) { androidx.compose.foundation.layout.Spacer(Modifier.size(8.dp)); StepBadge("diagram", tl("Diagram")) }  // this topic has a diagram (the chip below opens it)
+            }
             if (g.own_notes) Quiet(stringResource(R.string.written_with_notes))
             d.list("points").forEach { p -> Row(Modifier.padding(top = 6.dp)) { Text("•  "); Md(p) } }
             if (d.str("hook").isNotEmpty() && !showGist) Hook(d.str("hook"), d.str("hook_answer"))
@@ -286,7 +290,8 @@ private fun Steps(id: Int, student: Boolean, diagram: String? = null, openDiagra
         if (order.isNotEmpty() || diagram != null) FlowRow(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             order.forEach { k -> AssistChip(onClick = { step(k) }, enabled = busy.isEmpty(), label = { Text(if (busy == k) stringResource(R.string.thinking) else stepLabel(k)) }) }
             // the teacher's diagram: drawn by the AI once, opened full screen; on Lite the server says it comes with Pro
-            if (diagram != null) AssistChip(enabled = busy.isEmpty(), onClick = { scope.launch {
+            if (diagram != null) AssistChip(enabled = busy.isEmpty(), colors = androidx.compose.material3.AssistChipDefaults.assistChipColors(
+                    containerColor = stepColor("diagram", MaterialTheme.colorScheme.surface.luminance() < 0.5f).copy(alpha = 0.14f)), onClick = { scope.launch {
                 busy = "diagram"; err = ""
                 try { val r = a.get("/topics/$id/diagram", app.zigora.data.DiagramOut.serializer()); onMain { openDiagram(r.frame_url) } } catch (e: Exception) { err = e.message.orEmpty() }
                 busy = ""
@@ -306,7 +311,7 @@ internal fun Hook(q: String, answer: String) = Column(Modifier.padding(top = 12.
 
 @Composable
 internal fun StepCard(id: Int, rid: Int?, k: String, d: JsonObject, student: Boolean, onSimpler: (() -> Unit)?) = Column(Modifier.padding(top = 16.dp)) {
-    Text(stepLabel(k), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
+    StepBadge(k, stepLabel(k), Modifier.padding(bottom = 8.dp))
     if (k in listOf("why", "example", "simpler")) {
         Md(d.str("text"))
         if (d.str("hook").isNotEmpty()) Text(d.str("hook"), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 6.dp))

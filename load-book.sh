@@ -9,7 +9,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="${VENV:-$ROOT/venv}"
-STUDENT="student1@example.com"; MAP="$ROOT/content/dales_pharmacology_map.json"; PREPARE=""; PDFS=()
+STUDENT="student1@example.com"; MAP="$ROOT/content/archive/pharmacology-v1/dales_pharmacology_map.json"; PREPARE=""; PDFS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --student) STUDENT="$2"; shift 2 ;;
