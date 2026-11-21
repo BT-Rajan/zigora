@@ -9,6 +9,7 @@ python-dotenv
 nh3
 pypdf
 pypdfium2
+pdfplumber==0.11.11
 pytesseract
 Pillow
 anthropic

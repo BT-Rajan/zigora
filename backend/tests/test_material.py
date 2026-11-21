@@ -176,8 +176,18 @@ def test_a_topic_with_only_own_notes_gets_its_gist_and_steps_from_them_privately
     assert again["cached"] and again["data"] == r["data"] and len(FakeAI.calls) == n  # kept: nothing is sent again
     r = env.c.get(f"/api/topics/{h}/ai/gist", headers=s2); assert r.status_code == 400 and r.json()["detail"] == main.EMPTY_TOPIC  # a classmate without notes: still nothing from the name alone
     with Session_() as s: x = s.get(Topic, h); x.content = "Hard water carries calcium and magnesium salts."; s.commit()
-    n = len(FakeAI.calls); r = env.c.get(f"/api/topics/{h}/ai/gist", headers=env.stu).json()  # once the topic has notes of its own, the gist is the shared one again
+    n = len(FakeAI.calls); r = env.c.get(f"/api/topics/{h}/ai/gist", headers=env.stu).json()  # the topic has notes of its own now: hers still come with them, privately
+    assert r.get("own_notes") and not r["cached"] and "Boiling removes temporary hardness" in FakeAI.calls[-1][1] and "calcium and magnesium" in FakeAI.calls[-1][1] and len(FakeAI.calls) == n + 1
+    n = len(FakeAI.calls); r = env.c.get(f"/api/topics/{h}/ai/gist", headers=s2).json()  # a classmate without notes gets the shared gist, from the topic's notes alone
     assert not r.get("own_notes") and "Boiling removes temporary hardness" not in FakeAI.calls[-1][1] and len(FakeAI.calls) == n + 1
+    with Session_() as s: assert s.query(main.AICache).filter_by(kind="gist").count() == 1
+
+def test_notes_for_the_ai_name_their_pictures_and_stay_a_sensible_size():
+    t = "Intro\n\n![Fig. 3.1](/api/uploads/" + "a" * 32 + ".webp)\n\n**Fig. 3.1** Receptors.\n\n" + ("word " * 400 + "\n\n") * 20
+    out = main.notes_for_ai(t)
+    assert "[Figure: Fig. 3.1]" in out and "/api/uploads" not in out and "**Fig. 3.1** Receptors." in out
+    assert len(out) <= main.NOTES_AI_CHARS + 100 and out.endswith("[The rest of the student's notes on this topic is left out.]")
+    assert main.notes_for_ai(None) is None and main.notes_for_ai("short") == "short"
 
 def test_search_finds_the_students_own_notes_and_highlight_notes_and_only_theirs(env, monkeypatch):
     i = setup(env, monkeypatch); h = i["t"]["Hardness of water"]; env.add_user("stu2@x.com", program=i["prog"]["Mech"], semester=1); s2 = env.login("stu2@x.com")
