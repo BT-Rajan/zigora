@@ -4500,8 +4500,9 @@ async def ai(tid: int, kind: str, u: User = Depends(me), s: Session = Depends(db
     if you and kind in PICKS + ("simpler",): s.add(StepLog(user_id=u.id, topic_id=tid, kind=kind)); s.commit()  # a step the student chose to open
     extra = {"you": {**you, "question_first": question_first(u, t, s)}} if you and kind == "gist" else {"level": you["level"]} if you and kind == "check" else {}
     has_text = bool(words_of(f["content"], f["content_format"]).strip())
-    # the student's own notes go to the AI for Explain and Sample answer; and, on a topic with no notes of its own, for the gist and the steps too
-    mine = my_notes(s, u.id, tid) if u.role == "student" and (kind in ("explain", "answer") or (kind in STEPS and not has_text)) else None
+    # the student's own notes go to the AI for Explain, the sample answer, the gist and the steps: a student who brought her own notes (her book)
+    # learns the topic from them, privately; without notes the shared answers below are used, as before
+    mine = notes_for_ai(my_notes(s, u.id, tid)) if u.role == "student" and kind in ("explain", "answer") + tuple(STEPS) else None
     if not mine and not has_text and not (kind in EXAM_KINDS and (t.sample_content or t.question_pattern or t.guideline)):
         raise HTTPException(400, EMPTY_TOPIC)  # nothing to explain from but the topic's name: the AI would make it up
     if mine:  # the student's own notes are private: the answer is written for them alone and never shared. It goes to the AI once; after that the kept copy is shown and nothing is sent.
@@ -8193,6 +8194,13 @@ def material_delete(cid: int, u: User = Depends(me), s: Session = Depends(db)): 
     s.query(TopicNote).filter(TopicNote.user_id == u.id, TopicNote.topic_id.in_(course_topics)).delete(synchronize_session=False)
     if m: s.delete(m)
     s.commit(); return {"ok": True}
+NOTES_AI_CHARS = 30_000  # how much of a student's notes on one topic goes to the AI (a long chapter is cut at a paragraph near here)
+def notes_for_ai(t):
+    """A student's notes as the AI reads them: a picture becomes its label ([Figure: Fig. 3.1]); the captions beside it stay."""
+    if not t: return t
+    t = re.sub(r"!\[([^\]]*)\]\([^)]*\)", lambda m: f"[Figure: {m.group(1) or 'picture'}]", t)
+    if len(t) > NOTES_AI_CHARS: t = t[:t.rfind("\n\n", 0, NOTES_AI_CHARS) if t.rfind("\n\n", 0, NOTES_AI_CHARS) > 0 else NOTES_AI_CHARS] + "\n\n[The rest of the student's notes on this topic is left out.]"
+    return t
 def my_notes(s, uid, tid):
     n = s.query(TopicNote).filter_by(user_id=uid, topic_id=tid).first(); return n.content if n else None
 def schedule_review(p, ratio, now):

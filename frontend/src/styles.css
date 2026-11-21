@@ -604,3 +604,9 @@ a.btn,a.tool{text-decoration:none}
 .cambar .btn{margin:0;color:#fff;border-color:rgba(255,255,255,.4);background:transparent}.cambar .btn:last-child{justify-self:end}.cambar .btn:first-child{justify-self:start}
 .shutter{width:68px;height:68px;border-radius:50%;border:4px solid #fff;background:#fff;box-shadow:inset 0 0 0 3px #000;cursor:pointer;padding:0}
 .shutter:active{transform:scale(.94)}
+
+/* a picture from the notes, full size: scroll around it; the close button stays in the corner */
+.prose img.zoomable{cursor:zoom-in}
+.zoom{position:fixed;inset:0;z-index:90;background:#0f172a;overflow:auto;display:flex;align-items:flex-start;justify-content:flex-start;padding:56px 12px 24px}
+.zoom img{display:block;margin:auto;max-width:none;background:#fff;border-radius:8px}
+.zoomx{position:fixed;top:12px;inset-inline-end:12px;width:40px;height:40px;border-radius:50%;border:0;background:#fff;color:#0f172a;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}

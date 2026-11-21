@@ -18,6 +18,89 @@ def find(s, email):
     if not u: sys.exit(f"No user with email {email}. See: ./manage.sh list")
     return u
 
+def prepare_steps(s, x):
+    """Asks the AI for a student's private gist and steps on each topic with her notes, as opening them would, and keeps them for her.
+    It is not her doing: the requests don't count toward her daily limit and her step choices aren't recorded, so the app adapts only to what she does."""
+    import asyncio
+    import main
+    from main import Topic, Unit, TopicNote, StepLog, StudyAICall, HTTPException
+    who = x.student.strip().lower()
+    u = s.query(User).filter((User.email == who) | (User.username == who)).first()
+    if not u or u.role != "student": sys.exit(f"No student {x.student}.")
+    kinds = [k.strip() for k in x.kinds.split(",") if k.strip()]
+    bad = [k for k in kinds if k not in main.STEPS and k not in ("explain", "answer")]
+    if bad: sys.exit("Unknown step(s): " + ", ".join(bad))
+    order = {t.id: n for n, t in enumerate(s.query(Topic).join(Unit, Unit.id == Topic.unit_id).order_by(Unit.course_id, Unit.position, Topic.position))}
+    tids = sorted({n.topic_id for n in s.query(TopicNote).filter_by(user_id=u.id)}, key=lambda t: order.get(t, 10**9))
+    if x.limit: tids = tids[:x.limit]
+    if not tids: sys.exit(f"{x.student} has no notes of her own yet. Load them first (./manage.sh load-book ...).")
+    first_log = (s.query(main.func.max(StepLog.id)).scalar() or 0); first_call = (s.query(main.func.max(StudyAICall.id)).scalar() or 0)
+    main.STUDY_AI_DAILY = 10 ** 9  # this run only: the student's own allowance is left as it was (the calls are removed below)
+    done, failed, gate = [0], [], asyncio.Semaphore(max(1, x.parallel))
+    async def one(tid, kind):
+        async with gate:
+            with main.Session_() as s2:
+                try: await main.ai(tid, kind, s2.get(User, u.id), s2); done[0] += 1
+                except HTTPException as e: failed.append(f"topic {tid} {kind}: {e.detail}")
+                except Exception as e: failed.append(f"topic {tid} {kind}: {e}")
+            if done[0] % 25 == 0: print(f"  {done[0]} of {len(tids) * len(kinds)} ready")
+    async def run(): await asyncio.gather(*(one(t, k) for t in tids for k in kinds))
+    print(f"Preparing {', '.join(kinds)} for {len(tids)} topic(s) of {u.name}…")
+    asyncio.run(run())
+    with main.Session_() as s3:
+        s3.query(StepLog).filter(StepLog.user_id == u.id, StepLog.id > first_log).delete(synchronize_session=False)
+        s3.query(StudyAICall).filter(StudyAICall.user_id == u.id, StudyAICall.id > first_call).delete(synchronize_session=False); s3.commit()
+    print(f"Ready: {done[0]}. " + (f"Not ready ({len(failed)}), they will be made when she opens them:\n  " + "\n  ".join(failed[:20]) if failed else "All of them."))
+
+def load_book(s, x):
+    """A student's own book, filed under the syllabus topics of a course as her private notes, exactly as Bring your own notes stores them
+    (her material and its sections, then a note per topic), so the app's own screens show and change it. Running it again replaces it."""
+    import datetime as dt, json
+    from main import Program, Semester, Course, Topic, CourseMaterial, TopicNote, syllabus, UPLOADS, SECRET, MAX_PARAS_CHARS
+    import bookload
+    mp = json.load(open(x.map, encoding="utf-8")); want = mp["course"]
+    for f in x.pdfs:
+        if not os.path.isfile(f): sys.exit(f"No such file: {f}")
+    who = x.student.strip().lower()
+    u = s.query(User).filter((User.email == who) | (User.username == who)).first()
+    if not u or u.role != "student": sys.exit(f"No student {x.student}. See: ./manage.sh list")
+    p = s.query(Program).filter(Program.name == want["program"]).first()
+    sem = p and s.query(Semester).filter_by(program_id=p.id, name=want["semester"]).first()
+    co = sem and s.query(Course).filter_by(semester_id=sem.id, name=want["course"]).first()
+    if not co: sys.exit(f"No course {want['program']} > {want['semester']} > {want['course']}. Import the syllabus first: ./manage.sh import content/mbbs_year2_pharmacology.csv")
+    if (u.program_id, u.semester) != (p.id, sem.semester_no): sys.exit(f"{x.student} is not placed in {want['program']}, {want['semester']}, so she can't open {co.name}. Place her on the Students page first.")
+    topics = {t.title: t.id for _, ts in syllabus(s, co.id) for t in ts}
+    unknown = {t for c in mp["chapters"].values() for t in [c.get("default"), *c.get("headings", {}).values(), *c.get("paragraphs", {}).values()] if t and t not in topics}
+    unknown |= {t for t in mp.get("boxes", {}).values() if t and t not in topics}
+    if unknown: print("Not in this course's syllabus, so left out: " + "; ".join(sorted(unknown)))
+    print(f"Reading {len(x.pdfs)} PDF file(s)… (a minute or two)")
+    chapters = bookload.read_book(x.pdfs)
+    print(f"{len(chapters)} chapters (front matter, preface and index left out). Cutting out the figures, tables and equations…")
+    pics = bookload.Pictures(x.pdfs, UPLOADS, SECRET)
+    parts = bookload.file_parts(chapters, mp, pics, book_label="Your book")
+    paras, secs = [], []
+    for title, md in parts:
+        tid = topics.get(title) if title else None
+        paras.append(md)
+        if secs and secs[-1]["topic_id"] == tid: secs[-1]["to"] = len(paras)
+        else: secs.append({"from": len(paras), "to": len(paras), "topic_id": tid})
+    if sum(len(p_) for p_ in paras) > MAX_PARAS_CHARS: sys.exit("The book is longer than one course's material can hold.")
+    now = dt.datetime.utcnow(); words = sum(len(p_.split()) for p_ in paras)
+    m = s.query(CourseMaterial).filter_by(user_id=u.id, course_id=co.id).first() or CourseMaterial(user_id=u.id, course_id=co.id)
+    m.sources = json.dumps([{"name": mp["book"][:200], "kind": "pdf", "paras": len(paras), "words": words}], ensure_ascii=False)
+    m.paras, m.sections, m.matched_by, m.saved_at, m.updated_at = json.dumps(paras, ensure_ascii=False), json.dumps(secs), "book", now, now
+    s.add(m)
+    course_topics = list(topics.values()) or [0]
+    s.query(TopicNote).filter(TopicNote.user_id == u.id, TopicNote.topic_id.in_(course_topics)).delete(synchronize_session=False)
+    per = {}
+    for sec in secs:
+        if sec["topic_id"]: per.setdefault(sec["topic_id"], []).append("\n\n".join(paras[sec["from"] - 1:sec["to"]]))
+    for tid, chunks in per.items(): s.add(TopicNote(user_id=u.id, topic_id=tid, content="\n\n".join(chunks), updated_at=now))
+    s.commit()
+    print(f"Filed {words:,} words and {sum(p_.startswith('![') for p_ in paras)} pictures ({pics.made} new) under {len(per)} of {len(topics)} topics of {co.name} for {u.name}.")
+    left = [t for t in topics if topics[t] not in per]
+    if left: print("Topics the book doesn't cover (they keep the syllabus outline only): " + "; ".join(left))
+
 # the demo accounts reset-demo makes: (email or username, name, role, extras). Two of each kind of person the app has.
 DEMO = [("admin1@example.com", "Demo Admin 1", "admin", {}), ("admin2@example.com", "Demo Admin 2", "admin", {}),
         ("teacher1@example.com", "Demo Teacher 1", "faculty", {}), ("teacher2@example.com", "Demo Teacher 2", "faculty", {}),
@@ -145,6 +228,12 @@ def main():
     sub.add_parser("owners", help="list courses that need an owner, with their old assigned faculty (changes nothing)")
     sub.add_parser("integrity", help="list programs, semesters, courses, units, topics and quizzes whose parent is missing (changes nothing)")
     sub.add_parser("list", help="list users"); sub.add_parser("check", help="exit 1 if there is no active admin")
+    lb = sub.add_parser("load-book", help="file a student's own textbook (PDFs) under a course's syllabus topics as her notes, with its figures, as the app's Bring your own notes does")
+    lb.add_argument("pdfs", nargs="+", help="the book's PDF files, in order"); lb.add_argument("--student", required=True, help="the student's email or username")
+    lb.add_argument("--map", required=True, help="the book's map to the syllabus, e.g. content/dales_pharmacology_map.json")
+    ps = sub.add_parser("prepare-steps", help="write a student's own gist and steps in advance for every topic where she has her own notes, so they open at once (uses the AI)")
+    ps.add_argument("--student", required=True); ps.add_argument("--kinds", default="gist,why,example,exam,check", help="which steps (default: gist,why,example,exam,check)")
+    ps.add_argument("--limit", type=int, default=0, help="only the first N topics (0 = all)"); ps.add_argument("--parallel", type=int, default=4)
     rd = sub.add_parser("reset-demo", help="back up, then DELETE ALL DATA (every user, course, setting, AI key, upload and record), optionally import content, and create demo accounts: 2 of each kind, one password")
     rd.add_argument("--import", dest="files", nargs="*", default=[], help="content CSVs to load after the wipe (e.g. content/mbbs_year2_pharmacology.csv)")
     rd.add_argument("--password", help="the demo accounts' password (asked if left out; at least 8 characters)"); rd.add_argument("--yes", action="store_true", help="don't ask to type the confirmation")
@@ -181,6 +270,8 @@ def main():
         if x.cmd == "replace-catalog": return replace_catalog(s, x)
         if x.cmd == "import": return import_files(s, x)
         if x.cmd == "reset-demo": return reset_demo(s, x)
+        if x.cmd == "load-book": return load_book(s, x)
+        if x.cmd == "prepare-steps": return prepare_steps(s, x)
         if x.cmd == "check": sys.exit(0 if s.query(User).filter_by(role="admin", active=True).first() else 1)
         if x.cmd == "list":
             for u in s.query(User).order_by(User.id): print(f"{u.id:>3}  {u.role:<8} {'active' if u.active else 'disabled':<9} {u.email}  ({u.name})")

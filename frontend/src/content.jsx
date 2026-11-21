@@ -29,6 +29,15 @@ export function texDelims(text){
     .replace(/(?<!\\)\\\(((?:(?!\n[ \t]*\n)[\s\S])+?)\\\)/g,(m,x)=>'$'+x.trim()+'$')).join('')
 }
 const url=u=>defaultUrlTransform(at(u))  // saved pictures (/api/uploads/...) under the site's folder
-export const Md=({children})=><Markdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]} urlTransform={url}>{fixTables(texDelims(children))}</Markdown>
+// a picture in notes (a figure or table from a student's book) opens full size on a tap, to scroll around on a phone; Escape, the button or a tap outside closes it
+function zoom(src,alt){
+  const box=document.createElement('div');box.className='zoom';box.setAttribute('role','dialog');box.setAttribute('aria-modal','true');box.setAttribute('aria-label',alt||'Picture')
+  const img=document.createElement('img');img.alt=alt||'';img.onload=()=>{img.style.width=Math.max(box.clientWidth-24,img.naturalWidth/1.5)+'px'};img.src=src  // about twice its printed size, never narrower than the screen
+  const x=document.createElement('button');x.className='zoomx';x.type='button';x.setAttribute('aria-label','Close');x.textContent='✕'
+  const close=()=>{box.remove();removeEventListener('keydown',key)},key=e=>{if(e.key==='Escape')close()}
+  box.onclick=e=>{if(e.target===box)close()};x.onclick=close;addEventListener('keydown',key)
+  box.append(img,x);document.body.append(box);x.focus()}
+const MdImg=({src,alt})=><img src={src} alt={alt||''} loading="lazy" className="zoomable" onClick={()=>zoom(src,alt)}/>
+export const Md=({children})=><Markdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]} urlTransform={url} components={{img:MdImg}}>{fixTables(texDelims(children))}</Markdown>
 // a topic's content: Markdown, or HTML from an uploaded file (the server cleans it on every save and every read, so it carries no scripts or styles)
 export const Body=({text,format})=>format==='html'?<div className="htmlc" dangerouslySetInnerHTML={{__html:atHtml(text||'')}}/>:<Md>{text}</Md>
