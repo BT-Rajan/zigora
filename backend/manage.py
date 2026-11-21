@@ -18,6 +18,78 @@ def find(s, email):
     if not u: sys.exit(f"No user with email {email}. See: ./manage.sh list")
     return u
 
+# the demo accounts reset-demo makes: (email or username, name, role, extras). Two of each kind of person the app has.
+DEMO = [("admin1@example.com", "Demo Admin 1", "admin", {}), ("admin2@example.com", "Demo Admin 2", "admin", {}),
+        ("teacher1@example.com", "Demo Teacher 1", "faculty", {}), ("teacher2@example.com", "Demo Teacher 2", "faculty", {}),
+        ("student1@example.com", "Demo Student 1", "student", {"placed": True}), ("student2@example.com", "Demo Student 2", "student", {"placed": True}),
+        ("lite1@example.com", "Demo Lite Student 1", "student", {"self": True}), ("lite2@example.com", "Demo Lite Student 2", "student", {"self": True}),
+        ("pro1@example.com", "Demo Pro Student 1", "student", {"self": True, "pro": True}), ("pro2@example.com", "Demo Pro Student 2", "student", {"self": True, "pro": True}),
+        ("parent1@example.com", "Demo Parent 1", "guardian", {"relation": "parent"}), ("parent2@example.com", "Demo Parent 2", "guardian", {"relation": "parent"}),
+        ("schoolteacher1@example.com", "Demo School Teacher 1", "guardian", {"relation": "teacher"}), ("schoolteacher2@example.com", "Demo School Teacher 2", "guardian", {"relation": "teacher"}),
+        ("child1", "Demo Child 1", "student", {"child": 0}), ("child2", "Demo Child 2", "student", {"child": 1})]
+
+def reset_demo(s, x):
+    """A clean demo server: everything is deleted (users, courses, settings and AI keys, uploads, every record), the schema and its migrations stay.
+    Then the given content is imported and the demo accounts made. A backup is written first."""
+    import datetime as dt, shutil
+    from sqlalchemy import inspect, text
+    from main import Setting, Course, Semester, GuardianLink, import_csv, ImportIn
+    from backup import run_backup
+    pw = password(x.password)
+    texts = []
+    for f in x.files:
+        if not os.path.isfile(f): sys.exit(f"No such file: {f}")
+        texts.append((f, open(f, encoding="utf-8-sig").read()))
+    with engine.connect() as c: tables = [t for t in inspect(c).get_table_names() if t != "schema_migrations"]
+    with engine.connect() as c: rows = {t: c.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar() for t in ("users", "subjects", "topics", "settings") if t in tables}
+    print(f"This deletes ALL data: {rows.get('users', 0)} user(s) including every admin, {rows.get('subjects', 0)} course(s), {rows.get('topics', 0)} topic(s),")
+    print(f"{rows.get('settings', 0)} setting(s) (AI keys, mail, sign-in, prompts, payments), every upload, and every record of activity.")
+    if not x.yes and input("Type DELETE EVERYTHING to continue: ").strip() != "DELETE EVERYTHING": sys.exit("Nothing changed.")
+    for f in run_backup(DB, UPLOADS, os.path.abspath(x.dir)): print("Backup: " + f)
+    s.close()
+    with engine.begin() as c:
+        mysql = c.dialect.name != "sqlite"
+        c.execute(text("SET FOREIGN_KEY_CHECKS = 0" if mysql else "PRAGMA foreign_keys = OFF"))  # the whole set goes, so the order doesn't matter
+        for t in tables: c.execute(text("DELETE FROM " + c.dialect.identifier_preparer.quote(t)))
+        if mysql: c.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
+    if os.path.isdir(UPLOADS):
+        for n in os.listdir(UPLOADS):
+            p = os.path.join(UPLOADS, n); shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
+    now = dt.datetime.utcnow()
+    for k in ("mastery_rule_since", "assign_tie_since"): s.add(Setting(k=k, v=now.isoformat()))  # as a fresh install writes them: the current rules apply from now
+    def add(name, role, **kw):
+        u = User(name=name, pw=hp(pw), role=role, active=True, must_change=False, **kw); s.add(u); s.flush(); return u
+    first = add(DEMO[0][1], "admin", email=DEMO[0][0]); s.commit()
+    for f, t in texts:
+        r = import_csv(ImportIn(csv=t, dry_run=False), first, s)
+        if r["error_count"]: print(f"{f}: {r['error_count']} row(s) skipped: " + "; ".join(f"row {e['row']}: {e['error']}" for e in r["errors"][:5]))
+        print(f"{f}: created " + ", ".join(f"{v} {k}" for k, v in r["created"].items()))
+    co = s.query(Course).order_by(Course.id).first(); sem = s.get(Semester, co.semester_id) if co and co.semester_id else None
+    made = {DEMO[0][0]: first}
+    for key, name, role, ex in DEMO[1:]:
+        kw = {"username": key} if "child" in ex else {"email": key}
+        if role == "guardian": kw["relation"] = ex["relation"]
+        if role == "student":
+            kw["onboarded_at"] = now  # demo students go straight to their home page
+            kw["level"] = "school" if "child" in ex else "college"
+            if ex.get("self"): kw["self_registered"] = True
+            if ex.get("pro"): kw["pro_until"] = now + dt.timedelta(days=365)
+            if (ex.get("placed") or ex.get("self")) and sem: kw.update(program_id=sem.program_id, semester=sem.semester_no)
+        made[key] = add(name, role, **kw)
+    for i in (0, 1):  # each parent and each school teacher looks after one child
+        for g in (f"parent{i + 1}@example.com", f"schoolteacher{i + 1}@example.com"):
+            s.add(GuardianLink(guardian_id=made[g].id, student_id=made[f"child{i + 1}"].id, status="active"))
+    if co:  # the first teacher runs every imported course
+        for c_ in s.query(Course): c_.faculty_owner_id = made["teacher1@example.com"].id
+    s.commit()
+    print("\nDemo accounts (all with the password you gave):")
+    for key, name, role, ex in DEMO:
+        kind = {"admin": "admin", "faculty": "college teacher", "guardian": ex.get("relation", "") and ("parent" if ex.get("relation") == "parent" else "school teacher")}.get(role) or \
+               ("school child (signs in with the username)" if "child" in ex else "Pro student (signed up)" if ex.get("pro") else "Lite student (signed up)" if ex.get("self") else "college student")
+        print(f"  {key:<28} {kind}")
+    if sem: print(f"Students are placed in {co.name}'s program, {sem.name}; teacher1 owns every course.")
+    print("Add an AI key under Settings > AI before using the AI (the settings were wiped too).")
+
 def import_files(s, x):
     """The Bulk upload of the admin's Programs page, from the terminal: a preview first, then the import after a yes."""
     from main import import_csv, ImportIn
@@ -73,6 +145,10 @@ def main():
     sub.add_parser("owners", help="list courses that need an owner, with their old assigned faculty (changes nothing)")
     sub.add_parser("integrity", help="list programs, semesters, courses, units, topics and quizzes whose parent is missing (changes nothing)")
     sub.add_parser("list", help="list users"); sub.add_parser("check", help="exit 1 if there is no active admin")
+    rd = sub.add_parser("reset-demo", help="back up, then DELETE ALL DATA (every user, course, setting, AI key, upload and record), optionally import content, and create demo accounts: 2 of each kind, one password")
+    rd.add_argument("--import", dest="files", nargs="*", default=[], help="content CSVs to load after the wipe (e.g. content/mbbs_year2_pharmacology.csv)")
+    rd.add_argument("--password", help="the demo accounts' password (asked if left out; at least 8 characters)"); rd.add_argument("--yes", action="store_true", help="don't ask to type the confirmation")
+    rd.add_argument("--dir", default=os.getenv("BACKUP_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backups"))
     im = sub.add_parser("import", help="import a content CSV (programs, years, courses, units, topics); existing names are reused and nothing is deleted")
     im.add_argument("csv", nargs="+", help="content CSV files, imported in order (e.g. content/mbbs_year2_pharmacology.csv)")
     im.add_argument("--yes", action="store_true", help="import without asking"); im.add_argument("--dry-run", action="store_true", help="only show what would be created")
@@ -104,6 +180,7 @@ def main():
             return
         if x.cmd == "replace-catalog": return replace_catalog(s, x)
         if x.cmd == "import": return import_files(s, x)
+        if x.cmd == "reset-demo": return reset_demo(s, x)
         if x.cmd == "check": sys.exit(0 if s.query(User).filter_by(role="admin", active=True).first() else 1)
         if x.cmd == "list":
             for u in s.query(User).order_by(User.id): print(f"{u.id:>3}  {u.role:<8} {'active' if u.active else 'disabled':<9} {u.email}  ({u.name})")

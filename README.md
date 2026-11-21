@@ -90,6 +90,8 @@ The app is called Zigora (formerly Eng Tutor). The name comes from `APP_NAME` in
 ## Managing users from the terminal
 `./manage.sh add --name "Name" --email a@b.com [--role admin]` (prompts for the password), `passwd`, `enable`, `disable`, `role`, `list`. Use `VENV=/path/to/venv` if your venv is not `./venv`.
 
+**A clean demo server:** `./reset-demo.sh` (or `./manage.sh reset-demo --import FILE... --password ...`) backs up the database and uploads, then deletes **all** data: every user including the admins, all content, every setting (AI keys, mail, sign-in, payments), every upload and every record. It loads `content/mbbs_year2_pharmacology.csv` and makes 16 demo accounts with one password: `admin1`/`admin2@example.com` (admins), `teacher1`/`teacher2` (college teachers; teacher1 owns the courses), `student1`/`student2` (college students placed in M.B.B.S Year 2), `lite1`/`lite2` and `pro1`/`pro2` (students who signed up, on Lite and on Pro for a year), `parent1`/`parent2` and `schoolteacher1`/`schoolteacher2` (each looks after one child), and the school children `child1`/`child2`, who sign in with the username. It asks you to type DELETE EVERYTHING first. Add the AI key again under Settings > AI afterwards.
+
 ## Under a folder of the address (BASE_PATH)
 To run Zigora at `https://apps.perennia.org/zigora` instead of at the root of an address:
 1. `.env`: `HOST=127.0.0.1`, `BASE_PATH=/zigora`, `APP_URL=https://apps.perennia.org/zigora`, then `./run.sh`. If a site address is saved in Settings, give it the folder too.
