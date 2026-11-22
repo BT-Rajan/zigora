@@ -1696,14 +1696,624 @@ Try each one before reading the answer. Every answer has been checked by calcula
 3. A coplanar concurrent system gives how many independent equilibrium equations? (a) 1 (b) **2** (c) 3 (d) 6. **Answer: (b)**
 4. The component of a weight $W$ along a plane inclined at $\theta$ is: (a) $W\cos\theta$ (b) **$W\sin\theta$** (c) $W\tan\theta$ (d) $W$. **Answer: (b)**
 5. If $\sum H = 0$ and $\sum V = 0$ but $\sum M \ne 0$, the system reduces to: (a) a single force (b) **a couple** (c) nothing (d) a collinear force. **Answer: (b)**","This chapter's typical paper: 2-mark definitions (coplanar, collinear, concurrent, parallel; resultant, equilibrant); 5-mark derivations (resultant of two forces by cosine and sine rules; polygon law); 10-mark numericals (resultant of several forces by components and graphically; an unknown force from a given resultant; position of the resultant of non-concurrent forces)."
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Parallel forces: like and unlike,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Moment of a force and its sign convention,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Varignon's theorem (principle of moments),,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of two parallel forces,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Couples and their properties,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Replacing a force by a force and a couple,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of a general system of parallel forces,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Parallel forces: like and unlike,"The loads on a bridge deck, the weights on a see-saw, the wheels of a truck on a beam: all of these are **parallel forces**. They never meet, so the parallelogram law cannot add them. This chapter builds the tool that can: the **moment**.
+
+## Definitions
+
+- **Parallel forces** have lines of action that are **parallel** to each other.
+- **Like** parallel forces act in the **same direction** (all up, or all down).
+- **Unlike** parallel forces act in **opposite directions**.
+- Unlike forces may be **equal** or **unequal** in magnitude. Two equal unlike forces that are not on the same line form a **couple**.
+
+![(a) Like parallel forces. (b) Unlike parallel forces.](/api/uploads/306f8c592cc118598595a1d85e284fcb.png)
+*(a) Like parallel forces. (b) Unlike parallel forces.*
+
+## Why the parallelogram law fails here
+
+The parallelogram law needs the two forces to **meet at a point**, so that both can be drawn from it. Parallel lines never meet. Instead we use two facts:
+
+1. the **size** of the resultant comes from adding the forces along their common direction (with signs);
+2. its **position** comes from moments: the resultant must turn the body exactly as the forces do (**Varignon's principle**, topic 3).
+
+> **Key point**
+> For parallel forces, the resultant's **magnitude** is simple arithmetic; finding **where it acts** is the real work, and moments do it.
+
+## Where you meet parallel forces
+
+| Situation | Like or unlike? |
+|---|---|
+| Wheel loads of a truck on a bridge | like (all downward) |
+| A beam's loads and its two support reactions | unlike (loads down, reactions up) |
+| Two hands turning a steering wheel | unlike and equal: a **couple** |
+| A see-saw with two children and the pivot's push | unlike |
+
+> **Case** Classify each pair.
+> - (a) $300\ \text{N}$ down and $500\ \text{N}$ down, $2\ \text{m}$ apart.
+> - (b) $600\ \text{N}$ up and $250\ \text{N}$ down, $1.4\ \text{m}$ apart.
+> - (c) $40\ \text{N}$ up and $40\ \text{N}$ down, $0.5\ \text{m}$ apart.
+>
+> **Answers:** (a) like; (b) unlike, unequal; (c) unlike, equal: a couple.
+
+> **Exam tip**
+> ""Define like and unlike parallel forces"" is a 2-mark question. A tiny sketch of two arrows for each earns the mark faster than words.
+
+> **Quick recap**
+> - Parallel forces never meet, so the parallelogram law cannot add them.
+> - **Like**: same direction. **Unlike**: opposite directions. Equal unlike forces off the same line form a **couple**.
+> - Magnitude by addition, position by moments.","2 marks: Define parallel, like and unlike forces with sketches. Why can't the parallelogram law find the resultant of parallel forces?"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Moment of a force and its sign convention,"Chapter 1 introduced the moment of a force. Here we make it a working tool: a fixed **sign convention**, the moment of several forces together, and a formula that needs no perpendiculars at all.
+
+## Definition, again
+
+> **Key point**
+> The **moment** of a force about a point is the force times the **perpendicular distance** from the point to the force's line of action: $M = F \times d$. Unit: $\text{N·m}$ (also $\text{kN·m}$, $\text{N·mm}$).
+
+## Sign convention
+
+In this course: **anticlockwise moments are positive**, **clockwise moments are negative**. The **resultant moment** of several forces about a point is the **algebraic sum** of their moments:
+
+$$
+\sum M_O = \sum (\pm F_i\, d_i)
+$$
+
+> **Caution**
+> Some books take clockwise as positive. Either works, but **state your convention at the start** and never switch in the middle of a problem.
+
+## Worked example: forces along a rectangle
+
+> **Problem**
+> A rectangle ABCD has $AB = 3\ \text{m}$ and $BC = 2\ \text{m}$. Forces of $15\ \text{N}$, $25\ \text{N}$, $35\ \text{N}$ and $45\ \text{N}$ act along AB, BC, CD and DA, in the order of the letters. Find the resultant moment (a) about A, (b) about C.
+
+![Four forces along the sides of a 3 m × 2 m rectangle.](/api/uploads/9169a8738bce017f0d3ec87bdf73049f.png)
+*Four forces along the sides of a 3 m × 2 m rectangle.*
+
+**(a) About A.** The forces along AB and DA pass through A: their moments are zero.
+
+- $25\ \text{N}$ upward along BC, $3\ \text{m}$ to the right of A: $+25 \times 3 = +75\ \text{N·m}$
+- $35\ \text{N}$ leftward along CD, $2\ \text{m}$ above A: $+35 \times 2 = +70\ \text{N·m}$
+
+$$
+\begin{aligned}\sum M_A &= 75 + 70 \\ &= +145\ \text{N·m} \;\text{(anticlockwise)}\end{aligned}
+$$
+
+**(b) About C.** Now the forces along BC and CD pass through C.
+
+- $15\ \text{N}$ rightward along AB, $2\ \text{m}$ below C: $+15 \times 2 = +30\ \text{N·m}$
+- $45\ \text{N}$ downward along DA, $3\ \text{m}$ to the left of C: $+45 \times 3 = +135\ \text{N·m}$
+
+$$
+\begin{aligned}\sum M_C &= 30 + 135 \\ &= +165\ \text{N·m} \;\text{(anticlockwise)}\end{aligned}
+$$
+
+> **Note**
+> The two answers differ. That is normal: when the forces have a non-zero resultant, the total moment **depends on the point**. Only for a **couple** is the moment the same about every point (topic 5).
+
+## Moment from coordinates
+
+When the perpendicular distance is awkward to find, use coordinates. For a force with components $(F_x, F_y)$ acting at the point $(x, y)$, the moment about the origin O is
+
+$$
+\begin{aligned}M_O &= x\,F_y - y\,F_x \\ &\text{(anticlockwise positive)}\end{aligned}
+$$
+
+Each term is the moment of one **component**: $F_y$ has arm $x$, and $F_x$ has arm $y$ (a rightward push above O turns clockwise, hence the minus). Topic 3 shows why adding the components' moments is allowed.
+
+> **Problem**
+> Check the moment about A of the $35\ \text{N}$ force along CD using coordinates, with A at the origin.
+
+The force acts at C $(3, 2)$ with components $F_x = -35$, $F_y = 0$:
+
+$$
+M_A = 3(0) - 2(-35) = +70\ \text{N·m}
+$$
+
+The same as before. ✓
+
+> **Exam tip**
+> Make a small list: force, arm, sense, signed moment. Then add. Examiners award most of the marks for a clear list even when an arithmetic slip creeps in.
+
+> **Quick recap**
+> - $M = F \times d$; anticlockwise $+$, clockwise $-$; total moment = algebraic sum.
+> - A force through the point has zero moment about it.
+> - With a non-zero resultant, the total moment depends on the point chosen.
+> - Coordinates: $M_O = x F_y - y F_x$.",2 marks: Define moment of a force; distinguish clockwise and anticlockwise moments; SI unit. 5 marks: Resultant moment about a corner of forces acting along the sides of a square or rectangle. Moment of a force from its coordinates.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Varignon's theorem (principle of moments),"Sometimes the perpendicular distance to a slanting force is hard to find, while its **components** have obvious arms. Varignon's theorem says we may use the components instead: the answer is the same.
+
+## Statement
+
+> **Key point**
+> **Varignon's theorem:** the moment of a force about any point equals the **algebraic sum of the moments of its components** about the same point.
+>
+> **Principle of moments** (the general form): the moment of the **resultant** of any system of coplanar forces about a point equals the **algebraic sum of the moments** of all the forces about that point.
+
+## Proof
+
+Let forces $\vec{F}_1, \vec{F}_2, \dots$ act at a point P with coordinates $(x, y)$, and let their resultant be $\vec{R}$, with components $R_x = \sum F_{x}$ and $R_y = \sum F_{y}$.
+
+The moment of $\vec{R}$ about the origin O (topic 2) is
+
+$$
+M_O(R) = x R_y - y R_x
+$$
+
+Substitute the sums:
+
+$$
+\begin{aligned}M_O(R) &= x\sum F_y - y\sum F_x \\ &= \sum\left(x F_y - y F_x\right)\end{aligned}
+$$
+
+Each bracket is the moment of one force about O, so
+
+$$
+M_O(R) = \sum M_O(F_i) \qquad \blacksquare
+$$
+
+A force and its two components are the special case ""resultant of two forces"", so Varignon's theorem follows directly.
+
+> **Note**
+> The same result holds for forces that do **not** meet at one point. Chapter 2 used it to place the resultant of the forces on a plate: $R \times d = \sum M_O$.
+
+## Worked example 1: a slanting force, two ways
+
+> **Problem**
+> A $120\ \text{N}$ force acts downward and to the left, at $50^\circ$ to the horizontal. Its line of action crosses the x-axis at C, $2.5\ \text{m}$ to the right of O. Find its moment about O.
+
+![(a) Using the perpendicular distance. (b) Using the components at C: the horizontal one passes through O.](/api/uploads/f78ab228da53f84932ccef955eaf3d30.png)
+*(a) Using the perpendicular distance. (b) Using the components at C: the horizontal one passes through O.*
+
+**Method 1: perpendicular distance.** In the right triangle formed by O, C and the foot of the perpendicular,
+
+$$
+\begin{aligned}d &= OC\sin 50^\circ = 2.5 \times 0.7660 \\ &= 1.915\ \text{m}\end{aligned}
+$$
+
+$$
+M_O = 120 \times 1.915 = 229.8\ \text{N·m}
+$$
+
+**Method 2: Varignon.** Slide the force along its line to C (transmissibility) and split it there:
+
+- horizontal: $120\cos 50^\circ = 77.13\ \text{N}$, along the x-axis, through O: moment $0$;
+- vertical: $120\sin 50^\circ = 91.93\ \text{N}$ downward, arm $2.5\ \text{m}$:
+
+$$
+M_O = 91.93 \times 2.5 = 229.8\ \text{N·m}
+$$
+
+A downward force to the right of O turns **clockwise**.
+
+**Answer:** $229.8\ \text{N·m}$ clockwise, by both methods ✓.
+
+## Worked example 2: a force at a point
+
+> **Problem**
+> A $200\ \text{N}$ force acts at P $(3\ \text{m}, 2\ \text{m})$, pointing $30^\circ$ above the positive x-axis. Find its moment about the origin.
+
+$$
+\begin{aligned}F_x &= 200\cos 30^\circ = 173.21\ \text{N} \\ F_y &= 200\sin 30^\circ = 100\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}M_O &= x F_y - y F_x \\ &= 3(100) - 2(173.21) \\ &= 300 - 346.41 = -46.41\ \text{N·m}\end{aligned}
+$$
+
+**Answer:** $46.41\ \text{N·m}$ **clockwise**. The two components turn opposite ways; the horizontal one wins.
+
+> **Caution**
+> When you use components, give each its **own sign**. Adding the magnitudes ($300 + 346.41$) is the most common wrong answer.
+
+> **Exam tip**
+> ""State and prove Varignon's theorem"" is a standard 5–8 mark question. The coordinate proof above is short and complete; add a sketch of the force, its components and the point.
+
+> **Quick recap**
+> - Moment of a force = sum of the moments of its components (Varignon).
+> - Moment of the resultant = sum of the moments of all the forces (principle of moments).
+> - Slide a force along its line to a convenient point (an axis), then split it: one component often has zero moment.",5–8 marks: State and prove Varignon's theorem (principle of moments). Numerical: moment of an inclined force about a point by the perpendicular distance and by components; moment of a force given at a point with coordinates.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of two parallel forces,"Two parallel forces add to a resultant parallel to them. Its size is easy; the question is **where** it acts. The principle of moments answers it in one line, and the answer differs for like and unlike forces.
+
+## Two like forces
+
+Let $F_1$ at A and $F_2$ at B act in the same direction. Then
+
+$$
+R = F_1 + F_2
+$$
+
+in the same direction. Let it act at C on AB. Taking moments about C, the resultant has no moment there, so the moments of $F_1$ and $F_2$ about C must cancel:
+
+$$
+F_1 \times AC = F_2 \times BC
+$$
+
+or, as a ratio,
+
+$$
+\frac{AC}{BC} = \frac{F_2}{F_1}
+$$
+
+C lies **between** A and B, dividing AB **internally** in the **inverse ratio** of the forces: nearer the **larger** force. Equivalently, moments about A give $AC = \dfrac{F_2 \times AB}{R}$.
+
+## Two unlike, unequal forces
+
+Let $F_1$ at A and a smaller $F_2$ at B act in opposite directions. Then
+
+$$
+R = F_1 - F_2
+$$
+
+in the direction of the larger force $F_1$. Moments about A: $F_1$ has none; $F_2$ has $F_2 \times AB$; the resultant must match it, so
+
+$$
+\begin{aligned}R \times AC &= F_2 \times AB \\ &\Rightarrow \\ AC &= \frac{F_2 \times AB}{F_1 - F_2}\end{aligned}
+$$
+
+For the senses to agree, C must lie **outside** AB, on the side of the **larger** force.
+
+![(a) Two like forces: R lies between them. (b) Two unlike forces: R lies outside, beyond the larger one.](/api/uploads/b3bab1f76b093c53f1a080eceb7542d6.png)
+*(a) Two like forces: R lies between them. (b) Two unlike forces: R lies outside, beyond the larger one.*
+
+> **Key point**
+> **Like** forces: resultant **between** them, nearer the larger. **Unlike** forces: resultant **outside**, beyond the larger. **Equal unlike** forces: no single resultant at all; they form a **couple**.
+
+## Worked example 1: like forces
+
+> **Problem**
+> Parallel forces of $300\ \text{N}$ at A and $500\ \text{N}$ at B act upward; $AB = 2.4\ \text{m}$. Find the resultant and its position.
+
+$$
+R = 300 + 500 = 800\ \text{N (upward)}
+$$
+
+$$
+\begin{aligned}AC &= \frac{F_2 \times AB}{R} = \frac{500 \times 2.4}{800} \\ &= 1.5\ \text{m}\end{aligned}
+$$
+
+Check by moments about C: $300 \times 1.5 = 450$ and $500 \times 0.9 = 450$ ✓.
+
+**Answer:** $800\ \text{N}$ upward, $1.5\ \text{m}$ from A ($0.9\ \text{m}$ from B, nearer the larger force).
+
+## Worked example 2: unlike forces
+
+> **Problem**
+> A $600\ \text{N}$ force acts upward at A and a $250\ \text{N}$ force downward at B, with $AB = 1.4\ \text{m}$. Find the resultant and its position.
+
+$$
+R = 600 - 250 = 350\ \text{N (upward)}
+$$
+
+Moments about A: the $250\ \text{N}$ force gives $250 \times 1.4 = 350\ \text{N·m}$ clockwise. An upward $R$ turns clockwise about A only if it lies **to the left** of A:
+
+$$
+350 \times AC = 350 \;\Rightarrow\; AC = 1.0\ \text{m}
+$$
+
+**Answer:** $350\ \text{N}$ upward, $1.0\ \text{m}$ from A on the side away from B.
+
+> **Caution**
+> For unlike forces, students often put the resultant between the two forces. Always check that its moment about A has the **same sense** as the sum of the forces' moments: that fixes the side.
+
+> **Exam tip**
+> The two proofs (like: internal division in the inverse ratio; unlike: external, beyond the larger) are common 5-mark questions. Show the moment equation and state where C lies.
+
+> **Quick recap**
+> - Like: $R = F_1 + F_2$, between them, $F_1 \times AC = F_2 \times BC$.
+> - Unlike: $R = F_1 - F_2$, outside on the larger side, $R \times AC = F_2 \times AB$.
+> - Equal and unlike: a couple, no single resultant.","5 marks: Prove that the resultant of two like parallel forces divides the distance between them internally in the inverse ratio of the forces. Prove that for two unlike parallel forces the resultant lies outside, on the side of the larger force. Numerical: resultant and position of two like or two unlike parallel forces."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Couples and their properties,"Turn a tap, a steering wheel or a key: you push one way with one side of your hand and the other way with the other side. The body turns but does not move off. That pure turning action is a **couple**.
+
+## Definition
+
+> **Key point**
+> A **couple** is a pair of forces that are **equal in magnitude**, **opposite in direction** and **parallel**, but **not on the same line**. The perpendicular distance $a$ between their lines is the **arm** of the couple.
+
+$$
+M = F \times a \qquad (\text{N·m})
+$$
+
+A couple is **clockwise** or **anticlockwise** according to the way it turns the body.
+
+![A couple: equal, opposite, parallel forces a distance a apart. Its moment about any point O is F × a.](/api/uploads/0c1f03c6bfb04d3e7c1944f9f07d36e1.png)
+*A couple: equal, opposite, parallel forces a distance a apart. Its moment about any point O is F × a.*
+
+## Properties
+
+1. **Its forces add to zero**, so a couple produces **no translation**, only rotation.
+2. **Its moment is the same about every point** in the plane. Take O at distance $x$ from the left-hand force in the figure:
+
+$$
+\sum M_O = F(x + a) - F x = F a
+$$
+
+   The $x$ cancels: wherever O is, the moment is $F a$.
+3. **It cannot be balanced by a single force.** A single force would leave $\sum F \ne 0$. A couple is balanced only by an **equal and opposite couple**.
+4. **It is a free vector.** It may be moved anywhere in its plane, or turned to any angle, without changing its effect. Only $M = F a$ and its sense matter: $100\ \text{N}$ at $0.2\ \text{m}$ does the same as $40\ \text{N}$ at $0.5\ \text{m}$.
+5. **Couples in one plane add algebraically:** $M = \sum M_i$, with signs.
+
+> **Caution**
+> Do not confuse a **couple** with the **moment of a single force**. A single force's moment depends on the point chosen; a couple's does not. A single force also pushes the body along; a couple never does.
+
+## Worked example 1: a steering wheel
+
+> **Problem**
+> A driver turns a steering wheel of diameter $0.4\ \text{m}$, pushing with $30\ \text{N}$ up on one side and $30\ \text{N}$ down on the other. Find the moment applied.
+
+The forces are equal, opposite and parallel, $0.4\ \text{m}$ apart:
+
+$$
+M = F \times a = 30 \times 0.4 = 12\ \text{N·m}
+$$
+
+**Answer:** a couple of $12\ \text{N·m}$. The column of the wheel feels no sideways push.
+
+## Worked example 2: balancing couples
+
+> **Problem**
+> A plate carries a couple of $40\ \text{N·m}$ clockwise and a couple made of two $25\ \text{N}$ forces $1.2\ \text{m}$ apart turning anticlockwise. (a) What is the net couple? (b) What two equal forces, $0.5\ \text{m}$ apart, would hold the plate in equilibrium?
+
+(a) The second couple is $25 \times 1.2 = 30\ \text{N·m}$ anticlockwise. Anticlockwise positive:
+
+$$
+M = -40 + 30 = -10\ \text{N·m}
+$$
+
+that is, $10\ \text{N·m}$ **clockwise**.
+
+(b) Balance needs an equal and opposite couple, $10\ \text{N·m}$ anticlockwise:
+
+$$
+F \times 0.5 = 10 \;\Rightarrow\; F = 20\ \text{N}
+$$
+
+**Answer:** (a) $10\ \text{N·m}$ clockwise; (b) two $20\ \text{N}$ forces, $0.5\ \text{m}$ apart, forming an anticlockwise couple.
+
+> **Exam tip**
+> List the properties of a couple as numbered points, and **prove** property 2 in two lines. That combination is a complete 5-mark answer.
+
+> **Quick recap**
+> - Couple: equal, opposite, parallel, not collinear forces; $M = F \times a$.
+> - Same moment about every point; no translation, only rotation.
+> - Balanced only by an equal and opposite couple; couples add algebraically.",2 marks: Define a couple and its arm; what is the moment of a couple? 5 marks: State and prove the properties of a couple; distinguish moment of a force and a couple. Numerical: moment of a couple; the resultant of several couples; the forces needed to balance a couple.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Replacing a force by a force and a couple,"A force can be slid along its own line (transmissibility). What if we want to move it **sideways**, to a different point? We can, provided we add a couple to make up for the change in turning effect.
+
+## The result
+
+> **Key point**
+> A force $F$ acting at A can be replaced by an **equal and parallel force $F$ at any other point B**, together with a **couple** of moment $M = F \times x$, where $x$ is the perpendicular distance between the two lines of action.
+
+## Proof
+
+![(a) A force F at A. (b) Equal and opposite forces added at B change nothing. (c) F at A and −F at B form a couple F x, leaving F at B.](/api/uploads/7b799bd94f8c04f3727d7e0e57b7bb19.png)
+*(a) A force F at A. (b) Equal and opposite forces added at B change nothing. (c) F at A and −F at B form a couple F x, leaving F at B.*
+
+1. Start with $F$ at A.
+2. At B, add two forces $+F$ and $-F$, parallel to the original. They cancel, so nothing changes.
+3. Now $F$ at A and $-F$ at B are equal, opposite, parallel and a distance $x$ apart: they form a **couple** of moment $F x$.
+4. What remains is $+F$ at B **plus** that couple. $\blacksquare$
+
+The sense of the couple is the sense in which the original force, at A, would turn the body about B.
+
+## Worked example 1: an eccentric load on a column
+
+> **Problem**
+> A bracket fixed to a column carries a $400\ \text{N}$ downward load whose line is $0.3\ \text{m}$ from the column's axis. Replace it by a force on the axis and a couple.
+
+![(a) The load on the bracket. (b) The same effect: 400 N along the column's axis plus a 120 N·m couple.](/api/uploads/2d9a76aac93c4c877f32d1325ea2cf82.png)
+*(a) The load on the bracket. (b) The same effect: 400 N along the column's axis plus a 120 N·m couple.*
+
+$$
+M = F \times x = 400 \times 0.3 = 120\ \text{N·m}
+$$
+
+The load is to the right of the axis and points down, so about the axis it turns **clockwise**.
+
+**Answer:** $400\ \text{N}$ downward along the axis, plus a couple of $120\ \text{N·m}$ clockwise. The axial force squeezes the column; the couple **bends** it. Engineers design for both.
+
+## Worked example 2: the reverse
+
+> **Problem**
+> A body carries a $500\ \text{N}$ downward force at B together with a couple of $150\ \text{N·m}$ clockwise. Replace them by a single force.
+
+A single $500\ \text{N}$ downward force placed a distance $d$ to the **right** of B turns clockwise about B with moment $500\,d$. Matching the couple:
+
+$$
+500\,d = 150 \;\Rightarrow\; d = 0.3\ \text{m}
+$$
+
+**Answer:** a single $500\ \text{N}$ downward force, $0.3\ \text{m}$ to the right of B.
+
+> **Note**
+> So a force and a couple in the same plane can always be combined into **one force**, shifted sideways by $d = M/F$. This is how a long list of parallel forces is reduced to a single force (topic 7).
+
+> **Caution**
+> Moving a force **along** its line needs no couple (transmissibility). Moving it **sideways** always needs one. Forgetting the couple is the classic error.
+
+> **Exam tip**
+> ""Prove that a force can be replaced by an equal force at another point and a couple"" is a regular 5-mark question. Draw the three-step figure: it is most of the proof.
+
+> **Quick recap**
+> - Force at A = the same force at B + a couple $F x$.
+> - The couple's sense is the sense in which the original force turns about B.
+> - A force $F$ and a couple $M$ combine into one force shifted by $d = M / F$.",5 marks: Prove that a force acting at a point can be replaced by an equal parallel force at another point and a couple. Numerical: eccentric load on a column as an axial force and a couple; a force and a couple combined into a single force.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of a general system of parallel forces,"A beam with several loads and supports, a shaft with pulleys, a truss with joint loads: parallel force systems are everywhere. One routine reduces any of them to its simplest form.
+
+## The method
+
+Choose a positive direction for the forces (say **up**) and a reference point A (usually one end).
+
+1. **Magnitude:** $R = \sum F$, with signs. The sign gives its direction.
+2. **Moments:** $\sum M_A$, anticlockwise positive.
+3. **Position:** if $R \ne 0$, its distance from A is
+
+$$
+x = \frac{\sum M_A}{R}
+$$
+
+   in the sense that makes $R$'s own moment about A match $\sum M_A$.
+
+## Three possible outcomes
+
+| $R = \sum F$ | $\sum M_A$ | Reduces to |
+|---|---|---|
+| not zero | anything | a **single force** $R$ at distance $x$ |
+| zero | not zero | a **couple** of moment $\sum M_A$ |
+| zero | zero | **nothing**: the body is in **equilibrium** |
+
+> **Key point**
+> If $R = 0$, the moment sum is the same about **every** point (it is a couple), so checking it about any one point is enough to tell a couple from equilibrium.
+
+## Worked example 1: reduce to a single force
+
+> **Problem**
+> A bar ABCD carries $80\ \text{N}$ upward at A, $200\ \text{N}$ downward at B, $60\ \text{N}$ upward at C and $100\ \text{N}$ downward at D. $AB = 1.5\ \text{m}$, $BC = 1.0\ \text{m}$, $CD = 1.5\ \text{m}$. Reduce the system to (a) a single force; (b) a force and a couple at A; (c) a force and a couple at D.
+
+![The four forces on the bar, and their resultant: 160 N downward at 3.44 m from A.](/api/uploads/177f120754bb3d78712272d244960c06.png)
+*The four forces on the bar, and their resultant: 160 N downward at 3.44 m from A.*
+
+**(a) Single force.** Upward positive:
+
+$$
+\begin{aligned}R &= 80 - 200 + 60 - 100 \\ &= -160\ \text{N}\end{aligned}
+$$
+
+that is, $160\ \text{N}$ **downward**. Moments about A (distances $1.5$, $2.5$, $4.0\ \text{m}$):
+
+$$
+\begin{aligned}\sum M_A &= -200(1.5) + 60(2.5) \\ &\quad - 100(4.0) \\ &= -300 + 150 - 400 \\ &= -550\ \text{N·m}\end{aligned}
+$$
+
+$550\ \text{N·m}$ clockwise. A downward force to the right of A turns clockwise, so $R$ is to the right of A:
+
+$$
+\begin{aligned}160\,x &= 550 \\ \Rightarrow\ x &= 3.4375\ \text{m} \approx 3.44\ \text{m}\end{aligned}
+$$
+
+**(b) Force and couple at A.** $160\ \text{N}$ downward at A, plus a couple equal to $\sum M_A$: $550\ \text{N·m}$ clockwise.
+
+**(c) Force and couple at D.** Moments about D (anticlockwise positive), with A, B, C at $4.0$, $2.5$, $1.5\ \text{m}$ to its left:
+
+$$
+\begin{aligned}\sum M_D &= -80(4.0) + 200(2.5) \\ &\quad - 60(1.5) \\ &= -320 + 500 - 90 \\ &= +90\ \text{N·m}\end{aligned}
+$$
+
+So: $160\ \text{N}$ downward at D, plus a couple of $90\ \text{N·m}$ anticlockwise. Check: $R$ actually acts $4.0 - 3.4375 = 0.5625\ \text{m}$ to the left of D, and $160 \times 0.5625 = 90\ \text{N·m}$ anticlockwise ✓.
+
+## Worked example 2: a couple
+
+> **Problem**
+> Forces of $30\ \text{N}$ down at A, $50\ \text{N}$ up at B, $45\ \text{N}$ down at C and $25\ \text{N}$ up at D act on a bar, with B, C and D at $1.0$, $2.5$ and $3.5\ \text{m}$ from A. Find the resultant.
+
+$$
+R = -30 + 50 - 45 + 25 = 0
+$$
+
+$$
+\begin{aligned}\sum M_A &= 50(1.0) - 45(2.5) + 25(3.5) \\ &= 50 - 112.5 + 87.5 \\ &= +25\ \text{N·m}\end{aligned}
+$$
+
+**Answer:** no resultant force, but a **couple** of $25\ \text{N·m}$ anticlockwise.
+
+## Worked example 3: equilibrium
+
+> **Problem**
+> Forces of $20\ \text{N}$ down at A, $60\ \text{N}$ up at B, $80\ \text{N}$ down at C and $40\ \text{N}$ up at D act on a bar, with B, C and D at $1.0$, $2.75$ and $4.0\ \text{m}$ from A. Find the resultant.
+
+$$
+R = -20 + 60 - 80 + 40 = 0
+$$
+
+$$
+\begin{aligned}\sum M_A &= 60(1.0) - 80(2.75) + 40(4.0) \\ &= 60 - 220 + 160 = 0\end{aligned}
+$$
+
+**Answer:** both are zero: the bar is in **equilibrium**.
+
+> **Caution**
+> $R = 0$ alone does **not** mean equilibrium. Example 2 has $R = 0$ and still spins. Always compute $\sum M$.
+
+> **Exam tip**
+> Reductions ""to a single force"", ""to a force and a couple at A"" and ""at B"" are often asked together. Find the single force first; each force-couple answer then follows from $\sum M$ about that end, and you can check one against the other as in (c).
+
+> **Quick recap**
+> - $R = \sum F$; $x = \sum M_A / R$, on the side that gives the right sense.
+> - $R \ne 0$: a single force. $R = 0$, $\sum M \ne 0$: a couple. Both zero: equilibrium.
+> - Force-couple at a point: $R$ at that point plus the moment sum about it.","5 marks: Describe how the resultant of a system of parallel forces is found; what does a zero resultant signify? Numerical (10 marks): reduce a parallel system on a bar to a single force, to a force and a couple at each end; decide whether a system is a couple or in equilibrium."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Chapter summary and practice problems,"This page brings chapter 3 together: the key results, practice problems with answers, theory questions and a self-test.
+
+## Key results
+
+| Idea | Result |
+|---|---|
+| Parallel forces | **Like**: same direction. **Unlike**: opposite directions |
+| Moment | $M = F \times d$; anticlockwise $+$, clockwise $-$; from coordinates $M_O = x F_y - y F_x$ |
+| Varignon | Moment of a force = sum of the moments of its components |
+| Principle of moments | Moment of the resultant = sum of the moments of all the forces |
+| Two like forces | $R = F_1 + F_2$, between them: $F_1 \times AC = F_2 \times BC$ |
+| Two unlike forces | $R = F_1 - F_2$, outside on the larger side: $R \times AC = F_2 \times AB$ |
+| Couple | Equal, opposite, parallel, not collinear; $M = F a$, the same about every point |
+| Force to force + couple | $F$ at A = $F$ at B + couple $F x$ |
+| Parallel system | $R = \sum F$, $x = \sum M_A / R$; or a couple ($R = 0$, $\sum M \ne 0$); or equilibrium |
+
+![Where the resultant of two parallel forces lies: between like forces, outside unlike ones.](/api/uploads/b3bab1f76b093c53f1a080eceb7542d6.png)
+*Where the resultant of two parallel forces lies: between like forces, outside unlike ones.*
+
+## Practice problems
+
+Try each one before reading the answer. Every answer has been checked by calculation.
+
+> **Problem** **1.** Forces of $12\ \text{N}$, $18\ \text{N}$, $24\ \text{N}$ and $30\ \text{N}$ act along the sides AB, BC, CD and DA of a square of side $3\ \text{m}$, in the order of the letters. Find the resultant moment about A.
+>
+> **Answer:** $18 \times 3 + 24 \times 3 = 126\ \text{N·m}$ anticlockwise.
+
+> **Problem** **2.** A $60\ \text{N}$ force acts downward to the left at $35^\circ$ to the horizontal; its line crosses the x-axis $5\ \text{m}$ to the right of O. Find its moment about O.
+>
+> **Answer:** only the vertical component $60\sin 35^\circ = 34.41\ \text{N}$ has an arm: $34.41 \times 5 = 172.07\ \text{N·m}$ clockwise.
+
+> **Problem** **3.** Like parallel forces of $40\ \text{N}$, $70\ \text{N}$ and $90\ \text{N}$ act at A, B and C on a line, with $AB = 2\ \text{m}$ and $BC = 3\ \text{m}$. Find the resultant and its distance from A.
+>
+> **Answer:** $R = 200\ \text{N}$; $x = \dfrac{70 \times 2 + 90 \times 5}{200} = 2.95\ \text{m}$.
+
+> **Problem** **4.** Three like parallel forces, $80\ \text{N}$ at A, $F$ at B and $150\ \text{N}$ at D ($4\ \text{m}$ from A), have a resultant of $330\ \text{N}$ acting $2.5\ \text{m}$ from A. Find $F$ and AB.
+>
+> **Answer:** $F = 330 - 80 - 150 = 100\ \text{N}$; $100 \times AB + 150 \times 4 = 330 \times 2.5$, so $AB = 2.25\ \text{m}$.
+
+> **Problem** **5.** A $450\ \text{N}$ force acts upward at A and a $180\ \text{N}$ force downward at B, $2\ \text{m}$ away. Find the resultant and where it acts.
+>
+> **Answer:** $R = 270\ \text{N}$ upward, $AC = \dfrac{180 \times 2}{270} = 1.333\ \text{m}$ from A, on the side away from B.
+
+> **Problem** **6.** A bar AB, $4\ \text{m}$ long, carries $30\ \text{N}$ up at A, $120\ \text{N}$ down at $1\ \text{m}$, $50\ \text{N}$ up at $2.5\ \text{m}$ and $60\ \text{N}$ down at B. Reduce it to (a) a single force, (b) a force and a couple at A, (c) a force and a couple at B.
+>
+> **Answer:** (a) $100\ \text{N}$ downward at $2.35\ \text{m}$ from A; (b) $100\ \text{N}$ down at A and $235\ \text{N·m}$ clockwise; (c) $100\ \text{N}$ down at B and $165\ \text{N·m}$ anticlockwise.
+
+> **Problem** **7.** Forces of $25\ \text{N}$ down at A, $40\ \text{N}$ up at $1.2\ \text{m}$, $35\ \text{N}$ down at $2\ \text{m}$ and $20\ \text{N}$ up at $3.5\ \text{m}$ act on a bar. Find the resultant.
+>
+> **Answer:** $R = 0$; $\sum M_A = 48 - 70 + 70 = 48\ \text{N·m}$: a couple of $48\ \text{N·m}$ anticlockwise.
+
+> **Problem** **8.** What force must each hand apply, as a couple, to a steering wheel of diameter $0.45\ \text{m}$ to give a moment of $18\ \text{N·m}$?
+>
+> **Answer:** $F = 18 / 0.45 = 40\ \text{N}$.
+
+> **Problem** **9.** A $2.5\ \text{kN}$ load acts on a column bracket $0.2\ \text{m}$ from the column's axis. Replace it by a force on the axis and a couple.
+>
+> **Answer:** $2.5\ \text{kN}$ along the axis plus a couple of $2.5 \times 0.2 = 0.5\ \text{kN·m}$.
+
+## Theory questions
+
+1. Define parallel, like and unlike forces.
+2. Define the moment of a force. Distinguish clockwise and anticlockwise moments.
+3. State and prove Varignon's theorem.
+4. Prove that the resultant of two like parallel forces divides the distance between them internally in the inverse ratio of the forces.
+5. Prove that the resultant of two unlike parallel forces lies outside them, on the side of the larger force.
+6. Define a couple and state its properties. How does a couple differ from the moment of a force?
+7. Prove that a force at a point can be replaced by an equal force at another point and a couple.
+8. How is the resultant of a system of parallel forces found? What does a zero resultant signify?
+
+## Quick self-test
+
+1. The moment of a couple about any point is: (a) zero (b) **the same, $F \times a$** (c) greatest at its centre (d) different for every point. **Answer: (b)**
+2. The resultant of two unlike unequal parallel forces lies: (a) between them (b) **outside them, beyond the larger** (c) outside them, beyond the smaller (d) at the midpoint. **Answer: (b)**
+3. A couple can be balanced by: (a) a single force (b) **an equal and opposite couple** (c) two like forces (d) nothing. **Answer: (b)**
+4. True or false: a couple consists of two equal forces acting along the same line in opposite directions. **Answer: false** (they must be **parallel and not collinear**; equal opposite collinear forces simply cancel).
+5. True or false: if the resultant of a parallel system is zero, the body must be in equilibrium. **Answer: false** (it may still be a couple).","This chapter's typical paper: 2-mark definitions (moment, like and unlike forces, couple, arm); 5–8 mark proofs (Varignon's theorem; position of the resultant of like and unlike forces; force to force-and-couple); 10-mark numericals (reduce a parallel system on a bar to a single force and to force-couple systems at the ends; moments about a corner of a square)."
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Conditions of equilibrium for coplanar forces,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Action and reaction at contacts,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Drawing free body diagrams,,
