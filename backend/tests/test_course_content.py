@@ -29,7 +29,7 @@ def test_engineering_mechanics_loads_beside_pharmacology(env):
         assert all(s.query(Topic).filter_by(unit_id=u.id).order_by(Topic.position.desc()).first().title in ("Chapter summary and practice problems", "A model examination paper with worked solutions") for u in units)
         assert s.query(Course).count() == 2  # Pharmacology is untouched
 
-def test_engineering_mechanics_chapters_1_to_4_are_written_with_their_figures(env):
+def test_engineering_mechanics_chapters_1_to_5_are_written_with_their_figures(env):
     import re, main
     r = env.c.post("/api/admin/import", headers=env.admin, json={"csv": open(EM, encoding="utf-8").read(), "dry_run": False}).json(); assert r["error_count"] == 0
     with Session_() as s:
@@ -48,11 +48,14 @@ def test_engineering_mechanics_chapters_1_to_4_are_written_with_their_figures(en
         u4 = s.query(Unit).filter_by(name="Unit I · 4. Equilibrium and free body diagrams").one()
         fourth = s.query(Topic).filter_by(unit_id=u4.id).order_by(Topic.position).all()
         assert len(fourth) == 6 and all(t.content and t.question_pattern and "$" in t.content and ("Quick recap" in t.content or "Practice problems" in t.content) for t in fourth)
-        first = first + second + third + fourth
-        later = s.query(Topic).filter(Topic.course_id == u.course_id, Topic.unit_id.notin_([u.id, u2.id, u3.id, u4.id])).all()
+        u5 = s.query(Unit).filter_by(name="Unit I · 5. Supports and support reactions").one()
+        fifth = s.query(Topic).filter_by(unit_id=u5.id).order_by(Topic.position).all()
+        assert len(fifth) == 6 and all(t.content and t.question_pattern and "$" in t.content and ("Quick recap" in t.content or "Practice problems" in t.content) for t in fifth)
+        first = first + second + third + fourth + fifth
+        later = s.query(Topic).filter(Topic.course_id == u.course_id, Topic.unit_id.notin_([u.id, u2.id, u3.id, u4.id, u5.id])).all()
         assert later and not any(t.content for t in later)  # the other chapters are still titles only
         pics = {m for t in first for m in re.findall(r"/api/uploads/([0-9a-f]{32}\.png)", t.content)}
-    assert len(pics) >= 44
+    assert len(pics) >= 54
     for p in pics:  # each figure shipped in content/figures, copied into the uploads by the import, and served to anyone
         assert os.path.isfile(os.path.join(main.FIGURES, p)) and os.path.isfile(os.path.join(main.UPLOADS, p))
         assert env.c.get("/api/uploads/" + p).status_code == 200
