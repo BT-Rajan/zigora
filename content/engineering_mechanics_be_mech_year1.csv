@@ -1,0 +1,156 @@
+program,semester,semester_no,course,unit,topic
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,What engineering mechanics studies
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Scalars and vectors
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,"Free, sliding and fixed vectors"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Adding two forces: parallelogram and triangle laws
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Lami's theorem for three concurrent forces
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Units: the SI system and checking dimensions
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Resolving a force into components
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Moment of a force about a point
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Newton's laws and the laws of mechanics
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Transmissibility of a force
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,"Collinear, concurrent, coplanar and parallel forces"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Classifying force systems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,What a resultant is
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of coplanar forces: the method of components
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of collinear forces
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of concurrent coplanar forces
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of non-concurrent coplanar forces and its line of action
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Parallel forces: like and unlike
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Moment of a force and its sign convention
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Varignon's theorem (principle of moments)
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of two parallel forces
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Couples and their properties
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Replacing a force by a force and a couple
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of a general system of parallel forces
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Conditions of equilibrium for coplanar forces
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Action and reaction at contacts
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Drawing free body diagrams
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Two-force and three-force members
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Equilibrium under three forces: Lami's theorem in use
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Why structures need supports
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of supports and the reactions they give
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of loading on a beam
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Finding the reactions of a beam
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Statically determinate and indeterminate beams
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,What friction is and why it matters
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Coefficient of friction
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of friction and cone of friction
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Kinds of friction
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Laws of dry (Coulomb) friction
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of repose
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,A body on a rough inclined plane
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Ladder friction
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Where friction helps
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Wedges
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Belt friction
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Friction in brakes
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Square-threaded screws and the screw jack
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Trusses and frames: the difference
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,"Perfect, deficient and redundant trusses"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Assumptions in truss analysis
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Method of joints
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Method of sections
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Zero-force members
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Kinds of beams
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Kinds of loads on beams
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Statically determinate beams
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Shear force and bending moment: meaning and sign conventions
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Drawing SFD and BMD: the method
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Cantilevers
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Simply supported beams
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Overhanging beams and points of contraflexure
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Beams carrying couples
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,"Relations between load, shear force and bending moment"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Working back: reactions from an SFD or BMD
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia","Centre of gravity, centre of mass and centroid"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of simple shapes
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Finding centroids by the method of moments
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of composite areas
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids by integration
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of volumes and solids
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Area moment of inertia and radius of gyration
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Perpendicular axis theorem and polar moment of inertia
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Parallel axis theorem
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Moment of inertia of simple areas by integration
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia","Moment of inertia of composite sections (I, T and channel)"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Parallel axis theorem for mass moment of inertia
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia of simple bodies by integration
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia of composite bodies
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,"Describing motion: displacement, velocity and acceleration"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Absolute motion
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Straight-line motion and the equations of motion
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Motion graphs
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Curvilinear motion and projectiles
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Rotation about a fixed axis
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Rectangular and normal–tangential components
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Relative motion
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,General plane motion
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Instantaneous centre of zero velocity
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,"Force, mass and acceleration"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Newton's laws of motion
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,D'Alembert's principle and dynamic equilibrium
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Translation: applying the laws of motion
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Connected bodies and pulleys
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Momentum and angular momentum
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Rotation about a fixed axis
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,General plane motion
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Work done by a force
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Kinetic energy of rigid bodies
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,The work–energy principle
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservative forces and potential energy
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservation of energy
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Impulse and momentum
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservation of momentum and impact
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,"Load, stress and strain"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Normal and shear stress
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,"Elasticity, elastic limit and Hooke's law"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Axially loaded bars
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Stresses on an inclined plane
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Bars of varying cross-section
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Bars in series and composite bars
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Thermal stresses
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Stress–strain curves for ductile and brittle materials
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Longitudinal and lateral strain
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Poisson's ratio
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Volumetric strain
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Volumetric strain of a cylindrical rod
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Bulk modulus
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Relation between E and K
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,"Relation between E and G, and E, G, K together"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,"Strain energy, resilience and proof resilience"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Gradually applied loads
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Suddenly applied loads
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Impact loads
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Pure bending and its assumptions
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,The bending equation
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Neutral axis and section modulus
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Bending stresses in different cross-sections
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,"Torque, twist and the assumptions of torsion"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Shear stress in a shaft: the torsion equation
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Torque carried by a solid shaft
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Torque carried by a hollow shaft
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Power transmitted by a shaft
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Chapter summary and practice problems
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit I
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit II
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit III
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit IV
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit V
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,A model examination paper with worked solutions
