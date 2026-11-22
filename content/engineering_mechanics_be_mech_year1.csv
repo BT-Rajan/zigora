@@ -1037,14 +1037,665 @@ Try each one before reading the answer. All answers have been worked to four sig
 3. A force on a rigid body is a: (a) free vector (b) **sliding vector** (c) fixed vector (d) scalar. **Answer: (b)**
 4. If the resultant force on a body is zero but the net moment is not, the body is: (a) in equilibrium (b) **not in equilibrium: it rotates** (c) at rest (d) moving uniformly. **Answer: (b)**
 5. Lami's theorem applies to: (a) any number of forces (b) two forces (c) **three concurrent forces in equilibrium** (d) parallel forces only. **Answer: (c)**","This chapter's typical paper: 2-mark definitions (statics, dynamics, scalar, vector, moment, newton); 5-mark derivations (parallelogram law, Lami's theorem, transmissibility); 10-mark numericals (resultant by resolution with quadrant check; tensions by Lami; beam reactions; resultant of forces along the sides of a square)."
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,"Collinear, concurrent, coplanar and parallel forces",,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Classifying force systems,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,What a resultant is,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of coplanar forces: the method of components,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of collinear forces,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of concurrent coplanar forces,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of non-concurrent coplanar forces and its line of action,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,"Collinear, concurrent, coplanar and parallel forces","A bridge, a crane or a ladder rarely carries just one force. Several forces act on it together, and before we can add them up we must recognise **how they are arranged**. The arrangement decides which method works.
+
+## A system of forces
+
+When two or more forces act on a body together, they form a **force system** (or **system of forces**). Each force still has its own magnitude, direction, sense and line of action; the system is described by how those **lines of action** relate to each other.
+
+## The words, one at a time
+
+- **Coplanar** forces: their lines of action all lie in **one plane**. (Draw them on a sheet of paper and none sticks out of it.)
+- **Non-coplanar** forces: they do not all lie in one plane. A tripod's three legs push in three different planes.
+- **Collinear** forces: they all act along **one common line**.
+- **Concurrent** forces: their lines of action all pass through **one common point**.
+- **Parallel** forces: their lines of action are **parallel** to each other. They are **like** if they point the same way, **unlike** if they point opposite ways.
+- **General** (non-concurrent, non-parallel) forces: none of the above; the lines neither meet at one point nor run parallel.
+
+![The four kinds of coplanar force system, each on a rigid plate.](/api/uploads/cc629427937f8ac5a3dcc6f2b7e26525.png)
+*The four kinds of coplanar force system, each on a rigid plate.*
+
+> **Key point**
+> ""Coplanar"" tells you **where** the forces lie (one plane or not). ""Collinear"", ""concurrent"", ""parallel"" and ""general"" tell you **how their lines of action are arranged**. A system is described by one word from each: e.g. **coplanar concurrent**.
+
+## Examples you can picture
+
+| Force system | Everyday example |
+|---|---|
+| **Coplanar collinear** | A tug of war; forces along the axis of a tie rod |
+| **Coplanar concurrent** | A lamp hanging from two cords; a ring pulled by three ropes |
+| **Coplanar parallel** | Loads and support reactions on a horizontal beam |
+| **Coplanar general** | A ladder leaning on a wall: weight, floor reaction, wall reaction |
+
+> **Note**
+> Collinear forces are a special case of concurrent forces too: any two points on their common line could serve as the ""common point"". We treat them separately because they add by simple arithmetic.
+
+> **Case** Match each description with its system.
+> - (i) Lines of action all lie in one plane and pass through one point.
+> - (ii) Lines of action all lie along the same line.
+> - (iii) Lines of action all lie in one plane but meet at no single point and are not parallel.
+> - (iv) Lines of action are parallel and lie in one plane.
+>
+> **Answers:** (i) coplanar concurrent; (ii) collinear; (iii) coplanar general; (iv) coplanar parallel.
+
+> **Exam tip**
+> Definitions in this topic are classic 2-mark questions. Write the one-line definition **and** sketch three small arrows showing the arrangement: the sketch alone often earns the mark.
+
+> **Quick recap**
+> - **Coplanar**: one plane. **Collinear**: one line. **Concurrent**: one point. **Parallel**: parallel lines.
+> - **General** system: coplanar, but neither concurrent nor parallel.
+> - Name a system by **plane** + **arrangement**, e.g. coplanar parallel.","2 marks: Define coplanar, non-coplanar, collinear, concurrent and parallel forces with a sketch each. What is the difference between collinear and concurrent forces? Match-the-columns on force systems."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Classifying force systems,"Every method in statics belongs to a particular kind of force system. Sorting the forces correctly first saves you from using the wrong tool.
+
+## The family tree
+
+![How force systems are classified. Units I to III of this course deal with coplanar systems.](/api/uploads/e49b70265301f460e037d63a25d645e6.png)
+*How force systems are classified. Units I to III of this course deal with coplanar systems.*
+
+1. **Coplanar** (all in one plane):
+   - collinear
+   - concurrent
+   - parallel (like or unlike)
+   - general (non-concurrent, non-parallel)
+2. **Non-coplanar** (in space):
+   - concurrent (e.g. the legs of a tripod meeting at its head)
+   - parallel (e.g. the four legs of a loaded table)
+   - general (e.g. the forces on a shaft carrying two gears)
+
+## How many equations does each system give?
+
+The kind of system decides how many **independent equations of equilibrium** you can write, and so how many **unknowns** you can find.
+
+| System | Equilibrium conditions | Unknowns |
+|---|---|---|
+| Coplanar collinear | $\sum F = 0$ along the line | 1 |
+| Coplanar concurrent | $\sum F_x = 0$, $\sum F_y = 0$ | 2 |
+| Coplanar parallel | $\sum F = 0$, $\sum M = 0$ | 2 |
+| Coplanar general | $\sum F_x = 0$, $\sum F_y = 0$, $\sum M = 0$ | 3 |
+| Space concurrent | $\sum F_x = \sum F_y = \sum F_z = 0$ | 3 |
+| Space general | three force sums and three moment sums $= 0$ | 6 |
+
+> **Key point**
+> For **concurrent** forces, a moment equation adds nothing new: every force passes through the common point, so each has zero moment about it. That is why concurrent systems give only **two** equations in a plane.
+
+## What each system's resultant can be
+
+| System | The resultant can be |
+|---|---|
+| Collinear | a single force along the same line, or zero |
+| Concurrent | a single force through the common point, or zero |
+| Parallel | a single force parallel to the others, a **couple**, or zero |
+| General | a single force, a **couple**, or zero |
+
+A **couple** is a pair of equal, opposite, parallel forces that are **not** on the same line. It cannot be replaced by a single force: it only turns a body (chapter 3).
+
+> **Case** Classify each force system.
+> - (a) The weight of a lamp and the tensions in its two cords.
+> - (b) Three wheel loads on a beam and the two support reactions.
+> - (c) A ladder's weight, the push of the wall and the push of the floor (with friction).
+> - (d) The forces in the three legs of a camera tripod.
+>
+> **Answers:** (a) coplanar concurrent; (b) coplanar parallel; (c) coplanar general (unless the three forces happen to meet at one point); (d) non-coplanar concurrent.
+
+> **Exam tip**
+> If asked to ""classify force systems"", draw the tree. Then give one sketch or example per branch. A tree plus examples is a complete 5-mark answer.
+
+> **Quick recap**
+> - Coplanar: **collinear, concurrent, parallel, general**. Non-coplanar: **concurrent, parallel, general**.
+> - Equations in a plane: collinear 1, concurrent 2, parallel 2, general 3.
+> - Parallel and general systems may reduce to a **couple**; collinear and concurrent ones never do.","2 marks: Classify force systems. Give an example of a non-coplanar concurrent system. 5 marks: Classify force systems with sketches; how many equilibrium equations does each coplanar system give, and why do concurrent forces give only two?"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,What a resultant is,"Engineers like to simplify. If five forces act on a bracket, it helps enormously to know the **one force** that would do the same job. That single force is the resultant.
+
+## Definition
+
+> **Key point**
+> The **resultant** of a system of forces is the **single force** that produces the **same external effect** on a rigid body as all the forces acting together.
+
+""External effect"" means the motion (or tendency to move and turn) of the body as a whole, and the reactions at its supports. The resultant does **not** reproduce the stresses inside the body.
+
+## The equilibrant
+
+The **equilibrant** $E$ is the single force that **balances** the system: added to the forces, it holds the body in equilibrium. It is equal in magnitude to the resultant, **opposite** in sense, and acts along the **same line**:
+
+$$
+\vec{E} = -\vec{R}
+$$
+
+![(a) Two forces on a ring. (b) The resultant does the same job; the equilibrant, equal and opposite, would hold the ring still.](/api/uploads/e6243dea821b2dd712e9d0e7f1f8f9a9.png)
+*(a) Two forces on a ring. (b) The resultant does the same job; the equilibrant, equal and opposite, would hold the ring still.*
+
+> **Problem**
+> A ring is pulled by $60\ \text{N}$ towards the east and $80\ \text{N}$ towards the north. Find the resultant and the equilibrant.
+
+The forces are at right angles, so
+
+$$
+\begin{aligned}R &= \sqrt{60^2 + 80^2} = \sqrt{3600 + 6400} \\ &= \sqrt{10\,000} = 100\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}\theta &= \tan^{-1}\frac{80}{60} \\ &= 53.13^\circ \text{ north of east}\end{aligned}
+$$
+
+**Answer:** $R = 100\ \text{N}$ at $53.13^\circ$ north of east. The equilibrant is $100\ \text{N}$ at $53.13^\circ$ **south of west**, along the same line.
+
+## Two ways to find a resultant
+
+| Method | How | Accuracy |
+|---|---|---|
+| **Analytical** | Formulas: cosine and sine rules, or components $\sum F_x$, $\sum F_y$ | Exact, to your arithmetic |
+| **Graphical** | Draw the forces to scale, head to tail, and measure the closing side | Limited by the drawing, about 1–2 % |
+
+**The graphical method for the ring.** Choose a scale, say $1\ \text{cm} = 20\ \text{N}$. Draw $3\ \text{cm}$ east, then from its tip $4\ \text{cm}$ north. The line from the start to the end measures $5\ \text{cm}$, so $R = 5 \times 20 = 100\ \text{N}$, and a protractor gives about $53^\circ$.
+
+> **Caution**
+> Always **state the scale** on a graphical solution, and choose it so the drawing is large (at least 8–10 cm overall). A tiny drawing gives a poor answer.
+
+## What can a resultant turn out to be?
+
+A system of forces can reduce to one of three things:
+
+1. a **single force** (the usual case);
+2. a **couple**, when the forces add to zero but their moments do not (only for parallel or general systems);
+3. **nothing**: forces and moments both add to zero, so the body is in **equilibrium**.
+
+> **Exam tip**
+> In definitions, use the words ""**single force**"" and ""**same effect**"" for the resultant, and ""**equal, opposite, collinear**"" for the equilibrant.
+
+> **Quick recap**
+> - Resultant = the single force with the **same external effect** as the system.
+> - Equilibrant = **equal, opposite and collinear** with the resultant: $\vec{E} = -\vec{R}$.
+> - Find it **analytically** (exact) or **graphically** (to scale).
+> - A system may reduce to a force, a couple, or nothing (equilibrium).","2 marks: Define resultant and equilibrant. Distinguish analytical and graphical methods. 5 marks: Explain the resultant of a force system and the three things a system can reduce to. Numerical: resultant and equilibrant of two forces at right angles, analytically and graphically."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of coplanar forces: the method of components,"This is the workhorse of statics. It works for **any number of forces** at a point, in any directions, and it turns geometry into simple addition.
+
+## The method in four steps
+
+1. **Resolve** each force into a horizontal and a vertical component.
+2. **Add** the horizontal components with their signs: $\sum H$ (also written $\sum F_x$).
+3. **Add** the vertical components with their signs: $\sum V$ (also written $\sum F_y$).
+4. **Combine:**
+
+$$
+\begin{aligned}R &= \sqrt{(\sum H)^2 + (\sum V)^2} \\ \tan\phi &= \left|\frac{\sum V}{\sum H}\right|\end{aligned}
+$$
+
+and place $R$ in the right quadrant from the signs of $\sum H$ and $\sum V$ (chapter 1, topic 7).
+
+> **Key point**
+> Take **right** and **up** as positive. A component pointing left or down gets a **minus** sign. That single habit prevents most errors.
+
+## Angles from the nearest axis
+
+Problems often give each force's angle from the **nearest** axis, not from $+x$. Then:
+
+- the component **along** the axis the angle is measured from uses $\cos$;
+- the component **across** it uses $\sin$;
+- the **sign** comes from the direction the force points.
+
+## Worked example 1: four forces at a point
+
+> **Problem**
+> Four forces act at a point O: $120\ \text{N}$ at $20^\circ$ above $+x$; $90\ \text{N}$ at $35^\circ$ to the left of $+y$; $150\ \text{N}$ at $15^\circ$ below $-x$; $110\ \text{N}$ at $10^\circ$ to the right of $-y$. Find the resultant.
+
+![Four forces at O, each angle measured from its nearest axis.](/api/uploads/87179d77782f2e66ed1e54af2c135e37.png)
+*Four forces at O, each angle measured from its nearest axis.*
+
+**Step 1: components** (angle from the nearest axis; sign from the direction).
+
+- $120\ \text{N}$: $\;F_x = +120\cos 20^\circ$, $\;F_y = +120\sin 20^\circ$
+- $90\ \text{N}$: $\;F_x = -90\sin 35^\circ$, $\;F_y = +90\cos 35^\circ$
+- $150\ \text{N}$: $\;F_x = -150\cos 15^\circ$, $\;F_y = -150\sin 15^\circ$
+- $110\ \text{N}$: $\;F_x = +110\sin 10^\circ$, $\;F_y = -110\cos 10^\circ$
+
+| Force | $F_x$ (N) | $F_y$ (N) |
+|---|---|---|
+| 120 N | $+112.76$ | $+41.04$ |
+| 90 N | $-51.62$ | $+73.72$ |
+| 150 N | $-144.89$ | $-38.82$ |
+| 110 N | $+19.10$ | $-108.33$ |
+
+**Step 2 and 3: add** (carrying three decimals).
+
+$$
+\begin{aligned}\sum H &= -64.646\ \text{N} \\ \sum V &= -32.386\ \text{N}\end{aligned}
+$$
+
+**Step 4: combine.**
+
+$$
+\begin{aligned}R &= \sqrt{64.646^2 + 32.386^2} \\ &= \sqrt{4179.1 + 1048.8} = 72.30\ \text{N}\end{aligned}
+$$
+
+$$
+\phi = \tan^{-1}\frac{32.386}{64.646} = 26.61^\circ
+$$
+
+Both sums are negative, so $R$ points into the **third quadrant**: $26.61^\circ$ below the $-x$ axis, that is $\theta = 180^\circ + 26.61^\circ = 206.61^\circ$ from $+x$.
+
+**Answer:** $R = 72.30\ \text{N}$, at $26.61^\circ$ below the negative x-axis.
+
+## Worked example 2: components along an inclined plane
+
+The axes need not be horizontal and vertical. On a slope, the useful axes are **along** the plane and **perpendicular** to it.
+
+> **Problem**
+> A block weighing $250\ \text{N}$ rests on a plane inclined at $25^\circ$ to the horizontal. Find the components of its weight along the plane and perpendicular to it.
+
+![The weight resolved along the plane and into it. The angle between W and the normal equals the slope angle.](/api/uploads/df925db52f9507f2e6161f0c37a18d46.png)
+*The weight resolved along the plane and into it. The angle between W and the normal equals the slope angle.*
+
+The normal to the plane is tilted $25^\circ$ from the vertical, so the angle between $W$ and the normal is also $25^\circ$:
+
+$$
+\begin{aligned}W_{\perp} &= W\cos 25^\circ = 250 \times 0.9063 \\ &= 226.58\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}W_{\parallel} &= W\sin 25^\circ = 250 \times 0.4226 \\ &= 105.65\ \text{N}\end{aligned}
+$$
+
+**Answer:** $105.65\ \text{N}$ down the slope, $226.58\ \text{N}$ pressing into it. Check: $\sqrt{105.65^2 + 226.58^2} = 250\ \text{N}$ ✓.
+
+> **Caution**
+> The component **along** the slope uses $\sin\theta$, not $\cos\theta$. A quick check: on a flat floor ($\theta = 0$) nothing pulls the block sideways, and $\sin 0 = 0$.
+
+## Worked example 3: finding an unknown force
+
+> **Problem**
+> Four forces act at a point: $12\ \text{kN}$ at $20^\circ$, an unknown $F$ at angle $\theta$, $18\ \text{kN}$ at $90^\circ$ and $30\ \text{kN}$ at $135^\circ$ (all from $+x$). Their resultant is $60\ \text{kN}$ along $+y$. Find $F$ and $\theta$.
+
+![Three known forces and one unknown, with the resultant given.](/api/uploads/2845a29ce14a58c716097b6fdc13e08e.png)
+*Three known forces and one unknown, with the resultant given.*
+
+A resultant along $+y$ means $\sum H = 0$ and $\sum V = 60\ \text{kN}$.
+
+Horizontal components add to zero:
+
+$$
+\begin{aligned}12\cos 20^\circ &+ F\cos\theta \\ &+ 30\cos 135^\circ = 0\end{aligned}
+$$
+
+$$
+\begin{aligned}11.276 + F\cos\theta - 21.213 &= 0 \\ \Rightarrow\ F\cos\theta &= 9.937\end{aligned}
+$$
+
+Vertical components add to $60\ \text{kN}$:
+
+$$
+\begin{aligned}12\sin 20^\circ &+ F\sin\theta + 18 \\ &+ 30\sin 135^\circ = 60\end{aligned}
+$$
+
+$$
+\begin{aligned}4.104 + F\sin\theta + 18 + 21.213 &= 60 \\ \Rightarrow\ F\sin\theta &= 16.683\end{aligned}
+$$
+
+Divide, then square and add:
+
+$$
+\begin{aligned}\tan\theta &= \frac{16.683}{9.937} = 1.6789 \\ \Rightarrow\ \theta &= 59.22^\circ\end{aligned}
+$$
+
+$$
+\begin{aligned}F &= \sqrt{9.937^2 + 16.683^2} \\ &= 19.42\ \text{kN}\end{aligned}
+$$
+
+**Answer:** $F = 19.42\ \text{kN}$ at $59.22^\circ$ from $+x$. Both components are positive, so the first quadrant is right.
+
+> **Exam tip**
+> Present components in a **table** with a column each for $F_x$ and $F_y$, signs written in. Examiners can follow every step, and you can spot a wrong sign at a glance.
+
+> **Quick recap**
+> - Resolve, add with signs, combine: $R = \sqrt{(\sum H)^2 + (\sum V)^2}$; find the quadrant from the signs.
+> - With angles from the nearest axis: $\cos$ along that axis, $\sin$ across it.
+> - On a slope: $W\sin\theta$ along the plane, $W\cos\theta$ into it.
+> - An unknown force: set $\sum H$ and $\sum V$ equal to the resultant's components, then solve.",2 marks: State the method of resolution for finding a resultant. Components of a weight on an inclined plane. 5 marks: Derive R = √(ΣH² + ΣV²) and its direction. Numerical (10 marks): resultant of 3–5 forces at a point with angles from different axes; an unknown force from a given resultant; components of a weight on an incline.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of collinear forces,"When all the forces act along **one line**, there is no geometry to do. The resultant is plain arithmetic, as long as you keep the signs.
+
+## Analytical method
+
+Choose one sense along the line as positive. Then
+
+$$
+R = \sum F = F_1 + F_2 + F_3 + \cdots
+$$
+
+with each force taken **positive** in the chosen sense and **negative** in the other. The sign of $R$ gives its sense; its line of action is the common line.
+
+> **Problem**
+> **Example 1.** Three collinear horizontal forces of $350\ \text{N}$, $150\ \text{N}$ and $220\ \text{N}$ act on a rigid body. Find the resultant when (a) all act in the same direction; (b) the $150\ \text{N}$ force acts the other way.
+
+(a) $\quad R = 350 + 150 + 220 = 720\ \text{N}$, in the common direction.
+
+(b) $\quad R = 350 - 150 + 220 = 420\ \text{N}$, in the direction of the two larger forces.
+
+## Graphical method
+
+1. Choose a scale (say $1\ \text{cm} = 100\ \text{N}$).
+2. From a point $a$, draw the first force to scale: $ab$.
+3. From $b$, draw the next force, **backwards** if it acts the other way: $bc$.
+4. Continue to the last force, ending at $d$.
+5. The length $ad$, times the scale, is the resultant; its sense is from $a$ to $d$.
+
+For Example 1(b) at $1\ \text{cm} = 100\ \text{N}$: $ab = 3.5\ \text{cm}$ forward, $bc = 1.5\ \text{cm}$ back, $cd = 2.2\ \text{cm}$ forward. Then $ad = 4.2\ \text{cm}$, so $R = 420\ \text{N}$ ✓.
+
+## Worked example 2: forces along a bar
+
+> **Problem**
+> A bar ABC carries axial forces: $5\ \text{kN}$ to the right at A, $8\ \text{kN}$ to the left at B and $6\ \text{kN}$ to the right at C. Find the resultant.
+
+![(a) Three axial forces on a bar. (b) The same forces laid head to tail along one line: the resultant is ad.](/api/uploads/4fed6424f4a31d661f9381bd9b07601a.png)
+*(a) Three axial forces on a bar. (b) The same forces laid head to tail along one line: the resultant is ad.*
+
+Taking right as positive:
+
+$$
+R = +5 - 8 + 6 = +3\ \text{kN}
+$$
+
+**Answer:** $3\ \text{kN}$ to the right, along the axis of the bar.
+
+> **Note**
+> Where each force acts along the bar does not change the resultant (transmissibility, chapter 1). It **does** change what happens **inside** the bar: a force pushing on an end squeezes the bar, a force pulling on an end stretches it. Internal forces are the subject of Unit V.
+
+> **Caution**
+> Never add magnitudes blindly. ""$5 + 8 + 6 = 19\ \text{kN}$"" is the most common wrong answer to Example 2. Decide on a positive sense **first**, then write every force with its sign.
+
+> **Exam tip**
+> If the question says ""analytically and graphically"", do both and say that they agree. State the scale used in the drawing.
+
+> **Quick recap**
+> - Collinear forces: $R = \sum F$ with signs; $R$ acts along the common line.
+> - Graphically: lay the forces head to tail along one line; the resultant runs from the first tail to the last head.
+> - Position along the line does not change $R$, but it does change the internal forces.","2 marks: How is the resultant of collinear forces found? 5 marks: Resultant of three collinear forces analytically and graphically, with all forces in one direction and with one reversed."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of concurrent coplanar forces,"Concurrent forces all meet at one point, so their resultant also passes through that point. Only its **size** and **direction** need finding. For two forces the triangle of forces gives everything at once; for more, the polygon of forces (or the method of components) does the job.
+
+## Two forces: the cosine and sine rules
+
+![The triangle of forces OAC: P along OA, Q along AC, R along OC. γ is the angle between R and P, β the angle between R and Q.](/api/uploads/d49898200c2e1c637998d6edbf760b5a.png)
+*The triangle of forces OAC: P along OA, Q along AC, R along OC. γ is the angle between R and P, β the angle between R and Q.*
+
+**Magnitude (cosine law).** As derived in chapter 1:
+
+$$
+R = \sqrt{P^2 + Q^2 + 2PQ\cos\alpha}
+$$
+
+**Direction (sine rule).** In the triangle OAC, the angle at A is $180^\circ - \alpha$. Each side is proportional to the sine of the angle **opposite** it:
+
+$$
+\frac{P}{\sin\beta} = \frac{Q}{\sin\gamma} = \frac{R}{\sin(180^\circ - \alpha)}
+$$
+
+where $\gamma$ is the angle between $R$ and $P$ (opposite side $Q$), and $\beta$ the angle between $R$ and $Q$ (opposite side $P$). Always $\beta + \gamma = \alpha$.
+
+> **Key point**
+> The resultant lies **closer to the larger force**: the larger force makes the smaller angle with $R$.
+
+## Worked example 1: forward
+
+> **Problem**
+> Forces $P = 180\ \text{N}$ and $Q = 140\ \text{N}$ act at a point with $50^\circ$ between them. Find $R$ and the angles it makes with each force.
+
+$$
+\begin{aligned}R^2 &= 180^2 + 140^2 + 2(180)(140)\cos 50^\circ \\ &= 32\,400 + 19\,600 + 32\,396.5 \\ &= 84\,396.5\end{aligned}
+$$
+
+$$
+R = 290.51\ \text{N}
+$$
+
+With $\sin(180^\circ - 50^\circ) = \sin 130^\circ = 0.7660$:
+
+$$
+\begin{aligned}\sin\gamma &= \frac{Q\sin 130^\circ}{R} \\ &= \frac{140 \times 0.7660}{290.51} = 0.3692 \\ \Rightarrow\ \gamma &= 21.66^\circ\end{aligned}
+$$
+
+$$
+\begin{aligned}\sin\beta &= \frac{P\sin 130^\circ}{R} \\ &= \frac{180 \times 0.7660}{290.51} = 0.4746 \\ \Rightarrow\ \beta &= 28.34^\circ\end{aligned}
+$$
+
+Check: $\gamma + \beta = 50.00^\circ = \alpha$ ✓, and $R$ is nearer the larger force $P$ ✓.
+
+**Answer:** $R = 290.51\ \text{N}$, at $21.66^\circ$ to $P$ and $28.34^\circ$ to $Q$.
+
+## Worked example 2: backwards
+
+> **Problem**
+> The resultant of two forces $P$ and $Q$ is $300\ \text{N}$. It makes $40^\circ$ with $P$ and $30^\circ$ with $Q$. Find $P$ and $Q$.
+
+Here $\gamma = 40^\circ$, $\beta = 30^\circ$, so $\alpha = 70^\circ$ and $\sin(180^\circ - 70^\circ) = \sin 110^\circ = 0.9397$.
+
+$$
+\begin{aligned}P &= \frac{R\sin\beta}{\sin 110^\circ} = \frac{300 \times 0.5}{0.9397} \\ &= 159.63\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}Q &= \frac{R\sin\gamma}{\sin 110^\circ} = \frac{300 \times 0.6428}{0.9397} \\ &= 205.21\ \text{N}\end{aligned}
+$$
+
+Check: $Q$ is larger and makes the smaller angle with $R$ ✓.
+
+**Answer:** $P = 159.63\ \text{N}$, $Q = 205.21\ \text{N}$.
+
+> **Caution**
+> In the sine rule, pair each force with the angle **opposite** it in the triangle: $P$ goes with $\beta$ (the angle between $R$ and $Q$), not with $\gamma$. Drawing the triangle first avoids this mix-up.
+
+## More than two forces: the polygon of forces
+
+> **Key point**
+> **Polygon law of forces:** if several forces acting at a point are drawn to scale **head to tail**, in any order, the side that **closes** the polygon, drawn from the **first tail** to the **last head**, gives the resultant in magnitude and direction.
+
+**Steps** (graphical method):
+
+1. Choose a scale large enough for a clear drawing.
+2. From a point $a$, draw $ab$ parallel and proportional to the first force.
+3. From $b$, draw $bc$ for the second force; continue head to tail for all forces.
+4. Join $a$ to the last point. That closing side, read **from $a$**, is the resultant: measure its length (times the scale) and its angle.
+
+![The polygon of forces for the four forces of worked example 1 in the topic ""the method of components"". The closing side ae is the resultant.](/api/uploads/0f1b4ab247d1aea7b4b813cc975434cd.png)
+*The polygon of forces for the four forces of worked example 1 in the topic ""the method of components"". The closing side ae is the resultant.*
+
+For the four forces of the previous topic ($120$, $90$, $150$ and $110\ \text{N}$), the closing side measures $72.3\ \text{N}$ at about $27^\circ$ below the $-x$ axis, matching the analytical answer ($72.30\ \text{N}$, $26.61^\circ$).
+
+> **Note**
+> If the polygon **closes on itself** (the last head lands on the first tail), the resultant is zero and the forces are in **equilibrium**. The triangle law of chapter 1 is the three-force case of this.
+
+> **Exam tip**
+> For two forces, the ""cosine law method"" (magnitude) plus the sine rule (angles) is a favourite 10-mark problem. For three or more forces, use components for an exact answer, and the polygon when the question asks for a graphical one.
+
+> **Quick recap**
+> - Two forces: $R = \sqrt{P^2 + Q^2 + 2PQ\cos\alpha}$; $\dfrac{P}{\sin\beta} = \dfrac{Q}{\sin\gamma} = \dfrac{R}{\sin(180^\circ - \alpha)}$; $\beta + \gamma = \alpha$.
+> - $R$ lies nearer the larger force.
+> - Many forces: polygon law (graphical) or components (analytical). A closed polygon means equilibrium.",5 marks: Derive the magnitude (cosine law) and direction (sine rule) of the resultant of two concurrent forces. State the polygon law of forces and explain the graphical method. Numerical (10 marks): resultant of two forces and its angles with each; two forces from a given resultant and its angles; resultant of four forces graphically.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of non-concurrent coplanar forces and its line of action,"When forces act at different points and do not meet, finding the size and direction of the resultant is not enough. We must also find **where** it acts: its **line of action**. The extra tool is the **moment**.
+
+## Three things to find
+
+For a general coplanar system, the resultant has:
+
+1. **Magnitude:** $R = \sqrt{(\sum H)^2 + (\sum V)^2}$, exactly as before.
+2. **Direction:** $\tan\phi = \left|\dfrac{\sum V}{\sum H}\right|$, with the quadrant from the signs.
+3. **Position:** its moment about any point must equal the **sum of the moments** of all the forces about that point.
+
+$$
+R \times d = \sum M_O
+$$
+
+where $d$ is the perpendicular distance from O to the line of action of $R$. The sense of $\sum M_O$ (clockwise or anticlockwise) tells you **which side** of O the line passes.
+
+> **Key point**
+> This is **Varignon's principle** (chapter 3): the moment of the resultant about any point equals the sum of the moments of the forces about that point.
+
+A very handy form: if the line of action of $R$ crosses the x-axis at distance $x$ from O, only its vertical component has a moment about O there, so
+
+$$
+x = \frac{\sum M_O}{\sum V}
+$$
+
+(take magnitudes and fix the side from the sense of rotation).
+
+## Worked example: forces on the corners of a plate
+
+> **Problem**
+> A rectangular plate OABC is $5\ \text{m}$ long (OC) and $2\ \text{m}$ high (OA). Forces act at its corners: $24\ \text{N}$ to the left at O; $50\ \text{N}$ downward at A; $40\ \text{N}$ to the right at B; $30\ \text{N}$ downward at C. Find the magnitude, direction and position of the resultant.
+
+![Forces on the corners of the plate, and the line of action of their resultant crossing OC at 2.875 m from O.](/api/uploads/f586f07b7e86e7a66f3c6bf403c78a27.png)
+*Forces on the corners of the plate, and the line of action of their resultant crossing OC at 2.875 m from O.*
+
+Take O as origin, OC along $+x$, OA along $+y$.
+
+**Magnitude and direction.**
+
+$$
+\begin{aligned}\sum H &= -24 + 40 = +16\ \text{N} \\ \sum V &= -50 - 30 = -80\ \text{N}\end{aligned}
+$$
+
+$$
+R = \sqrt{16^2 + 80^2} = \sqrt{6656} = 81.58\ \text{N}
+$$
+
+$$
+\phi = \tan^{-1}\frac{80}{16} = 78.69^\circ
+$$
+
+$\sum H > 0$ and $\sum V < 0$: the resultant points **down and to the right**, at $78.69^\circ$ below the $+x$ axis.
+
+**Position: moments about O.**
+
+- $24\ \text{N}$ at O passes through O: moment $0$.
+- $50\ \text{N}$ downward at A: its line is the line OA itself, through O: moment $0$.
+- $40\ \text{N}$ to the right at B, $2\ \text{m}$ above O: $40 \times 2 = 80\ \text{N·m}$ **clockwise**.
+- $30\ \text{N}$ downward at C, $5\ \text{m}$ to the right of O: $30 \times 5 = 150\ \text{N·m}$ **clockwise**.
+
+$$
+\begin{aligned}\sum M_O &= 80 + 150 \\ &= 230\ \text{N·m (clockwise)}\end{aligned}
+$$
+
+Perpendicular distance of $R$ from O:
+
+$$
+d = \frac{230}{81.58} = 2.819\ \text{m}
+$$
+
+Where it crosses OC: only the $80\ \text{N}$ downward component has a moment there.
+
+$$
+80 \times x = 230 \;\Rightarrow\; x = 2.875\ \text{m}
+$$
+
+A downward force to the right of O turns clockwise ✓, matching the sense of $\sum M_O$.
+
+**Answer:** $R = 81.58\ \text{N}$, acting down and to the right at $78.69^\circ$ to OC, crossing OC at $2.875\ \text{m}$ from O.
+
+The **equilibrant** is $81.58\ \text{N}$ along the same line, pointing **up and to the left**. Applied there, it would hold the plate in equilibrium.
+
+## When the resultant is a couple
+
+![A general system reduces to (a) a single force, (b) a couple, or (c) nothing.](/api/uploads/8cc7e0d3aab174bf57b55ce67a0d585c.png)
+*A general system reduces to (a) a single force, (b) a couple, or (c) nothing.*
+
+> **Problem**
+> Four forces of $10\ \text{N}$ act along the sides AB, BC, CD and DA of a square of side $2\ \text{m}$, in the order of the letters. What do they reduce to?
+
+$\sum H = 10 - 10 = 0$ and $\sum V = 10 - 10 = 0$, so there is **no resultant force**. But about A, the forces along BC and CD each have a moment $10 \times 2 = 20\ \text{N·m}$ anticlockwise:
+
+$$
+\begin{aligned}\sum M_A &= 20 + 20 \\ &= 40\ \text{N·m (anticlockwise)}\end{aligned}
+$$
+
+**Answer:** the system reduces to a **couple** of $40\ \text{N·m}$, anticlockwise. The square would spin without moving off.
+
+> **Caution**
+> $\sum H = 0$ and $\sum V = 0$ do **not** by themselves mean equilibrium for non-concurrent forces. Always check $\sum M$ too.
+
+> **Exam tip**
+> State your sign convention for moments at the start, list each force's moment with its sense, and finish with a sketch showing where $R$ crosses a reference line. The sketch is part of the answer: ""position"" without a picture is incomplete.
+
+> **Quick recap**
+> - Magnitude and direction from $\sum H$ and $\sum V$, as for concurrent forces.
+> - Position from moments: $R \times d = \sum M_O$, or $x = \sum M_O / \sum V$ where $R$ crosses the x-axis.
+> - Zero force sums but a non-zero moment sum means a **couple**; all three zero means **equilibrium**.","5 marks: Explain how the resultant of a non-concurrent coplanar system is found in magnitude, direction and position. When does a system reduce to a couple? Numerical (10 marks): magnitude, direction and position of the resultant (or the equilibrant) of forces on the corners of a rectangular plate or along the sides of a square."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Chapter summary and practice problems,"This page brings chapter 2 together: the key results, the classification at a glance, and practice problems with answers.
+
+## Key results
+
+| Idea | Result |
+|---|---|
+| Force systems | **Coplanar**: collinear, concurrent, parallel, general. **Non-coplanar**: concurrent, parallel, general |
+| Resultant | The single force with the **same external effect** as the system |
+| Equilibrant | Equal, opposite and collinear with the resultant: $\vec{E} = -\vec{R}$ |
+| Collinear | $R = \sum F$ with signs, along the common line |
+| Two concurrent forces | $R = \sqrt{P^2 + Q^2 + 2PQ\cos\alpha}$; $\dfrac{P}{\sin\beta} = \dfrac{Q}{\sin\gamma} = \dfrac{R}{\sin(180^\circ - \alpha)}$ |
+| Many concurrent forces | $R = \sqrt{(\sum H)^2 + (\sum V)^2}$, $\tan\phi = \lvert\sum V / \sum H\rvert$, quadrant from the signs |
+| Polygon law | Head to tail; the closing side from first tail to last head is $R$; a closed polygon means equilibrium |
+| Weight on a slope | $W\sin\theta$ along the plane, $W\cos\theta$ into it |
+| Non-concurrent | Position from $R \times d = \sum M_O$; crossing the x-axis at $x = \sum M_O / \sum V$ |
+| Outcomes | A single force, a couple ($\sum F = 0$, $\sum M \ne 0$) or equilibrium |
+
+## The classification at a glance
+
+![Force systems by plane and by arrangement.](/api/uploads/e49b70265301f460e037d63a25d645e6.png)
+*Force systems by plane and by arrangement.*
+
+## Practice problems
+
+Try each one before reading the answer. Every answer has been checked by calculation.
+
+> **Problem** **1.** Three collinear forces of $450\ \text{N}$, $200\ \text{N}$ and $375\ \text{N}$ act on a body. Find the resultant when (a) all act the same way; (b) the $200\ \text{N}$ force is reversed.
+>
+> **Answer:** (a) $1025\ \text{N}$; (b) $450 - 200 + 375 = 625\ \text{N}$.
+
+> **Problem** **2.** Forces of $25\ \text{N}$ and $18\ \text{N}$ act at a point with $70^\circ$ between them. Find the resultant and its angle with the $25\ \text{N}$ force.
+>
+> **Answer:** $R = \sqrt{625 + 324 + 900\cos 70^\circ} = 35.45\ \text{N}$; $\tan\theta = \dfrac{18\sin 70^\circ}{25 + 18\cos 70^\circ}$, so $\theta = 28.50^\circ$.
+
+> **Problem** **3.** A $600\ \text{N}$ force acts at $40^\circ$ above the horizontal. Find its horizontal and vertical components.
+>
+> **Answer:** $600\cos 40^\circ = 459.63\ \text{N}$; $600\sin 40^\circ = 385.67\ \text{N}$.
+
+> **Problem** **4.** A $400\ \text{N}$ block rests on a plane inclined at $35^\circ$. Find the components of its weight along and perpendicular to the plane.
+>
+> **Answer:** along: $400\sin 35^\circ = 229.43\ \text{N}$; perpendicular: $400\cos 35^\circ = 327.66\ \text{N}$.
+
+> **Problem** **5.** On a plane inclined at $20^\circ$, the component of a block's weight along the plane is $85\ \text{N}$. Find the weight, and its component perpendicular to the plane.
+>
+> **Answer:** $W = 85 / \sin 20^\circ = 248.52\ \text{N}$; perpendicular: $W\cos 20^\circ = 233.54\ \text{N}$.
+
+> **Problem** **6.** Four forces act at a point: $70\ \text{N}$ at $0^\circ$, $50\ \text{N}$ at $60^\circ$, $90\ \text{N}$ at $150^\circ$ and $40\ \text{N}$ at $225^\circ$ (from $+x$). Find the resultant.
+>
+> **Answer:** $\sum H = -11.23\ \text{N}$, $\sum V = +60.02\ \text{N}$; $R = 61.06\ \text{N}$, in the second quadrant at $79.40^\circ$ above the $-x$ axis ($\theta = 100.60^\circ$).
+
+> **Problem** **7.** Forces of $40\ \text{N}$ at $45^\circ$, $30\ \text{N}$ at $270^\circ$, $55\ \text{N}$ at $200^\circ$ and an unknown $P$ act at a point. The resultant is $80\ \text{N}$ along $+x$. Find $P$ and its angle.
+>
+> **Answer:** $P\cos\theta = 103.40$ and $P\sin\theta = 20.53$; $P = 105.42\ \text{N}$ at $\theta = 11.23^\circ$.
+
+> **Problem** **8.** A plate OABC is $4\ \text{m}$ long (OC) and $3\ \text{m}$ high (OA). It carries $40\ \text{N}$ downward at O, $30\ \text{N}$ to the right at A, $20\ \text{N}$ downward at B and $10\ \text{N}$ to the left at C. Find the resultant and where it crosses OC.
+>
+> **Answer:** $\sum H = +20\ \text{N}$, $\sum V = -60\ \text{N}$; $R = 63.25\ \text{N}$ at $71.57^\circ$ below $+x$. $\sum M_O = 30 \times 3 + 20 \times 4 = 170\ \text{N·m}$ clockwise, so it crosses OC at $x = 170 / 60 = 2.833\ \text{m}$ from O.
+
+> **Problem** **9.** Forces of $9\ \text{N}$ and $12\ \text{N}$ have a resultant of $15\ \text{N}$. Find the angle between them and the angle the resultant makes with the $9\ \text{N}$ force.
+>
+> **Answer:** $\cos\alpha = \dfrac{225 - 81 - 144}{2 \times 9 \times 12} = 0$, so $\alpha = 90^\circ$; then $\tan\theta = 12/9$, $\theta = 53.13^\circ$.
+
+## Theory questions
+
+1. Define coplanar, non-coplanar, collinear, concurrent, parallel and general force systems, with a sketch of each.
+2. What is the difference between collinear and concurrent forces?
+3. Classify force systems. How many equilibrium equations does each coplanar system give?
+4. Define resultant and equilibrant.
+5. Derive the magnitude and direction of the resultant of two concurrent forces (cosine and sine rules).
+6. State the polygon law of forces and explain the graphical method for several forces at a point.
+7. Explain the method of resolution for the resultant of several concurrent forces.
+8. How is the position of the resultant of a non-concurrent system found? When does such a system reduce to a couple?
+
+## Quick self-test (objective)
+
+1. Forces whose lines of action meet at one point are: (a) collinear (b) **concurrent** (c) parallel (d) general. **Answer: (b)**
+2. The equilibrant of a system is: (a) equal to the resultant and in the same sense (b) **equal and opposite to the resultant, along the same line** (c) always zero (d) perpendicular to the resultant. **Answer: (b)**
+3. A coplanar concurrent system gives how many independent equilibrium equations? (a) 1 (b) **2** (c) 3 (d) 6. **Answer: (b)**
+4. The component of a weight $W$ along a plane inclined at $\theta$ is: (a) $W\cos\theta$ (b) **$W\sin\theta$** (c) $W\tan\theta$ (d) $W$. **Answer: (b)**
+5. If $\sum H = 0$ and $\sum V = 0$ but $\sum M \ne 0$, the system reduces to: (a) a single force (b) **a couple** (c) nothing (d) a collinear force. **Answer: (b)**","This chapter's typical paper: 2-mark definitions (coplanar, collinear, concurrent, parallel; resultant, equilibrant); 5-mark derivations (resultant of two forces by cosine and sine rules; polygon law); 10-mark numericals (resultant of several forces by components and graphically; an unknown force from a given resultant; position of the resultant of non-concurrent forces)."
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Parallel forces: like and unlike,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Moment of a force and its sign convention,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Varignon's theorem (principle of moments),,

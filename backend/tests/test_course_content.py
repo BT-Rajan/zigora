@@ -29,7 +29,7 @@ def test_engineering_mechanics_loads_beside_pharmacology(env):
         assert all(s.query(Topic).filter_by(unit_id=u.id).order_by(Topic.position.desc()).first().title in ("Chapter summary and practice problems", "A model examination paper with worked solutions") for u in units)
         assert s.query(Course).count() == 2  # Pharmacology is untouched
 
-def test_engineering_mechanics_chapter_1_is_written_with_its_figures(env):
+def test_engineering_mechanics_chapters_1_and_2_are_written_with_their_figures(env):
     import re, main
     r = env.c.post("/api/admin/import", headers=env.admin, json={"csv": open(EM, encoding="utf-8").read(), "dry_run": False}).json(); assert r["error_count"] == 0
     with Session_() as s:
@@ -39,10 +39,14 @@ def test_engineering_mechanics_chapter_1_is_written_with_its_figures(env):
         for t in first:  # headings, equations, an exam tip and a recap; display maths opens and closes
             assert "## " in t.content and "$" in t.content and ("Quick recap" in t.content or "Practice problems" in t.content), t.title
             assert t.content.count("$$") % 2 == 0, t.title
-        later = s.query(Topic).filter(Topic.course_id == u.course_id, Topic.unit_id != u.id).all()
+        u2 = s.query(Unit).filter_by(name="Unit I · 2. Force systems and their resultants").one()
+        second = s.query(Topic).filter_by(unit_id=u2.id).order_by(Topic.position).all()
+        assert len(second) == 8 and all(t.content and t.question_pattern and ("Quick recap" in t.content or "Practice problems" in t.content) for t in second)
+        first = first + second
+        later = s.query(Topic).filter(Topic.course_id == u.course_id, Topic.unit_id.notin_([u.id, u2.id])).all()
         assert later and not any(t.content for t in later)  # the other chapters are still titles only
         pics = {m for t in first for m in re.findall(r"/api/uploads/([0-9a-f]{32}\.png)", t.content)}
-    assert len(pics) >= 15
+    assert len(pics) >= 25
     for p in pics:  # each figure shipped in content/figures, copied into the uploads by the import, and served to anyone
         assert os.path.isfile(os.path.join(main.FIGURES, p)) and os.path.isfile(os.path.join(main.UPLOADS, p))
         assert env.c.get("/api/uploads/" + p).status_code == 200
