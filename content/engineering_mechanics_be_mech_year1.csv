@@ -2837,12 +2837,470 @@ Try each one before reading the answer. Every answer has been checked by calcula
 3. A cable can exert: (a) a push (b) **a pull along itself** (c) a moment (d) a force in any direction. **Answer: (b)**
 4. When a roller is about to be lifted off the ground, the ground reaction is: (a) its weight (b) half its weight (c) **zero** (d) unknown. **Answer: (c)**
 5. True or false: in a free body diagram we draw the forces the body exerts on its supports. **Answer: false** (only the forces **on** the body).","This chapter's typical paper: 2-mark definitions (equilibrium conditions, free body diagram, action and reaction, two-force member); 5-mark explanations (supports and their reactions; drawing FBDs; Lami's theorem); 10-mark numericals (spheres against walls, in grooves and channels; rollers pulled over a step; loads on chains; tie and strut forces)."
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Why structures need supports,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of supports and the reactions they give,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of loading on a beam,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Finding the reactions of a beam,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Statically determinate and indeterminate beams,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Why structures need supports,"A beam lying on its own would simply fall. It stands, and carries load, only because **supports** push back on it. Before designing any beam, bridge or machine frame, an engineer must know those push-backs: the **support reactions**.
+
+## Supports and reactions
+
+- A **support** is whatever holds a body in place: a wall, a column, a pin, a roller, the ground.
+- A **support reaction** is the force (and, for some supports, the moment) that the support exerts **on** the body to keep it in equilibrium.
+
+The loads on a body are usually known: weights, traffic, machinery. The reactions are the **unknowns**. Once they are found, every later calculation in the course (shear forces, bending moments, stresses) becomes possible.
+
+> **Key point**
+> Reactions are found from the three equations of equilibrium:
+>
+> $$
+> \begin{aligned}\sum F_x &= 0 \\ \sum F_y &= 0 \\ \sum M &= 0\end{aligned}
+> $$
+>
+
+## A quick example
+
+> **Problem**
+> A $5\ \text{m}$ beam rests on two supports at its ends and carries a $1000\ \text{N}$ load at its middle. Find the reactions.
+
+By symmetry each support carries half. Formally, moments about the left end A:
+
+$$
+\begin{aligned}R_B \times 5 &= 1000 \times 2.5 \\ \Rightarrow\ R_B &= 500\ \text{N} \\ R_A &= 1000 - 500 = 500\ \text{N}\end{aligned}
+$$
+
+**Answer:** $500\ \text{N}$ at each support.
+
+## Why one end of a bridge sits on rollers
+
+![A bridge girder: pinned at one end, on rollers at the other, so it can grow and shrink with temperature.](/api/uploads/6ab82e694f6596339f053fade986d78f.png)
+*A bridge girder: pinned at one end, on rollers at the other, so it can grow and shrink with temperature.*
+
+Steel expands when warm. A girder of length $L$ grows by $\Delta L = \alpha L \Delta T$, where $\alpha \approx 12 \times 10^{-6}\ /^\circ\text{C}$ for steel.
+
+> **Problem**
+> How much does a $30\ \text{m}$ steel girder lengthen when its temperature rises by $40^\circ\text{C}$?
+
+$$
+\begin{aligned}\Delta L &= 12 \times 10^{-6} \times 30 \times 40 \\ &= 0.0144\ \text{m} = 14.4\ \text{mm}\end{aligned}
+$$
+
+If both ends were pinned, that expansion would be blocked and large forces would build up in the girder and its supports. So bridges are **pinned at one end** (to stay in place) and **on rollers at the other** (to slide freely). The pin also gives the horizontal reaction needed to resist braking forces and wind along the bridge.
+
+> **Note**
+> The same idea appears in roof trusses, pipelines and long machine beds: one end located, the other free to expand.
+
+> **Exam tip**
+> ""What is the advantage of a roller support for a bridge truss?"" Answer in two parts: it allows **expansion and contraction** with temperature; its reaction is **normal** to the rolling surface, so it adds no horizontal force.
+
+> **Quick recap**
+> - Support reactions are the forces (and moments) supports exert to keep a body in equilibrium.
+> - They are found from $\sum F_x = 0$, $\sum F_y = 0$, $\sum M = 0$.
+> - Long structures are pinned at one end and on rollers at the other, to allow thermal expansion.","2 marks: What is a support reaction? Why is one end of a steel bridge truss placed on rollers? 5 marks: Explain the role of supports, with the thermal-expansion example."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of supports and the reactions they give,"Each kind of support resists motion in some directions and allows it in others. **Where it resists, there is a reaction.** Counting those reactions correctly is the first step of every beam problem.
+
+![The five supports used in this course and the reactions each provides.](/api/uploads/53b9e3abc501dbfa6af4182a6d698d9d.png)
+*The five supports used in this course and the reactions each provides.*
+
+## The five supports
+
+**1. Simple (knife-edge) support.** The beam rests on a sharp edge. The reaction is a single force **normal to the beam**. (1 unknown.)
+
+**2. Roller support.** The beam rests on rollers. The reaction is a single force **normal to the surface the rollers run on**: vertical on level ground, tilted if the rollers sit on a slope. It cannot resist sliding along that surface. (1 unknown.)
+
+**3. Pin (hinged) support.** The beam is pinned to a fixed bracket. It cannot move in any direction, but it can turn. The reaction can act in **any direction** in the plane, so it is shown as two components, $R_x$ and $R_y$. (2 unknowns.) Under vertical loads only, $R_x = 0$; under inclined loads, the pin reaction is inclined.
+
+**4. Smooth surface support.** The body touches a smooth surface. The reaction is **normal to the surface** at the point of contact. For a round body, it passes through the centre. (1 unknown.)
+
+**5. Fixed (built-in) support.** The beam is built into a wall. It can neither move nor turn, so the support gives $R_x$, $R_y$ **and a fixing moment** $M$. (3 unknowns.) A beam fixed at one end and free at the other is a **cantilever**.
+
+| Support | Reactions | Unknowns |
+|---|---|---|
+| Simple or roller | one normal force | 1 |
+| Smooth surface | one normal force | 1 |
+| Pin (hinge) | $R_x$, $R_y$ | 2 |
+| Fixed | $R_x$, $R_y$, $M$ | 3 |
+
+> **Key point**
+> **A support exerts a reaction in each direction in which it stops the body moving, and a moment if it stops the body turning.**
+
+> **Caution**
+> - A roller on a **sloping** surface gives a reaction normal to the slope, not vertical. Resolve it into components before writing the equations.
+> - A pin's reaction direction is **not known in advance**. Draw both components; a negative answer simply means the component points the other way.
+
+> **Problem**
+> How many unknown reactions does each beam have? (a) Pinned at A, roller at B. (b) Fixed at A, free at B. (c) Pinned at A, roller on a $30^\circ$ slope at B.
+
+**Answers:** (a) $2 + 1 = 3$; (b) $3$ (the cantilever); (c) $2 + 1 = 3$, with the roller reaction at $30^\circ$ to the vertical (normal to the slope). Each has exactly three, matching the three equations of equilibrium: all three beams can be solved by statics alone (topic 5).
+
+> **Exam tip**
+> Draw each support with its reaction arrows beside it. ""Differentiate a roller and a hinged support"" is answered by: roller, one normal reaction and free to slide; hinge, two components and fixed in place.
+
+> **Quick recap**
+> - Roller or simple support: 1 normal reaction. Pin: 2 components. Fixed: 2 components and a moment.
+> - Smooth surface: 1 reaction, normal to the surface.
+> - A roller on a slope pushes normal to the slope.",2 marks: Name the types of supports. Difference between a roller support and a hinged support. What reactions does a fixed support give? 5 marks: Describe the types of supports with sketches and the reactions they provide.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of loading on a beam,"Beams carry loads in several shapes: a wheel pressing at a spot, a floor slab spread evenly, water pressure growing with depth. For finding reactions, every one of them can be replaced by a single **equivalent point load**.
+
+## Point (concentrated) load
+
+A load acting over so small a length that we treat it as acting at **one point**: a wheel, a column resting on a beam, a hanging weight. Shown as a single arrow.
+
+## Uniformly distributed load (UDL)
+
+The same load on every metre of a length: the beam's own weight, a floor, stacked material. It is given as an **intensity** $w$ in $\text{N/m}$ or $\text{kN/m}$.
+
+$$
+W = w \times a
+$$
+
+acting at the **middle** of the loaded length $a$.
+
+## Uniformly varying load (UVL)
+
+The intensity changes steadily along the beam: water pressure on a vertical wall, earth against a retaining wall, a heap of grain.
+
+- **Triangle** from $0$ to $w$ over length $L$: total load $= \tfrac{1}{2} w L$ (the area of the triangle), acting at its centroid, $\tfrac{2}{3} L$ from the **zero end** ($\tfrac{1}{3}L$ from the large end).
+- **Trapezium** from $w_1$ to $w_2$: split it into a **rectangle** ($w_1 L$ at the middle) and a **triangle** ($\tfrac{1}{2}(w_2 - w_1)L$ at $\tfrac{2}{3}L$ from the $w_1$ end).
+
+> **Key point**
+> For finding reactions, a distributed load is replaced by a single force equal to the **area of the load diagram**, acting through the **centroid** of that area.
+
+![Three distributed loads and their single equivalent forces.](/api/uploads/72c30035066e5228c93a9cbf47bbf4da.png)
+*Three distributed loads and their single equivalent forces.*
+
+## Worked examples: equivalent point loads
+
+> **Problem**
+> **(a)** $8\ \text{kN/m}$ over $3\ \text{m}$. **(b)** A triangle rising from $0$ to $1200\ \text{N/m}$ over $6\ \text{m}$. **(c)** A trapezium rising from $600$ to $1500\ \text{N/m}$ over $4\ \text{m}$. Find each total load and where it acts.
+
+**(a)** $\quad W = 8 \times 3 = 24\ \text{kN}$, at $1.5\ \text{m}$ (the middle).
+
+**(b)** $\quad W = \tfrac{1}{2} \times 1200 \times 6 = 3600\ \text{N}$, at $\tfrac{2}{3} \times 6 = 4\ \text{m}$ from the zero end.
+
+**(c)** Split the trapezium:
+
+- rectangle: $600 \times 4 = 2400\ \text{N}$ at $2\ \text{m}$;
+- triangle: $\tfrac{1}{2} \times (1500 - 600) \times 4 = 1800\ \text{N}$ at $\tfrac{2}{3} \times 4 = 2.667\ \text{m}$.
+
+$$
+W = 2400 + 1800 = 4200\ \text{N}
+$$
+
+Its position from the $600\ \text{N/m}$ end, by moments:
+
+$$
+\begin{aligned}\bar{x} &= \frac{2400 \times 2 + 1800 \times 2.667}{4200} \\ &= \frac{4800 + 4800}{4200} = 2.286\ \text{m}\end{aligned}
+$$
+
+**Answer:** (a) $24\ \text{kN}$ at $1.5\ \text{m}$; (b) $3600\ \text{N}$ at $4\ \text{m}$ from the zero end; (c) $4200\ \text{N}$ at $2.286\ \text{m}$ from the lighter end.
+
+## Applied couples
+
+A beam may also carry a **couple** (a pure moment), for example from a bracket bolted to its side. A couple adds nothing to $\sum F_y$, but it enters every moment equation **with its sense**, wherever it acts on the beam (chapter 3).
+
+> **Caution**
+> The equivalent point load is used **only** to find reactions (external effects). The shear forces and bending moments inside the beam (chapter 8) depend on how the load is really spread.
+
+> **Exam tip**
+> Write the equivalent load and its position next to every distributed load before taking moments. Most errors in reaction problems are a UDL placed at the wrong point.
+
+> **Quick recap**
+> - Point load: one arrow. UDL: $w \times a$ at the middle. Triangle: $\tfrac{1}{2}wL$ at $\tfrac{2}{3}L$ from the zero end.
+> - Trapezium = rectangle + triangle.
+> - A couple counts in moments, not in forces.","2 marks: Define point load, UDL and UVL. How is a UDL replaced for finding reactions? 5 marks: Distinguish the types of loading with sketches; equivalent load of a triangular and a trapezoidal load."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Finding the reactions of a beam,"This is the core skill of the chapter, and of much of the course. One routine handles simply supported beams, overhangs, distributed and inclined loads, cantilevers and couples.
+
+## The routine
+
+1. Draw the **free body diagram**: replace each support by its reactions.
+2. Replace each distributed load by its **equivalent point load** (topic 3); resolve **inclined loads** into components.
+3. Take **moments about one support**: the reactions there drop out, leaving one unknown.
+4. Use $\sum F_y = 0$ (and $\sum F_x = 0$) for the rest.
+5. **Check** by taking moments about the other support.
+
+> **Key point**
+> Moments about a support remove the unknown reactions acting there. That is why the first equation is almost always $\sum M_A = 0$ or $\sum M_B = 0$.
+
+## Worked example 1: point loads
+
+> **Problem**
+> A simply supported beam AB of span $8\ \text{m}$ carries $5\ \text{kN}$ at $2\ \text{m}$ and $3\ \text{kN}$ at $5\ \text{m}$ from A. Find the reactions.
+
+![Two point loads on a simply supported beam.](/api/uploads/b9e932ba522702141a2a6d73d5b1a720.png)
+*Two point loads on a simply supported beam.*
+
+$$
+\begin{aligned}\sum M_A &= 0: \quad R_B \times 8 = 5 \times 2 + 3 \times 5 \\ &= 25 \\ \Rightarrow\ R_B &= 3.125\ \text{kN}\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum F_y &= 0: \quad R_A = 5 + 3 - 3.125 \\ &= 4.875\ \text{kN}\end{aligned}
+$$
+
+Check about B: $4.875 \times 8 = 39$ and $5 \times 6 + 3 \times 3 = 39$ ✓.
+
+## Worked example 2: a UDL and a point load
+
+> **Problem**
+> A $10\ \text{m}$ simply supported beam carries $6\ \text{kN/m}$ from $3\ \text{m}$ to $7\ \text{m}$ from A, and $20\ \text{kN}$ at $8\ \text{m}$. Find the reactions.
+
+![A part-span UDL and a point load.](/api/uploads/7f99512f0b164c10e8cc5904a90e70a1.png)
+*A part-span UDL and a point load.*
+
+The UDL is $6 \times 4 = 24\ \text{kN}$ at the middle of its length, $5\ \text{m}$ from A.
+
+$$
+\begin{aligned}\sum M_A &= 0: \quad 10\,R_B \\ &= 24 \times 5 + 20 \times 8 = 280 \\ \Rightarrow\ R_B &= 28\ \text{kN}\end{aligned}
+$$
+
+$$
+R_A = 24 + 20 - 28 = 16\ \text{kN}
+$$
+
+## Worked example 3: a triangular load
+
+> **Problem**
+> A $6\ \text{m}$ simply supported beam carries a load rising uniformly from zero at A to $1500\ \text{N/m}$ at B. Find the reactions.
+
+Total load $= \tfrac{1}{2} \times 1500 \times 6 = 4500\ \text{N}$, at $\tfrac{2}{3} \times 6 = 4\ \text{m}$ from A.
+
+$$
+\begin{aligned}R_B &= \frac{4500 \times 4}{6} = 3000\ \text{N} \\ R_A &= 4500 - 3000 = 1500\ \text{N}\end{aligned}
+$$
+
+The heavier end carries the larger share, as expected.
+
+## Worked example 4: an overhanging beam
+
+> **Problem**
+> A beam ABC is pinned at A and on a roller at B, $5\ \text{m}$ apart, and overhangs $2\ \text{m}$ to C. It carries $3\ \text{kN/m}$ over AB and $6\ \text{kN}$ at C. Find the reactions.
+
+![An overhanging beam: the load at C, beyond the support, tends to lift A.](/api/uploads/40a499f1c8fa3b7118aa45fc48beb8d8.png)
+*An overhanging beam: the load at C, beyond the support, tends to lift A.*
+
+UDL: $3 \times 5 = 15\ \text{kN}$ at $2.5\ \text{m}$ from A.
+
+$$
+\begin{aligned}\sum M_A &= 0: \quad 5\,R_B \\ &= 15 \times 2.5 + 6 \times 7 = 37.5 + 42 \\ &= 79.5 \\ \Rightarrow\ R_B &= 15.9\ \text{kN}\end{aligned}
+$$
+
+$$
+R_A = 15 + 6 - 15.9 = 5.1\ \text{kN}
+$$
+
+Check about B: $5\,R_A = 15 \times 2.5 - 6 \times 2 = 25.5$, so $R_A = 5.1\ \text{kN}$ ✓.
+
+> **Note**
+> The overhang load **reduces** $R_A$. With a large enough load at C, $R_A$ would become negative: the beam would lift off at A unless A is held down.
+
+## Worked example 5: an inclined load
+
+> **Problem**
+> A $6\ \text{m}$ beam is pinned at A and on a roller at B. It carries $10\ \text{kN}$ at $2\ \text{m}$ from A, inclined at $60^\circ$ to the beam (pointing down and towards B), and $4\ \text{kN}$ vertical at $4.5\ \text{m}$. Find the reactions.
+
+![An inclined load: the roller gives only a vertical reaction, so the pin takes the horizontal part.](/api/uploads/ada4a78453055517116d5ebefc011a22.png)
+*An inclined load: the roller gives only a vertical reaction, so the pin takes the horizontal part.*
+
+Resolve the inclined load: vertical $10\sin 60^\circ = 8.660\ \text{kN}$; horizontal $10\cos 60^\circ = 5\ \text{kN}$ (towards B). The roller at B can only push vertically, so
+
+$$
+\sum F_x = 0: \quad R_{Ax} = 5\ \text{kN}
+$$
+
+pointing away from B, opposite to the load's horizontal part.
+
+$$
+\begin{aligned}\sum M_A &= 0: \quad 6\,R_B \\ &= 8.660 \times 2 + 4 \times 4.5 = 35.32 \\ \Rightarrow\ R_B &= 5.887\ \text{kN}\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum F_y &= 0: \quad R_{Ay} \\ &= 8.660 + 4 - 5.887 \\ &= 6.773\ \text{kN}\end{aligned}
+$$
+
+$$
+\begin{aligned}R_A &= \sqrt{5^2 + 6.773^2} = 8.419\ \text{kN} \\ \tan\theta &= \frac{6.773}{5} \Rightarrow \theta = 53.57^\circ\end{aligned}
+$$
+
+**Answer:** $R_B = 5.887\ \text{kN}$ (vertical); $R_A = 8.419\ \text{kN}$, pointing up and away from B at $53.57^\circ$ to the beam. The horizontal load components pass through A, so they have no moment about it.
+
+## Worked example 6: a cantilever
+
+> **Problem**
+> A cantilever is fixed at A and $3\ \text{m}$ long. It carries $2\ \text{kN/m}$ over the $2\ \text{m}$ next to the wall and $4\ \text{kN}$ at the free end. Find the reactions at the wall.
+
+![A cantilever: the wall supplies a vertical force and a fixing moment.](/api/uploads/0ed55fda0b383f929e97abd599a89cde.png)
+*A cantilever: the wall supplies a vertical force and a fixing moment.*
+
+$$
+\begin{aligned}\sum F_y &= 0: \quad V_A = 2 \times 2 + 4 \\ &= 8\ \text{kN (upward)}\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum M_A &= 0: \quad M_A \\ &= (2 \times 2) \times 1 + 4 \times 3 = 4 + 12 \\ &= 16\ \text{kN·m}\end{aligned}
+$$
+
+The loads turn the beam clockwise about A, so the wall's fixing moment is **anticlockwise**. With no horizontal load, $H_A = 0$.
+
+## Worked example 7: a beam with a couple
+
+> **Problem**
+> A $6\ \text{m}$ simply supported beam carries $12\ \text{kN}$ at $2\ \text{m}$ from A and a clockwise couple of $9\ \text{kN·m}$ at $4\ \text{m}$. Find the reactions.
+
+![A point load and an applied couple.](/api/uploads/b378f516b7d9b9d11bd0e092bde23d8a.png)
+*A point load and an applied couple.*
+
+Taking **clockwise as positive** for this example:
+
+$$
+\begin{aligned}\sum M_A &= 0: \quad 12 \times 2 + 9 - 6\,R_B = 0 \\ \Rightarrow\ R_B &= \frac{33}{6} = 5.5\ \text{kN}\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum F_y &= 0: \quad R_A = 12 - 5.5 \\ &= 6.5\ \text{kN}\end{aligned}
+$$
+
+The couple changes **how** the load is shared, but not the **total**: $R_A + R_B$ still equals the $12\ \text{kN}$ of load.
+
+> **Caution**
+> A couple has the same moment about every point, so it appears in each moment equation with the same value, whatever its position on the beam. It never appears in $\sum F$.
+
+> **Exam tip**
+> Always finish with the check about the other support. It takes thirty seconds and catches nearly every sign or distance error.
+
+> **Quick recap**
+> - Moments about one support, then $\sum F_y = 0$, then check about the other.
+> - Distributed loads → point loads first; inclined loads → components first.
+> - A roller gives only a normal reaction, so a pin takes all horizontal load.
+> - Cantilever: $V_A$ = total load, $M_A$ = total moment of the loads about the wall.","5 marks: Explain the analytical method of finding beam reactions. Numerical (10 marks): reactions of simply supported beams with point loads, UDL and triangular or trapezoidal loads; overhanging beams; beams pinned at one end and on rollers at the other with inclined loads; reactions and fixing moment of a cantilever; beams carrying couples."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Statically determinate and indeterminate beams,"Statics gives a coplanar body only three equations. So a natural question is: **does a beam have three unknown reactions, more, or fewer?** The answer decides whether this chapter's methods can solve it at all.
+
+## Counting
+
+Let $r$ be the number of unknown reactions.
+
+| $r$ | The beam is | Meaning |
+|---|---|---|
+| $r = 3$ (properly arranged) | **statically determinate** | the three equations of equilibrium give every reaction |
+| $r > 3$ | **statically indeterminate** | more unknowns than equations: statics alone cannot solve it |
+| $r < 3$, or badly arranged | **unstable** (a mechanism) | it cannot be in equilibrium under general loads |
+
+The **degree of indeterminacy** is $r - 3$: the number of extra equations needed. Those extra equations come from how the beam **bends** (its deformation), which you will study later in the course.
+
+![Four ways to support the same beam.](/api/uploads/db6539a20f43b4a3b8945daf19fdce60.png)
+*Four ways to support the same beam.*
+
+## Examples
+
+| Beam | $r$ | Verdict |
+|---|---|---|
+| Pin + roller (simply supported) | 3 | determinate |
+| Cantilever (fixed + free) | 3 | determinate |
+| Overhanging (pin + roller) | 3 | determinate |
+| Propped cantilever (fixed + roller) | 4 | indeterminate, degree 1 |
+| Continuous (pin + 2 rollers) | 4 | indeterminate, degree 1 |
+| Fixed at both ends | 6 | indeterminate, degree 3 |
+| Two rollers | 2 | unstable: nothing resists sliding |
+
+(A pin counts 2, a roller 1, a fixed end 3.)
+
+> **Caution**
+> Three reactions are **not enough** if they are badly arranged. If all three reaction lines are **parallel**, nothing resists movement across them; if all three **meet at one point**, nothing resists rotation about it. Such a beam is unstable even though $r = 3$.
+
+## Why engineers use indeterminate beams anyway
+
+An indeterminate beam has **spare** supports. It is usually **stiffer** and its bending moments are **smaller**, and if one support settles a little, the others still hold it. The price is a harder analysis and sensitivity to settlement and temperature. Many floors, bridges and frames are deliberately indeterminate.
+
+> **Problem**
+> Classify: (a) a beam fixed at A with a roller at B; (b) a beam on a pin at A and rollers at B and C; (c) a beam on rollers at both ends; (d) a cantilever with a pin at its free end.
+
+**Answers:**
+- (a) $r = 3 + 1 = 4$: indeterminate, degree 1 (propped cantilever).
+- (b) $r = 2 + 1 + 1 = 4$: indeterminate, degree 1 (continuous beam).
+- (c) $r = 2$: unstable; it would slide sideways under any horizontal push.
+- (d) $r = 3 + 2 = 5$: indeterminate, degree 2.
+
+> **Key point**
+> Every beam solved in this chapter is **statically determinate**: exactly three reactions, properly arranged.
+
+> **Exam tip**
+> For ""statically determinate or not?"", always show the count: list the reactions, write $r$, compare with 3, and state the degree of indeterminacy.
+
+> **Quick recap**
+> - Three equations of statics; $r$ unknown reactions.
+> - $r = 3$ and well arranged: determinate. $r > 3$: indeterminate, degree $r - 3$. $r < 3$ or badly arranged: unstable.
+> - Indeterminate beams need deformation conditions, studied later.","2 marks: Define statically determinate and indeterminate beams. What is the degree of indeterminacy? 5 marks: Classify beams (simply supported, cantilever, overhanging, propped cantilever, continuous, fixed) by determinacy with reasons; when is a beam with three reactions still unstable?"
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Chapter summary and practice problems,"This page brings chapter 5 together: the key results, practice problems with answers, theory questions and a self-test.
+
+## Key results
+
+| Idea | Result |
+|---|---|
+| Reactions | Found from $\sum F_x = 0$, $\sum F_y = 0$, $\sum M = 0$ |
+| Simple or roller support | 1 reaction, normal to the surface |
+| Pin | 2 components; inclined if the loads are |
+| Fixed end | $R_x$, $R_y$ and a fixing moment |
+| UDL | $w \times a$ at the middle of the loaded length |
+| Triangular load | $\tfrac{1}{2} w L$ at $\tfrac{2}{3}L$ from the zero end |
+| Trapezium | Rectangle + triangle |
+| Couple | In moment equations only, the same about every point |
+| Cantilever | $V_A$ = total load; $M_A$ = total moment of loads about A |
+| Determinacy | $r = 3$: determinate; $r > 3$: indeterminate (degree $r - 3$); $r < 3$: unstable |
+
+## The method at a glance
+
+![Moments about one support, forces up and down, then a check about the other.](/api/uploads/40a499f1c8fa3b7118aa45fc48beb8d8.png)
+*Moments about one support, forces up and down, then a check about the other.*
+
+## Practice problems
+
+Try each one before reading the answer. Every answer has been checked by calculation.
+
+> **Problem** **1.** A simply supported beam of span $8\ \text{m}$ carries $4\ \text{kN}$ at $3\ \text{m}$ and $7\ \text{kN}$ at $6\ \text{m}$ from A. Find the reactions.
+>
+> **Answer:** $R_B = (4 \times 3 + 7 \times 6)/8 = 6.75\ \text{kN}$; $R_A = 11 - 6.75 = 4.25\ \text{kN}$.
+
+> **Problem** **2.** A $10\ \text{m}$ simply supported beam carries $5\ \text{kN/m}$ over $4\ \text{m}$, starting $2\ \text{m}$ from A. Find the reactions.
+>
+> **Answer:** $20\ \text{kN}$ at $4\ \text{m}$ from A: $R_B = 80/10 = 8\ \text{kN}$, $R_A = 12\ \text{kN}$.
+
+> **Problem** **3.** A $9\ \text{m}$ simply supported beam carries a load rising from zero at A to $1800\ \text{N/m}$ at B. Find the reactions.
+>
+> **Answer:** $8100\ \text{N}$ at $6\ \text{m}$ from A: $R_B = 5400\ \text{N}$, $R_A = 2700\ \text{N}$.
+
+> **Problem** **4.** A $5\ \text{m}$ simply supported beam carries a load rising from $1000\ \text{N/m}$ at A to $2500\ \text{N/m}$ at B. Find the reactions.
+>
+> **Answer:** rectangle $5000\ \text{N}$ at $2.5\ \text{m}$, triangle $3750\ \text{N}$ at $3.333\ \text{m}$: $R_B = (12\,500 + 12\,500)/5 = 5000\ \text{N}$; $R_A = 8750 - 5000 = 3750\ \text{N}$.
+
+> **Problem** **5.** A beam ABC has supports at A and B, $6\ \text{m}$ apart, and overhangs $1.5\ \text{m}$ to C. It carries $2\ \text{kN/m}$ over the whole $7.5\ \text{m}$ and $3\ \text{kN}$ at C. Find the reactions.
+>
+> **Answer:** UDL $15\ \text{kN}$ at $3.75\ \text{m}$: $R_B = (15 \times 3.75 + 3 \times 7.5)/6 = 13.125\ \text{kN}$; $R_A = 18 - 13.125 = 4.875\ \text{kN}$.
+
+> **Problem** **6.** A $4\ \text{m}$ cantilever carries $3\ \text{kN/m}$ over its whole length and $5\ \text{kN}$ at its free end. Find the reactions at the wall.
+>
+> **Answer:** $V_A = 12 + 5 = 17\ \text{kN}$; $M_A = 12 \times 2 + 5 \times 4 = 44\ \text{kN·m}$ (opposing the loads' turning effect).
+
+> **Problem** **7.** A simply supported beam of span $8\ \text{m}$ carries $10\ \text{kN}$ at $3\ \text{m}$ from A and an anticlockwise couple of $16\ \text{kN·m}$ at $6\ \text{m}$. Find the reactions.
+>
+> **Answer:** clockwise positive: $10 \times 3 - 16 - 8R_B = 0$, so $R_B = 1.75\ \text{kN}$; $R_A = 8.25\ \text{kN}$.
+
+> **Problem** **8.** How much does a $45\ \text{m}$ steel girder ($\alpha = 12 \times 10^{-6}\ /^\circ\text{C}$) lengthen for a $35^\circ\text{C}$ rise?
+>
+> **Answer:** $12 \times 10^{-6} \times 45 \times 35 = 0.0189\ \text{m} = 18.9\ \text{mm}$.
+
+## Theory questions
+
+1. What is a support reaction? Name the types of supports and the reactions each provides.
+2. What is the difference between a roller support and a hinged support? Why is one end of a bridge truss placed on rollers?
+3. Define point load, UDL and uniformly varying load. How is each replaced when finding reactions?
+4. Explain the analytical method of finding the reactions of a simply supported beam.
+5. What is an overhanging beam? How does a load on the overhang affect the reactions?
+6. What reactions does a cantilever's fixed end provide?
+7. Define statically determinate and indeterminate beams, with examples.
+
+## Quick self-test
+
+1. A pin support provides: (a) one reaction (b) **two reaction components** (c) two components and a moment (d) no reaction. **Answer: (b)**
+2. A triangular load from $0$ to $w$ over length $L$ acts at: (a) $L/2$ (b) $L/3$ from the zero end (c) **$2L/3$ from the zero end** (d) the larger end. **Answer: (c)**
+3. A propped cantilever has a degree of indeterminacy of: (a) 0 (b) **1** (c) 2 (d) 3. **Answer: (b)**
+4. A couple applied to a simply supported beam changes: (a) the total of the reactions (b) **how the load is shared between the supports** (c) nothing (d) only the horizontal reaction. **Answer: (b)**
+5. True or false: a beam on two rollers is statically determinate. **Answer: false** (only 2 reactions: it is unstable).","This chapter's typical paper: 2-mark definitions (types of support and loading; determinate and indeterminate beams); 5-mark explanations (roller versus hinge; analytical method); 10-mark numericals (reactions of simply supported and overhanging beams with point, uniform and varying loads; inclined loads with a pin and a roller; cantilever reactions; beams carrying couples)."
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,What friction is and why it matters,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Coefficient of friction,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of friction and cone of friction,,
