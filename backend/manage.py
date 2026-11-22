@@ -110,6 +110,29 @@ DEMO = [("admin1@example.com", "Demo Admin 1", "admin", {}), ("admin2@example.co
         ("parent1@example.com", "Demo Parent 1", "guardian", {"relation": "parent"}), ("parent2@example.com", "Demo Parent 2", "guardian", {"relation": "parent"}),
         ("schoolteacher1@example.com", "Demo School Teacher 1", "guardian", {"relation": "teacher"}), ("schoolteacher2@example.com", "Demo School Teacher 2", "guardian", {"relation": "teacher"}),
         ("child1", "Demo Child 1", "student", {"child": 0}), ("child2", "Demo Child 2", "student", {"child": 1})]
+# the demo students of the second program imported (B.E Mechanical Engineering, Year 1, in ./reset-demo.sh): a student is in one program only
+DEMO2 = [("student3@example.com", "Demo Student 3", "student", {"placed": True}), ("student4@example.com", "Demo Student 4", "student", {"placed": True}),
+         ("lite3@example.com", "Demo Lite Student 3", "student", {"self": True}), ("lite4@example.com", "Demo Lite Student 4", "student", {"self": True}),
+         ("pro3@example.com", "Demo Pro Student 3", "student", {"self": True, "pro": True}), ("pro4@example.com", "Demo Pro Student 4", "student", {"self": True, "pro": True})]
+
+def demo_student(key, name, ex, pw, now, place):
+    """A demo student as reset-demo makes them: onboarded, college level, signed up (Lite or Pro) or placed, in the given (program_id, year)."""
+    import datetime as dt
+    kw = {"username": key} if "child" in ex else {"email": key}
+    kw.update(onboarded_at=now, level="school" if "child" in ex else "college")  # demo students go straight to their home page
+    if ex.get("self"): kw["self_registered"] = True
+    if ex.get("pro"): kw["pro_until"] = now + dt.timedelta(days=365)
+    if (ex.get("placed") or ex.get("self")) and place: kw.update(program_id=place[0], semester=place[1])
+    return User(name=name, pw=hp(pw), role="student", active=True, must_change=False, **kw)
+
+def places(s):
+    """Each imported program's first year that has a course, in the order the programs were made: where the demo students go."""
+    from main import Course, Semester
+    out = []
+    for c in s.query(Course).order_by(Course.id):
+        sm = s.get(Semester, c.semester_id) if c.semester_id else None
+        if sm and sm.program_id not in [p for p, _ in out]: out.append((sm.program_id, sm.semester_no))
+    return out
 
 def reset_demo(s, x):
     """A clean demo server: everything is deleted (users, courses, settings and AI keys, uploads, every record), the schema and its migrations stay.
@@ -147,17 +170,13 @@ def reset_demo(s, x):
         r = import_csv(ImportIn(csv=t, dry_run=False), first, s)
         if r["error_count"]: print(f"{f}: {r['error_count']} row(s) skipped: " + "; ".join(f"row {e['row']}: {e['error']}" for e in r["errors"][:5]))
         print(f"{f}: created " + ", ".join(f"{v} {k}" for k, v in r["created"].items()))
-    co = s.query(Course).order_by(Course.id).first(); sem = s.get(Semester, co.semester_id) if co and co.semester_id else None
+    co = s.query(Course).order_by(Course.id).first(); at = places(s)
     made = {DEMO[0][0]: first}
-    for key, name, role, ex in DEMO[1:]:
-        kw = {"username": key} if "child" in ex else {"email": key}
-        if role == "guardian": kw["relation"] = ex["relation"]
+    for key, name, role, ex in DEMO[1:] + (DEMO2 if len(at) > 1 else []):
         if role == "student":
-            kw["onboarded_at"] = now  # demo students go straight to their home page
-            kw["level"] = "school" if "child" in ex else "college"
-            if ex.get("self"): kw["self_registered"] = True
-            if ex.get("pro"): kw["pro_until"] = now + dt.timedelta(days=365)
-            if (ex.get("placed") or ex.get("self")) and sem: kw.update(program_id=sem.program_id, semester=sem.semester_no)
+            u = demo_student(key, name, ex, pw, now, at[1] if (key, name, role, ex) in DEMO2 else at[0] if at else None); s.add(u); s.flush(); made[key] = u; continue
+        kw = {"email": key}
+        if role == "guardian": kw["relation"] = ex["relation"]
         made[key] = add(name, role, **kw)
     for i in (0, 1):  # each parent and each school teacher looks after one child
         for g in (f"parent{i + 1}@example.com", f"schoolteacher{i + 1}@example.com"):
@@ -166,11 +185,13 @@ def reset_demo(s, x):
         for c_ in s.query(Course): c_.faculty_owner_id = made["teacher1@example.com"].id
     s.commit()
     print("\nDemo accounts (all with the password you gave):")
-    for key, name, role, ex in DEMO:
+    for key, name, role, ex in DEMO + (DEMO2 if len(at) > 1 else []):
         kind = {"admin": "admin", "faculty": "college teacher", "guardian": ex.get("relation", "") and ("parent" if ex.get("relation") == "parent" else "school teacher")}.get(role) or \
                ("school child (signs in with the username)" if "child" in ex else "Pro student (signed up)" if ex.get("pro") else "Lite student (signed up)" if ex.get("self") else "college student")
         print(f"  {key:<28} {kind}")
-    if sem: print(f"Students are placed in {co.name}'s program, {sem.name}; teacher1 owns every course.")
+    from main import Program, Semester
+    def where(pl): return f"{s.get(Program, pl[0]).name}, {s.query(Semester).filter_by(program_id=pl[0], semester_no=pl[1]).first().name}"
+    if at: print(f"student1/2, lite1/2 and pro1/2 are in {where(at[0])}" + (f"; student3/4, lite3/4 and pro3/4 in {where(at[1])}" if len(at) > 1 else "") + ". teacher1 owns every course.")
     print("Add an AI key under Settings > AI before using the AI (the settings were wiped too).")
 
 def import_files(s, x):
@@ -189,6 +210,23 @@ def import_files(s, x):
         if not x.yes and input("Import it? [y/N] ").strip().lower() not in ("y", "yes"): print("Skipped."); continue
         r = import_csv(ImportIn(csv=t, dry_run=False), me, s)
         print("Imported: created " + ", ".join(f"{v} {k}" for k, v in r["created"].items()) + f"; updated {r['updated_topics']} topic(s)")
+
+def demo_students(s, x):
+    """The second program's demo students (student3/4, lite3/4, pro3/4) added to a server that is already running, in the program and year named.
+    Nothing is deleted; accounts that exist already are moved there and keep their password."""
+    import datetime as dt
+    from main import Program, Semester
+    p = s.query(Program).filter(Program.name == x.program).first()
+    if not p: sys.exit(f"No program called {x.program!r}. Import its content first.")
+    sm = s.query(Semester).filter_by(program_id=p.id, name=x.year).first()
+    if not sm or sm.semester_no is None: sys.exit(f"{x.program} has no year called {x.year!r} with a number.")
+    new = [d for d in DEMO2 if not s.query(User).filter_by(email=d[0]).first()]
+    pw = password(x.password) if new else None; now = dt.datetime.utcnow()
+    for key, name, role, ex in DEMO2:
+        u = s.query(User).filter_by(email=key).first()
+        if u: u.program_id, u.semester = p.id, sm.semester_no; print(f"  {key:<24} moved to {p.name}, {sm.name}")
+        else: s.add(demo_student(key, name, ex, pw, now, (p.id, sm.semester_no))); print(f"  {key:<24} made, in {p.name}, {sm.name}")
+    s.commit()
 
 def replace_catalog(s, x):
     """The whole course catalogue replaced by the given CSVs. Students' own built courses and all users stay; students lose their program and semester placement."""
@@ -234,6 +272,8 @@ def main():
     ps = sub.add_parser("prepare-steps", help="write a student's own gist and steps in advance for every topic where she has her own notes, so they open at once (uses the AI)")
     ps.add_argument("--student", required=True); ps.add_argument("--kinds", default="gist,why,example,exam,check", help="which steps (default: gist,why,example,exam,check)")
     ps.add_argument("--limit", type=int, default=0, help="only the first N topics (0 = all)"); ps.add_argument("--parallel", type=int, default=4)
+    ds = sub.add_parser("demo-students", help="add the demo students student3/4, lite3/4 and pro3/4 (Lite and Pro) to a running server, placed in one program and year; nothing is deleted")
+    ds.add_argument("--program", default="B.E Mechanical Engineering"); ds.add_argument("--year", default="Year 1"); ds.add_argument("--password", help="their password (asked if left out)")
     rd = sub.add_parser("reset-demo", help="back up, then DELETE ALL DATA (every user, course, setting, AI key, upload and record), optionally import content, and create demo accounts: 2 of each kind, one password")
     rd.add_argument("--import", dest="files", nargs="*", default=[], help="content CSVs to load after the wipe (e.g. content/pharmacology_mbbs_year2.csv)")
     rd.add_argument("--password", help="the demo accounts' password (asked if left out; at least 8 characters)"); rd.add_argument("--yes", action="store_true", help="don't ask to type the confirmation")
@@ -270,6 +310,7 @@ def main():
         if x.cmd == "replace-catalog": return replace_catalog(s, x)
         if x.cmd == "import": return import_files(s, x)
         if x.cmd == "reset-demo": return reset_demo(s, x)
+        if x.cmd == "demo-students": return demo_students(s, x)
         if x.cmd == "load-book": return load_book(s, x)
         if x.cmd == "prepare-steps": return prepare_steps(s, x)
         if x.cmd == "check": sys.exit(0 if s.query(User).filter_by(role="admin", active=True).first() else 1)
