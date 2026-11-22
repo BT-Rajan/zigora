@@ -3301,20 +3301,1019 @@ Try each one before reading the answer. Every answer has been checked by calcula
 3. A propped cantilever has a degree of indeterminacy of: (a) 0 (b) **1** (c) 2 (d) 3. **Answer: (b)**
 4. A couple applied to a simply supported beam changes: (a) the total of the reactions (b) **how the load is shared between the supports** (c) nothing (d) only the horizontal reaction. **Answer: (b)**
 5. True or false: a beam on two rollers is statically determinate. **Answer: false** (only 2 reactions: it is unstable).","This chapter's typical paper: 2-mark definitions (types of support and loading; determinate and indeterminate beams); 5-mark explanations (roller versus hinge; analytical method); 10-mark numericals (reactions of simply supported and overhanging beams with point, uniform and varying loads; inclined loads with a pin and a roller; cantilever reactions; beams carrying couples)."
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,What friction is and why it matters,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Coefficient of friction,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of friction and cone of friction,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Kinds of friction,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Laws of dry (Coulomb) friction,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of repose,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,A body on a rough inclined plane,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Ladder friction,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Where friction helps,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Wedges,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Belt friction,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Friction in brakes,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Square-threaded screws and the screw jack,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,What friction is and why it matters,"Push a heavy cupboard and at first nothing happens. Push harder and it suddenly lurches forward. Something was pushing back, growing as you pushed, until it could grow no more. That something is **friction**.
+
+## Definition
+
+> **Key point**
+> **Friction** is the force that acts at the surface of contact between two bodies, **along** that surface, **opposing** the sliding (or the tendency to slide) of one over the other.
+
+It arises because no surface is perfectly smooth: tiny hills and valleys on the two surfaces interlock and cling, and must be sheared or lifted over before sliding can happen.
+
+![(a) A pull P on a block is resisted by friction F along the floor. (b) How F changes as P grows.](/api/uploads/407b64d2f9bd11be7c04a14c157023aa.png)
+*(a) A pull P on a block is resisted by friction F along the floor. (b) How F changes as P grows.*
+
+## How friction behaves as you push
+
+Let a block of weight $W$ rest on a level floor, and pull it with a horizontal force $P$ that slowly increases.
+
+1. **Small $P$: nothing moves.** Friction exactly matches the pull: $F = P$. This is **static friction**; it is only as large as it needs to be.
+2. **$P$ reaches a limit: the block is just about to slide.** Friction has reached its **maximum** possible value, the **limiting friction** $F_{lim}$. The block is in **limiting equilibrium**.
+3. **$P$ goes beyond it: the block slides.** Friction drops a little and stays roughly constant. This is **kinetic** (dynamic) friction.
+
+The normal reaction meanwhile balances the weight: $R = W$ (on a level floor with a horizontal pull).
+
+> **Caution**
+> Friction is **not** always $\mu R$. Below the limit it equals whatever is needed to prevent motion. Only at the point of slipping (or while sliding) does it take its full value.
+
+## Why engineers care
+
+| Friction is **wanted** | Friction is a **nuisance** |
+|---|---|
+| Walking, tyres gripping the road | Wear in bearings and gears |
+| Brakes and clutches | Heat and lost power in machines |
+| Belt and rope drives | Effort wasted in lifting machines |
+| Nuts and bolts staying tight, wedges holding | Stiff sliding joints |
+
+> **Problem**
+> A $400\ \text{N}$ crate rests on a floor. A worker pulls horizontally with $60\ \text{N}$ and the crate does not move. What is the friction force?
+
+The crate is in equilibrium, so friction balances the pull.
+
+**Answer:** $60\ \text{N}$, opposite to the pull. We cannot tell from this alone how much more pull the crate could resist.
+
+> **Exam tip**
+> In definitions, name all three features: friction acts **at the contact surface**, **along** it, and **opposes** relative motion or its tendency.
+
+> **Quick recap**
+> - Friction opposes sliding, along the contact surface.
+> - Static friction matches the push up to a limit; at the limit it is **limiting friction**; once sliding, it is **kinetic** friction, slightly smaller.
+> - It is useful (brakes, belts, grip) and wasteful (wear, heat).","2 marks: Define friction and limiting friction. What is limiting equilibrium? 5 marks: Explain, with a graph, how the friction force varies as the applied force increases from zero."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Coefficient of friction,"At the point of slipping, the limiting friction is found to be proportional to how hard the surfaces are pressed together. The constant of proportionality is the **coefficient of friction**.
+
+## Definition
+
+> **Key point**
+> The **coefficient of friction** $\mu$ is the ratio of the limiting friction to the normal reaction:
+>
+> $$
+> \mu = \frac{F_{lim}}{R} \qquad\Longleftrightarrow\qquad F_{lim} = \mu R
+> $$
+>
+
+$\mu$ has **no unit** (a force divided by a force). It depends on the two materials and the state of the surfaces, not on the size of the body.
+
+## Worked example 1: finding μ
+
+> **Problem**
+> A $250\ \text{N}$ block on a level floor just starts to slide under a horizontal pull of $90\ \text{N}$. Find $\mu$.
+
+At the point of slipping, $F_{lim} = 90\ \text{N}$ and $R = W = 250\ \text{N}$:
+
+$$
+\mu = \frac{90}{250} = 0.36
+$$
+
+## The normal reaction is not always the weight
+
+When the applied force is **inclined**, part of it lifts the body (or presses it down), changing $R$.
+
+![A pull at 30° above the horizontal lifts the block slightly, reducing R and so the friction.](/api/uploads/20ebb14e947e79d935bef249383d71cc.png)
+*A pull at 30° above the horizontal lifts the block slightly, reducing R and so the friction.*
+
+> **Problem**
+> **Example 2.** A $200\ \text{N}$ block rests on a floor with $\mu = 0.3$. Find the force needed to just move it when it is (a) pulled at $30^\circ$ above the horizontal, (b) pushed at $25^\circ$ below the horizontal.
+
+**(a) Pull upward at 30°.** Vertically, $R + P\sin 30^\circ = 200$, so $R = 200 - 0.5P$. Horizontally at the point of slipping:
+
+$$
+\begin{aligned}P\cos 30^\circ &= \mu R \\ &= 0.3\,(200 - 0.5P)\end{aligned}
+$$
+
+$$
+\begin{aligned}P\,(0.8660 + 0.15) &= 60 \\ \Rightarrow\ P &= \frac{60}{1.0160} = 59.05\ \text{N}\end{aligned}
+$$
+
+Then $R = 200 - 29.53 = 170.47\ \text{N}$.
+
+**(b) Push downward at 25°.** Now the push presses the block down: $R = 200 + P\sin 25^\circ$.
+
+$$
+\begin{aligned}P\cos 25^\circ &= 0.3\,(200 + P\sin 25^\circ)\end{aligned}
+$$
+
+$$
+P\,(0.9063 - 0.1268) = 60
+$$
+
+$$
+P = \frac{60}{0.7795} = 76.97\ \text{N}
+$$
+
+**Answer:** (a) $59.05\ \text{N}$; (b) $76.97\ \text{N}$. Pulling is easier than pushing: the pull lightens the block, the push loads it.
+
+> **Caution**
+> Always find $R$ from the vertical (or normal) equation first. Writing $R = W$ when the force is inclined is the most common mistake in friction problems.
+
+> **Exam tip**
+> State ""at the point of slipping, $F = \mu R$"" before using it, and always write the normal equation that gives $R$.
+
+> **Quick recap**
+> - $\mu = F_{lim}/R$, a pure number.
+> - $R$ equals $W$ only when no other force has a normal component.
+> - Pulling upward reduces $R$ (easier); pushing downward increases $R$ (harder).",2 marks: Define coefficient of friction; does it have a unit? 5 marks: Derive the force needed to drag a body on a rough horizontal plane by a force inclined at θ. Numerical: μ from a just-sliding pull; force to move a body by an inclined pull and by an inclined push.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of friction and cone of friction,"Instead of drawing the normal reaction and the friction force separately, we can combine them into a single **total reaction**. Its tilt from the normal leads to two useful ideas: the **angle of friction** and the **cone of friction**.
+
+## Angle of friction
+
+At the point of slipping, the normal reaction $R$ and the limiting friction $F = \mu R$ combine into a resultant $S$. The angle $\phi$ between $S$ and the normal is the **angle of friction**:
+
+$$
+\tan\phi = \frac{F}{R} = \frac{\mu R}{R} = \mu
+$$
+
+> **Key point**
+>
+> $$
+> \mu = \tan\phi
+> $$
+>
+> The coefficient of friction is the tangent of the angle of friction.
+
+![(a) The total reaction S tilts from the normal by φ at the point of slipping. (b) Swept round the normal, S traces the cone of friction.](/api/uploads/d5f9831ebeca4370dcec55c1a21da12b.png)
+*(a) The total reaction S tilts from the normal by φ at the point of slipping. (b) Swept round the normal, S traces the cone of friction.*
+
+> **Problem**
+> For $\mu = 0.36$, find the angle of friction.
+
+$$
+\phi = \tan^{-1} 0.36 = 19.80^\circ
+$$
+
+## Cone of friction
+
+Imagine sweeping the limiting total reaction $S$ all the way round the normal. It traces a **right circular cone** with its vertex at the point of contact, its axis along the normal, and half-angle $\phi$. This is the **cone of friction**.
+
+- If the total reaction from a support lies **inside** the cone, the friction needed is less than the limit: **no slipping**.
+- On the surface of the cone: **limiting equilibrium**, about to slip.
+- It cannot lie outside: slipping would already have begun.
+
+## The least force to drag a body
+
+Using $\phi$ makes a classic result quick. For a body of weight $W$ pulled at angle $\theta$ above the horizontal, the condition of slipping gives (topic 2 with $\mu = \tan\phi$)
+
+$$
+P = \frac{\mu W}{\cos\theta + \mu\sin\theta} = \frac{W\sin\phi}{\cos(\theta - \phi)}
+$$
+
+This is **least** when $\cos(\theta - \phi) = 1$, that is when $\theta = \phi$:
+
+$$
+P_{min} = W\sin\phi \qquad \text{at } \theta = \phi
+$$
+
+> **Problem**
+> For the $200\ \text{N}$ block with $\mu = 0.3$ (topic 2), find the least pull and its angle.
+
+$$
+\begin{aligned}\phi &= \tan^{-1} 0.3 = 16.70^\circ \\ P_{min} &= 200\sin 16.70^\circ = 57.47\ \text{N}\end{aligned}
+$$
+
+**Answer:** $57.47\ \text{N}$ at $16.70^\circ$ above the horizontal, slightly less than the $59.05\ \text{N}$ needed at $30^\circ$.
+
+> **Exam tip**
+> ""Prove that the force to drag a body is least when it acts at the angle of friction"" is a frequent 5-mark question. Write $P = W\sin\phi / \cos(\theta - \phi)$ and argue from the denominator.
+
+> **Quick recap**
+> - Angle of friction: $\tan\phi = \mu$.
+> - Cone of friction: half-angle $\phi$ about the normal; a reaction inside it means no slip.
+> - Least dragging force $W\sin\phi$, applied at $\theta = \phi$.",2 marks: Define angle of friction and cone of friction; relation between φ and μ. 5 marks: Prove that the force needed to drag a body on a rough horizontal plane is least when inclined at the angle of friction. Numerical: least pull and its direction.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Kinds of friction,"Friction is not one single thing. It is classified by **whether the surfaces are moving** and by **what lies between them**.
+
+## By motion
+
+| Kind | When | Typical size |
+|---|---|---|
+| **Static friction** | Surfaces at rest relative to each other | Anything from 0 up to $\mu_s R$ |
+| **Limiting friction** | Just about to slide | $\mu_s R$ (the maximum) |
+| **Kinetic (dynamic) friction** | Sliding | $\mu_k R$, with $\mu_k$ a little less than $\mu_s$ |
+| **Rolling friction** | A wheel, ball or roller rolling | Far smaller than sliding friction |
+
+Kinetic friction is itself sometimes split into **sliding** friction and **rolling** friction.
+
+![The static rise to the limit, then the slight drop to kinetic friction.](/api/uploads/407b64d2f9bd11be7c04a14c157023aa.png)
+*The static rise to the limit, then the slight drop to kinetic friction.*
+
+## By the surfaces
+
+- **Dry (solid, Coulomb) friction**: clean, unlubricated surfaces in direct contact. This is what this chapter studies.
+- **Boundary (greasy) friction**: a very thin film of lubricant; some contact remains.
+- **Fluid (film) friction**: the surfaces are fully separated by a lubricant film. Resistance now comes from the fluid's viscosity, and $\mu$ can fall to around $0.001$–$0.01$.
+
+> **Note**
+> This is why bearings are oiled: a full oil film turns dry friction into fluid friction, cutting resistance, heat and wear dramatically.
+
+## Typical values of μ (dry, approximate)
+
+| Surfaces | $\mu$ (typical range) |
+|---|---|
+| Rubber tyre on dry concrete | 0.6 – 0.9 |
+| Rubber tyre on wet concrete | 0.4 – 0.6 |
+| Steel on steel, dry | 0.5 – 0.8 |
+| Steel on steel, lubricated | 0.05 – 0.15 |
+| Wood on wood | 0.25 – 0.5 |
+| PTFE (Teflon) on steel | about 0.04 |
+
+> **Caution**
+> These are rough guides. Real values depend strongly on surface finish, cleanliness, moisture and temperature. In a numerical, always use the value given.
+
+> **Problem**
+> A wardrobe needs $180\ \text{N}$ to start it sliding but only $150\ \text{N}$ to keep it sliding. It weighs $500\ \text{N}$. Find $\mu_s$ and $\mu_k$.
+
+$$
+\begin{aligned}\mu_s &= \frac{180}{500} = 0.36 \\ \mu_k &= \frac{150}{500} = 0.30\end{aligned}
+$$
+
+**Answer:** $\mu_s = 0.36$, $\mu_k = 0.30$. Starting is harder than keeping going.
+
+> **Exam tip**
+> ""Distinguish static and dynamic friction"" and ""wet and dry friction"" are 2-mark favourites. One line each, plus one example each.
+
+> **Quick recap**
+> - Static (up to the limit), limiting, kinetic (sliding), rolling.
+> - Dry, boundary and fluid friction; lubrication reduces $\mu$ greatly.
+> - $\mu_k$ is slightly less than $\mu_s$.",2 marks: Distinguish static and dynamic (kinetic) friction; wet and dry friction; sliding and rolling friction. Numerical: μs and μk from the force to start and to maintain sliding.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Laws of dry (Coulomb) friction,"Careful experiments with dry surfaces, begun by Leonardo da Vinci and refined by Amontons and Coulomb, show a small set of regular rules. They are approximate, but good enough for most engineering work.
+
+## The laws of static friction
+
+1. Friction acts **along** the contact surface, **opposite** to the direction in which the body tends to move.
+2. Below the limit, friction is **just equal** to the force trying to cause sliding.
+3. At the point of slipping, friction reaches its **maximum**, the **limiting friction**.
+4. The limiting friction is **proportional to the normal reaction**: $F_{lim} = \mu_s R$.
+5. The limiting friction **does not depend on the area** of contact, for the same normal reaction.
+6. It depends on the **materials** and the **condition** of the surfaces.
+
+## The laws of kinetic friction
+
+1. Kinetic friction opposes the **relative motion**.
+2. It is proportional to the normal reaction: $F_k = \mu_k R$, with $\mu_k$ **slightly less** than $\mu_s$.
+3. For moderate speeds it is **nearly independent of the sliding speed**.
+
+![The same brick on its wide face or on its end needs the same force to slide: friction does not depend on contact area.](/api/uploads/85f6dd73614d3050238eec6e83d29362.png)
+*The same brick on its wide face or on its end needs the same force to slide: friction does not depend on contact area.*
+
+## Why the area does not matter
+
+A brick on its wide face spreads its weight over a large area, so the pressure is low; on its end the pressure is high but the area small. The **real** contact (the tiny touching high-spots) depends on the load, not on the apparent area, so the total friction stays about the same.
+
+> **Problem**
+> A $40\ \text{N}$ brick ($\mu = 0.5$) lies on its $200 \times 100\ \text{mm}$ face. It is turned onto its $100 \times 60\ \text{mm}$ end. Find the force to slide it in each case.
+
+In both cases $R = 40\ \text{N}$, so
+
+$$
+F_{lim} = 0.5 \times 40 = 20\ \text{N}
+$$
+
+**Answer:** $20\ \text{N}$ either way.
+
+> **Caution**
+> These laws are **empirical** and apply to **dry** surfaces at moderate loads and speeds. They fail for lubricated surfaces (fluid friction depends on speed and area) and for very soft or very hard-pressed materials.
+
+> **Exam tip**
+> ""State the laws of solid (static and dynamic) friction"" is asked almost every year. Number them, and keep each to one line.
+
+> **Quick recap**
+> - $F_{lim} = \mu_s R$; $F_k = \mu_k R$ with $\mu_k < \mu_s$.
+> - Friction opposes motion, does not depend on contact area, and (for kinetic friction) hardly depends on speed.
+> - The laws are approximate and hold for dry surfaces.",5 marks: State the laws of static and dynamic (Coulomb) friction. Why is limiting friction independent of contact area? Numerical: force to slide a brick on different faces.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of repose,"Tilt a plank with a book on it. At first the book stays put; at a certain steepness it starts to slide. That steepest angle at which the book still rests is the **angle of repose**, and it turns out to equal the angle of friction.
+
+## Definition
+
+> **Key point**
+> The **angle of repose** $\alpha$ is the greatest inclination of a plane at which a body rests on it **by friction alone**, with no other force applied.
+
+## Proof that the angle of repose equals the angle of friction
+
+![A body on the point of sliding down a plane inclined at α.](/api/uploads/ecc3b68ddac8eb5111e074540deea006.png)
+*A body on the point of sliding down a plane inclined at α.*
+
+On a plane at angle $\alpha$, the body's weight $W$ has two components:
+
+- along the plane, down the slope: $W\sin\alpha$;
+- normal to the plane: $W\cos\alpha$.
+
+When the body is just about to slide down, friction acts **up** the plane with its limiting value $\mu R$:
+
+$$
+\text{along the plane: } \quad W\sin\alpha = \mu R
+$$
+
+$$
+\begin{aligned}\text{normal to the plane: } \quad R &= W\cos\alpha\end{aligned}
+$$
+
+Dividing:
+
+$$
+\tan\alpha = \mu = \tan\phi \;\Rightarrow\; \alpha = \phi \qquad \blacksquare
+$$
+
+> **Key point**
+> **Angle of repose = angle of friction.** So tilting a plane until a block just slides is a simple way to **measure** $\mu$: $\mu = \tan\alpha$.
+
+## What happens at other angles
+
+- **$\alpha < \phi$:** the body rests without help. Friction needed ($W\sin\alpha$) is less than the limit.
+- **$\alpha = \phi$:** limiting equilibrium, about to slide.
+- **$\alpha > \phi$:** the body slides down unless an extra force holds it.
+
+> **Problem**
+> **Example 1.** A block on a tilting board starts to slide when the board reaches $22^\circ$. Find $\mu$.
+
+$$
+\mu = \tan 22^\circ = 0.404
+$$
+
+> **Problem**
+> **Example 2.** Dry sand has $\mu = 0.65$ against itself. What is the steepest slope of a sand heap?
+
+$$
+\alpha = \tan^{-1} 0.65 = 33.02^\circ
+$$
+
+**Answer:** about $33^\circ$. Grain heaps, gravel stockpiles and earth embankments all stand at their own angle of repose, which engineers use to plan storage and slopes.
+
+> **Exam tip**
+> ""Define the angle of repose and prove that it equals the angle of friction"" is one of the most frequent 5-mark questions in this chapter. The proof is four lines: draw the FBD, resolve along and normal to the plane, divide.
+
+> **Quick recap**
+> - Angle of repose: steepest slope on which a body rests by friction alone.
+> - $\tan\alpha = \mu$, so angle of repose = angle of friction.
+> - Below it the body rests; above it, it slides.",2 marks: Define angle of repose. 5 marks: Prove that the angle of repose equals the angle of friction. Objective: a body on a plane inclined at less than the angle of friction will (a) stay in equilibrium. Numerical: μ from the angle at which a body starts to slide.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,A body on a rough inclined plane,"Pushing a crate up a ramp, holding a trolley from rolling down, sliding goods down a chute: all are bodies on rough inclined planes. One method handles every case.
+
+## Method
+
+1. Draw the body's FBD: $W$ (vertical), $R$ (normal to the plane), friction $F$ (along the plane), and the applied force $P$.
+2. Decide the **direction the body tends to move**; friction acts the **other way**.
+3. Resolve **along** and **normal to** the plane (not horizontally and vertically).
+4. At the point of slipping, put $F = \mu R$.
+
+> **Key point**
+> Moving **up** the plane, friction acts **down** the plane, and the effort must overcome both $W\sin\alpha$ and friction. Moving **down**, friction acts **up**, and helps hold the body.
+
+![A block pulled up a rough incline: friction acts down the slope.](/api/uploads/40feae6906ff23b3642e4c60fa7f58b1.png)
+*A block pulled up a rough incline: friction acts down the slope.*
+
+## Worked example: one block, four questions
+
+> **Problem**
+> A $600\ \text{N}$ crate sits on a ramp inclined at $25^\circ$, with $\mu = 0.3$. Find: (a) whether it slides down by itself; (b) the force parallel to the ramp needed to hold it; (c) the force parallel to the ramp needed to push it up; (d) the horizontal push needed to move it up.
+
+Components of the weight: $W\sin 25^\circ = 253.571\ \text{N}$ along; $W\cos 25^\circ = 543.785\ \text{N}$ normal, so $R = 543.785\ \text{N}$ when $P$ is parallel to the ramp. The limiting friction is
+
+$$
+\begin{aligned}\mu R &= 0.3 \times 543.785 \\ &= 163.135\ \text{N}\end{aligned}
+$$
+
+**(a)** The pull down the slope ($253.571\ \text{N}$) exceeds the friction available ($163.135\ \text{N}$): it **slides**. Equivalently, $\phi = \tan^{-1}0.3 = 16.70^\circ < 25^\circ$.
+
+**(b) Holding it** (on the point of sliding down; friction acts up the plane):
+
+$$
+\begin{aligned}P + \mu R &= W\sin\alpha \\ \Rightarrow\ P &= 253.571 - 163.135 \\ &= 90.44\ \text{N}\end{aligned}
+$$
+
+**(c) Pushing it up** (friction acts down the plane):
+
+$$
+\begin{aligned}P &= W\sin\alpha + \mu R \\ &= 253.571 + 163.135 \\ &= 416.71\ \text{N}\end{aligned}
+$$
+
+**(d) Horizontal push.** Using the total reaction at angle $\phi$ to the normal, the standard result is
+
+$$
+\begin{aligned}P &= W\tan(\alpha + \phi) \\ &= 600\tan(25^\circ + 16.70^\circ) \\ &= 600 \times 0.8909 = 534.57\ \text{N}\end{aligned}
+$$
+
+A horizontal push is wasteful: part of it presses the crate into the ramp, raising $R$ and the friction.
+
+**Answers:** (a) it slides; (b) $90.44\ \text{N}$; (c) $416.71\ \text{N}$; (d) $534.57\ \text{N}$.
+
+## General formulas
+
+For a force $P$ at angle $\theta$ to the plane (measured away from the plane):
+
+$$
+\begin{aligned}\text{up the plane: } P &= \frac{W\sin(\alpha + \phi)}{\cos(\theta - \phi)} \\ \text{down the plane: } P &= \frac{W\sin(\alpha - \phi)}{\cos(\theta + \phi)}\end{aligned}
+$$
+
+The upward effort is **least** when $\theta = \phi$: $P_{min} = W\sin(\alpha + \phi)$. For the crate, $600\sin 41.70^\circ = 399.13\ \text{N}$, less than the $416.71\ \text{N}$ needed with a parallel push.
+
+> **Caution**
+> Friction's direction is decided by the motion (or tendency), not by the applied force. In (b) the force acts up the plane, yet friction also acts up the plane, because the crate is trying to slide **down**.
+
+> **Exam tip**
+> Draw the FBD with friction marked **before** resolving. Examiners give marks for the correct friction direction even if later arithmetic slips.
+
+> **Quick recap**
+> - Resolve along and normal to the plane; $R = W\cos\alpha$ for a force parallel to the plane.
+> - Up: $P = W\sin\alpha + \mu R$. Holding: $P = W\sin\alpha - \mu R$. Horizontal push up: $P = W\tan(\alpha + \phi)$.
+> - The least effort acts at the angle of friction to the plane: $W\sin(\alpha + \phi)$.","5 marks: Derive the force to move a body up (and down) a rough inclined plane, for a force parallel to the plane, horizontal, and at an angle θ; show the least force acts at θ = φ. Numerical (10 marks): force to hold a body, to pull it up and to push it horizontally; μ from the force needed to pull a body up a plane."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Ladder friction,"A ladder leaning on a wall is held by friction at its foot (and sometimes at its top). Too shallow an angle and it skids out from under the climber. Finding the safe angle is a classic three-force-and-friction problem.
+
+![A ladder on a rough floor against a smooth wall, on the point of slipping.](/api/uploads/676b166fca2d29464fc384dbc72ecb2d.png)
+*A ladder on a rough floor against a smooth wall, on the point of slipping.*
+
+## Forces on the ladder
+
+- its weight $W$ at the middle;
+- at the foot A: the floor's normal reaction $N_A$ (up) and friction $F_A$ (**towards the wall**, since the foot tends to slide out);
+- at the top B: the wall's normal reaction $N_B$ (away from the wall), and friction $F_B$ (**upward**) if the wall is rough.
+
+Equations: $\sum F_x = 0$, $\sum F_y = 0$, $\sum M = 0$ (moments about the foot A are usually best).
+
+## Case 1: smooth wall, rough floor
+
+With $F_B = 0$:
+
+$$
+\begin{aligned}\sum F_y: \; N_A &= W \\ \sum F_x: \; N_B &= F_A = \mu N_A = \mu W\end{aligned}
+$$
+
+Moments about A, with the ladder of length $L$ at angle $\theta$ to the floor:
+
+$$
+N_B\,L\sin\theta = W\,\frac{L}{2}\cos\theta
+$$
+
+$$
+\mu W\sin\theta = \frac{W}{2}\cos\theta
+$$
+
+$$
+\boxed{\tan\theta_{min} = \frac{1}{2\mu}}
+$$
+
+> **Problem**
+> **Example 1.** A uniform ladder rests on a floor with $\mu = 0.3$ against a smooth wall. Find the least angle with the floor at which it can stand.
+
+$$
+\begin{aligned}\tan\theta &= \frac{1}{2 \times 0.3} = 1.667 \\ \Rightarrow\ \theta_{min} &= 59.04^\circ\end{aligned}
+$$
+
+At any angle steeper than this the ladder is safe; shallower, it slips. Note the answer does not depend on the ladder's length or weight.
+
+## Case 2: a person climbing
+
+> **Problem**
+> **Example 2.** A $6\ \text{m}$ ladder weighing $200\ \text{N}$ rests at $60^\circ$ to a floor ($\mu = 0.35$) against a smooth wall. How far up the ladder can a $700\ \text{N}$ person climb before it slips?
+
+Let the person be $x$ metres up the ladder. Total weight $900\ \text{N}$, so at the point of slipping
+
+$$
+\begin{aligned}N_A &= 900\ \text{N} \\ F_A &= 0.35 \times 900 = 315\ \text{N} = N_B\end{aligned}
+$$
+
+Moments about A:
+
+$$
+\begin{aligned}N_B \times 6\sin 60^\circ &= 200 \times 3\cos 60^\circ \\ &\quad + 700\,x\cos 60^\circ\end{aligned}
+$$
+
+$$
+\begin{aligned}315 \times 5.196 &= 300 + 350\,x \\ \Rightarrow\ 1636.8 &= 300 + 350\,x \\ \Rightarrow\ x &= 3.82\ \text{m}\end{aligned}
+$$
+
+**Answer:** $3.82\ \text{m}$ up the ladder, a little past halfway. Higher than that, the ladder skids.
+
+## Case 3: both surfaces rough
+
+With friction $\mu_1$ at the floor and $\mu_2$ at the wall, the same three equations give
+
+$$
+\tan\theta_{min} = \frac{1 - \mu_1\mu_2}{2\mu_1}
+$$
+
+For $\mu_1 = 0.3$, $\mu_2 = 0.2$: $\tan\theta = 0.94/0.6 = 1.567$, so $\theta_{min} = 57.45^\circ$. Wall friction lets the ladder stand slightly shallower.
+
+> **Caution**
+> Friction at the **foot** points **towards** the wall; at the **top** it points **up**. Both oppose the slipping motion (foot out, top down).
+
+> **Exam tip**
+> Take moments about the foot A: it removes two unknowns ($N_A$ and $F_A$) at once.
+
+> **Quick recap**
+> - Foot friction towards the wall; top friction upward (if rough).
+> - Smooth wall: $\tan\theta_{min} = 1/(2\mu)$.
+> - A climber's safe height comes from moments about the foot at the point of slipping.","5 marks: Derive the least angle at which a uniform ladder can rest against a smooth wall on a rough floor, and against a rough wall. Numerical (10 marks): least angle of a ladder; how far a person can climb before slipping; the friction needed for a given angle."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Where friction helps,"Friction is often treated as a loss, but much of engineering relies on it. Without it, nothing could be gripped, driven, fastened or stopped.
+
+## Friction at work
+
+| Device or action | What friction does |
+|---|---|
+| **Walking, tyres** | The ground's friction pushes us and the car **forward**; without it, wheels spin |
+| **Brakes** | Convert motion into heat by friction between a shoe or pad and a drum or disc (topic 12) |
+| **Belt and rope drives** | Friction between belt and pulley transmits power (topic 11) |
+| **Clutches** | Friction plates connect an engine to a gearbox smoothly |
+| **Nuts, bolts, screws** | Thread friction stops them working loose; a screw jack holds its load (topic 13) |
+| **Wedges, keys, nails** | Friction holds them in place once driven (topic 10) |
+| **Conveyors** | Friction carries goods up an inclined belt |
+
+![A crate on a truck bed: friction from the bed is the only force that can speed the crate up with the truck.](/api/uploads/01d5aa0e6510f99019794df867f05157.png)
+*A crate on a truck bed: friction from the bed is the only force that can speed the crate up with the truck.*
+
+## How much grip is there?
+
+The greatest horizontal force friction can supply is $\mu R$. For a body on level ground, $R = mg$, so the largest acceleration friction can give it is
+
+$$
+a_{max} = \frac{\mu m g}{m} = \mu g
+$$
+
+> **Problem**
+> **Example 1.** A crate rests on the flat bed of a truck, with $\mu = 0.4$. What is the greatest acceleration the truck can have without the crate sliding?
+
+Friction on the crate is the only horizontal force that can accelerate it with the truck:
+
+$$
+a_{max} = \mu g = 0.4 \times 9.81 = 3.92\ \text{m/s}^2
+$$
+
+**Answer:** $3.92\ \text{m/s}^2$. Accelerate harder and the crate slides backwards on the bed.
+
+> **Problem**
+> **Example 2.** A conveyor belt inclined at $15^\circ$ carries boxes, with $\mu = 0.45$ between box and belt. Will the boxes slip back?
+
+The angle of friction is $\phi = \tan^{-1} 0.45 = 24.23^\circ$. The incline ($15^\circ$) is less than $\phi$, so friction can hold the boxes: **no slipping** (topic 6).
+
+> **Note**
+> Engineers often want **high** friction (brake linings, tyre treads, belt surfaces) and **low** friction (bearings, slides, gear teeth) in the same machine. Material choice and lubrication control which you get.
+
+> **Exam tip**
+> A question like ""Friction is a necessary evil: discuss"" wants examples on both sides: advantages (grip, brakes, belts, fastenings) and disadvantages (wear, heat, power loss).
+
+> **Quick recap**
+> - Friction makes walking, driving, braking, belt drives and fastenings possible.
+> - Greatest friction-driven acceleration on level ground: $a_{max} = \mu g$.
+> - A belt or ramp can carry loads up a slope only if the slope is less than the angle of friction.",2 marks: Give advantages and disadvantages of friction. 5 marks: 'Friction is a necessary evil': discuss with examples. Numerical: the greatest acceleration before a load slides; whether a load slips on an inclined conveyor.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Wedges,"A **wedge** is a small block, triangular or tapered in section, driven between two surfaces. A modest push on its thick end produces a large force at right angles, which is why wedges are used to lift heavy machines a few millimetres, split timber, and lock keys and cotters in place.
+
+## How a wedge problem is set up
+
+![Driving a 12° wedge leftwards under a block lifts the block up the wall.](/api/uploads/8e1f269d2a7a3c7bc75b46734ae866a5.png)
+*Driving a 12° wedge leftwards under a block lifts the block up the wall.*
+
+A wedge problem has **two bodies**: the wedge and the load it lifts. There are friction forces on **every** sliding surface:
+
+- between the **load and the wall** (the load slides up the wall);
+- between the **load and the wedge** (they slide along the sloping face);
+- between the **wedge and the floor** (the wedge slides along the floor).
+
+> **Key point**
+> On each rough surface, replace the normal reaction and the limiting friction by a single **total reaction** tilted at the angle of friction $\phi$ from the normal, **against** the relative sliding. Each body then has only three forces, and its equilibrium can be solved by resolving (or by Lami's theorem).
+
+## Worked example
+
+> **Problem**
+> A block of weight $2000\ \text{N}$ rests against a vertical wall and on a $12^\circ$ wedge lying on the floor. The coefficient of friction on all three surfaces is $0.25$. Find the horizontal force $P$ on the wedge needed to start raising the block.
+
+$\phi = \tan^{-1} 0.25 = 14.04^\circ$, so $\alpha + \phi = 26.04^\circ$.
+
+**Block.** Three forces act on it:
+
+- its weight, $2000\ \text{N}$ down;
+- the wall reaction $R_3$: normal to the wall, tilted **down** by $\phi$ (the block rises, so wall friction acts down);
+- the wedge reaction $R_2$: normal to the sloping face, tilted by $\phi$ against the block's sliding up the face. It makes $\alpha + \phi$ with the vertical.
+
+Horizontally:
+
+$$
+R_3\cos\phi = R_2\sin(\alpha + \phi)
+$$
+
+Vertically:
+
+$$
+R_2\cos(\alpha + \phi) = 2000 + R_3\sin\phi
+$$
+
+Substituting $R_3$ from the first equation:
+
+$$
+\begin{aligned}R_2\big[&\cos 26.04^\circ \\ &- \sin 26.04^\circ\tan 14.04^\circ\big] = 2000\end{aligned}
+$$
+
+$$
+\begin{aligned}R_2\,(0.89852 - 0.109735) &= 2000\end{aligned}
+$$
+
+$$
+R_2 = 2535.5\ \text{N}
+$$
+
+$$
+\begin{aligned}R_3 &= \frac{2535.5 \times 0.43894}{0.97014} \\ &= 1147.2\ \text{N}\end{aligned}
+$$
+
+**Wedge.** Three forces act on it: $P$ (to the left); $R_2$ from the block (equal and opposite to the reaction on the block); and the floor reaction $R_1$, tilted by $\phi$ from the vertical against the wedge's leftward slide.
+
+Vertically:
+
+$$
+\begin{aligned}R_1\cos\phi &= R_2\cos(\alpha + \phi) \\ \Rightarrow\ R_1 &= \frac{2535.5 \times 0.89852}{0.97014} \\ &= 2348.3\ \text{N}\end{aligned}
+$$
+
+Horizontally:
+
+$$
+P = R_1\sin\phi + R_2\sin(\alpha + \phi)
+$$
+
+$$
+\begin{aligned}P &= 2348.3 \times 0.24254 \\ &\quad + 2535.5 \times 0.43894\end{aligned}
+$$
+
+$$
+P = 569.6 + 1112.9 = 1682.5\ \text{N}
+$$
+
+**Answer:** $P = 1682.5\ \text{N}$ (about $1.68\ \text{kN}$) to start lifting a $2000\ \text{N}$ block. Friction on three faces is why the force is not much smaller than the load.
+
+> **Note**
+> **Self-locking.** If the wedge angle is small compared with the angle of friction (roughly $\alpha < 2\phi$ when both faces are rough), the wedge stays in place when $P$ is removed: friction holds it. This is exactly what keys, cotters and door wedges rely on.
+
+> **Caution**
+> Decide the sliding direction of **each** surface before tilting the reactions. A reaction tilted the wrong way changes $\alpha + \phi$ to $\alpha - \phi$ and gives a very different answer.
+
+> **Exam tip**
+> Solve the **load first** (it has the known weight), then the wedge. Lami's theorem works equally well on each three-force body and makes a good check.
+
+> **Quick recap**
+> - A wedge problem has two bodies and friction on every sliding face.
+> - Replace each $R$ and $\mu R$ by a total reaction tilted at $\phi$ against the sliding.
+> - Solve the load, then the wedge. Small wedge angles are self-locking.","2 marks: What is a wedge? What does self-locking mean? 5 marks: Explain the analysis of a wedge with friction on all surfaces. Numerical (10 marks): the horizontal force on a wedge to raise a block against a wall, by resolution or Lami's theorem."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Belt friction,"A flat belt or rope wrapped round a pulley can transmit a large pull with only a small pull on the other side, because friction builds up all the way round the contact. The same idea lets a sailor hold a heavy load with a rope wound round a post.
+
+## The tension ratio
+
+![A belt in contact with a pulley over an angle θ. The tight-side tension T1 exceeds the slack-side tension T2.](/api/uploads/498f626d1fa983db870365b4a24a9563.png)
+*A belt in contact with a pulley over an angle θ. The tight-side tension T1 exceeds the slack-side tension T2.*
+
+Let $T_1$ be the tension on the **tight** side, $T_2$ on the **slack** side, $\theta$ the **angle of contact** in **radians**, and $\mu$ the coefficient of friction. On the point of slipping:
+
+$$
+\boxed{\frac{T_1}{T_2} = e^{\mu\theta}}
+$$
+
+**Derivation in brief.** Take a tiny piece of belt subtending $d\theta$, with tensions $T$ and $T + dT$ at its ends.
+
+- Normal to the belt: the two tensions press it onto the pulley with $dR = T\,d\theta$ (using $\sin\tfrac{d\theta}{2} \approx \tfrac{d\theta}{2}$).
+- Along the belt: the difference in tension is carried by friction, $dT = \mu\,dR = \mu T\,d\theta$.
+
+So $\dfrac{dT}{T} = \mu\,d\theta$. Integrating from $T_2$ to $T_1$ over the angle $\theta$:
+
+$$
+\ln\frac{T_1}{T_2} = \mu\theta \;\Rightarrow\; \frac{T_1}{T_2} = e^{\mu\theta}
+$$
+
+> **Caution**
+> $\theta$ **must be in radians**: $\theta\ (\text{rad}) = \theta^\circ \times \pi/180$. Using degrees gives an absurd ratio.
+
+## Angle of contact for an open belt
+
+![An open belt between pulleys of radii r1 and r2 with centres x apart.](/api/uploads/0afa19b197e238894a420c23fc42d693.png)
+*An open belt between pulleys of radii r1 and r2 with centres x apart.*
+
+Slipping starts on the **smaller** pulley, where the contact is least:
+
+$$
+\begin{aligned}\sin\alpha &= \frac{r_1 - r_2}{x} \\ \theta &= 180^\circ - 2\alpha\end{aligned}
+$$
+
+For a crossed belt, $\sin\alpha = (r_1 + r_2)/x$ and $\theta = 180^\circ + 2\alpha$ on both pulleys.
+
+> **Problem**
+> **Example 1.** Pulleys of radii $0.5\ \text{m}$ and $0.2\ \text{m}$ are $3\ \text{m}$ apart, joined by an open belt. Find the angle of contact on the small pulley.
+
+$$
+\begin{aligned}\sin\alpha &= \frac{0.5 - 0.2}{3} = 0.1 \\ \Rightarrow\ \alpha &= 5.74^\circ \\ \theta &= 180^\circ - 11.48^\circ \\ &= 168.52^\circ\end{aligned}
+$$
+
+## Power transmitted
+
+The net driving force on the pulley rim is $T_1 - T_2$. With belt speed $v = \pi d N/60$ (m/s, $N$ in rpm):
+
+$$
+\begin{aligned}P &= (T_1 - T_2)\,v \ \text{watts} \\ \text{torque} &= (T_1 - T_2)\,r\end{aligned}
+$$
+
+> **Problem**
+> **Example 2.** A belt drives a pulley of diameter $0.8\ \text{m}$ at $300\ \text{rpm}$. The angle of contact is $160^\circ$, $\mu = 0.28$, and the greatest safe tension is $2000\ \text{N}$. Find the power transmitted.
+
+$$
+\begin{aligned}\theta &= 160 \times \frac{\pi}{180} = 2.793\ \text{rad} \\ \frac{T_1}{T_2} &= e^{0.28 \times 2.793} = e^{0.782} = 2.186\end{aligned}
+$$
+
+$$
+\begin{aligned}T_2 &= \frac{2000}{2.186} = 915.1\ \text{N} \\ v &= \frac{\pi \times 0.8 \times 300}{60} \\ &= 12.566\ \text{m/s}\end{aligned}
+$$
+
+$$
+\begin{aligned}P &= (2000 - 915.1) \times 12.566 \\ &= 13\,633\ \text{W} = 13.63\ \text{kW}\end{aligned}
+$$
+
+> **Problem**
+> **Example 3 (rope round a post).** A rope makes three full turns round a fixed post ($\mu = 0.25$). What pull must be applied at one end to hold a load of $5000\ \text{N}$ at the other?
+
+$$
+\begin{aligned}\theta &= 3 \times 2\pi = 18.85\ \text{rad} \\ e^{0.25 \times 18.85} &= e^{4.712} = 111.3\end{aligned}
+$$
+
+$$
+T_2 = \frac{5000}{111.3} = 44.9\ \text{N}
+$$
+
+**Answer:** under $45\ \text{N}$ holds $5000\ \text{N}$. The ratio grows exponentially with the number of turns.
+
+> **Exam tip**
+> ""Derive $T_1/T_2 = e^{\mu\theta}$"" is a standard 8–10 mark question. Show the element, resolve normally and along the belt, integrate, and state that $\theta$ is in radians.
+
+> **Quick recap**
+> - $T_1/T_2 = e^{\mu\theta}$, $\theta$ in radians.
+> - Open belt: $\theta = 180^\circ - 2\alpha$, $\sin\alpha = (r_1 - r_2)/x$, on the smaller pulley.
+> - Power $= (T_1 - T_2)v$; torque $= (T_1 - T_2)r$.",8–10 marks: Derive the ratio of belt tensions T1/T2 = e^(μθ). 2 marks: Angle of contact for open and crossed belts. Numerical (10 marks): power transmitted by a belt; tensions from the maximum allowed tension; the pull needed to hold a load with a rope wound round a post.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Friction in brakes,"A brake turns the energy of motion into heat by friction. Two simple types illustrate the mechanics: the **block (shoe) brake** and the **band brake**.
+
+## Single block brake
+
+![A single block brake: a lever pivoted at O presses a shoe onto a rotating drum.](/api/uploads/4b6eb48ce59251f6596df915440e7574.png)
+*A single block brake: a lever pivoted at O presses a shoe onto a rotating drum.*
+
+A lever, pivoted at the fulcrum O, presses a block (shoe) against a rotating drum of radius $r$. A force $P$ is applied at the lever end, distance $L$ from O; the block is at distance $a$ from O.
+
+The drum presses back on the block with a normal reaction $R_N$; friction between them is $\mu R_N$, and it acts on the drum against its rotation. The **braking torque** on the drum is
+
+$$
+T_B = \mu R_N\,r
+$$
+
+**Finding $R_N$: moments about the fulcrum for the lever.**
+
+- If the friction force's line passes **through** O, it has no moment about O:
+
+$$
+R_N\,a = P\,L \;\Rightarrow\; R_N = \frac{PL}{a}
+$$
+
+- If its line is a distance $b$ from O, friction adds its own moment $\mu R_N b$, helping or opposing $P$ depending on the drum's direction of rotation:
+
+$$
+R_N = \frac{PL}{a \pm \mu b}
+$$
+
+  The **minus** sign applies when the friction moment helps $P$ (a **self-energising** brake: more braking for the same effort); the plus sign when it opposes $P$.
+
+> **Problem**
+> **Example 1.** A drum of radius $0.25\ \text{m}$ has a block brake with $L = 0.9\ \text{m}$, $a = 0.35\ \text{m}$ and $\mu = 0.3$. A force of $400\ \text{N}$ is applied. Find the braking torque when (a) the friction line passes through the fulcrum; (b) it is $40\ \text{mm}$ from the fulcrum and opposes $P$; (c) the drum turns the other way, so friction helps $P$.
+
+**(a)**
+
+$$
+\begin{aligned}R_N &= \frac{400 \times 0.9}{0.35} = 1028.6\ \text{N} \\ T_B &= 0.3 \times 1028.6 \times 0.25 \\ &= 77.14\ \text{N·m}\end{aligned}
+$$
+
+**(b)**
+
+$$
+\begin{aligned}R_N &= \frac{360}{0.35 + 0.3 \times 0.04} \\ &= \frac{360}{0.362} = 994.5\ \text{N} \\ T_B &= 74.59\ \text{N·m}\end{aligned}
+$$
+
+**(c)**
+
+$$
+\begin{aligned}R_N &= \frac{360}{0.35 - 0.012} = \frac{360}{0.338} \\ &= 1065.1\ \text{N} \\ T_B &= 79.88\ \text{N·m}\end{aligned}
+$$
+
+The direction of rotation changes the braking torque by about $7\,\%$ between (b) and (c).
+
+> **Caution**
+> If $a - \mu b \le 0$ the brake is **self-locking**: it grabs with no effort at all. Designers avoid this for ordinary brakes.
+
+## Simple band brake
+
+A flexible band wraps round the drum over an angle $\theta$. The belt-friction law (topic 11) relates the two band tensions:
+
+$$
+\frac{T_1}{T_2} = e^{\mu\theta}, \qquad T_B = (T_1 - T_2)\,r
+$$
+
+> **Problem**
+> **Example 2.** A band brake has a drum of radius $0.15\ \text{m}$, an angle of lap of $240^\circ$ and $\mu = 0.25$. The braking torque needed is $60\ \text{N·m}$. The tight end of the band is fixed at the fulcrum, the slack end is attached $0.1\ \text{m}$ from it, and the effort acts $0.5\ \text{m}$ from it. Find the band tensions and the effort.
+
+$$
+T_1 - T_2 = \frac{60}{0.15} = 400\ \text{N}
+$$
+
+$$
+\begin{aligned}\theta &= 240 \times \frac{\pi}{180} = 4.189\ \text{rad} \\ \frac{T_1}{T_2} &= e^{0.25 \times 4.189} = e^{1.047} = 2.850\end{aligned}
+$$
+
+$$
+\begin{aligned}T_2 &= \frac{400}{2.850 - 1} = 216.3\ \text{N} \\ T_1 &= 616.3\ \text{N}\end{aligned}
+$$
+
+The tight end passes through the fulcrum, so only $T_2$ has a moment about it:
+
+$$
+\begin{aligned}P \times 0.5 &= 216.3 \times 0.1 \\ \Rightarrow\ P &= 43.3\ \text{N}\end{aligned}
+$$
+
+**Answer:** $T_1 = 616.3\ \text{N}$, $T_2 = 216.3\ \text{N}$, $P = 43.3\ \text{N}$.
+
+> **Exam tip**
+> Always draw the lever's free body diagram separately from the drum's. The drum gives the braking torque; the lever gives $R_N$ (or the tensions) from $P$.
+
+> **Quick recap**
+> - Block brake: $T_B = \mu R_N r$, with $R_N = PL/(a \pm \mu b)$ from moments about the fulcrum.
+> - Band brake: $T_1/T_2 = e^{\mu\theta}$, $T_B = (T_1 - T_2)r$.
+> - A brake whose friction helps the effort is self-energising; if it needs no effort it is self-locking.",5 marks: Explain the working of a single block brake and derive its braking torque. Numerical (10 marks): braking torque of a block brake for a given effort (friction line through or offset from the fulcrum); tensions and effort for a simple band brake.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Square-threaded screws and the screw jack,"A **screw jack** lifts a car or a heavy machine with a small effort at its handle. Its screw is simply an **inclined plane wrapped round a cylinder**, so everything from the rough-incline topic applies.
+
+## The thread as an incline
+
+![(a) One turn of thread, unrolled, is an incline of slope p/πd. (b) Turning the screw pushes the load up that incline.](/api/uploads/f9ff219853f06aabb0463a443efb2fb9.png)
+*(a) One turn of thread, unrolled, is an incline of slope p/πd. (b) Turning the screw pushes the load up that incline.*
+
+Unroll one turn of a thread of **mean diameter** $d$ and **pitch** $p$ (the rise per turn). It forms a right triangle with base $\pi d$ and height $p$, so the **helix angle** $\alpha$ is
+
+$$
+\tan\alpha = \frac{p}{\pi d}
+$$
+
+Turning the screw is like pushing the load $W$ up this incline with a **horizontal** force $P'$ at the mean radius. From topic 7 (horizontal push up a rough incline):
+
+$$
+P' = W\tan(\alpha + \phi), \qquad \mu = \tan\phi
+$$
+
+## Effort at the handle
+
+The effort $P$ is applied at the end of a handle of length $L$. Equating moments about the screw axis, $P L = P'\,\dfrac{d}{2}$:
+
+$$
+\boxed{P = \frac{d}{2L}\,W\tan(\alpha + \phi)}
+$$
+
+and the **torque** to raise the load is $T = P'\,\dfrac{d}{2} = \dfrac{d}{2}W\tan(\alpha + \phi)$.
+
+**Lowering the load:** friction now helps, so
+
+$$
+P = \frac{d}{2L}\,W\tan(\phi - \alpha) \qquad (\text{if } \phi > \alpha)
+$$
+
+## Efficiency
+
+With no friction ($\phi = 0$), the ideal effort is $P_{ideal} = \dfrac{d}{2L}W\tan\alpha$. The efficiency is
+
+$$
+\eta = \frac{P_{ideal}}{P} = \frac{\tan\alpha}{\tan(\alpha + \phi)}
+$$
+
+> **Key point**
+> **Self-locking:** if $\phi > \alpha$, the load stays up when the handle is released, because lowering then needs a positive effort. Every self-locking screw has an efficiency **below 50 %**. That is the price of a jack that holds its load safely.
+
+## Worked example
+
+> **Problem**
+> A screw jack has a square-threaded screw of mean diameter $50\ \text{mm}$ and pitch $10\ \text{mm}$, with $\mu = 0.1$. The handle is $0.5\ \text{m}$ long. Find, for a load of $20\ \text{kN}$: (a) the effort to raise it; (b) the efficiency; (c) the effort to lower it; (d) whether the jack is self-locking.
+
+$$
+\begin{aligned}\tan\alpha &= \frac{10}{\pi \times 50} = 0.06366 \\ \Rightarrow\ \alpha &= 3.643^\circ \\ \phi &= \tan^{-1}0.1 = 5.711^\circ\end{aligned}
+$$
+
+**(a) Raising:**
+
+$$
+\begin{aligned}P &= \frac{0.05}{2 \times 0.5} \times 20\,000 \times \tan 9.354^\circ \\ &= 1000 \times 0.16471 = 164.7\ \text{N}\end{aligned}
+$$
+
+**(b) Efficiency:**
+
+$$
+\begin{aligned}\eta &= \frac{0.06366}{0.16471} = 0.3865 \\ &= 38.65\,\%\end{aligned}
+$$
+
+(The ideal effort would be only $1000 \times 0.06366 = 63.7\ \text{N}$.)
+
+**(c) Lowering:**
+
+$$
+\begin{aligned}P &= 1000 \times \tan(5.711^\circ - 3.643^\circ) \\ &= 1000 \times \tan 2.068^\circ = 36.1\ \text{N}\end{aligned}
+$$
+
+**(d)** $\phi = 5.711^\circ > \alpha = 3.643^\circ$, so the jack is **self-locking**, and, as expected, its efficiency is below $50\,\%$.
+
+**Answers:** (a) $164.7\ \text{N}$; (b) $38.65\,\%$; (c) $36.1\ \text{N}$; (d) self-locking. A $165\ \text{N}$ push lifts $20\ \text{kN}$: a mechanical advantage of about 121.
+
+> **Note**
+> The efficiency is greatest when $\alpha = 45^\circ - \phi/2$, where $\eta_{max} = \dfrac{1 - \sin\phi}{1 + \sin\phi}$. For $\mu = 0.1$ that is about $82\,\%$, at a helix angle near $42^\circ$, far too steep to be self-locking.
+
+> **Caution**
+> Use the **mean** diameter in $\tan\alpha = p/\pi d$. For a square thread, mean diameter = outer diameter $- \tfrac{p}{2}$ (since each thread is $p/2$ deep).
+
+> **Exam tip**
+> Derive $P = \dfrac{d}{2L}W\tan(\alpha + \phi)$ from the inclined-plane picture, then quote the efficiency and the self-locking condition. Those three results cover most screw-jack questions.
+
+> **Quick recap**
+> - $\tan\alpha = p/\pi d$; raise: $P = \dfrac{d}{2L}W\tan(\alpha + \phi)$; lower: $P = \dfrac{d}{2L}W\tan(\phi - \alpha)$.
+> - $\eta = \tan\alpha / \tan(\alpha + \phi)$.
+> - Self-locking when $\phi > \alpha$; then $\eta < 50\,\%$.","8–10 marks: Derive the effort needed at the handle of a screw jack to raise and to lower a load, and its efficiency; show that a self-locking screw has efficiency below 50 %. Numerical (10 marks): effort, torque and efficiency of a screw jack; effort to lower; whether it is self-locking."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Chapter summary and practice problems,"This page brings chapter 6 together: the key results, practice problems with answers, theory questions and a self-test.
+
+## Key results
+
+| Idea | Result |
+|---|---|
+| Limiting friction | $F = \mu R$ at the point of slipping; below it, $F$ = whatever balances the push |
+| Angle of friction | $\tan\phi = \mu$ |
+| Least drag on a level floor | $P_{min} = W\sin\phi$, at $\theta = \phi$ |
+| Angle of repose | Equals the angle of friction: $\tan\alpha = \mu$ |
+| Up an incline (parallel force) | $P = W(\sin\alpha + \mu\cos\alpha)$ |
+| Holding on an incline | $P = W(\sin\alpha - \mu\cos\alpha)$ |
+| Horizontal push up an incline | $P = W\tan(\alpha + \phi)$ |
+| Ladder, smooth wall | $\tan\theta_{min} = 1/(2\mu)$ |
+| Belt | $T_1/T_2 = e^{\mu\theta}$ ($\theta$ in rad); power $(T_1 - T_2)v$ |
+| Block brake | $T_B = \mu R_N r$, $R_N = PL/(a \pm \mu b)$ |
+| Screw jack | $P = \dfrac{d}{2L}W\tan(\alpha + \phi)$, $\tan\alpha = p/\pi d$, $\eta = \dfrac{\tan\alpha}{\tan(\alpha + \phi)}$ |
+| Self-locking screw | $\phi > \alpha$, and then $\eta < 50\,\%$ |
+
+## The incline at a glance
+
+![Moving up: friction acts down the slope, and the effort must beat both W sin α and μR.](/api/uploads/40feae6906ff23b3642e4c60fa7f58b1.png)
+*Moving up: friction acts down the slope, and the effort must beat both W sin α and μR.*
+
+## Practice problems
+
+Try each one before reading the answer. Every answer has been checked by calculation.
+
+> **Problem** **1.** A $150\ \text{N}$ body on a level floor just slides under a horizontal pull of $54\ \text{N}$. Find $\mu$ and the angle of friction.
+>
+> **Answer:** $\mu = 54/150 = 0.36$; $\phi = 19.80^\circ$.
+
+> **Problem** **2.** An $80\ \text{N}$ box ($\mu = 0.25$) is pulled by a rope at $20^\circ$ above the horizontal. Find the pull needed to move it.
+>
+> **Answer:** $P = \dfrac{0.25 \times 80}{\cos 20^\circ + 0.25\sin 20^\circ} = 19.51\ \text{N}$.
+
+> **Problem** **3.** A block on a tilting board begins to slide at $28^\circ$. Find $\mu$.
+>
+> **Answer:** $\mu = \tan 28^\circ = 0.532$.
+
+> **Problem** **4.** A $500\ \text{N}$ body rests on a $30^\circ$ incline with $\mu = 0.2$. Find the force parallel to the plane to (a) pull it up, (b) hold it from sliding down.
+>
+> **Answer:** (a) $500(0.5 + 0.2 \times 0.866) = 336.60\ \text{N}$; (b) $500(0.5 - 0.1732) = 163.40\ \text{N}$.
+
+> **Problem** **5.** A uniform ladder stands on a floor with $\mu = 0.25$ against a smooth wall. Find the least angle it can make with the floor.
+>
+> **Answer:** $\tan\theta = 1/(2 \times 0.25) = 2$, so $\theta = 63.43^\circ$.
+
+> **Problem** **6.** A belt has an angle of contact of $180^\circ$ and $\mu = 0.3$. The tight-side tension is $1500\ \text{N}$. Find the slack-side tension.
+>
+> **Answer:** $T_1/T_2 = e^{0.3\pi} = 2.566$, so $T_2 = 584.5\ \text{N}$.
+
+> **Problem** **7.** A block brake has $P = 300\ \text{N}$, $L = 0.8\ \text{m}$, $a = 0.3\ \text{m}$, a drum of radius $0.2\ \text{m}$ and $\mu = 0.35$, with the friction line through the fulcrum. Find the braking torque.
+>
+> **Answer:** $R_N = 300 \times 0.8/0.3 = 800\ \text{N}$; $T_B = 0.35 \times 800 \times 0.2 = 56\ \text{N·m}$.
+
+> **Problem** **8.** A screw jack has mean diameter $40\ \text{mm}$, pitch $8\ \text{mm}$, $\mu = 0.12$ and a $0.4\ \text{m}$ handle. Find the effort to raise $10\ \text{kN}$, and the efficiency.
+>
+> **Answer:** $\tan\alpha = 0.06366$ ($\alpha = 3.643^\circ$), $\phi = 6.843^\circ$; $P = \dfrac{0.04}{0.8} \times 10\,000 \times \tan 10.486^\circ = 92.54\ \text{N}$; $\eta = 34.40\,\%$. Self-locking ($\phi > \alpha$).
+
+## Theory questions
+
+1. Define friction, limiting friction, coefficient of friction and angle of friction.
+2. State the laws of static and dynamic friction.
+3. Distinguish static and dynamic friction, and dry and wet friction.
+4. Define the cone of friction.
+5. Define the angle of repose and prove that it equals the angle of friction.
+6. Show that the least force to drag a body on a rough horizontal plane acts at the angle of friction.
+7. Derive the force to move a body up and down a rough inclined plane.
+8. Derive the least angle at which a ladder can rest against a smooth wall.
+9. Derive $T_1/T_2 = e^{\mu\theta}$ for a belt.
+10. Derive the effort and the efficiency of a screw jack; when is it self-locking?
+
+## Quick self-test
+
+1. A body on a plane inclined at **less** than the angle of friction will: (a) **stay at rest** (b) slide down (c) move up (d) none of these. **Answer: (a)**
+2. The same body on a plane inclined at **more** than the angle of friction will: (a) stay at rest (b) **slide down** (c) move up (d) none. **Answer: (b)**
+3. The relation between $\mu$ and the angle of friction is: (a) $\mu = \sin\phi$ (b) $\mu = \cos\phi$ (c) **$\mu = \tan\phi$** (d) $\mu = \cot\phi$. **Answer: (c)**
+4. Limiting friction depends on: (a) the area of contact (b) **the normal reaction** (c) the sliding speed (d) the shape of the body. **Answer: (b)**
+5. True or false: a self-locking screw jack can have an efficiency of $60\,\%$. **Answer: false** (it is always below $50\,\%$).","This chapter's typical paper: 2-mark definitions (μ, φ, cone of friction, angle of repose, self-locking); 5–10 mark derivations (laws of friction; angle of repose = angle of friction; least force on a plane; ladder; belt tension ratio; screw jack effort and efficiency); 10-mark numericals (inclined planes, ladders, wedges, belts, brakes, screw jacks)."
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Trusses and frames: the difference,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,"Perfect, deficient and redundant trusses",,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Assumptions in truss analysis,,
