@@ -2314,12 +2314,529 @@ Try each one before reading the answer. Every answer has been checked by calcula
 3. A couple can be balanced by: (a) a single force (b) **an equal and opposite couple** (c) two like forces (d) nothing. **Answer: (b)**
 4. True or false: a couple consists of two equal forces acting along the same line in opposite directions. **Answer: false** (they must be **parallel and not collinear**; equal opposite collinear forces simply cancel).
 5. True or false: if the resultant of a parallel system is zero, the body must be in equilibrium. **Answer: false** (it may still be a couple).","This chapter's typical paper: 2-mark definitions (moment, like and unlike forces, couple, arm); 5–8 mark proofs (Varignon's theorem; position of the resultant of like and unlike forces; force to force-and-couple); 10-mark numericals (reduce a parallel system on a bar to a single force and to force-couple systems at the ends; moments about a corner of a square)."
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Conditions of equilibrium for coplanar forces,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Action and reaction at contacts,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Drawing free body diagrams,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Two-force and three-force members,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Equilibrium under three forces: Lami's theorem in use,,
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Conditions of equilibrium for coplanar forces,"Most of what a structural or mechanical engineer computes rests on one idea: a body that is **not moving stays that way only if every push and pull on it is balanced**. This topic turns that idea into equations.
+
+## What equilibrium means
+
+A body is in **equilibrium** when it has **no tendency to move along** (translate) **and no tendency to turn** (rotate). For that, two things must hold:
+
+1. the **resultant force** on it is zero;
+2. the **resultant moment** about any point is zero.
+
+$$
+\sum F = 0 \qquad\text{and}\qquad \sum M = 0
+$$
+
+Resolving the forces along two perpendicular axes, the conditions for a **coplanar** system become
+
+$$
+\begin{aligned}\sum F_x &= 0 \\ \sum F_y &= 0 \\ \sum M &= 0\end{aligned}
+$$
+
+The first two are the **force law of equilibrium**, the third the **moment law of equilibrium**.
+
+> **Key point**
+> Three independent equations, so a coplanar body can give **at most three unknowns**. Concurrent forces give only two (their moments about the common point are automatically zero), and parallel forces give two ($\sum F = 0$ along the forces, and $\sum M = 0$).
+
+> **Note**
+> For a **particle**, which cannot rotate, $\sum F = 0$ is enough. For a **rigid body**, the moment condition is needed as well.
+
+## Two forces
+
+![(a) Two equal, opposite, collinear forces balance. (b) Equal, opposite but parallel forces form a couple and turn the body.](/api/uploads/82302fc50ba4e78f100d08fa918dfb4e.png)
+*(a) Two equal, opposite, collinear forces balance. (b) Equal, opposite but parallel forces form a couple and turn the body.*
+
+A body under **two** forces is in equilibrium only if they are **equal, opposite and collinear**. If they are equal and opposite but not on the same line, $\sum F_x = \sum F_y = 0$ still holds, but $\sum M = F \times (\text{distance between them}) \ne 0$: the body turns.
+
+## Three forces
+
+A body under **three** forces is in equilibrium only if the forces are **concurrent** (all three lines meet at one point) or **parallel**. Then:
+
+- concurrent: the resultant of any two is equal, opposite and collinear with the third (Lami's theorem applies, topic 5);
+- parallel: the middle force is opposite to the outer two, and the moments balance.
+
+## Worked example 1: three concurrent forces
+
+> **Problem**
+> A $300\ \text{N}$ load hangs from a ring held by two cords, each at $40^\circ$ above the horizontal on either side. Find the tension in each cord.
+
+![Three concurrent forces in equilibrium.](/api/uploads/98b81f30aa5e9ed2a59585930603f058.png)
+*Three concurrent forces in equilibrium.*
+
+$$
+\begin{aligned}\sum F_x &= 0: \quad F_1\cos 40^\circ - F_2\cos 40^\circ \\ &= 0 \\ \Rightarrow\ F_1 &= F_2\end{aligned}
+$$
+
+Vertically ($\sum F_y = 0$):
+
+$$
+F_1\sin 40^\circ + F_2\sin 40^\circ = 300
+$$
+
+$$
+\begin{aligned}2F_1 \times 0.6428 &= 300 \\ \Rightarrow\ F_1 &= F_2 = 233.36\ \text{N}\end{aligned}
+$$
+
+**Answer:** $233.36\ \text{N}$ in each cord. Note that each cord carries **less** than the load here; at shallower angles it would carry more.
+
+## Worked example 2: three parallel forces
+
+> **Problem**
+> A bar carries $400\ \text{N}$ downward at A and $1500\ \text{N}$ downward at C. It is held level by a single upward force $F_2$ at B, $1.5\ \text{m}$ from A. Find $F_2$ and the distance BC.
+
+![Three parallel forces holding a bar level.](/api/uploads/0295fa20e8ca402a7f688f0fa0163aad.png)
+*Three parallel forces holding a bar level.*
+
+$$
+\begin{aligned}\sum F_y &= 0: \quad F_2 - 400 - 1500 = 0 \\ \Rightarrow\ F_2 &= 1900\ \text{N}\end{aligned}
+$$
+
+Moments about A (anticlockwise positive), with $AC = 1.5 + x$:
+
+$$
+\begin{aligned}1900 \times 1.5 - 1500\,(1.5 + x) &= 0 \\ \Rightarrow\ 2850 - 2250 &= 1500\,x \\ \Rightarrow\ x &= 0.4\ \text{m}\end{aligned}
+$$
+
+**Answer:** $F_2 = 1900\ \text{N}$, and C is $0.4\ \text{m}$ beyond B.
+
+## Worked example 3: the missing force
+
+> **Problem**
+> Four forces act at a point: $25\ \text{N}$ at $0^\circ$, $30\ \text{N}$ at $50^\circ$, $20\ \text{N}$ at $90^\circ$ and $40\ \text{N}$ at $200^\circ$ (from $+x$). A fifth force keeps the point in equilibrium. Find it.
+
+$$
+\begin{aligned}\sum F_x &= 25 + 19.284 + 0 - 37.588 \\ &= +6.696\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum F_y &= 0 + 22.981 + 20 - 13.681 \\ &= +29.300\ \text{N}\end{aligned}
+$$
+
+The fifth force must cancel both sums: components $(-6.696,\ -29.300)$.
+
+$$
+\begin{aligned}F_5 &= \sqrt{6.696^2 + 29.300^2} = 30.06\ \text{N} \\ \phi &= \tan^{-1}\frac{29.300}{6.696} = 77.13^\circ\end{aligned}
+$$
+
+Both components negative, so the third quadrant: $\theta = 180^\circ + 77.13^\circ = 257.13^\circ$.
+
+**Answer:** $30.06\ \text{N}$ at $77.13^\circ$ below the $-x$ axis. It is the **equilibrant** of the other four.
+
+> **Exam tip**
+> State the three conditions with their names (force law, moment law) before using them. In numericals, write which equation each line comes from: ""$\sum F_y = 0$:"" at the start of the line.
+
+> **Quick recap**
+> - Equilibrium: $\sum F_x = 0$, $\sum F_y = 0$, $\sum M = 0$ (at most 3 unknowns).
+> - Two forces: equal, opposite, collinear. Three forces: concurrent or parallel.
+> - The force that restores equilibrium is the equilibrant: minus the resultant of the rest.","2 marks: State the conditions of equilibrium of a coplanar force system. What conditions must two forces satisfy for equilibrium? Why do concurrent forces need only two equations? 5 marks: Prove that two equal, opposite, parallel forces cannot keep a body in equilibrium. Numerical (10 marks): unknown forces of a concurrent or parallel system in equilibrium; the fifth force that balances four."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Action and reaction at contacts,"A book on a table, a beam on a wall, a ladder against a building: every contact between two bodies carries a pair of forces. Knowing **which way** those forces can act is half of every statics problem.
+
+## Action and reaction
+
+By **Newton's third law**, when body A presses on body B (the **action**), B presses back on A with an **equal and opposite** force (the **reaction**), along the same line. The force a **support** exerts on a body is called a **support reaction**.
+
+> **Key point**
+> Action and reaction act on **different** bodies. When we study one body, we show only the forces **on** it: the reactions from its supports, never the forces it exerts on them.
+
+## What each kind of contact can do
+
+![What four common supports can push or pull with. Each reaction is drawn on the body.](/api/uploads/0c0a08f6b473217b13ef4cecc8fcccbe.png)
+*What four common supports can push or pull with. Each reaction is drawn on the body.*
+
+| Contact or support | Reaction on the body | Unknowns |
+|---|---|---|
+| **Smooth surface** | one force, **normal** to the surface, pushing | 1 (size) |
+| **Rough surface** | a normal force plus a **friction** force along the surface | 2 |
+| **Cable, string, rope** | a **tension** along the cable, pulling **away** from the body | 1 (size) |
+| **Roller or rocker** | one force, normal to the surface it rolls on | 1 |
+| **Smooth pin (hinge)** | a force in any direction: two components $R_x$, $R_y$ | 2 |
+| **Fixed (built-in) end** | $R_x$, $R_y$ and a **moment** | 3 |
+
+> **Caution**
+> - A smooth surface or a roller can only **push**, never pull.
+> - A cable can only **pull**, never push.
+> - The direction of a pin reaction is **unknown**: show two components and let the equations decide their signs.
+
+## Contacts with round bodies
+
+When a sphere or cylinder touches a **smooth** surface, the reaction is normal to the surface at the point of contact, and so it passes through the **centre** of the sphere. This is why problems with balls, rollers and pipes reduce to **concurrent** forces through the centre.
+
+> **Problem**
+> A $50\ \text{N}$ ball rests on a smooth floor. What is the reaction, and what does the ball do to the floor?
+
+The ball is in equilibrium under its weight and the floor's reaction: two forces, so they must be equal, opposite and collinear.
+
+**Answer:** the floor pushes **up** on the ball with $50\ \text{N}$ (the reaction), through the point of contact and the centre. The ball pushes **down** on the floor with $50\ \text{N}$ (the action).
+
+> **Exam tip**
+> A table like the one above, with a small sketch for each support, answers ""What are the different types of supports and their reactions?"" completely.
+
+> **Quick recap**
+> - Action and reaction: equal, opposite, collinear, on **different** bodies.
+> - Smooth surface or roller: one normal push. Cable: one pull along it. Pin: two components. Fixed end: two components and a moment.
+> - Smooth contact with a round body: the reaction passes through the centre.","2 marks: What is action and reaction? Give examples. What reaction does a smooth surface, a cable, a roller and a pin give? 5 marks: Types of supports with sketches of their reactions."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Drawing free body diagrams,"Almost every mistake in statics starts with a wrong picture. The **free body diagram** (FBD) is the picture that gets it right: one body, cut free from everything, with every force on it drawn in.
+
+## What an FBD is
+
+> **Key point**
+> A **free body diagram** shows a body **completely isolated** from its surroundings, with **every external force** on it: its weight, applied loads, and the **reactions** that replace each support or contact that was removed.
+
+## Five steps
+
+1. **Choose the body** (or group of bodies) to isolate.
+2. **Sketch its outline** alone, with no walls, floors, strings or neighbours.
+3. Draw its **weight** at the centre of gravity, vertically down.
+4. Draw the **applied forces** given in the problem.
+5. At each place where it touched something, draw the **reaction** that thing exerts, in the direction the support allows (topic 2). Label unknowns.
+
+Then write $\sum F_x = 0$, $\sum F_y = 0$ (and $\sum M = 0$ if the forces are not concurrent).
+
+> **Caution**
+> Do not draw **internal** forces (between parts of the chosen body), and do not draw forces the body exerts **on** its supports. Only forces **on** the body belong in its FBD.
+
+## Worked example 1: a ball on a string against a wall
+
+> **Problem**
+> A ball of weight $150\ \text{N}$ and radius $15\ \text{cm}$ hangs from a string attached to a smooth vertical wall at A. The string, $25\ \text{cm}$ from A to the ball's centre B, makes the ball rest against the wall at C. Find the tension $F$ and the wall's reaction $R_C$.
+
+![(a) The set-up. (b) The ball's free body diagram: three forces through the centre B.](/api/uploads/07bce52d94157bf600eab390089d058d.png)
+*(a) The set-up. (b) The ball's free body diagram: three forces through the centre B.*
+
+**Geometry.** The wall touches the ball at C, level with B, so $BC = 15\ \text{cm}$ is horizontal. With the string $AB = 25\ \text{cm}$ making angle $\theta$ with the wall:
+
+$$
+\begin{aligned}\sin\theta &= \frac{BC}{AB} = \frac{15}{25} = 0.6 \\ \Rightarrow\ \theta &= 36.87^\circ, \quad \cos\theta = 0.8\end{aligned}
+$$
+
+**FBD.** Three forces act on the ball: $W = 150\ \text{N}$ down; the string tension $F$ along BA; the wall reaction $R_C$, horizontal (normal to the smooth wall) and through B.
+
+$$
+\begin{aligned}\sum F_y &= 0: \quad F\cos\theta = 150 \\ \Rightarrow\ F &= \frac{150}{0.8} = 187.5\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum F_x &= 0: \quad R_C = F\sin\theta \\ &= 187.5 \times 0.6 = 112.5\ \text{N}\end{aligned}
+$$
+
+**Answer:** $F = 187.5\ \text{N}$, $R_C = 112.5\ \text{N}$.
+
+## Worked example 2: a sphere in a groove
+
+> **Problem**
+> A smooth sphere weighing $200\ \text{N}$ rests in a right-angled groove whose sides make $40^\circ$ and $50^\circ$ with the horizontal. Find the reactions from the two sides.
+
+![The sphere's FBD: each reaction is normal to its side and passes through the centre.](/api/uploads/dc7ed780ec0af8b81ceb1aa26c26c46b.png)
+*The sphere's FBD: each reaction is normal to its side and passes through the centre.*
+
+Each reaction is normal to its face, so the reaction $R_1$ from the $40^\circ$ side is tilted $40^\circ$ from the vertical, and $R_2$ from the $50^\circ$ side is tilted $50^\circ$ from the vertical.
+
+$$
+\begin{aligned}\sum F_x &= 0: \quad R_1\sin 40^\circ \\ &= R_2\sin 50^\circ\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum F_y &= 0: \quad R_1\cos 40^\circ + R_2\cos 50^\circ \\ &= 200\end{aligned}
+$$
+
+Because the faces are at right angles, $R_1$ and $R_2$ are at right angles too, and the triangle of forces is right-angled:
+
+$$
+\begin{aligned}R_1 &= 200\cos 40^\circ = 153.21\ \text{N} \\ R_2 &= 200\cos 50^\circ = 128.56\ \text{N}\end{aligned}
+$$
+
+Check: $153.21 \times 0.6428 = 98.48$ and $128.56 \times 0.7660 = 98.48$ ✓; $117.36 + 82.64 = 200$ ✓.
+
+**Answer:** $153.21\ \text{N}$ from the gentler ($40^\circ$) side, $128.56\ \text{N}$ from the steeper ($50^\circ$) side.
+
+## Worked example 3: two spheres in a channel
+
+> **Problem**
+> Two identical smooth spheres, each $400\ \text{N}$ and of radius $20\ \text{cm}$, rest in a channel $72\ \text{cm}$ wide, one on the floor against the left wall, the other leaning on it and against the right wall. Find the reactions at A (left wall), B (floor), C (right wall) and D (between the spheres).
+
+![Two spheres in a channel. The line of centres is 40 cm long; it rises 24 cm over 32 cm.](/api/uploads/c2ae3303aa2a0da9edc9a7404d13158d.png)
+*Two spheres in a channel. The line of centres is 40 cm long; it rises 24 cm over 32 cm.*
+
+**Geometry.** The centres are $72 - 20 - 20 = 32\ \text{cm}$ apart horizontally and $20 + 20 = 40\ \text{cm}$ apart along the line of centres, so the vertical rise is $\sqrt{40^2 - 32^2} = 24\ \text{cm}$. Let $\theta$ be the angle of that line from the **vertical**:
+
+$$
+\begin{aligned}\cos\theta &= \frac{24}{40} = 0.6 \\ \sin\theta &= \frac{32}{40} = 0.8\end{aligned}
+$$
+
+**Upper sphere (FBD: W, $R_C$ horizontal, $R_D$ along the line of centres).**
+
+$$
+\begin{aligned}\sum F_y: \; R_D\cos\theta &= 400 \\ \Rightarrow\ R_D &= \frac{400}{0.6} = 666.67\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum F_x: \; R_C &= R_D\sin\theta = 666.67 \times 0.8 \\ &= 533.33\ \text{N}\end{aligned}
+$$
+
+**Lower sphere (FBD: W, $R_A$ horizontal, $R_B$ vertical, and $R_D$ pushing back down along the line of centres).**
+
+$$
+\sum F_x: \; R_A = R_D\sin\theta = 533.33\ \text{N}
+$$
+
+Vertically:
+
+$$
+R_B = 400 + R_D\cos\theta = 800\ \text{N}
+$$
+
+**Answer:** $R_A = R_C = 533.33\ \text{N}$, $R_B = 800\ \text{N}$, $R_D = 666.67\ \text{N}$. Check on both spheres together: the floor carries both weights, $800\ \text{N}$ ✓, and the two wall pushes balance ✓.
+
+> **Exam tip**
+> Draw a **separate FBD for each body** when two bodies touch, and show the contact force between them as equal and opposite on the two diagrams. Examiners often give marks for the FBDs alone.
+
+> **Quick recap**
+> - FBD: isolate the body; draw weight, applied loads and every support reaction; nothing else.
+> - Smooth contacts on round bodies give reactions through the centre: the forces are concurrent.
+> - For touching bodies, draw one FBD each; the contact force appears on both, equal and opposite.","2 marks: What is a free body diagram? 5 marks: Explain how to draw a free body diagram, with examples (a ball on a string against a wall; a ball on a floor and a wall). Numerical (10 marks): tension and wall reaction for a hanging sphere; reactions of a sphere in a V-groove; reactions of two spheres in a channel or on an incline."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Two-force and three-force members,"Two short rules about bodies with only two or three forces on them solve many problems almost without algebra. They also tell you the **direction** of a reaction you could not otherwise know.
+
+## Two-force members
+
+> **Key point**
+> If a body is in equilibrium under forces at **only two points**, the two resultant forces must be **equal, opposite, and along the line joining those two points**.
+
+Examples: a link or strut pinned at both ends with no load between them, a straight cable, a connecting rod. Such a member is either in **tension** (pulled) or in **compression** (pushed), along its own line. You will use this constantly for truss members in Unit II.
+
+## Worked example 1: a bent bar on a hinge
+
+> **Problem**
+> An L-shaped bar ABC is hinged at A. AB is vertical and $60\ \text{cm}$ long; BC is horizontal and $45\ \text{cm}$ long. A single force $F$ at C keeps it in this position (neglect its weight). At what angle to the horizontal must $F$ act?
+
+![With only F at C and the hinge reaction at A, both must lie along the line AC.](/api/uploads/72597d242ecd4a4e4a473235a6465967.png)
+*With only F at C and the hinge reaction at A, both must lie along the line AC.*
+
+Only two forces act: $F$ at C and the hinge reaction at A. So both lie along the line **AC**. Its slope:
+
+$$
+\begin{aligned}\tan\alpha &= \frac{AB}{BC} = \frac{60}{45} = 1.333 \\ \Rightarrow\ \alpha &= 53.13^\circ\end{aligned}
+$$
+
+**Answer:** $F$ must act along AC, at $53.13^\circ$ to the horizontal. Any other direction would leave a moment about A and the bar would swing.
+
+## Three-force members
+
+> **Key point**
+> If a body is in equilibrium under **three** forces that are not parallel, their lines of action must **meet at one point**. If two of them meet at a point, the third must pass through it too.
+
+This often fixes the direction of an unknown reaction: find where the two known lines meet, and the third force must point there.
+
+## Worked example 2: a roller pulled onto a step
+
+> **Problem**
+> A roller of radius $50\ \text{cm}$ and weight $2000\ \text{N}$ is to be pulled onto a step $20\ \text{cm}$ high by a horizontal force $P$ at its centre O. Find $P$ just as the roller begins to lift off the ground, the reaction $R_B$ at the step's edge B, and the least force that could do the job.
+
+![At the point of lifting, only W, P and the edge reaction act: all three pass through the centre O.](/api/uploads/de8d2945bb8e5dca7673d7767f899785.png)
+*At the point of lifting, only W, P and the edge reaction act: all three pass through the centre O.*
+
+**Three forces.** As the roller is about to lift, the ground reaction at A drops to zero. That leaves $W$ (through O), $P$ (through O) and $R_B$. For equilibrium, $R_B$ must also pass through O: it acts along **BO**.
+
+**Geometry.** With D the point on OA level with B: $OD = 50 - 20 = 30\ \text{cm}$, $OB = 50\ \text{cm}$, so
+
+$$
+\begin{aligned}BD &= \sqrt{50^2 - 30^2} = 40\ \text{cm} \\ \cos\theta &= \frac{OD}{OB} = 0.6, \quad \theta \\ &= 53.13^\circ\end{aligned}
+$$
+
+where $\theta$ is the angle of BO from the vertical.
+
+Vertically ($\sum F_y = 0$):
+
+$$
+\begin{aligned}R_B\cos\theta &= 2000 \\ \Rightarrow\ R_B &= \frac{2000}{0.6} = 3333.3\ \text{N}\end{aligned}
+$$
+
+Horizontally ($\sum F_x = 0$):
+
+$$
+\begin{aligned}P &= R_B\sin\theta = 3333.3 \times 0.8 \\ &= 2666.7\ \text{N}\end{aligned}
+$$
+
+**Check by moments about B** (the edge reaction drops out): $P \times OD = W \times BD$, so $P \times 30 = 2000 \times 40$, $P = 2666.7\ \text{N}$ ✓.
+
+**Least force.** About B, the weight's moment $W \times BD = 2000 \times 0.4 = 800\ \text{N·m}$ must be overcome. A force at O has the largest arm, $OB = 0.5\ \text{m}$, when it acts **perpendicular to BO**:
+
+$$
+P_{min} = \frac{800}{0.5} = 1600\ \text{N}
+$$
+
+**Answer:** $P = 2666.7\ \text{N}$, $R_B = 3333.3\ \text{N}$ along BO; the least force is $1600\ \text{N}$, applied at O perpendicular to OB.
+
+> **Caution**
+> ""About to lift off"" means the reaction at the lifting point is **zero**, not unknown. Recognising this is what turns the problem into a three-force problem.
+
+> **Exam tip**
+> When a body has only three forces, say so in a line (""three-force member: the forces are concurrent"") before drawing the meeting point. It shows the examiner why you chose the direction of the unknown reaction.
+
+> **Quick recap**
+> - Two-force member: forces equal, opposite, along the line joining their points.
+> - Three non-parallel forces in equilibrium are concurrent.
+> - ""About to lift"" means the reaction there is zero.",2 marks: What is a two-force member? State the condition for three forces to be in equilibrium. 5 marks: Explain two-force and three-force members with examples. Numerical (10 marks): the force needed to pull a roller over a step (and the least such force); the direction of a hinge reaction for a bent bar.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Equilibrium under three forces: Lami's theorem in use,"Chapter 1 proved Lami's theorem. Here it goes to work on typical engineering joints, where three forces meet at a pin, a hook or a ring.
+
+## The theorem, in one line
+
+> **Key point**
+> For three concurrent coplanar forces $P$, $Q$, $R$ in equilibrium:
+>
+> $$
+> \frac{P}{\sin\alpha} = \frac{Q}{\sin\beta} = \frac{R}{\sin\gamma}
+> $$
+>
+> where each angle is the one **between the other two forces**.
+
+**Routine:** draw the FBD of the joint with all three forces pointing **away** from it (tensions) or all **towards** it (pushes) as they really act; mark the three angles between them; check they add to $360^\circ$; then apply the theorem.
+
+## Worked example 1: a weight pulled aside
+
+> **Problem**
+> A $2400\ \text{N}$ load hangs from a $3\ \text{m}$ chain fixed to a wall at A. A horizontal pull of $700\ \text{N}$ holds it away from the wall. Find the force in the chain, its angle, and how far the load is held from the wall.
+
+![The load at B under three forces: the chain, the horizontal pull and the weight.](/api/uploads/f30dab98b8b8212114a499c0f5c4ad19.png)
+*The load at B under three forces: the chain, the horizontal pull and the weight.*
+
+Let the chain make angle $\theta$ with the horizontal at B. The three forces at B are: chain tension $F$ (up the chain, towards A), $700\ \text{N}$ horizontal, $2400\ \text{N}$ down. The angles between them are $90^\circ$ (pull and weight), $90^\circ + \theta$ (chain and weight) and $180^\circ - \theta$ (chain and pull). Lami:
+
+$$
+\begin{aligned}\frac{F}{\sin 90^\circ} &= \frac{700}{\sin(90^\circ + \theta)} \\ &= \frac{2400}{\sin(180^\circ - \theta)}\end{aligned}
+$$
+
+Since $\sin(90^\circ + \theta) = \cos\theta$ and $\sin(180^\circ - \theta) = \sin\theta$:
+
+$$
+F\cos\theta = 700, \qquad F\sin\theta = 2400
+$$
+
+$$
+\begin{aligned}\tan\theta &= \frac{2400}{700} = 3.4286 \\ \Rightarrow\ \theta &= 73.74^\circ\end{aligned}
+$$
+
+$$
+\begin{aligned}F &= \sqrt{700^2 + 2400^2} = \sqrt{6\,250\,000} \\ &= 2500\ \text{N}\end{aligned}
+$$
+
+Horizontal distance from the wall: $x = 3\cos\theta = 3 \times \dfrac{700}{2500} = 0.84\ \text{m}$.
+
+**Answer:** $F = 2500\ \text{N}$ at $73.74^\circ$ to the horizontal; the load is held $0.84\ \text{m}$ from the wall.
+
+## Worked example 2: a wall crane joint
+
+> **Problem**
+> At the head of a simple wall crane, a tie (pulling towards the wall at $30^\circ$ above the horizontal) and a strut (pushing away from the wall at $45^\circ$ above the horizontal) meet at a joint carrying $10\ \text{kN}$. Find the force in each.
+
+![Forces on the joint: the tie pulls towards the wall, the strut pushes outward, the load hangs down.](/api/uploads/4c1780be1d2e2751dbb2623e67ede693.png)
+*Forces on the joint: the tie pulls towards the wall, the strut pushes outward, the load hangs down.*
+
+Measured from $+x$ (pointing away from the wall): the tie $T$ acts at $150^\circ$, the strut $C$ at $45^\circ$, the load at $270^\circ$. Angles between them:
+
+- $T$ and $C$: $150^\circ - 45^\circ = 105^\circ$
+- $C$ and load: $270^\circ - 45^\circ = 225^\circ$, i.e. $135^\circ$ the other way round
+- load and $T$: $270^\circ - 150^\circ = 120^\circ$
+
+Check: $105^\circ + 135^\circ + 120^\circ = 360^\circ$ ✓.
+
+$$
+\begin{aligned}\frac{T}{\sin 135^\circ} &= \frac{C}{\sin 120^\circ} \\ &= \frac{10}{\sin 105^\circ}\end{aligned}
+$$
+
+$$
+\begin{aligned}T &= \frac{10 \times 0.7071}{0.9659} = 7.32\ \text{kN} \\ C &= \frac{10 \times 0.8660}{0.9659} = 8.97\ \text{kN}\end{aligned}
+$$
+
+**Check:** $\sum F_x = -7.32\cos 30^\circ + 8.97\cos 45^\circ = -6.34 + 6.34 = 0$ ✓; $\sum F_y = 7.32 \times 0.5 + 8.97 \times 0.7071 - 10 = 0$ ✓.
+
+**Answer:** tie $7.32\ \text{kN}$ (tension), strut $8.97\ \text{kN}$ (compression).
+
+> **Caution**
+> A strut **pushes** on the joint, a tie **pulls**. Draw each in its true sense before measuring angles. If you guess a sense wrongly, Lami's theorem cannot show it with a minus sign the way $\sum F = 0$ can, so check with components.
+
+> **Exam tip**
+> After a Lami solution, a two-line check by $\sum F_x$ and $\sum F_y$ catches almost every angle mistake. It costs a minute and saves the marks.
+
+> **Quick recap**
+> - Three forces at a joint in equilibrium: $\dfrac{P}{\sin\alpha} = \dfrac{Q}{\sin\beta} = \dfrac{R}{\sin\gamma}$, angle opposite each force.
+> - Draw true senses (ties pull, struts push), check the angles add to $360^\circ$.
+> - Always verify with $\sum F_x = 0$ and $\sum F_y = 0$.",5 marks: State Lami's theorem and explain its use for a joint in equilibrium. Numerical (10 marks): the force in a chain and the sideways displacement of a load pulled aside; forces in the tie and strut of a wall crane; tensions in two cords holding a weight.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Chapter summary and practice problems,"This page brings chapter 4 together: the key results, practice problems with answers, theory questions and a self-test.
+
+## Key results
+
+| Idea | Result |
+|---|---|
+| Equilibrium of a coplanar body | $\sum F_x = 0$, $\sum F_y = 0$, $\sum M = 0$: at most 3 unknowns |
+| Concurrent forces | $\sum F_x = 0$, $\sum F_y = 0$ only: 2 unknowns |
+| Parallel forces | $\sum F = 0$, $\sum M = 0$: 2 unknowns |
+| Two forces | Equal, opposite, collinear (else a couple) |
+| Three forces | Concurrent or parallel |
+| Action and reaction | Equal, opposite, collinear, on different bodies |
+| Supports | Smooth surface or roller: 1 normal push. Cable: 1 pull. Pin: 2 components. Fixed end: 2 components and a moment |
+| FBD | Isolate the body; show weight, loads and every reaction; nothing else |
+| About to lift | The reaction at the lifting point is zero |
+| Lami's theorem | $\dfrac{P}{\sin\alpha} = \dfrac{Q}{\sin\beta} = \dfrac{R}{\sin\gamma}$ for three concurrent forces |
+
+## The supports at a glance
+
+![What each common support can do.](/api/uploads/0c0a08f6b473217b13ef4cecc8fcccbe.png)
+*What each common support can do.*
+
+## Practice problems
+
+Try each one before reading the answer. Every answer has been checked by calculation.
+
+> **Problem** **1.** A $500\ \text{N}$ weight is held by two cords: one at $35^\circ$ above the horizontal to the right, the other at $55^\circ$ above the horizontal to the left. Find the tensions.
+>
+> **Answer:** the cords are at right angles. Lami: right cord $= 500\sin 145^\circ = 286.79\ \text{N}$; left cord $= 500\sin 125^\circ = 409.58\ \text{N}$.
+
+> **Problem** **2.** A bar carries $600\ \text{N}$ down at A and $2200\ \text{N}$ down at C, and is held by an upward force at B, $2.5\ \text{m}$ from A. Find the upward force and BC.
+>
+> **Answer:** $F_2 = 2800\ \text{N}$; $2800 \times 2.5 = 2200\,(2.5 + x)$, so $x = 0.682\ \text{m}$.
+
+> **Problem** **3.** A roller of weight $800\ \text{N}$ and radius $25\ \text{cm}$ hangs from a tie rod $50\ \text{cm}$ long (wall to centre) and rests against a smooth vertical wall. Find the force in the rod and the wall reaction.
+>
+> **Answer:** $\sin\theta = 25/50$, $\theta = 30^\circ$; $F = 800 / \cos 30^\circ = 923.76\ \text{N}$; $R = F\sin 30^\circ = 461.88\ \text{N}$.
+
+> **Problem** **4.** A smooth sphere of $500\ \text{N}$ rests in a right-angled groove whose sides make $30^\circ$ and $60^\circ$ with the horizontal. Find the reactions.
+>
+> **Answer:** from the $30^\circ$ side: $500\cos 30^\circ = 433.01\ \text{N}$; from the $60^\circ$ side: $500\cos 60^\circ = 250\ \text{N}$.
+
+> **Problem** **5.** Two smooth spheres, each $250\ \text{N}$ and of radius $15\ \text{cm}$, rest in a channel $54\ \text{cm}$ wide as in topic 3. Find the reactions at the walls, the floor and between the spheres.
+>
+> **Answer:** horizontal gap of centres $24\ \text{cm}$, line of centres $30\ \text{cm}$, rise $18\ \text{cm}$: $\cos\theta = 0.6$, $\sin\theta = 0.8$. $R_D = 416.67\ \text{N}$; walls $333.33\ \text{N}$ each; floor $500\ \text{N}$.
+
+> **Problem** **6.** A $1200\ \text{N}$ load on a $5\ \text{m}$ chain is pulled aside by a horizontal force of $500\ \text{N}$. Find the chain force, its angle with the horizontal and the load's distance from the vertical through the support.
+>
+> **Answer:** $F = \sqrt{1200^2 + 500^2} = 1300\ \text{N}$; $\tan\theta = 2.4$, $\theta = 67.38^\circ$; $x = 5 \times 500/1300 = 1.923\ \text{m}$.
+
+> **Problem** **7.** A roller of radius $40\ \text{cm}$ and weight $1500\ \text{N}$ is pulled by a horizontal force at its centre onto a step $15\ \text{cm}$ high. Find the force needed and the least possible force.
+>
+> **Answer:** $OD = 25\ \text{cm}$, $BD = \sqrt{40^2 - 25^2} = 31.22\ \text{cm}$; $P = 1500 \times 31.22 / 25 = 1873.5\ \text{N}$; $P_{min} = 1500 \times 31.22 / 40 = 1170.9\ \text{N}$.
+
+> **Problem** **8.** An L-shaped bar is hinged at A, with AB vertical ($30\ \text{cm}$) and BC horizontal ($40\ \text{cm}$). At what angle to the horizontal must a single force at C act to hold it?
+>
+> **Answer:** along AC: $\tan\alpha = 30/40$, $\alpha = 36.87^\circ$.
+
+## Theory questions
+
+1. State the conditions of equilibrium of a coplanar force system. Which apply to concurrent forces?
+2. What conditions must two forces satisfy to keep a body in equilibrium? Show that two equal, opposite, parallel forces cannot.
+3. What conditions must three forces satisfy for equilibrium?
+4. What is action and reaction? Give examples.
+5. Describe the reactions given by a smooth surface, a cable, a roller, a pin and a fixed end.
+6. What is a free body diagram? Draw one for a ball resting on a floor against a wall.
+7. What are two-force and three-force members?
+8. State Lami's theorem and explain how it is used.
+
+## Quick self-test
+
+1. A coplanar non-concurrent system in equilibrium gives how many independent equations? (a) 1 (b) 2 (c) **3** (d) 6. **Answer: (c)**
+2. The reaction of a smooth surface on a body is: (a) along the surface (b) **normal to the surface** (c) vertical always (d) zero. **Answer: (b)**
+3. A cable can exert: (a) a push (b) **a pull along itself** (c) a moment (d) a force in any direction. **Answer: (b)**
+4. When a roller is about to be lifted off the ground, the ground reaction is: (a) its weight (b) half its weight (c) **zero** (d) unknown. **Answer: (c)**
+5. True or false: in a free body diagram we draw the forces the body exerts on its supports. **Answer: false** (only the forces **on** the body).","This chapter's typical paper: 2-mark definitions (equilibrium conditions, free body diagram, action and reaction, two-force member); 5-mark explanations (supports and their reactions; drawing FBDs; Lami's theorem); 10-mark numericals (spheres against walls, in grooves and channels; rollers pulled over a step; loads on chains; tie and strut forces)."
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Why structures need supports,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of supports and the reactions they give,,
 B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of loading on a beam,,
