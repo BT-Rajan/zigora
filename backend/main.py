@@ -1134,6 +1134,7 @@ def applied_migrations():
 def boot():
     require_secret()
     upgrade_schema()
+    ship_figures()  # the figures shipped with the course content, for its notes
     spawn(digest_loop)
     if not os.getenv("PYTEST_CURRENT_TEST"): spawn(google_keys_loop)  # Google's sign-in keys, ready before anyone signs in
     with Session_() as s: s.query(MailLog).filter(MailLog.at < dt.datetime.utcnow() - dt.timedelta(days=90)).delete(); s.commit()
@@ -3509,6 +3510,7 @@ def import_csv(b: ImportIn, a: User = Depends(admin), s: Session = Depends(db)):
         s.rollback() if b.dry_run else s.commit()
     except Exception:
         s.rollback(); raise HTTPException(500, "Import failed. Nothing was saved.")
+    if not b.dry_run: ship_figures()  # the notes may show figures shipped in content/figures
     return {"dry_run": b.dry_run, "rows": len(rows), "valid_rows": valid, "created": made, "updated_topics": updated,
             "error_count": len(errors), "errors": errors[:20], "warnings": warnings[:20]}
 
@@ -7264,6 +7266,16 @@ def reset_prompt(kind: str, _: User = Depends(admin), s: Session = Depends(db)):
     s.query(Setting).filter_by(k="prompt_" + kind).delete(); cleared = clear_saved(s, kind); s.commit(); return {"ok": True, "cleared": cleared}
 
 UPLOADS = os.path.abspath(os.getenv("UPLOAD_DIR") or os.path.join(os.path.dirname(__file__), "uploads"))
+FIGURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "content", "figures")
+def ship_figures():
+    """The course content's own figures (content/figures, each named by its hash) copied into the uploads, where the notes link them."""
+    if not os.path.isdir(FIGURES): return 0
+    os.makedirs(UPLOADS, exist_ok=True); n = 0
+    for f in sorted(os.listdir(FIGURES)):
+        if re.fullmatch(r"[0-9a-f]{32}\.(png|jpg|gif|webp)", f) and not os.path.isfile(os.path.join(UPLOADS, f)):
+            with open(os.path.join(FIGURES, f), "rb") as src, open(os.path.join(UPLOADS, f), "wb") as dst: dst.write(src.read())
+            n += 1
+    return n
 MAX_IMG = 3 * 1024 * 1024
 def sniff(b):  # trust the bytes, not the file name or the browser's content type
     if b[:8] == b"\x89PNG\r\n\x1a\n": return "png"
