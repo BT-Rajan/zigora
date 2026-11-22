@@ -14,7 +14,7 @@ def test_reset_demo_wipes_everything_and_makes_demo_accounts(env, tmp_path):
     with Session_() as s:
         manage.reset_demo(s, types.SimpleNamespace(files=[PHARM], password="demo1234", yes=True, dir=str(tmp_path)))
     assert any(f.name.endswith(".sqlite.gz") for f in tmp_path.iterdir())  # backed up first
-    assert os.listdir(UPLOADS) == []
+    assert set(os.listdir(UPLOADS)) <= set(os.listdir(main.FIGURES))  # every upload wiped; only the figures shipped with the content come back
     with Session_() as s:
         assert [p.name for p in s.query(Program)] == ["M.B.B.S"] and s.query(Topic).count() == 99
         assert {x.k for x in s.query(Setting)} == {"mastery_rule_since", "assign_tie_since"}  # the AI key and every other setting are gone

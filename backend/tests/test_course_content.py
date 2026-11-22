@@ -28,3 +28,26 @@ def test_engineering_mechanics_loads_beside_pharmacology(env):
         assert s.query(Topic).filter_by(course_id=co.id).count() == 155
         assert all(s.query(Topic).filter_by(unit_id=u.id).order_by(Topic.position.desc()).first().title in ("Chapter summary and practice problems", "A model examination paper with worked solutions") for u in units)
         assert s.query(Course).count() == 2  # Pharmacology is untouched
+
+def test_engineering_mechanics_chapter_1_is_written_with_its_figures(env):
+    import re, main
+    r = env.c.post("/api/admin/import", headers=env.admin, json={"csv": open(EM, encoding="utf-8").read(), "dry_run": False}).json(); assert r["error_count"] == 0
+    with Session_() as s:
+        u = s.query(Unit).filter_by(name="Unit I · 1. Fundamentals of engineering mechanics").one()
+        first = s.query(Topic).filter_by(unit_id=u.id).order_by(Topic.position).all()
+        assert len(first) == 11 and all(t.content and t.question_pattern and t.content_format == "markdown" for t in first)
+        for t in first:  # headings, equations, an exam tip and a recap; display maths opens and closes
+            assert "## " in t.content and "$" in t.content and ("Quick recap" in t.content or "Practice problems" in t.content), t.title
+            assert t.content.count("$$") % 2 == 0, t.title
+        later = s.query(Topic).filter(Topic.course_id == u.course_id, Topic.unit_id != u.id).all()
+        assert later and not any(t.content for t in later)  # the other chapters are still titles only
+        pics = {m for t in first for m in re.findall(r"/api/uploads/([0-9a-f]{32}\.png)", t.content)}
+    assert len(pics) >= 15
+    for p in pics:  # each figure shipped in content/figures, copied into the uploads by the import, and served to anyone
+        assert os.path.isfile(os.path.join(main.FIGURES, p)) and os.path.isfile(os.path.join(main.UPLOADS, p))
+        assert env.c.get("/api/uploads/" + p).status_code == 200
+
+def test_shipped_figures_are_named_by_their_content():
+    import hashlib, main
+    names = os.listdir(main.FIGURES)
+    assert names and all(hashlib.sha256(open(os.path.join(main.FIGURES, n), "rb").read()).hexdigest()[:32] + ".png" == n for n in names)

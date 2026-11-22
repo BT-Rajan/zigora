@@ -1,156 +1,1183 @@
-program,semester,semester_no,course,unit,topic
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,What engineering mechanics studies
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Scalars and vectors
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,"Free, sliding and fixed vectors"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Adding two forces: parallelogram and triangle laws
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Lami's theorem for three concurrent forces
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Units: the SI system and checking dimensions
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Resolving a force into components
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Moment of a force about a point
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Newton's laws and the laws of mechanics
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Transmissibility of a force
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,"Collinear, concurrent, coplanar and parallel forces"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Classifying force systems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,What a resultant is
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of coplanar forces: the method of components
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of collinear forces
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of concurrent coplanar forces
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of non-concurrent coplanar forces and its line of action
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Parallel forces: like and unlike
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Moment of a force and its sign convention
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Varignon's theorem (principle of moments)
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of two parallel forces
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Couples and their properties
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Replacing a force by a force and a couple
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of a general system of parallel forces
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Conditions of equilibrium for coplanar forces
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Action and reaction at contacts
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Drawing free body diagrams
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Two-force and three-force members
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Equilibrium under three forces: Lami's theorem in use
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Why structures need supports
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of supports and the reactions they give
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of loading on a beam
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Finding the reactions of a beam
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Statically determinate and indeterminate beams
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,What friction is and why it matters
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Coefficient of friction
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of friction and cone of friction
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Kinds of friction
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Laws of dry (Coulomb) friction
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of repose
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,A body on a rough inclined plane
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Ladder friction
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Where friction helps
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Wedges
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Belt friction
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Friction in brakes
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Square-threaded screws and the screw jack
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Trusses and frames: the difference
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,"Perfect, deficient and redundant trusses"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Assumptions in truss analysis
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Method of joints
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Method of sections
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Zero-force members
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Kinds of beams
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Kinds of loads on beams
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Statically determinate beams
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Shear force and bending moment: meaning and sign conventions
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Drawing SFD and BMD: the method
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Cantilevers
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Simply supported beams
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Overhanging beams and points of contraflexure
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Beams carrying couples
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,"Relations between load, shear force and bending moment"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Working back: reactions from an SFD or BMD
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia","Centre of gravity, centre of mass and centroid"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of simple shapes
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Finding centroids by the method of moments
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of composite areas
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids by integration
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of volumes and solids
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Area moment of inertia and radius of gyration
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Perpendicular axis theorem and polar moment of inertia
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Parallel axis theorem
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Moment of inertia of simple areas by integration
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia","Moment of inertia of composite sections (I, T and channel)"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Parallel axis theorem for mass moment of inertia
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia of simple bodies by integration
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia of composite bodies
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,"Describing motion: displacement, velocity and acceleration"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Absolute motion
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Straight-line motion and the equations of motion
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Motion graphs
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Curvilinear motion and projectiles
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Rotation about a fixed axis
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Rectangular and normal–tangential components
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Relative motion
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,General plane motion
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Instantaneous centre of zero velocity
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,"Force, mass and acceleration"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Newton's laws of motion
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,D'Alembert's principle and dynamic equilibrium
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Translation: applying the laws of motion
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Connected bodies and pulleys
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Momentum and angular momentum
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Rotation about a fixed axis
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,General plane motion
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Work done by a force
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Kinetic energy of rigid bodies
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,The work–energy principle
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservative forces and potential energy
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservation of energy
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Impulse and momentum
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservation of momentum and impact
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,"Load, stress and strain"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Normal and shear stress
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,"Elasticity, elastic limit and Hooke's law"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Axially loaded bars
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Stresses on an inclined plane
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Bars of varying cross-section
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Bars in series and composite bars
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Thermal stresses
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Stress–strain curves for ductile and brittle materials
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Longitudinal and lateral strain
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Poisson's ratio
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Volumetric strain
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Volumetric strain of a cylindrical rod
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Bulk modulus
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Relation between E and K
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,"Relation between E and G, and E, G, K together"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,"Strain energy, resilience and proof resilience"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Gradually applied loads
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Suddenly applied loads
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Impact loads
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Pure bending and its assumptions
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,The bending equation
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Neutral axis and section modulus
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Bending stresses in different cross-sections
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,"Torque, twist and the assumptions of torsion"
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Shear stress in a shaft: the torsion equation
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Torque carried by a solid shaft
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Torque carried by a hollow shaft
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Power transmitted by a shaft
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Chapter summary and practice problems
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit I
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit II
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit III
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit IV
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit V
-B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,A model examination paper with worked solutions
+program,semester,semester_no,course,unit,topic,content,question_pattern
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,What engineering mechanics studies,"A crane lifting a beam, a bridge carrying traffic, a car braking at a signal: in each case **forces** act on a **body**, and the engineer must predict what happens. **Engineering mechanics** is the toolkit for that prediction.
+
+## Definitions
+
+- **Mechanics** is the branch of physics that studies how bodies behave when **forces** act on them: whether they stay at rest, move, or deform.
+- **Engineering mechanics** applies those laws to real engineering problems: machines, structures, vehicles.
+- A **force** is a push or a pull that changes, or tends to change, a body's state of rest or of uniform motion. Its SI unit is the **newton (N)**.
+
+## The two big branches
+
+![How engineering mechanics divides. Statics deals with balance; dynamics deals with motion.](/api/uploads/ff8dc628f99e0777c006dfcee4675a78.png)
+*How engineering mechanics divides. Statics deals with balance; dynamics deals with motion.*
+
+| Branch | Studies | Typical question |
+|---|---|---|
+| **Statics** | Bodies **at rest** (or moving at constant velocity, so with no acceleration) | What tension does each cord need to hold this lamp still? |
+| **Dynamics** | Bodies **in motion** with acceleration | How far does the car travel before it stops? |
+
+Dynamics itself splits in two:
+
+- **Kinematics** describes motion **without asking what causes it**: displacement $s$, velocity $v$, acceleration $a$ and time $t$. Example: $v = u + at$.
+- **Kinetics** links motion to the **forces that cause it**. Example: $F = ma$.
+
+> **Key point**
+> Statics is not a separate world from dynamics. It is the special case where the acceleration is zero, so $\sum F = m \cdot 0 = 0$.
+
+## Three idealised bodies
+
+Real objects are complicated. Mechanics simplifies them into one of three models, chosen to fit the question.
+
+| Model | What we assume | When it is good enough |
+|---|---|---|
+| **Particle** | All the mass sits at **one point**; size and shape are ignored | Size does not affect the answer, e.g. a satellite's orbit, a stone's flight |
+| **Rigid body** | The distance between any two points **never changes** under load | Deformations are tiny compared with the body's size, e.g. a steel beam in statics |
+| **Deformable body** | The body stretches, bends or twists | When we need stresses and strains (Unit V of this course) |
+
+> **Note**
+> ""Particle"" does not mean ""small"". The Earth can be treated as a particle when we study its orbit around the Sun, because its size hardly matters at that scale.
+
+## The four things that define a force
+
+To describe any force completely, we need:
+
+1. **Magnitude**: how big, e.g. $250\ \text{N}$.
+2. **Direction**: the line it acts along, e.g. $30^\circ$ above the horizontal.
+3. **Sense**: which way along that line (push or pull, up or down), shown by the arrowhead.
+4. **Point of application** (or its **line of action** for a rigid body): where it acts.
+
+> **Exam tip**
+> A favourite objective question asks what you must know to find the effect of a force. The answer is **all of them**: magnitude, direction and sense, and point of application or line of action.
+
+> **Case** Classify each situation.
+> - (a) Finding the forces in the members of a roof truss under its own weight.
+> - (b) Finding where a ball thrown at $15\ \text{m/s}$ lands.
+> - (c) Finding the braking force that stops a $1200\ \text{kg}$ car in $40\ \text{m}$.
+>
+> **Answers:** (a) **statics** (nothing accelerates); (b) **kinematics** (motion only, gravity's acceleration is given); (c) **kinetics** (force and motion are linked by $F = ma$).
+
+> **Quick recap**
+> - Mechanics = the effect of forces on bodies. **Statics**: no acceleration. **Dynamics**: with acceleration.
+> - **Kinematics** = motion only; **kinetics** = motion and its causes.
+> - Model the body as a **particle**, a **rigid body** or a **deformable body**, whichever is simplest and still answers the question.
+> - A force is fully known only from its **magnitude, direction, sense and point of application**.","2 marks: Define statics, dynamics, kinematics and kinetics. Distinguish a particle from a rigid body. 5 marks: Classify engineering mechanics with examples. Objective: what is needed to know the effect of a force (magnitude, direction, position: all of these)."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Scalars and vectors,"Ask ""how far did you walk?"" and ""where are you now?"" and you get two different kinds of answer. One needs only a **number with a unit**; the other also needs a **direction**. That is the difference between a scalar and a vector.
+
+## Definitions
+
+- A **scalar** quantity is fully described by its **magnitude** alone (a number and a unit). Scalars add by ordinary arithmetic.
+- A **vector** quantity needs a **magnitude and a direction** (with its sense). Vectors add by the **parallelogram law** (geometrically), not by arithmetic.
+
+| Scalars | Vectors |
+|---|---|
+| mass, length, distance, time | force, weight, displacement |
+| speed, temperature | velocity, acceleration |
+| energy, work, power | momentum, moment of a force |
+| volume, density | electric and magnetic field |
+
+> **Caution**
+> **Mass is a scalar, weight is a vector.** A $10\ \text{kg}$ bag has a weight of $98.1\ \text{N}$ acting **vertically downward**, towards the centre of the Earth.
+
+## How we draw and write a vector
+
+A vector is drawn as an **arrow**:
+
+- the **length** of the arrow, to a chosen scale, gives the **magnitude**;
+- the **angle** of the arrow gives the **direction**;
+- the **arrowhead** gives the **sense**.
+
+In print a vector is written in **bold** ($\mathbf{F}$) or with an arrow ($\vec{F}$). Its magnitude is written $F$ or $|\vec{F}|$.
+
+## Worked example: a short walk
+
+> **Problem**
+> A student walks $3\ \text{km}$ due east and then $4\ \text{km}$ due north. Find (a) the **distance** walked and (b) the **displacement**.
+
+![Distance adds as numbers; displacement adds as arrows.](/api/uploads/9d5f37b9d6afd99c04f17931d2fecdcf.png)
+*Distance adds as numbers; displacement adds as arrows.*
+
+**(a) Distance** is a scalar, so the numbers simply add:
+
+$$
+\text{distance} = 3 + 4 = 7\ \text{km}
+$$
+
+**(b) Displacement** is a vector from start O to finish B. The two legs are at right angles, so by Pythagoras:
+
+$$
+OB = \sqrt{3^2 + 4^2} = \sqrt{25} = 5\ \text{km}
+$$
+
+Its direction, measured from east towards north:
+
+$$
+\theta = \tan^{-1}\!\left(\frac{4}{3}\right) = 53.13^\circ
+$$
+
+**Answer:** distance $= 7\ \text{km}$; displacement $= 5\ \text{km}$ at $53.13^\circ$ north of east.
+
+> **Key point**
+> $3 + 4 = 7$ for scalars, but $3 \oplus 4$ can be anything from $1$ to $7$ for vectors, depending on the angle between them. Here it is $5$.
+
+## The particle, once more
+
+When we add forces ""at a point"", we usually treat the body as a **particle**: a body whose size is ignored and whose whole mass is imagined at one point. All forces on a particle pass through that one point, so they are **concurrent**, and only their vector sum matters.
+
+> **Exam tip**
+> In a ""distinguish between"" answer, always give a definition, two or three examples of each, and the rule for adding them (arithmetic vs parallelogram law).
+
+> **Quick recap**
+> - **Scalar**: magnitude only (mass, time, energy). **Vector**: magnitude + direction + sense (force, velocity, moment).
+> - Vectors are drawn as arrows to scale and add **geometrically**.
+> - Distance $\ne$ displacement: $7\ \text{km}$ walked can be a $5\ \text{km}$ displacement.",2 marks: Define scalar and vector quantities with two examples each. Is weight a scalar or a vector? 5 marks: Distinguish scalars and vectors. Numerical: distance and displacement for a two-leg walk.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,"Free, sliding and fixed vectors","All vectors have a magnitude and a direction, but they differ in **how strictly their position matters**. Mechanics uses three kinds.
+
+![The same arrow may be drawn anywhere (free), anywhere along its line (sliding), or only at its own point (fixed).](/api/uploads/88a52455ab2d1ab3636c29206a34eb81.png)
+*The same arrow may be drawn anywhere (free), anywhere along its line (sliding), or only at its own point (fixed).*
+
+## 1. Free vector
+
+A **free vector** can be drawn **anywhere in space**, as long as its magnitude and direction stay the same.
+
+- Example: the **velocity of a body in pure translation**. Every point of a sliding block moves with the same velocity, so the arrow can be placed at any point.
+- Example: the **moment of a couple** (you will meet it in chapter 3). Its effect is the same about every point.
+
+## 2. Sliding vector
+
+A **sliding vector** may be moved **only along its own line of action**.
+
+- Example: a **force on a rigid body**. Pushing a crate from behind along a line, or pulling it from the front along the **same line**, has the same external effect. This is the **principle of transmissibility** (topic 10 of this chapter).
+
+## 3. Fixed (bound) vector
+
+A **fixed vector** has a definite **point of application**; it cannot be moved at all without changing its effect.
+
+- Example: a **force on a deformable body**. Pressing a spring at its top compresses the whole spring; pressing it halfway down compresses only the lower half. The point matters.
+
+| Kind | May be moved | Typical example |
+|---|---|---|
+| **Free** | Anywhere, parallel to itself | Velocity of a translating body; moment of a couple |
+| **Sliding** | Only along its line of action | Force on a **rigid** body |
+| **Fixed** | Not at all | Force on a **deformable** body |
+
+## Related words you will meet
+
+- **Equal vectors**: same magnitude, same direction and sense.
+- **Negative of a vector** $-\vec{A}$: same magnitude, **opposite sense**.
+- **Unit vector**: a vector of magnitude $1$ that only shows a direction, written $\hat{n}$; then $\vec{F} = F\,\hat{n}$.
+- **Collinear vectors**: they lie along the same line.
+
+> **Caution**
+> A force on a rigid body is a sliding vector, **not** a free vector. If you move it sideways (off its line of action), its **moment** about points changes and the body would tend to rotate differently.
+
+> **Exam tip**
+> For each type, write a one-line definition, one example, and say what is allowed to move. Neat sketches of the three cases earn easy marks.
+
+> **Quick recap**
+> - **Free**: move anywhere. **Sliding**: move only along its line. **Fixed**: do not move.
+> - Forces on rigid bodies are **sliding vectors**; this is why transmissibility works.
+> - Forces on deformable bodies are **fixed vectors**.","2 marks: What is a free vector? A sliding vector? A fixed vector? Give one example each. 5 marks: Explain free, sliding and fixed vectors with sketches."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Adding two forces: parallelogram and triangle laws,"Two ropes pull on one ring. Which way does the ring move, and how hard is it pulled? Since forces are vectors, we cannot just add the numbers. We need a **geometric** rule: the parallelogram law.
+
+## The law of the parallelogram of forces
+
+> **Key point**
+> If two forces acting at a point are represented in **magnitude and direction** by the two **adjacent sides** of a parallelogram drawn from that point, their **resultant** is represented in magnitude and direction by the **diagonal** of the parallelogram through that point.
+
+The **resultant** $R$ is the single force that has the **same effect** as the two forces together.
+
+![P along OA, Q along OB at angle α. The diagonal OC is the resultant R, at angle θ to P. CD is dropped perpendicular to OA extended.](/api/uploads/2574eac64fab43ee9c155f29ecaba710.png)
+*P along OA, Q along OB at angle α. The diagonal OC is the resultant R, at angle θ to P. CD is dropped perpendicular to OA extended.*
+
+## Deriving the magnitude and direction
+
+Let $P$ and $Q$ act at O with angle $\alpha$ between them. Complete the parallelogram OACB, and drop CD perpendicular to OA extended.
+
+Because AC is parallel to OB, $\angle CAD = \alpha$ and $AC = Q$. In the right triangle ACD:
+
+$$
+AD = Q\cos\alpha, \qquad CD = Q\sin\alpha
+$$
+
+In the right triangle OCD:
+
+$$
+\begin{aligned}OC^2 &= OD^2 + CD^2 \\ &= (P + Q\cos\alpha)^2 + (Q\sin\alpha)^2\end{aligned}
+$$
+
+$$
+\begin{aligned}R^2 &= P^2 + 2PQ\cos\alpha \\ &\quad + Q^2(\cos^2\alpha + \sin^2\alpha)\end{aligned}
+$$
+
+Since $\cos^2\alpha + \sin^2\alpha = 1$:
+
+$$
+\boxed{R = \sqrt{P^2 + Q^2 + 2PQ\cos\alpha}}
+$$
+
+The angle $\theta$ that $R$ makes with $P$:
+
+$$
+\boxed{\tan\theta = \frac{CD}{OD} = \frac{Q\sin\alpha}{P + Q\cos\alpha}}
+$$
+
+> **Caution**
+> $\alpha$ is the angle **between the two forces** when both arrows point **away from** (or both towards) the point. Measure it tail-to-tail, never head-to-tail.
+
+## Special cases worth knowing by heart
+
+| Case | Resultant | Direction |
+|---|---|---|
+| $\alpha = 0^\circ$ | $R = P + Q$ (largest) | along $P$ |
+| $\alpha = 90^\circ$ | $R = \sqrt{P^2 + Q^2}$ | $\tan\theta = Q/P$ |
+| $\alpha = 180^\circ$ | $R = \lvert P - Q\rvert$ (smallest) | along the larger |
+| $P = Q$ | $R = 2P\cos\frac{\alpha}{2}$ | $\theta = \frac{\alpha}{2}$ |
+
+For equal forces, $R^2 = 2P^2(1 + \cos\alpha) = 4P^2\cos^2(\alpha/2)$, since $1 + \cos\alpha = 2\cos^2(\alpha/2)$. That gives the last row.
+
+> **Key point**
+> Always $\;|P - Q| \le R \le P + Q$. Use this as a quick check on every answer.
+
+## The triangle law of forces
+
+Place the **tail of Q at the head of P**. The arrow from the tail of $P$ to the head of $Q$ is the resultant. This is just half of the parallelogram, and it gives the same answer.
+
+![(a) Head to tail, R closes the triangle. (b) If a third force E closes the triangle the other way round, the three forces are in equilibrium.](/api/uploads/ee8e627e0c2c4bd22413d486f7bdee02.png)
+*(a) Head to tail, R closes the triangle. (b) If a third force E closes the triangle the other way round, the three forces are in equilibrium.*
+
+> **Key point**
+> **Triangle law (equilibrium form):** if three forces acting at a point can be drawn as the three sides of a triangle **taken in order** (arrows following one another round the triangle), the three forces are in **equilibrium**. The force $E = -R$ that balances $P$ and $Q$ is called the **equilibrant**.
+
+For more than two forces, keep going head-to-tail: the closing side of the polygon is the resultant (**polygon law of forces**).
+
+## Worked examples
+
+> **Problem**
+> **Example 1.** Forces of $50\ \text{N}$ and $30\ \text{N}$ act at a point with $60^\circ$ between them. Find the resultant.
+
+Here $P = 50\ \text{N}$, $Q = 30\ \text{N}$, $\alpha = 60^\circ$, $\cos 60^\circ = 0.5$, $\sin 60^\circ = 0.8660$.
+
+$$
+\begin{aligned}R &= \sqrt{50^2 + 30^2 + 2(50)(30)(0.5)} \\ &= \sqrt{2500 + 900 + 1500} = \sqrt{4900} \\ &= 70\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}\tan\theta &= \frac{30 \times 0.8660}{50 + 30 \times 0.5} = \frac{25.98}{65} \\ &= 0.3997 \\ \Rightarrow\ \theta &= 21.79^\circ\end{aligned}
+$$
+
+**Answer:** $R = 70\ \text{N}$ at $21.79^\circ$ to the $50\ \text{N}$ force. Check: $20 \le 70 \le 80$. ✓
+
+> **Problem**
+> **Example 2.** Forces of $24\ \text{N}$ and $7\ \text{N}$ act at right angles. Find the resultant.
+
+$$
+\begin{aligned}R &= \sqrt{24^2 + 7^2} = \sqrt{576 + 49} = \sqrt{625} \\ &= 25\ \text{N} \\ \theta &= \tan^{-1}\!\frac{7}{24} = 16.26^\circ\end{aligned}
+$$
+
+**Answer:** $R = 25\ \text{N}$ at $16.26^\circ$ to the $24\ \text{N}$ force.
+
+> **Problem**
+> **Example 3.** Two equal forces of $40\ \text{N}$ act at a point with $120^\circ$ between them. Find the resultant.
+
+$$
+\begin{aligned}R &= 2P\cos\frac{\alpha}{2} = 2(40)\cos 60^\circ \\ &= 2(40)(0.5) = 40\ \text{N} \\ \theta &= \frac{120^\circ}{2} = 60^\circ\end{aligned}
+$$
+
+**Answer:** $R = 40\ \text{N}$, bisecting the angle. Two equal forces at $120^\circ$ give a resultant **equal to each of them**: a neat fact to remember.
+
+> **Problem**
+> **Example 4 (working backwards).** Forces of $5\ \text{N}$ and $8\ \text{N}$ have a resultant of $7\ \text{N}$. Find the angle between them.
+
+$$
+\begin{aligned}R^2 &= P^2 + Q^2 + 2PQ\cos\alpha \\ \Rightarrow\ 49 &= 25 + 64 + 80\cos\alpha\end{aligned}
+$$
+
+$$
+\begin{aligned}\cos\alpha &= \frac{49 - 89}{80} = -0.5 \\ \Rightarrow\ \alpha &= 120^\circ\end{aligned}
+$$
+
+**Answer:** $\alpha = 120^\circ$. A negative cosine means an obtuse angle, which is why $R = 7\ \text{N}$ is smaller than the right-angle value $\sqrt{5^2+8^2} = 9.43\ \text{N}$.
+
+> **Exam tip**
+> The derivation of $R = \sqrt{P^2 + Q^2 + 2PQ\cos\alpha}$ is a regular 5-mark question. Draw the parallelogram, mark $Q\cos\alpha$ and $Q\sin\alpha$, apply Pythagoras in triangle OCD, then divide for $\tan\theta$.
+
+> **Quick recap**
+> - $R = \sqrt{P^2 + Q^2 + 2PQ\cos\alpha}$, $\;\tan\theta = \dfrac{Q\sin\alpha}{P + Q\cos\alpha}$.
+> - Right angle: $R = \sqrt{P^2 + Q^2}$. Equal forces: $R = 2P\cos(\alpha/2)$, $\theta = \alpha/2$.
+> - Triangle law: head to tail; the closing side is $R$. Three forces forming a closed triangle in order are in **equilibrium**.
+> - Check: $|P - Q| \le R \le P + Q$.",2 marks: State the parallelogram law and the triangle law of forces. 5 marks: Prove R = √(P² + Q² + 2PQ cos α) and find tan θ. Numerical (5–10 marks): resultant of two forces at a given angle; angle between two forces from a given resultant; resultant of two equal forces.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Lami's theorem for three concurrent forces,"A hanging lamp, a crane hook, a ring pulled by three ropes: whenever **exactly three forces** meet at a point and hold it still, one neat rule gives all three in one line. It is **Lami's theorem**.
+
+## Statement
+
+> **Key point**
+> If **three coplanar, concurrent forces** acting at a point keep it in **equilibrium**, each force is **proportional to the sine of the angle between the other two**.
+
+![Three forces P, Q and R at O. The angle facing each force is the one between the other two.](/api/uploads/9c5d18c9cdea9a20951b4c03a57df099.png)
+*Three forces P, Q and R at O. The angle facing each force is the one between the other two.*
+
+With the angles named as in the figure ($\alpha$ between $Q$ and $R$, $\beta$ between $R$ and $P$, $\gamma$ between $P$ and $Q$):
+
+$$
+\boxed{\frac{P}{\sin\alpha} = \frac{Q}{\sin\beta} = \frac{R}{\sin\gamma}}
+$$
+
+and, going round the point, $\alpha + \beta + \gamma = 360^\circ$.
+
+## Why it is true (proof)
+
+1. The three forces are in equilibrium, so by the **triangle law** they can be drawn **head to tail** to form a **closed triangle**, each side parallel to one force.
+2. Each **interior angle** of that triangle is the **supplement** of an angle between two forces. The angle facing side $P$ is $180^\circ - \alpha$; facing $Q$ it is $180^\circ - \beta$; facing $R$ it is $180^\circ - \gamma$.
+3. The **sine rule** for any triangle says each side divided by the sine of the opposite angle is the same:
+
+   $$
+   \begin{aligned}\frac{P}{\sin(180^\circ - \alpha)} &= \frac{Q}{\sin(180^\circ - \beta)} \\ &= \frac{R}{\sin(180^\circ - \gamma)}\end{aligned}
+   $$
+
+4. Since $\sin(180^\circ - x) = \sin x$, this is Lami's theorem. $\blacksquare$
+
+## When you may use it
+
+- **Exactly three** forces, **coplanar** and **concurrent** (all passing through one point).
+- The point is in **equilibrium**.
+- The forces are not all along one line.
+
+> **Caution**
+> Measure each angle **between the arrows as they leave the point**. A **tension** in a string always pulls **away** from the point; a weight pulls straight **down**. If one force is drawn pointing in, the angles come out wrong.
+
+## Worked example 1: a lamp on two cords
+
+> **Problem**
+> A lamp weighing $60\ \text{N}$ hangs from point C by two cords. Cord CA makes $30^\circ$ with the horizontal ceiling, cord CB makes $60^\circ$. Find the tensions $T_1$ in CA and $T_2$ in CB.
+
+![The forces at C, with the three angles between them.](/api/uploads/2a3bd71eb3dee0268e5bc23e21adaa16.png)
+*The forces at C, with the three angles between them.*
+
+**Step 1: angles between the forces at C.** Measured from the positive x-axis, $T_1$ acts at $180^\circ - 30^\circ = 150^\circ$, $T_2$ at $60^\circ$, and $W$ at $270^\circ$.
+
+- between $T_1$ and $T_2$: $150^\circ - 60^\circ = 90^\circ$
+- between $T_1$ and $W$: $270^\circ - 150^\circ = 120^\circ$
+- between $T_2$ and $W$: $360^\circ - 270^\circ + 60^\circ = 150^\circ$
+
+Check: $90^\circ + 120^\circ + 150^\circ = 360^\circ$. ✓
+
+**Step 2: Lami.** Each force over the sine of the angle **between the other two**:
+
+$$
+\begin{aligned}\frac{T_1}{\sin 150^\circ} &= \frac{T_2}{\sin 120^\circ} \\ &= \frac{60}{\sin 90^\circ}\end{aligned}
+$$
+
+$$
+\begin{aligned}T_1 &= 60 \times \frac{\sin 150^\circ}{\sin 90^\circ} = 60 \times 0.5 \\ &= 30\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}T_2 &= 60 \times \frac{\sin 120^\circ}{\sin 90^\circ} \\ &= 60 \times 0.8660 = 51.96\ \text{N}\end{aligned}
+$$
+
+**Step 3: check by components.**
+
+$$
+\begin{aligned}\sum F_x &= -30\cos 30^\circ + 51.96\cos 60^\circ \\ &= -25.98 + 25.98 = 0 \;✓\end{aligned}
+$$
+
+$$
+\begin{aligned}\sum F_y &= 30\sin 30^\circ + 51.96\sin 60^\circ - 60 \\ &= 15 + 45 - 60 = 0 \;✓\end{aligned}
+$$
+
+**Answer:** $T_1 = 30\ \text{N}$, $T_2 = 51.96\ \text{N}$. The **steeper** cord carries **more** of the load.
+
+## Worked example 2: a weight pulled aside
+
+> **Problem**
+> A $100\ \text{N}$ weight hangs on a cord. A horizontal force $P$ pulls it aside until the cord makes $30^\circ$ with the vertical. Find $P$ and the tension $T$.
+
+![Three forces at the weight: T along the cord, P horizontal, W vertical.](/api/uploads/15b323888bfebc7a21c75236ba0102d0.png)
+*Three forces at the weight: T along the cord, P horizontal, W vertical.*
+
+Angles between the forces: $P$ and $T$: $120^\circ$; $T$ and $W$: $150^\circ$; $W$ and $P$: $90^\circ$. (Sum $= 360^\circ$ ✓.)
+
+$$
+\begin{aligned}\frac{P}{\sin 150^\circ} &= \frac{100}{\sin 120^\circ} \\ &= \frac{T}{\sin 90^\circ}\end{aligned}
+$$
+
+$$
+\begin{aligned}T &= \frac{100}{0.8660} = 115.47\ \text{N} \\ P &= 115.47 \times 0.5 = 57.74\ \text{N}\end{aligned}
+$$
+
+Check: $P = W\tan 30^\circ = 100 \times 0.5774 = 57.74\ \text{N}$ ✓, and $T\cos 30^\circ = 100\ \text{N}$ ✓.
+
+**Answer:** $P = 57.74\ \text{N}$, $T = 115.47\ \text{N}$. Notice the cord now carries **more** than the weight.
+
+> **Exam tip**
+> Draw the forces at the point first, write all three angles **between** them, check they add to $360^\circ$, and only then write Lami. Most lost marks come from using the angle a cord makes with the ceiling instead of the angle between two forces.
+
+> **Quick recap**
+> - Three coplanar concurrent forces in equilibrium: $\dfrac{P}{\sin\alpha} = \dfrac{Q}{\sin\beta} = \dfrac{R}{\sin\gamma}$.
+> - Each angle is the one **between the other two forces**; the three add to $360^\circ$.
+> - Proof: triangle of forces + sine rule + $\sin(180^\circ - x) = \sin x$.
+> - Always check with $\sum F_x = 0$ and $\sum F_y = 0$.",2 marks: State Lami's theorem and the conditions for using it. 5 marks: Prove Lami's theorem. Numerical (5–10 marks): tensions in two strings or chains holding a weight; a weight pulled aside by a horizontal force.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Units: the SI system and checking dimensions,"An answer of ""$250$"" is worth nothing in mechanics. $250\ \text{N}$, $250\ \text{kN}$ and $250\ \text{N·m}$ are three very different things. Units are part of every answer.
+
+## Systems of units
+
+| System | Length, mass, time | Unit of force |
+|---|---|---|
+| **CGS** | cm, g, s | **dyne** $= 1\ \text{g·cm/s}^2$ |
+| **MKS** | m, kg, s | **kilogram-force** (kgf) |
+| **SI** (this course) | m, kg, s | **newton** (N) $= 1\ \text{kg·m/s}^2$ |
+
+The **SI** system (Système International) has **seven base units**: metre (m), kilogram (kg), second (s), ampere (A), kelvin (K), mole (mol) and candela (cd). Mechanics needs only the first three; everything else is **derived** from them.
+
+## The newton, the dyne and the kgf
+
+![(a) The newton is defined from F = ma. (b) The weight of a 1 kg mass is 9.81 N, which the old MKS system called 1 kgf.](/api/uploads/7d9442af69e005b9c915506b09ee1e21.png)
+*(a) The newton is defined from F = ma. (b) The weight of a 1 kg mass is 9.81 N, which the old MKS system called 1 kgf.*
+
+From $F = ma$: **one newton** is the force that gives a mass of $1\ \text{kg}$ an acceleration of $1\ \text{m/s}^2$.
+
+> **Problem**
+> Show that $1\ \text{N} = 10^5\ \text{dyne}$.
+
+$$
+\begin{aligned}1\ \text{N} &= 1\ \text{kg} \times 1\ \frac{\text{m}}{\text{s}^2} = 1000\ \text{g} \times 100\ \frac{\text{cm}}{\text{s}^2} \\ &= 10^5\ \frac{\text{g·cm}}{\text{s}^2} = 10^5\ \text{dyne}\end{aligned}
+$$
+
+**Weight** is the force of gravity on a mass: $W = mg$, with $g = 9.81\ \text{m/s}^2$ near the Earth's surface. So:
+
+$$
+1\ \text{kgf} = 1\ \text{kg} \times 9.81\ \text{m/s}^2 = 9.81\ \text{N}
+$$
+
+> **Caution**
+> A bathroom scale that reads ""$75\ \text{kg}$"" is reporting **mass**. The **weight** is $W = 75 \times 9.81 = 735.75\ \text{N} \approx 0.736\ \text{kN}$. Never write a force in kg.
+
+## Derived units you will use
+
+| Quantity | Formula | SI unit |
+|---|---|---|
+| Force | $F = ma$ | newton, $\text{N} = \text{kg·m/s}^2$ |
+| Moment of a force | $M = F \times d$ | $\text{N·m}$ |
+| Work, energy | $W = F \times s$ | joule, $\text{J} = \text{N·m}$ |
+| Power | $P = W/t$ | watt, $\text{W} = \text{J/s}$ |
+| Pressure, stress | $p = F/A$ | pascal, $\text{Pa} = \text{N/m}^2$ |
+| Velocity, acceleration | $v = s/t$, $a = v/t$ | $\text{m/s}$, $\text{m/s}^2$ |
+
+> **Note**
+> Moment and energy share the unit $\text{N·m}$, but they are different quantities. Write a moment as $\text{N·m}$ and keep ""joule"" for work and energy.
+
+## Prefixes
+
+| Prefix | Factor | Example |
+|---|---|---|
+| giga (G) | $10^{9}$ | $200\ \text{GPa}$, the stiffness of steel |
+| mega (M) | $10^{6}$ | $2.5\ \text{MN} = 2.5 \times 10^6\ \text{N}$ |
+| kilo (k) | $10^{3}$ | $12\ \text{kN} = 12\,000\ \text{N}$ |
+| milli (m) | $10^{-3}$ | $450\ \text{mm} = 0.45\ \text{m}$ |
+| micro (µ) | $10^{-6}$ | $25\ \text{µm} = 25 \times 10^{-6}\ \text{m}$ |
+
+> **Exam tip**
+> Write units in lower case unless named after a person: **kN** (not KN), **m** (not M), **N** and **Pa** (capitals, after Newton and Pascal). Leave a space between the number and the unit: $12\ \text{kN}$.
+
+## Checking dimensions
+
+Every quantity in mechanics can be written in terms of **mass [M]**, **length [L]** and **time [T]**:
+
+$$
+\begin{aligned}[\text{force}] &= [\text{mass}][\text{acceleration}] \\ &= [\mathrm{M}][\mathrm{L}\mathrm{T}^{-2}] = [\mathrm{M}\mathrm{L}\mathrm{T}^{-2}]\end{aligned}
+$$
+
+A correct equation is **dimensionally homogeneous**: every term has the same dimensions.
+
+> **Problem**
+> Check $R = \sqrt{P^2 + Q^2 + 2PQ\cos\alpha}$ dimensionally.
+
+$P^2$, $Q^2$ and $PQ$ all have dimensions $[\mathrm{M}\mathrm{L}\mathrm{T}^{-2}]^2$; $\cos\alpha$ is a pure number. The square root gives $[\mathrm{M}\mathrm{L}\mathrm{T}^{-2}]$, the dimensions of a force. ✓ The formula **could** be right. (A dimension check can catch a wrong formula, but it cannot prove one right: a missing factor of 2 passes the test.)
+
+> **Problem**
+> Find the SI units of $G$ in $F = G\dfrac{m_1 m_2}{r^2}$.
+
+$$
+G = \frac{F r^2}{m_1 m_2} \;\Rightarrow\; \text{units} = \frac{\text{N·m}^2}{\text{kg}^2}
+$$
+
+## Quick conversions
+
+| Convert | Working | Answer |
+|---|---|---|
+| $5\ \text{kgf}$ to N | $5 \times 9.81$ | $49.05\ \text{N}$ |
+| $4.5 \times 10^6\ \text{dyne}$ to N | $4.5 \times 10^6 / 10^5$ | $45\ \text{N}$ |
+| $3.6\ \text{kN·m}$ to N·mm | $3.6 \times 10^3 \times 10^3$ | $3.6 \times 10^6\ \text{N·mm}$ |
+| $72\ \text{km/h}$ to m/s | $72 \times 1000 / 3600$ | $20\ \text{m/s}$ |
+
+## Maths toolkit for this chapter
+
+These are used again and again in Unit I:
+
+- $\sin^2\theta + \cos^2\theta = 1$, $\quad \tan\theta = \dfrac{\sin\theta}{\cos\theta}$
+- $\sin(180^\circ - \theta) = \sin\theta$, $\quad \cos(180^\circ - \theta) = -\cos\theta$
+- $1 + \cos\theta = 2\cos^2(\theta/2)$
+- **Sine rule** (any triangle with sides $a, b, c$ opposite angles $A, B, C$): $\dfrac{a}{\sin A} = \dfrac{b}{\sin B} = \dfrac{c}{\sin C}$
+- **Cosine rule**: $c^2 = a^2 + b^2 - 2ab\cos C$
+- Values: $\sin 30^\circ = 0.5$, $\sin 45^\circ = 0.7071$, $\sin 60^\circ = 0.8660$; $\cos 30^\circ = 0.8660$, $\cos 45^\circ = 0.7071$, $\cos 60^\circ = 0.5$.
+
+> **Quick recap**
+> - SI base units for mechanics: **m, kg, s**. Force: $1\ \text{N} = 1\ \text{kg·m/s}^2 = 10^5\ \text{dyne}$.
+> - $W = mg$, $g = 9.81\ \text{m/s}^2$, so $1\ \text{kgf} = 9.81\ \text{N}$. Mass in kg, weight in N.
+> - Force has dimensions $[\mathrm{M}\mathrm{L}\mathrm{T}^{-2}]$; every term of a correct equation has the same dimensions.
+> - Carry units through every step of a calculation, and state them in every answer.","2 marks: Define the newton. Prove 1 N = 10⁵ dyne. Write the SI units of force, moment, velocity and stress. Distinguish mass and weight. 5 marks: Systems of units; dimensional homogeneity with an example. Short numericals on conversions (kgf to N, dyne to N, km/h to m/s)."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Resolving a force into components,"Adding two forces with the parallelogram law is fine. Adding five that way is miserable. The way out is to **break every force into two perpendicular pieces**, add the pieces like ordinary numbers, and rebuild one resultant at the end.
+
+## What resolution means
+
+**Resolving** a force means replacing it by two (or more) forces, its **components**, that together have exactly the same effect. Resolution is the parallelogram law **run backwards**.
+
+The most useful choice is two components **at right angles**, along the x and y axes.
+
+![A force F at angle θ to the x-axis and its two rectangular components.](/api/uploads/c3e3c70f998ef57c626b7bf4a7c81f9e.png)
+*A force F at angle θ to the x-axis and its two rectangular components.*
+
+$$
+F_x = F\cos\theta, \qquad F_y = F\sin\theta
+$$
+
+and going back:
+
+$$
+F = \sqrt{F_x^2 + F_y^2}, \qquad \tan\theta = \frac{F_y}{F_x}
+$$
+
+> **Key point**
+> The **component of a force along any direction** is the force times the **cosine of the angle between the force and that direction**. $F\cos\theta$ along x, and $F\cos(90^\circ - \theta) = F\sin\theta$ along y.
+
+> **Problem**
+> Resolve a $200\ \text{N}$ force acting at $30^\circ$ above the horizontal.
+
+$$
+\begin{aligned}F_x &= 200\cos 30^\circ \\ &= 200 \times 0.8660 = 173.21\ \text{N}\end{aligned}
+$$
+
+$$
+\begin{aligned}F_y &= 200\sin 30^\circ = 200 \times 0.5 \\ &= 100\ \text{N}\end{aligned}
+$$
+
+Check: $\sqrt{173.21^2 + 100^2} = \sqrt{30\,002 + 10\,000} = 200\ \text{N}$ ✓
+
+## Signs: which way does each component point?
+
+Measure every angle $\theta$ **anticlockwise from the positive x-axis** and the signs take care of themselves:
+
+| $\theta$ lies in | $F_x = F\cos\theta$ | $F_y = F\sin\theta$ |
+|---|---|---|
+| 1st quadrant ($0^\circ$–$90^\circ$) | $+$ (right) | $+$ (up) |
+| 2nd quadrant ($90^\circ$–$180^\circ$) | $-$ (left) | $+$ (up) |
+| 3rd quadrant ($180^\circ$–$270^\circ$) | $-$ (left) | $-$ (down) |
+| 4th quadrant ($270^\circ$–$360^\circ$) | $+$ (right) | $-$ (down) |
+
+## Resultant of many forces at a point
+
+For forces $F_1, F_2, \dots$ at angles $\theta_1, \theta_2, \dots$:
+
+$$
+\begin{aligned}H = \sum F_x &= F_1\cos\theta_1 \\ &\quad + F_2\cos\theta_2 + \cdots\end{aligned}
+$$
+
+$$
+\begin{aligned}V = \sum F_y &= F_1\sin\theta_1 \\ &\quad + F_2\sin\theta_2 + \cdots\end{aligned}
+$$
+
+$$
+\boxed{R = \sqrt{H^2 + V^2}}, \qquad \tan\phi = \left|\frac{V}{H}\right|
+$$
+
+Here $\phi$ is the **acute** angle that $R$ makes with the x-axis. The **signs of $H$ and $V$** then tell you the quadrant:
+
+| Signs of $H$, $V$ | Quadrant | $\theta$ from $+x$ |
+|---|---|---|
+| $+,\ +$ | 1st | $\phi$ |
+| $-,\ +$ | 2nd | $180^\circ - \phi$ |
+| $-,\ -$ | 3rd | $180^\circ + \phi$ |
+| $+,\ -$ | 4th | $360^\circ - \phi$ |
+
+> **Caution**
+> A calculator's $\tan^{-1}$ only returns angles between $-90^\circ$ and $+90^\circ$. It cannot tell $(H, V) = (-3, 4)$ from $(3, -4)$. **Always** do the quadrant check by the signs of $H$ and $V$.
+
+## Worked example: four forces at a point
+
+> **Problem**
+> Four forces act at point O: $50\ \text{N}$ at $30^\circ$, $80\ \text{N}$ at $120^\circ$, $40\ \text{N}$ at $210^\circ$ and $30\ \text{N}$ at $300^\circ$, all angles measured anticlockwise from the positive x-axis. Find the magnitude and direction of the resultant.
+
+![(a) The four forces. (b) Their components add to H and V, which give the resultant.](/api/uploads/5127df4296adce0304bb0bee0b1c41b1.png)
+*(a) The four forces. (b) Their components add to H and V, which give the resultant.*
+
+**Step 1: tabulate the components.**
+
+| Force | $F\cos\theta$ (N) | $F\sin\theta$ (N) |
+|---|---|---|
+| 50 N at $30^\circ$ | $+43.30$ | $+25.00$ |
+| 80 N at $120^\circ$ | $-40.00$ | $+69.28$ |
+| 40 N at $210^\circ$ | $-34.64$ | $-20.00$ |
+| 30 N at $300^\circ$ | $+15.00$ | $-25.98$ |
+| **Sum** | $H = -16.34$ | $V = +48.30$ |
+
+**Step 2: magnitude.**
+
+$$
+\begin{aligned}R &= \sqrt{(-16.34)^2 + (48.30)^2} \\ &= \sqrt{267.0 + 2333.0} = \sqrt{2600.0} \\ &= 50.99\ \text{N}\end{aligned}
+$$
+
+**Step 3: direction with the quadrant check.**
+
+$$
+\phi = \tan^{-1}\frac{48.30}{16.34} = 71.31^\circ
+$$
+
+$H$ is negative and $V$ is positive, so $R$ is in the **second quadrant**:
+
+$$
+\begin{aligned}\theta &= 180^\circ - 71.31^\circ \\ &= 108.69^\circ\end{aligned}
+$$
+
+**Answer:** $R = 50.99\ \text{N}$ at $108.69^\circ$ from the positive x-axis (that is, $71.31^\circ$ above the negative x-axis).
+
+> **Exam tip**
+> A table like the one above is the cleanest way to present a resolution problem. It shows the examiner every sign, and it makes your own errors easy to spot.
+
+> **Quick recap**
+> - $F_x = F\cos\theta$, $F_y = F\sin\theta$, with $\theta$ from the $+x$ axis.
+> - $H = \sum F_x$, $V = \sum F_y$, $R = \sqrt{H^2 + V^2}$.
+> - Find the acute angle from $\tan\phi = |V/H|$, then place it in the right quadrant by the signs of $H$ and $V$.","2 marks: What is resolution of a force? Write the components of a force F at θ to the x-axis. 5 marks: Derive the resultant of several coplanar concurrent forces by resolution. Numerical (5–10 marks): magnitude and direction of the resultant of 3–5 forces at a point, with the quadrant check."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Moment of a force about a point,"Try opening a door by pushing right next to the hinges: it hardly moves. Push the same amount at the handle and it swings open. The force did not change; its **turning effect** did. That turning effect is the **moment** of the force.
+
+## Definition
+
+> **Key point**
+> The **moment of a force about a point** is the **force** multiplied by the **perpendicular distance** from the point to the **line of action** of the force.
+>
+> $$
+> M = F \times d
+> $$
+>
+
+- The point is called the **moment centre** (often a hinge, a support or a bolt).
+- $d$ is the **perpendicular** distance, also called the **moment arm** or **lever arm**.
+- SI unit: **newton-metre (N·m)**; also $\text{kN·m}$ or $\text{N·mm}$.
+
+![(a) A force square to the spanner: M = F × d. (b) A slanting force: only the perpendicular distance d sin φ counts.](/api/uploads/f44758298937fb72b27f2efb6001e12a.png)
+*(a) A force square to the spanner: M = F × d. (b) A slanting force: only the perpendicular distance d sin φ counts.*
+
+## Clockwise and anticlockwise
+
+A moment has a **sense of rotation**:
+
+- **Clockwise** if it tends to turn the body the way a clock's hands move.
+- **Anticlockwise** otherwise.
+
+In this course we take **anticlockwise as positive** and **clockwise as negative** when adding moments. (Any convention works if you keep it for the whole problem.)
+
+> **Problem**
+> **Example 1.** A mechanic pulls with $150\ \text{N}$ at the end of a spanner $0.25\ \text{m}$ long. Find the moment on the nut when (a) the force is perpendicular to the spanner, (b) the force makes $60^\circ$ with the spanner.
+
+(a) $\quad M = F \times d = 150 \times 0.25 = 37.5\ \text{N·m}$
+
+(b) The perpendicular distance from the nut to the force's line is now $d\sin\varphi$:
+
+$$
+\begin{aligned}M &= F \times d\sin\varphi \\ &= 150 \times 0.25 \times \sin 60^\circ \\ &= 150 \times 0.25 \times 0.8660 \\ &= 32.48\ \text{N·m}\end{aligned}
+$$
+
+**Answer:** $37.5\ \text{N·m}$ and $32.48\ \text{N·m}$. Pulling at an angle wastes part of the effort.
+
+> **Caution**
+> A force whose line of action **passes through** the moment centre has **zero moment** about it ($d = 0$), however large the force is. Pushing a door straight towards its hinges does nothing.
+
+## What a force and a moment each do to a body
+
+- A **force** tends to cause **linear motion** (translation) in its direction.
+- A **moment** tends to cause **rotation** about the moment centre.
+
+A body is in **equilibrium** only if **both** effects vanish:
+
+$$
+\begin{aligned}\sum F_x &= 0 \\ \sum F_y &= 0 \\ \sum M &= 0 \text{ about any point}\end{aligned}
+$$
+
+In words: the forces balance in every direction, and the **clockwise moments equal the anticlockwise moments** about any point.
+
+> **Note**
+> If the forces add up to zero but their moments do not, the body is **not** in equilibrium: it will turn. Two equal and opposite forces that are not on the same line (a **couple**) do exactly this.
+
+## Worked example 2: reactions of a beam
+
+> **Problem**
+> A beam AB of span $8\ \text{m}$ rests on supports at A and B and carries a point load of $600\ \text{N}$ at $3\ \text{m}$ from A. Find the support reactions $R_A$ and $R_B$.
+
+![A simply supported beam with one point load.](/api/uploads/b95f0d19fd548cad14d7af992167c8a6.png)
+*A simply supported beam with one point load.*
+
+**Moments about A** (this removes $R_A$, which passes through A):
+
+$$
+\begin{aligned}\text{clockwise} &= \text{anticlockwise}: \\ 600 \times 3 &= R_B \times 8\end{aligned}
+$$
+
+$$
+R_B = \frac{1800}{8} = 225\ \text{N}
+$$
+
+**Vertical forces:**
+
+$$
+\begin{aligned}R_A + R_B &= 600 \\ \Rightarrow\ R_A &= 600 - 225 = 375\ \text{N}\end{aligned}
+$$
+
+**Check, moments about B:** $R_A \times 8 = 375 \times 8 = 3000$ and $600 \times 5 = 3000$ ✓
+
+**Answer:** $R_A = 375\ \text{N}$, $R_B = 225\ \text{N}$. The support **nearer the load carries more**.
+
+> **Exam tip**
+> Take moments about a point where an **unknown force acts**: that unknown drops out, and you solve for the other directly.
+
+## Worked example 3: where does the resultant act?
+
+> **Problem**
+> Forces of $12\ \text{N}$, $18\ \text{N}$, $28\ \text{N}$ and $6\ \text{N}$ act along the sides AB, BC, CD and DA of a square ABCD of side $a$, in the order of the letters. Find the magnitude, direction and position of the resultant.
+
+![Forces along the four sides of a square, and the line of the resultant.](/api/uploads/86cf7898a40fd3a4dce9950ed4713093.png)
+*Forces along the four sides of a square, and the line of the resultant.*
+
+Put A at the origin, AB along $+x$ and AD along $+y$.
+
+**Magnitude and direction.**
+
+$$
+\begin{aligned}H &= 12 - 28 = -16\ \text{N} \\ V &= 18 - 6 = +12\ \text{N}\end{aligned}
+$$
+
+$$
+R = \sqrt{16^2 + 12^2} = \sqrt{400} = 20\ \text{N}
+$$
+
+$$
+\phi = \tan^{-1}\frac{12}{16} = 36.87^\circ
+$$
+
+Since $H < 0$ and $V > 0$, $R$ is in the second quadrant:
+
+$$
+\begin{aligned}\theta &= 180^\circ - 36.87^\circ \\ &= 143.13^\circ\end{aligned}
+$$
+
+**Position (moments about A, anticlockwise positive).**
+- $12\ \text{N}$ along AB and $6\ \text{N}$ along DA pass through A: moment $0$.
+- $18\ \text{N}$ upward along BC, at distance $a$ to the right of A: $+18a$.
+- $28\ \text{N}$ leftward along CD, at height $a$ above A: $+28a$.
+
+$$
+\begin{aligned}\sum M_A &= 18a + 28a \\ &= 46a \ \text{(anticlockwise)}\end{aligned}
+$$
+
+The resultant must have the same moment about A. If $L$ is the perpendicular distance from A to its line:
+
+$$
+R \times L = 46a \;\Rightarrow\; L = \frac{46a}{20} = 2.3a
+$$
+
+**Answer:** $R = 20\ \text{N}$ at $143.13^\circ$ to AB, acting along a line $2.3a$ from A, placed so that its moment about A is **anticlockwise** (its line passes above and to the right of A, as in the figure).
+
+> **Quick recap**
+> - Moment $= F \times$ **perpendicular** distance; unit $\text{N·m}$. A force through the point has no moment about it.
+> - Force → translation; moment → rotation.
+> - Equilibrium: $\sum F_x = 0$, $\sum F_y = 0$, $\sum M = 0$ (clockwise = anticlockwise).
+> - Position of a resultant: $R \times L = $ sum of the moments of the forces about the same point.","2 marks: Define moment of a force; state its SI unit. Explain clockwise and anticlockwise moments. What is the effect of a force and of a moment on a body? True/false: zero resultant force but non-zero net moment means equilibrium (false). Numerical (5–10 marks): reactions of a simply supported beam with point loads; moment of an inclined force; magnitude, direction and position of the resultant of forces along the sides of a square."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Newton's laws and the laws of mechanics,"All of engineering mechanics, from a bridge truss to a gearbox, rests on a handful of laws. Every method in later chapters is one of these applied with care.
+
+## The foundation
+
+The basic laws and principles of mechanics are:
+
+1. **Newton's first and second laws** of motion
+2. **Newton's third law**
+3. **Newton's law of gravitation**
+4. The **parallelogram law** of forces (topic 4 of this chapter)
+5. The **principle of transmissibility** (topic 10)
+
+## Newton's first law: inertia
+
+> **Key point**
+> A body stays **at rest**, or keeps moving with **uniform velocity in a straight line**, unless an **external force** makes it change that state.
+
+This property of resisting a change in motion is called **inertia**; mass is its measure. The first law also tells us what equilibrium is: **no net force means no acceleration**, which is the starting point of statics.
+
+## Newton's second law: force and acceleration
+
+> **Key point**
+> The **rate of change of momentum** of a body is proportional to the **net external force**, and takes place in the direction of that force.
+
+Momentum is $p = mv$. For constant mass, with SI units chosen so the constant of proportionality is 1:
+
+$$
+F = \frac{d(mv)}{dt} = m\frac{dv}{dt} = ma
+$$
+
+This is how the **newton** is defined (see topic 6).
+
+> **Problem**
+> A car of mass $1200\ \text{kg}$ speeds up uniformly from rest to $20\ \text{m/s}$ in $10\ \text{s}$. Find the net force on it.
+
+$$
+\begin{aligned}a &= \frac{v - u}{t} = \frac{20 - 0}{10} = 2\ \text{m/s}^2 \\ F &= ma = 1200 \times 2 = 2400\ \text{N} \\ &= 2.4\ \text{kN}\end{aligned}
+$$
+
+**Answer:** $2.4\ \text{kN}$, the **net** force (engine force minus all resistances).
+
+## Newton's third law: action and reaction
+
+> **Key point**
+> **To every action there is an equal and opposite reaction.** When body A pushes on body B, B pushes back on A with a force of the same size, along the same line, in the opposite sense.
+
+![Left: a book on a table, then the two pulled apart to show the forces on each. Right: two masses attract each other with equal and opposite forces.](/api/uploads/57a2c789e1a2664dbe5a3d3308bd76a0.png)
+*Left: a book on a table, then the two pulled apart to show the forces on each. Right: two masses attract each other with equal and opposite forces.*
+
+Take a book of weight $20\ \text{N}$ lying on a table:
+
+- The Earth pulls the book down: $W = 20\ \text{N}$.
+- The table pushes the book up: $N = 20\ \text{N}$ (this balances $W$, so the book stays still).
+- The book pushes the table down: $N = 20\ \text{N}$. This is the **reaction** to the table's push.
+
+> **Caution**
+> Action and reaction act on **different bodies**, so they **never cancel each other**. The book's weight and the table's push on the book are equal here because the book is in equilibrium, **not** because of the third law.
+
+## Newton's law of gravitation
+
+> **Key point**
+> Any two bodies attract each other with a force **proportional to the product of their masses** and **inversely proportional to the square of the distance between their centres**.
+
+$$
+F = G\frac{m_1 m_2}{r^2}
+$$
+
+where $G = 6.674 \times 10^{-11}\ \text{N·m}^2/\text{kg}^2$ is the **universal gravitational constant**.
+
+> **Problem**
+> Find the attraction between two spheres of $50\ \text{kg}$ and $20\ \text{kg}$ whose centres are $0.5\ \text{m}$ apart.
+
+$$
+\begin{aligned}F &= 6.674 \times 10^{-11} \times \frac{50 \times 20}{0.5^2} \\ &= 6.674 \times 10^{-11} \times 4000 \\ &= 2.67 \times 10^{-7}\ \text{N}\end{aligned}
+$$
+
+**Answer:** about $2.67 \times 10^{-7}\ \text{N}$: far too small to notice. Gravitation only matters when one body is as massive as a planet.
+
+## Weight comes from gravitation
+
+For a body of mass $m$ on the Earth's surface (Earth's mass $M_E = 5.972 \times 10^{24}\ \text{kg}$, radius $R_E = 6.371 \times 10^{6}\ \text{m}$):
+
+$$
+W = G\frac{M_E\, m}{R_E^2} = m \left(\frac{G M_E}{R_E^2}\right) = mg
+$$
+
+$$
+\begin{aligned}g &= \frac{6.674 \times 10^{-11} \times 5.972 \times 10^{24}}{(6.371 \times 10^{6})^2} \\ &\approx 9.82\ \text{m/s}^2\end{aligned}
+$$
+
+The value measured at the surface, $9.81\ \text{m/s}^2$, is slightly smaller because the Earth spins and is not a perfect sphere. We use $g = 9.81\ \text{m/s}^2$ throughout.
+
+> **Exam tip**
+> When asked to ""state and explain"" a law, give the statement, the equation with every symbol named and its unit, and one small example. That structure fits 5 marks neatly.
+
+> **Quick recap**
+> - **First law**: no net force, no change in motion (inertia).
+> - **Second law**: $F = \dfrac{d(mv)}{dt} = ma$.
+> - **Third law**: equal and opposite forces on **two different bodies**.
+> - **Gravitation**: $F = G m_1 m_2 / r^2$, $G = 6.674 \times 10^{-11}\ \text{N·m}^2/\text{kg}^2$; at the Earth's surface it gives $W = mg$.",2 marks: State Newton's three laws of motion. State the law of gravitation and give the units of G. What is inertia? 5 marks: State and explain Newton's laws with examples. Show that weight W = mg follows from the law of gravitation. Numericals: F = ma for a vehicle; attraction between two masses.
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Transmissibility of a force,"Push a trolley from behind, or pull it from the front with the same force along the same line: it moves in exactly the same way. That everyday fact is a principle of mechanics.
+
+## Statement
+
+> **Key point**
+> **Principle of transmissibility:** the **external effect** of a force on a **rigid body** is unchanged if the force is moved to **any other point on its own line of action**.
+
+![The same 500 N force along the same line: pushing from behind or pulling from the front moves the trolley the same way.](/api/uploads/f39f180d41723b3b09fb58634f6a4422.png)
+*The same 500 N force along the same line: pushing from behind or pulling from the front moves the trolley the same way.*
+
+This is why a force on a rigid body is a **sliding vector** (topic 3).
+
+## Why it is true
+
+Let a force $F$ act at point A of a rigid body. Pick any other point B on the line of action of $F$.
+
+1. At B, add two forces, **$+F$ and $-F$**, both along the same line. They cancel each other, so the body is not affected.
+2. Now the original $F$ at A and the $-F$ at B are equal, opposite and **collinear**. On a rigid body they cancel too.
+3. What remains is the $+F$ at B. So $F$ at A has been **transferred** to B without changing its effect. $\blacksquare$
+
+## A numerical check: the moment does not change
+
+> **Problem**
+> A force of $100\ \text{N}$ acts along the line through A$(1, 0)$ and B$(4, 4)$, in the direction from A towards B (distances in metres). Show that its moment about the origin O is the same whether it acts at A or at B.
+
+![Sliding the force from A to B along its own line. The perpendicular distance from O to that line never changes.](/api/uploads/a8116e7f9bd9ce5c935677e31779999c.png)
+*Sliding the force from A to B along its own line. The perpendicular distance from O to that line never changes.*
+
+The line AB has length $\sqrt{3^2 + 4^2} = 5\ \text{m}$, so the force has components
+
+$$
+\begin{aligned}F_x &= 100 \times \frac{3}{5} = 60\ \text{N} \\ F_y &= 100 \times \frac{4}{5} = 80\ \text{N}\end{aligned}
+$$
+
+The moment about O of a force $(F_x, F_y)$ acting at $(x, y)$ is $M_O = x F_y - y F_x$ (anticlockwise positive):
+
+$$
+\begin{aligned}\text{At A: } M_O &= 1 \times 80 - 0 \times 60 \\ &= 80\ \text{N·m}\end{aligned}
+$$
+
+$$
+\begin{aligned}\text{At B: } M_O &= 4 \times 80 - 4 \times 60 \\ &= 320 - 240 = 80\ \text{N·m}\end{aligned}
+$$
+
+Both are $80\ \text{N·m}$ anticlockwise. The reason: the perpendicular distance from O to the line is the same, $d = 80/100 = 0.8\ \text{m}$, wherever the force sits on that line.
+
+## Where the principle stops working
+
+> **Caution**
+> 1. **Only for rigid bodies.** For a deformable body the **internal** effect changes: pushing a rod from behind **compresses** it; pulling it from the front puts it in **tension**. Its motion is the same, but the stresses inside are not.
+> 2. **Only along the line of action.** Moving a force **sideways**, off its line, changes its moment about every point; it then needs an extra couple to keep the same effect (this is the force–couple system of chapter 3).
+
+## Where it is used
+
+- Finding **resultants** of forces on rigid bodies: forces can be slid along their lines until they meet at a point.
+- Analysing **trusses**, where member forces act along the members.
+- Simplifying **free body diagrams** by moving forces to convenient points on their lines.
+
+> **Exam tip**
+> A typical question says ""State and explain the principle of transmissibility of forces. What are its limitations?"" Give the statement, the three-step proof with a sketch, and both limitations.
+
+> **Quick recap**
+> - A force on a **rigid** body may be moved **along its line of action** without changing its external effect.
+> - Proof: add $+F$ and $-F$ at the new point; the original $F$ and $-F$ cancel.
+> - The moment about any point is unchanged, because the perpendicular distance is unchanged.
+> - It does **not** hold for internal effects in deformable bodies, nor for moving a force off its line.","2 marks: State the principle of transmissibility of forces. 5 marks: State, explain with a sketch and prove the principle of transmissibility; give its limitations and applications."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 1. Fundamentals of engineering mechanics,Chapter summary and practice problems,"This page brings the whole chapter together: the key results, a guide to choosing the right method, and practice problems with answers.
+
+## Key results
+
+| Idea | Result |
+|---|---|
+| Branches | **Statics** (no acceleration), **dynamics** = **kinematics** (motion only) + **kinetics** (motion and forces) |
+| Scalar / vector | Scalar: magnitude only. Vector: magnitude, direction and sense |
+| Kinds of vectors | **Free** (move anywhere), **sliding** (along its line: forces on rigid bodies), **fixed** (forces on deformable bodies) |
+| Parallelogram law | $R = \sqrt{P^2 + Q^2 + 2PQ\cos\alpha}$, $\;\tan\theta = \dfrac{Q\sin\alpha}{P + Q\cos\alpha}$ |
+| Special cases | $\alpha = 90^\circ$: $R = \sqrt{P^2 + Q^2}$. $\;P = Q$: $R = 2P\cos(\alpha/2)$, $\theta = \alpha/2$ |
+| Lami's theorem | $\dfrac{P}{\sin\alpha} = \dfrac{Q}{\sin\beta} = \dfrac{R}{\sin\gamma}$ (each angle between the other two forces) |
+| Resolution | $H = \sum F\cos\theta$, $V = \sum F\sin\theta$, $R = \sqrt{H^2 + V^2}$, quadrant from the signs of $H$ and $V$ |
+| Moment | $M = F \times d$ (perpendicular distance), in $\text{N·m}$ |
+| Equilibrium | $\sum F_x = 0$, $\sum F_y = 0$, $\sum M = 0$ |
+| Units | $1\ \text{N} = 1\ \text{kg·m/s}^2 = 10^5\ \text{dyne}$; $W = mg$; $1\ \text{kgf} = 9.81\ \text{N}$ |
+| Newton | $F = ma$; action and reaction act on different bodies; $F = G m_1 m_2/r^2$ |
+| Transmissibility | A force on a rigid body may slide along its line of action |
+
+## Which method?
+
+![A quick guide to choosing a method for a force problem.](/api/uploads/b571ea068d230d4d96a851e930ce46b5.png)
+*A quick guide to choosing a method for a force problem.*
+
+## Practice problems
+
+Try each one before reading the answer. All answers have been worked to four significant figures.
+
+> **Problem** **1.** Two forces of $20\ \text{N}$ and $15\ \text{N}$ act at a point with $45^\circ$ between them. Find the resultant and its angle with the $20\ \text{N}$ force.
+>
+> **Answer:** $R = 32.39\ \text{N}$, $\theta = 19.11^\circ$.
+
+> **Problem** **2.** Two equal forces act at $60^\circ$ to each other. Their resultant is $36\sqrt{3}\ \text{N}$ ($62.35\ \text{N}$). Find each force.
+>
+> **Answer:** $R = 2P\cos 30^\circ = \sqrt{3}\,P$, so $P = 36\ \text{N}$.
+
+> **Problem** **3.** Two forces have a resultant of $13\ \text{N}$ when at right angles, and $\sqrt{229}\ \text{N}$ when at $60^\circ$. Find the forces.
+>
+> **Answer:** $P^2 + Q^2 = 169$ and $P^2 + Q^2 + PQ = 229$, so $PQ = 60$. Then $(P + Q)^2 = 289$ and $(P - Q)^2 = 49$: $P = 12\ \text{N}$, $Q = 5\ \text{N}$.
+
+> **Problem** **4.** A $500\ \text{N}$ load hangs from two chains. The left chain makes $40^\circ$ and the right chain $50^\circ$ with the horizontal ceiling. Find the tension in each chain.
+>
+> **Answer:** the angles between the forces are $90^\circ$ (chain–chain), $130^\circ$ (left chain–load) and $140^\circ$ (right chain–load). By Lami: left chain $= 500\sin 140^\circ = 321.4\ \text{N}$; right chain $= 500\sin 130^\circ = 383.0\ \text{N}$.
+
+> **Problem** **5.** Three forces act at a point: $100\ \text{N}$ at $0^\circ$, $150\ \text{N}$ at $135^\circ$ and $120\ \text{N}$ at $250^\circ$ (from the positive x-axis). Find the resultant.
+>
+> **Answer:** $H = -47.11\ \text{N}$, $V = -6.697\ \text{N}$, $R = 47.58\ \text{N}$. Both negative, so third quadrant: $\theta = 180^\circ + 8.09^\circ = 188.09^\circ$.
+
+> **Problem** **6.** A beam of span $5\ \text{m}$ is simply supported at A and B. It carries $400\ \text{N}$ at $1.5\ \text{m}$ and $200\ \text{N}$ at $4\ \text{m}$ from A. Find the reactions.
+>
+> **Answer:** moments about A: $5R_B = 400(1.5) + 200(4) = 1400$, so $R_B = 280\ \text{N}$ and $R_A = 600 - 280 = 320\ \text{N}$.
+
+> **Problem** **7.** A $30\ \text{N}$ force is applied at a door handle $0.4\ \text{m}$ from the hinges. Find its moment about the hinges when it acts (a) square to the door, (b) at $45^\circ$ to the door.
+>
+> **Answer:** (a) $12\ \text{N·m}$; (b) $30 \times 0.4 \times \sin 45^\circ = 8.485\ \text{N·m}$.
+
+> **Problem** **8.** Convert: (a) $3.2\ \text{kgf}$ to newtons; (b) $4.5 \times 10^6\ \text{dyne}$ to newtons; (c) the weight of a $2\ \text{kg}$ mass.
+>
+> **Answer:** (a) $31.39\ \text{N}$; (b) $45\ \text{N}$; (c) $19.62\ \text{N}$.
+
+## Theory questions
+
+1. Distinguish between statics and dynamics, and between kinematics and kinetics.
+2. Define scalar and vector quantities with examples. Is weight a vector?
+3. Explain free, sliding and fixed vectors.
+4. State the parallelogram law of forces and derive the expressions for the magnitude and direction of the resultant.
+5. State the triangle law of forces and Lami's theorem. Prove Lami's theorem.
+6. Define the newton and prove that $1\ \text{N} = 10^5\ \text{dyne}$.
+7. Define the moment of a force. What are clockwise and anticlockwise moments?
+8. State the conditions of equilibrium of a body acted on by coplanar forces.
+9. State Newton's laws of motion and the law of gravitation.
+10. State and explain the principle of transmissibility of forces and its limitations.
+
+## Quick self-test (objective)
+
+1. The SI unit of moment is: (a) N (b) N/m (c) **N·m** (d) J/s. **Answer: (c)**
+2. Two equal forces at $120^\circ$ have a resultant equal to: (a) zero (b) **each force** (c) twice each force (d) $\sqrt{3}$ times each force. **Answer: (b)**
+3. A force on a rigid body is a: (a) free vector (b) **sliding vector** (c) fixed vector (d) scalar. **Answer: (b)**
+4. If the resultant force on a body is zero but the net moment is not, the body is: (a) in equilibrium (b) **not in equilibrium: it rotates** (c) at rest (d) moving uniformly. **Answer: (b)**
+5. Lami's theorem applies to: (a) any number of forces (b) two forces (c) **three concurrent forces in equilibrium** (d) parallel forces only. **Answer: (c)**","This chapter's typical paper: 2-mark definitions (statics, dynamics, scalar, vector, moment, newton); 5-mark derivations (parallelogram law, Lami's theorem, transmissibility); 10-mark numericals (resultant by resolution with quadrant check; tensions by Lami; beam reactions; resultant of forces along the sides of a square)."
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,"Collinear, concurrent, coplanar and parallel forces",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Classifying force systems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,What a resultant is,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of coplanar forces: the method of components,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of collinear forces,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of concurrent coplanar forces,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Resultant of non-concurrent coplanar forces and its line of action,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 2. Force systems and their resultants,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Parallel forces: like and unlike,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Moment of a force and its sign convention,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Varignon's theorem (principle of moments),,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of two parallel forces,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Couples and their properties,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Replacing a force by a force and a couple,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Resultant of a general system of parallel forces,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit I · 3. Moments, couples and Varignon's theorem",Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Conditions of equilibrium for coplanar forces,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Action and reaction at contacts,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Drawing free body diagrams,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Two-force and three-force members,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Equilibrium under three forces: Lami's theorem in use,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 4. Equilibrium and free body diagrams,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Why structures need supports,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of supports and the reactions they give,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Kinds of loading on a beam,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Finding the reactions of a beam,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Statically determinate and indeterminate beams,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 5. Supports and support reactions,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,What friction is and why it matters,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Coefficient of friction,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of friction and cone of friction,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Kinds of friction,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Laws of dry (Coulomb) friction,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Angle of repose,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,A body on a rough inclined plane,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Ladder friction,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Where friction helps,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Wedges,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Belt friction,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Friction in brakes,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Square-threaded screws and the screw jack,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit I · 6. Friction,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Trusses and frames: the difference,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,"Perfect, deficient and redundant trusses",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Assumptions in truss analysis,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Method of joints,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Method of sections,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Zero-force members,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 7. Plane trusses,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Kinds of beams,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Kinds of loads on beams,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Statically determinate beams,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Shear force and bending moment: meaning and sign conventions,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Drawing SFD and BMD: the method,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Cantilevers,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Simply supported beams,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Overhanging beams and points of contraflexure,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Beams carrying couples,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,"Relations between load, shear force and bending moment",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Working back: reactions from an SFD or BMD,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit II · 8. Shear force and bending moment in beams,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia","Centre of gravity, centre of mass and centroid",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of simple shapes,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Finding centroids by the method of moments,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of composite areas,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids by integration,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Centroids of volumes and solids,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Area moment of inertia and radius of gyration,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Perpendicular axis theorem and polar moment of inertia,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Parallel axis theorem,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Moment of inertia of simple areas by integration,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia","Moment of inertia of composite sections (I, T and channel)",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Parallel axis theorem for mass moment of inertia,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia of simple bodies by integration,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Mass moment of inertia of composite bodies,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,"Unit III · 9. Centroid, centre of gravity and moment of inertia",Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,"Describing motion: displacement, velocity and acceleration",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Absolute motion,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Straight-line motion and the equations of motion,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Motion graphs,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Curvilinear motion and projectiles,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Rotation about a fixed axis,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Rectangular and normal–tangential components,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Relative motion,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,General plane motion,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Instantaneous centre of zero velocity,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 10. Kinematics of rigid bodies,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,"Force, mass and acceleration",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Newton's laws of motion,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,D'Alembert's principle and dynamic equilibrium,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Translation: applying the laws of motion,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Connected bodies and pulleys,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Momentum and angular momentum,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Rotation about a fixed axis,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,General plane motion,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Work done by a force,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Kinetic energy of rigid bodies,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,The work–energy principle,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservative forces and potential energy,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservation of energy,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Impulse and momentum,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Conservation of momentum and impact,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit IV · 11. Kinetics of rigid bodies,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,"Load, stress and strain",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Normal and shear stress,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,"Elasticity, elastic limit and Hooke's law",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Axially loaded bars,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Stresses on an inclined plane,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Bars of varying cross-section,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Bars in series and composite bars,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Thermal stresses,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Stress–strain curves for ductile and brittle materials,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 12. Simple stresses and strains,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Longitudinal and lateral strain,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Poisson's ratio,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Volumetric strain,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Volumetric strain of a cylindrical rod,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Bulk modulus,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Relation between E and K,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,"Relation between E and G, and E, G, K together",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 13. Elastic constants,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,"Strain energy, resilience and proof resilience",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Gradually applied loads,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Suddenly applied loads,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Impact loads,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 14. Strain energy and impact loads,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Pure bending and its assumptions,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,The bending equation,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Neutral axis and section modulus,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Bending stresses in different cross-sections,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 15. Bending stresses in beams,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,"Torque, twist and the assumptions of torsion",,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Shear stress in a shaft: the torsion equation,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Torque carried by a solid shaft,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Torque carried by a hollow shaft,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Power transmitted by a shaft,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Unit V · 16. Torsion of circular shafts,Chapter summary and practice problems,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit I,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit II,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit III,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit IV,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,Objective questions: Unit V,,
+B.E Mechanical Engineering,Year 1,1,Engineering Mechanics,Revision · 17. Objective questions and a model examination,A model examination paper with worked solutions,,
