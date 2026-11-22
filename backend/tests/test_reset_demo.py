@@ -29,3 +29,31 @@ def test_reset_demo_wipes_everything_and_makes_demo_accounts(env, tmp_path):
         r = env.c.post("/api/login", json={"email": e, "password": "demo1234"}); assert r.status_code == 200, (e, r.text)
     stu = env.login("student1@example.com", "demo1234")
     assert env.c.get(f"/api/tree", headers=stu).status_code == 200
+
+CONTENT = os.path.join(os.path.dirname(__file__), "..", "..", "content")
+
+def test_reset_demo_places_a_second_set_of_students_in_the_second_program(env, tmp_path):
+    files = [os.path.join(CONTENT, f) for f in ("pharmacology_mbbs_year2.csv", "engineering_mechanics_be_mech_year1.csv")]
+    with Session_() as s:
+        manage.reset_demo(s, types.SimpleNamespace(files=files, password="demo1234", yes=True, dir=str(tmp_path)))
+    with Session_() as s:
+        mbbs = s.query(Program).filter_by(name="M.B.B.S").one(); mech = s.query(Program).filter_by(name="B.E Mechanical Engineering").one()
+        assert s.query(User).count() == 22
+        for k in ("student1", "student2", "lite1", "lite2", "pro1", "pro2"):
+            u = s.query(User).filter_by(email=k + "@example.com").one(); assert (u.program_id, u.semester) == (mbbs.id, 2), k
+        for k in ("student3", "student4", "lite3", "lite4", "pro3", "pro4"):
+            u = s.query(User).filter_by(email=k + "@example.com").one(); assert (u.program_id, u.semester) == (mech.id, 1), k
+        assert s.query(User).filter_by(email="pro3@example.com").one().pro_until and s.query(User).filter_by(email="lite3@example.com").one().self_registered
+    stu = env.login("student3@example.com", "demo1234")
+    tree = env.c.get("/api/tree", headers=stu).json()
+    assert [p["name"] for p in tree] == ["B.E Mechanical Engineering"] and tree[0]["semesters"][0]["courses"][0]["name"] == "Engineering Mechanics"
+
+def test_demo_students_join_a_running_server_without_deleting_anything(env):
+    env.csv(open(os.path.join(CONTENT, "engineering_mechanics_be_mech_year1.csv"), encoding="utf-8").read())
+    env.add_user("lite3@example.com")  # already there: moved, password kept
+    with Session_() as s: before = s.query(User).count()
+    with Session_() as s: manage.demo_students(s, types.SimpleNamespace(program="B.E Mechanical Engineering", year="Year 1", password="demo1234"))
+    with Session_() as s:
+        mech = s.query(Program).filter_by(name="B.E Mechanical Engineering").one(); assert s.query(User).count() == before + 5
+        assert all((u.program_id, u.semester) == (mech.id, 1) for u in s.query(User).filter(User.email.in_([d[0] for d in manage.DEMO2])))
+    assert env.c.post("/api/login", json={"email": "pro4@example.com", "password": "demo1234"}).status_code == 200
