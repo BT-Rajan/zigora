@@ -309,7 +309,7 @@ def test_the_ais_questions_are_checked_and_bad_ones_dropped(env):
            {**good, "difficulty": "impossible"}, {**good, "text": "Who painted the Mona Lisa?", "options": ["Leonardo", "Picasso", "Monet", "Dali"], "explanation": "Art history."},
            {**good, "text": ""}, "not a question", {**good, "correct": None}]
     out = main.mcq_ai_valid({"questions": [good] + bad + [good]}, [t], words, set())
-    assert len(out) == 1 and out[0]["correct"] == 0 and out[0]["difficulty"] == "easy"  # the duplicate is dropped too
+    assert len(out) == 1 and out[0]["options"][out[0]["correct"]] == "Bicarbonates" and out[0]["difficulty"] == "easy"  # the duplicate is dropped too, shuffled or not
     assert main.mcq_ai_valid("[]", [t], words, set()) == [] and main.mcq_ai_valid({"questions": "x"}, [t], words, set()) == []
 
 def test_ai_failures_lose_nothing_and_count_nothing(env, monkeypatch):
@@ -395,3 +395,35 @@ def test_teachers_publish_or_dismiss_every_waiting_question_at_once(env, monkeyp
     assert env.c.get(f"/api/mcq/attempts/{a['id']}", headers=env.stu).json()["score"] is not None
     r = env.c.post("/api/mcq/items/review", headers=env.fac, json={"action": "publish"}).json(); assert r["published"] == 0 and waiting(env.fac2) == 3  # not fac's to publish
     assert env.c.post("/api/mcq/items/review", headers=env.fac2, json={"action": "publish"}).json()["published"] == 3 and env.c.get("/api/mcq/items?status=published", headers=env.fac2).json()["total"] == 3
+
+def test_the_ais_right_answer_is_not_always_first(env):  # the AI puts the right answer first; every question is shuffled before anyone sees it
+    i = world(env)
+    with Session_() as s: t = s.get(Topic, i["water"]); words = [main.mcq_words(t.content)]
+    qs = [{"topic": 1, "text": f"What causes temporary hardness? ({n})", "options": ["Bicarbonates", "Sulphates", "Chlorides", "Nitrates"], "correct": 0,
+           "explanation": "Boiling turns bicarbonates into carbonates.", "difficulty": "easy", "keywords": ["hardness"]} for n in range(80)]
+    out = main.mcq_ai_valid({"questions": qs}, [t], words, set())
+    assert len(out) == 80 and all(x["options"][x["correct"]] == "Bicarbonates" and sorted(x["options"]) == sorted(qs[0]["options"]) for x in out)
+    assert {x["correct"] for x in out} == {0, 1, 2, 3}  # every place gets used (all 80 first by chance: odds about 1 in 10^48)
+    named = [{**qs[0], "text": "What causes it?", "explanation": "Option A is right: boiling removes bicarbonates."}, {**qs[0], "text": "Which one?", "explanation": "(a) bicarbonates."},
+             {**qs[0], "text": "Pick one", "explanation": "The correct answer is A, bicarbonates."}]
+    assert main.mcq_ai_valid({"questions": named}, [t], words, set()) == []  # a letter named in the explanation would be wrong after shuffling
+    tf = main.clean_questions({"questions": [{"text": "Boiling removes temporary hardness.", "options": ["True", "False"], "correct": 0}] * 3}, 3)
+    assert all(x["options"] == ["True", "False"] and x["correct"] == 0 for x in tf)  # true/false keeps its order
+    four = main.clean_questions({"questions": [{"text": f"Q{n}", "options": ["right", "w1", "w2", "w3"], "correct": 0, "explanation": "Because."} for n in range(60)]}, 60)
+    assert all(x["options"][x["correct"]] == "right" for x in four) and {x["correct"] for x in four} == {0, 1, 2, 3}
+
+def test_the_ai_questions_already_in_the_bank_are_shuffled_once(env):
+    i = world(env); now = dt.datetime.utcnow()
+    with Session_() as s:
+        for n in range(40): s.add(McqItem(topic_id=i["water"], course_id=i["chem"], text=f"AI question {n}", options=json.dumps(["right", "w1", "w2", "w3"]), correct=0,
+                                          explanation="Because the notes say so.", difficulty="easy", source="ai", status="published", version=1, sig=f"s{n}", created_at=now, updated_at=now))
+        s.add(McqItem(topic_id=i["water"], course_id=i["chem"], text="Named", options=json.dumps(["right", "w1", "w2", "w3"]), correct=0, explanation="Option A is right.",
+                      difficulty="easy", source="ai", status="published", version=1, sig="named", created_at=now, updated_at=now))
+        s.add(McqItem(topic_id=i["water"], course_id=i["chem"], text="Teacher's", options=json.dumps(["right", "w1", "w2", "w3"]), correct=0, explanation="Mine.",
+                      difficulty="easy", source="teacher", status="published", version=1, sig="t", created_at=now, updated_at=now)); s.commit()
+    with main.engine.begin() as c: main.shuffle_ai_mcqs(c)
+    with Session_() as s:
+        ai = s.query(McqItem).filter(McqItem.source == "ai", McqItem.text.like("AI question%")).all()
+        assert all(json.loads(x.options)[x.correct] == "right" and x.version == 2 for x in ai) and len({x.correct for x in ai}) > 1
+        assert all(x.sig == f"s{x.text.split()[-1]}" for x in ai)  # signatures stay, so the AI repeating itself is still caught
+        assert s.query(McqItem).filter_by(text="Named").one().correct == 0 and s.query(McqItem).filter_by(text="Teacher's").one().correct == 0  # left alone

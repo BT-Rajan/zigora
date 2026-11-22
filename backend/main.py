@@ -1120,7 +1120,8 @@ MIGRATIONS = [("0001_topics_unit_id", _addcol("topics", "unit_id", "INT NULL")),
                                                   Base.metadata.create_all(c, tables=[ReplyEdit.__table__, QuestionEvent.__table__])]),
               ("0053_teacher_resources", lambda c: Base.metadata.create_all(c, tables=[TeacherResource.__table__, ResourceVersion.__table__])),
               ("0054_interventions", lambda c: Base.metadata.create_all(c, tables=[Intervention.__table__, InterventionActivity.__table__, InterventionStudent.__table__])),
-              ("0055_onboarded", lambda c: [_addcol("users", "onboarded_at", "DATETIME NULL")(c), c.execute(text("UPDATE users SET onboarded_at = CURRENT_TIMESTAMP WHERE onboarded_at IS NULL"))])]  # everyone already here counts as done
+              ("0055_onboarded", lambda c: [_addcol("users", "onboarded_at", "DATETIME NULL")(c), c.execute(text("UPDATE users SET onboarded_at = CURRENT_TIMESTAMP WHERE onboarded_at IS NULL"))]),  # everyone already here counts as done
+              ("0056_shuffle_ai_mcqs", lambda c: shuffle_ai_mcqs(c))]  # the AI had put the right answer first
 def upgrade_schema():  # creates any missing tables, then applies pending migrations in order
     Base.metadata.create_all(engine)
     with engine.connect() as c: done = {r[0] for r in c.execute(text("SELECT id FROM schema_migrations"))}
@@ -1128,6 +1129,16 @@ def upgrade_schema():  # creates any missing tables, then applies pending migrat
         if mid in done: continue
         with engine.begin() as c:
             fn(c); c.execute(text("INSERT INTO schema_migrations (id, applied_at) VALUES (:i, :t)"), {"i": mid, "t": dt.datetime.utcnow()})
+def shuffle_ai_mcqs(c):
+    """The AI's questions already in the bank had the right answer first almost every time: give each a random order once. Attempts keep their own
+    copy of every question, so no result changes. A question whose explanation names an option by letter is left as it is."""
+    for iid, opts, k, imgs, text_, expl, ver in c.execute(text("SELECT id, options, correct, option_images, text, explanation, version FROM mcq_items WHERE source = 'ai'")).fetchall():
+        try: o = json.loads(opts); im = json.loads(imgs) if imgs else None
+        except ValueError: continue
+        if not isinstance(o, list) or not 0 <= (k if k is not None else -1) < len(o) or LETTER_REF.search(expl or "") or LETTER_REF.search(text_ or ""): continue
+        o2, k2, im2 = shuffled(o, k, im if isinstance(im, list) and len(im) == len(o) else None)
+        c.execute(text("UPDATE mcq_items SET options = :o, correct = :k, option_images = :i, version = :v WHERE id = :id"),  # sig stays: the AI's order, so repeats are still caught
+                  {"o": json.dumps(o2, ensure_ascii=False), "k": k2, "i": json.dumps(im2) if im2 is not None else imgs, "v": (ver or 1) + 1, "id": iid})
 def applied_migrations():
     with engine.connect() as c: return [r[0] for r in c.execute(text("SELECT id FROM schema_migrations ORDER BY id"))]
 @app.on_event("startup")
@@ -7390,7 +7401,8 @@ STUDY_PROMPTS = {
  "questions": ("You write multiple-choice questions to check that a student has understood one topic of their own study material. "
                "Use only facts that are in the material; never invent facts. Each question has 4 options (2 for true/false), exactly one correct, "
                "plausible wrong options, a one or two sentence explanation of the right answer that quotes or points to the material, "
-               "and a 'concept': the 2-5 word name of the idea it tests. Write in the material's language. Reply with JSON only, exactly in this shape: "
+               "and a 'concept': the 2-5 word name of the idea it tests. Options are shown in a random order, so never refer to an option by its letter or "
+               "position. Write in the material's language. Reply with JSON only, exactly in this shape: "
                '{"questions":[{"text":"...","options":["...","...","...","..."],"correct":0,"explanation":"...","concept":"..."}]}'),
 }
 
@@ -7907,8 +7919,10 @@ def clean_questions(raw, want):
         try: k = int(q.get("correct"))
         except (TypeError, ValueError): continue
         text = str(q.get("text") or "").strip()
-        if text and 2 <= len(opts) <= 6 and 0 <= k < len(opts) and len(set(o.lower() for o in opts)) == len(opts):
-            out.append({"text": text[:1000], "options": [o[:400] for o in opts], "correct": k, "explanation": str(q.get("explanation") or "").strip()[:1000], "concept": str(q.get("concept") or "").strip()[:80]})
+        expl = str(q.get("explanation") or "").strip()
+        if text and 2 <= len(opts) <= 6 and 0 <= k < len(opts) and len(set(o.lower() for o in opts)) == len(opts) and not LETTER_REF.search(expl) and not LETTER_REF.search(text):
+            if len(opts) > 2: opts, k, _ = shuffled(opts, k)  # the AI puts the right answer first; true/false stays in its order
+            out.append({"text": text[:1000], "options": [o[:400] for o in opts], "correct": k, "explanation": expl[:1000], "concept": str(q.get("concept") or "").strip()[:80]})
     return out[:want]
 class NewQuizIn(BaseModel): kind: str = "mcq"
 async def write_questions(u, s, kind, title, material, earlier):
@@ -8565,6 +8579,12 @@ MCQ_LITE_HOURS, MCQ_PRO_PER_DAY = 48, 4
 MCQ_SIZE, MCQ_MIN_SET, MCQ_MAX_SIZE, MCQ_AI_OPTIONS = 10, 3, 20, 4
 MCQ_TEXT, MCQ_OPT, MCQ_BULK, MCQ_COHORT_MIN, MCQ_AI_HOURLY = 4000, 1000, 200, 5, 6  # AI_HOURLY: asks for a new AI set a student may make in an hour, failed ones included  # class figures go to the AI only when at least this many students make them up
 _rng = secrets.SystemRandom()
+LETTER_REF = re.compile(r"\b(?i:option|choice|answer)s?\s*(?:is\s+)?(?:\(([a-fA-F1-6])\)|([A-F]))(?![\w])|^\s*\(?[a-fA-F]\)\s", re.M)  # "option B", "answer (c)", "the answer is A", "(a) is right"
+def shuffled(opts, k, imgs=None):
+    """The options in a random order, the correct one's new place, and the option pictures in the same order. The AI tends to put the right answer
+    first, so its questions are always shuffled before anyone sees them."""
+    order = list(range(len(opts))); _rng.shuffle(order)
+    return [opts[i] for i in order], order.index(k), ([imgs[i] for i in order] if imgs is not None else None)
 class McqItem(Base):  # one question in the bank, always under a topic (its course, unit, semester and program come with it)
     __tablename__ = "mcq_items"
     id = Column(Integer, primary_key=True); topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), index=True); course_id = Column(Integer, index=True)
@@ -8783,7 +8803,8 @@ def mcq_bulk(b: McqBulkIn, u: User = Depends(staff), s: Session = Depends(db)):
 # -- the AI: questions written strictly from a topic's own notes, shaped by how this student (and, in aggregate, their class) is doing
 PROMPTS["mcq"] = ("You write multiple-choice practice questions for a student, strictly from the topic notes you are given. Use only facts in the notes; never invent "
                   "facts, formulas or syllabus content that is not there. Each question has exactly 4 different options, exactly one correct; wrong options are "
-                  "plausible. Give a short explanation of the right answer that points to the notes, a difficulty (easy, medium or hard), 2 to 5 keywords from "
+                  "plausible. Options are shown in a random order, so never refer to an option by its letter or position (no \"option A\", \"(b)\"). "
+                  "Give a short explanation of the right answer that points to the notes, a difficulty (easy, medium or hard), 2 to 5 keywords from "
                   "the notes, and the number of the topic it comes from. Use $...$ for maths. Follow the guidance about the student when given. "
                   'Reply with JSON only, exactly in this shape: {"questions":[{"topic":1,"text":"...","options":["...","...","...","..."],"correct":0,'
                   '"explanation":"...","difficulty":"medium","keywords":["..."]}]}')
@@ -8814,9 +8835,11 @@ def mcq_ai_valid(raw, topics, words, have):
         diff = str(q.get("difficulty") or "").strip().lower()
         if not text or not expl or len(opts) != MCQ_AI_OPTIONS or not all(opts) or len({o.lower() for o in opts}) != len(opts) or not 0 <= k < len(opts) or diff not in MCQ_DIFFICULTY: continue
         if not (mcq_words(text + " " + opts[k] + " " + expl) & words[ti]): continue  # off the topic: nothing in it comes from the notes
+        if LETTER_REF.search(expl) or LETTER_REF.search(text): continue  # it names an option by letter, which shuffling would make wrong
         kw = q.get("keywords"); kw = ", ".join(str(w) for w in kw) if isinstance(kw, list) else str(kw or "")
-        sig = q_sig(text + "|", opts, k)
+        sig = q_sig(text + "|", opts, k)  # taken in the AI's own order, before shuffling, so a repeat of the same question is still caught
         if sig in sigs: continue
+        opts, k, _ = shuffled(opts, k)
         sigs.add(sig); out.append({"topic": topics[ti], "text": text, "options": opts, "correct": k, "explanation": expl, "difficulty": diff, "keywords": clean_tags(kw)[:300], "sig": sig})
     return out
 def mcq_student_lines(u, s, tids):  # this student's own practice, by topic: no names, no ids

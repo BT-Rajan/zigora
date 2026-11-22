@@ -1,6 +1,10 @@
 import io, json, re, zipfile
 import main
 from main import Session_, Setting, User, StudyCourse, StudyTopic, StudyQuiz, StudyAttempt, StudyAICall
+import pytest as _pytest
+@_pytest.fixture(autouse=True)
+def _answers_in_place(monkeypatch):  # these tests answer by position; shuffling the AI's options is tested in test_mcq_practice
+    import main as _m; monkeypatch.setattr(_m, "shuffled", lambda opts, k, imgs=None: (opts, k, imgs))
 
 TEXT = """# Hard water
 
